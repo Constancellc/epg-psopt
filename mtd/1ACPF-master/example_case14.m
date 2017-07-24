@@ -14,7 +14,7 @@
 clear all
 close all
 clc
-cd('C:\Users\chri3793\Documents\MATLAB\1ACPF-master');
+%cd('C:\Users\chri3793\Documents\MATLAB\1ACPF-master');
 
 % Import MatPower 5.1 library
 
