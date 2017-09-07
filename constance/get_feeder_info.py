@@ -1,14 +1,52 @@
 import xlrd
 
-folder = '../../Documents/feeder34/'
+folder = '../../Documents/feeder13/'
 
 linePhases = {}
 nodes = {}
 lines = []
 spotLoads = {}
 
+baseVoltages = {}
+transformers = {}
+
+
+# get transformer info
+workbook = xlrd.open_workbook(folder+'Transformer Data.xls')
+sheet = workbook.sheet_by_index(0)
+
+for rowx in range(sheet.nrows):
+    cols = sheet.row_values(rowx)
+
+    if cols[0] == 'Transformer Data' or cols[0] == '':
+        continue
+
+    baseVoltages[cols[0]] = [float(cols[2][0:4])*1000,float(cols[3][0:4])*1000]
+
+print(baseVoltages)
+    
 # first read in config phase infomation
 workbook = xlrd.open_workbook(folder+'config.xls')
+sheet = workbook.sheet_by_index(0)
+
+for rowx in range(sheet.nrows):
+    cols = sheet.row_values(rowx)
+    try:
+        config = int(cols[0])
+    except:
+        continue
+
+    linePhases[str(config)] = [0,0,0]
+
+    for ph in cols[1]:
+        if ph == 'A':
+            linePhases[str(config)][0] = 1
+        elif ph == 'B':
+            linePhases[str(config)][1] = 1
+        elif ph == 'C':
+            linePhases[str(config)][2] = 1
+            
+workbook = xlrd.open_workbook(folder+'UG config.xls')
 sheet = workbook.sheet_by_index(0)
 
 for rowx in range(sheet.nrows):
@@ -41,6 +79,7 @@ for rowx in range(sheet.nrows):
         length = float(cols[2])
         config = str(int(cols[3]))
     except:
+        # transformer or switch
         continue
 
     if nodeA not in nodes:
@@ -54,6 +93,16 @@ for rowx in range(sheet.nrows):
         if linePhases[config][i] == 1:
             nodes[nodeA][i] = 1
             nodes[nodeB][i] = 1
+
+print(lines)
+
+# assigning base voltages
+
+# start with the knowns
+nodes[650][1] = baseVoltages['Substation:'][1]
+nodes[633][1] = baseVoltages['XFM -1'][0]
+nodes[634][1] = baseVoltages['XFM -1'][1]
+
 
 
 # next get spot loads

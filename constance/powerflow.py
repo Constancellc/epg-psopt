@@ -1,7 +1,10 @@
 from cvxopt import matrix, spdiag, solvers, sparse
 import numpy as np
 
-from test4 import nodes, lines, spotLoads, Z, transformers, slackbus
+from test13 import nodes, lines, spotLoads, Z, transformers, slackbus, nodeVoltageBases
+
+Pbase = 500 # kW
+Qbase = 500 # kVa
 
 N = len(nodes) # number of nodes
 L = len(lines) # number of lines
@@ -41,6 +44,8 @@ for line in lines:
     length = float(line[2])*0.00018939 # ft -> miles
     config = line[3]
 
+    Zbase = np.power(nodeVoltageBases[lines[0]],2)/Pbase
+
     r = []
     x = []
 
@@ -55,8 +60,8 @@ for line in lines:
 
     else:
         for ph in range(0,nPhases):
-            r.append(length*Z[config][ph][0].real)
-            x.append(length*Z[config][ph][0].imag)
+            r.append((length*Z[config][ph][0].real)/Zbase)
+            x.append((length*Z[config][ph][0].imag)/Zbase)
 
     R.append(r)
     X.append(x)
@@ -137,19 +142,21 @@ for V_index in slackVariables:
 
    
 sol = np.linalg.solve(A,b)
-#print sol
+print(sol)
 
+'''
 print 'PRINTING LINE POWERS'
 print ''
-print 'Node A   Node B          Real Power               Reactive Power'
-print '------   ------    ----------------------     ----------------------'
-print '                   Ph 1  |  Ph 2  |  Ph 3     Ph 1  |  Ph 2  |  Ph 3'
+print('Node A   Node B          Real Power               Reactive Power')
+print('------   ------    ----------------------     ----------------------')
+print('                   Ph 1  |  Ph 2  |  Ph 3     Ph 1  |  Ph 2  |  Ph 3')
+
 for l in range(0,len(lines)):
     line = lines[l]
     print ' ',
-    print line[0],
+    print(line[0],end='')
     print '   ',
-    print line[1],
+    print(line[1],end='')
     print '    ',
     for ph in range(0,3):
         realPower = None
@@ -219,7 +226,7 @@ for node in nodes:
         else:
             print '          ',
     print ''
-
+'''
 '''
 linesPower = []
 nodeVoltages = []
