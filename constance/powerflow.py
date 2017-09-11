@@ -1,28 +1,36 @@
 from cvxopt import matrix, spdiag, solvers, sparse
+import matplotlib.pyplot as plt
 import numpy as np
 
-from test13 import nodes, lines, spotLoads, Z, transformers, slackbus, nodeVoltageBases
+from test13 import nodes, lines, spotLoads, Z, transformers, slackbus, nodeVoltageBases, voltageSolutions
 
-Pbase = 500 # kW
-Qbase = 500 # kVa
+Pbase = 7000000 # W
+Qbase = 7000000 # Va
 
 N = len(nodes) # number of nodes
 L = len(lines) # number of lines
 
+plotNodes = {}
+
+i = 1
+for node in nodes:
+    plotNodes[node] = i
+    i += 1
+    
 lineVariables = []
 n = 0
 for i in range(0,len(lines)):
-    line = lines[i]
+    line = lines[i] #[nodea, nodeb, length(ft), config, [phases]]
     if i == 0:
         nPhases = len(line[4])
     for ph in range(0,nPhases):
-        if line[4][ph] == 0:
+        if line[4][ph] == 0: 
             continue
+        # n is the variable number, i the line number and ph the phase number
         lineVariables.append([i,ph,'p',n])
         n += 1
         lineVariables.append([i,ph,'q',n])
         n += 1
-
 
 nodeVariables = []
 slackVariables = []
@@ -33,7 +41,8 @@ for node in nodes:
             continue
         nodeVariables.append([i,node,ph])
         if node == slackbus[0]:
-            slackVariables.append(i)
+            # store the index of the slack bus variables
+            slackVariables.append(i) 
         i += 1
 
 
@@ -44,7 +53,7 @@ for line in lines:
     length = float(line[2])*0.00018939 # ft -> miles
     config = line[3]
 
-    Zbase = np.power(nodeVoltageBases[lines[0]],2)/Pbase
+    Zbase = np.power(nodeVoltageBases[line[0]],2)/Pbase
 
     r = []
     x = []
@@ -65,6 +74,9 @@ for line in lines:
 
     R.append(r)
     X.append(x)
+
+print(R)
+print(X)
     
 M = len(nodeVariables)+len(lineVariables)
 
@@ -82,32 +94,28 @@ for variable in lineVariables:
 
     A[pq_index,pq_index] = 1.0 # line flow in question
 
-    # now look for things connected to j
+    # now look for things leaving from node j
     for variable2 in lineVariables:
         if lines[variable2[0]][0] != nodej:
             continue
 
-        if variable[1] != variable2[1]:
+        if variable[1] != variable2[1]: # if not the same phase
             continue
 
-        if variable[2] != variable2[2]:
-            continue
-
-        if variable[0] == variable2[0]:
+        if variable[2] != variable2[2]: # if not the same flow kind
             continue
 
         # so variable 2 leaves from j and is the same phase and type as variable
         A[pq_index,variable2[3]] = -1.0
 
     # lastly look for real loads at j
-
     if kind == 'p':
         offset = 0
     elif kind == 'q':
         offset = 1
         
     try:
-        load = float(spotLoads[nodej][ph*2+offset])
+        load = float(spotLoads[nodej][ph*2+offset])/Pbase
     except:
         load = 0.0
 
@@ -125,25 +133,69 @@ for variable in lineVariables:
         elif node[1] == nodej:
             Vj_index = node[0]
 
+    # not convinced about use of vj index
+
     if kind == 'p':           
         A[len(lineVariables)+Vj_index,len(lineVariables)+Vi_index] = 1.0 # Vi   
-        A[len(lineVariables)+Vj_index,len(lineVariables)+Vj_index] = 1.0 # Vj
+        A[len(lineVariables)+Vj_index,len(lineVariables)+Vj_index] = -1.0 # Vj
         
-        A[len(lineVariables)+Vj_index,pq_index] = r # Pij  
+        A[len(lineVariables)+Vj_index,pq_index] = -r # Pij  
 
     else:
-        A[len(lineVariables)+Vj_index,pq_index] = x # Qij
+        A[len(lineVariables)+Vj_index,pq_index] = -x # Qij
      
 # and the slack bus
 for V_index in slackVariables:
     A[len(lineVariables)+V_index,len(lineVariables)+V_index] = 1.0
-    b[len(lineVariables)+V_index] = float(slackbus[1])
-    
-
+    b[len(lineVariables)+V_index] = 1.0
    
 sol = np.linalg.solve(A,b)
-print(sol)
+#print(sol)
 
+phs = {0:'A',1:'B',2:'C'}
+
+plotVoltages = {0:{'x':[],'y':[]},1:{'x':[],'y':[]},2:{'x':[],'y':[]}}
+plotSolutions = {0:[],1:[],2:[]}
+
+print('PRINTING VOLTAGES')
+for i in range(0,len(nodeVariables)):
+    print('NODE:'+str(nodeVariables[i][1])+' PHASE:'+phs[nodeVariables[i][2]],end='  ')
+#    print(str(int(sol[len(lineVariables)+i]*nodeVoltageBases[nodeVariables[i][1]]))+'V')
+    print(str(int(sol[len(lineVariables)+i]*1000)/1000))
+    plotVoltages[nodeVariables[i][2]]['x'].append(plotNodes[nodeVariables[i][1]])
+    plotVoltages[nodeVariables[i][2]]['y'].append(int(sol[len(lineVariables)+i]*1000)/1000)
+    plotSolutions[nodeVariables[i][2]].append(voltageSolutions[nodeVariables[i][1]][nodeVariables[i][2]])
+    
+
+'''
+for variable in lineVariables:
+    pq_index = variable[3]
+    line = lines[variable[0]]
+    ph = variable[1]
+    kind = variable[2]
+
+    nodei = line[0]
+    nodej = line[1]
+    
+    print(str(nodei)+'->'+str(nodej)+' PHASE:'+phs[ph],end='  ')
+    print(str(int(sol[pq_index]*Pbase)/1000),end='')
+    if kind == 'p':
+        print(' kW')
+    else:
+        print(' kVa')
+'''
+plt.figure(1)
+for i in range(0,3):
+    plt.subplot(3,1,i+1)
+    plt.scatter(plotVoltages[i]['x'],plotVoltages[i]['y'],label='approx')
+    plt.scatter(plotVoltages[i]['x'],plotSolutions[i],label='actual')
+    plt.grid()
+    plt.ylabel('Voltage (p.u.)')
+    plt.title('Phase '+phs[nodeVariables[i][2]],y=0.7)
+    plt.ylim(0.9,1.1)
+plt.legend()
+plt.xlabel('Node #')
+plt.show()
 '''
 print 'PRINTING LINE POWERS'
 print ''
