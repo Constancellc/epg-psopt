@@ -100,8 +100,8 @@ print(lines)
 
 # start with the knowns
 nodes[650][1] = baseVoltages['Substation:'][1]
-nodes[633][1] = baseVoltages['XFM -1'][0]
-nodes[634][1] = baseVoltages['XFM -1'][1]
+nodes[633][1] = baseVoltages['XFM-1'][0]
+nodes[634][1] = baseVoltages['XFM-1'][1]
 
 
 
