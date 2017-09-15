@@ -13,7 +13,6 @@ c_name = 'case30';
 [ SLN_LDF ] = linear_methods( c_name, 'LinDistFlow',0 );
 
 n = SLN.n;
-%
 
 fig = figure('Color','White','Position',[100 100 850 650]);
 

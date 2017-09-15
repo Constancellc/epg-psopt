@@ -15,13 +15,21 @@ clear all
 close all
 clc
 
-Vbase = 4160/sqrt(3);
-Sbase = 5e6;
-Zbase = Vbase^2/Sbase;
-%%
-[Y,v,t,p,q,n] = ieee13();
+VbaseBl = 4160/sqrt(3);
+SbaseBl = 5e6;
+ZbaseBl = VbaseBl^2/SbaseBl;
 
-v_testfeeder = [...
+[YBl,vBl,tBl,pBl,qBl,nBl] = ieee13_mod();
+
+YNodeOrderBl0={'RG60';'632';'633';'634';'645';'646';'671';'680';'675';'692';'684';'611';'652'};
+YNodeOrderBl = cell(numel(YNodeOrderBl0)*3,1);
+for i = 1:numel(YNodeOrderBl0)
+    for j = 1:3
+        YNodeOrderBl{(i-1)*3 + j} = [YNodeOrderBl0{i},'.',num2str(j)];
+    end
+end
+
+v_testfeederBl = [...
     1.0625  1.0500  1.0687  ;...
     1.0210  1.0420  1.0174  ;...
     1.0180  1.0401  1.0148  ;...
@@ -36,9 +44,9 @@ v_testfeeder = [...
     NaN     NaN     0.9738  ;...
     0.9825  NaN     NaN     ];
 
-v_testfeeder = reshape(v_testfeeder.',3*n,1);
+v_testfeederBl = reshape(v_testfeederBl.',3*nBl,1);
 
-t_testfeeder = [...
+t_testfeederBl = [...
     0.00    -120.00 120.00  ;...
     -2.49   -121.72 117.83  ;...
     -2.56   -121.77 117.82  ;...
@@ -53,10 +61,31 @@ t_testfeeder = [...
     NaN     NaN     115.78  ;...
     -5.25   NaN     NaN     ];
 
-t_testfeeder = reshape(t_testfeeder.',3*n,1)/180*pi;
+t_testfeederBl = reshape(t_testfeederBl.',3*nBl,1)/180*pi;
 
 
-%% Linearized model
+
+YZNodeOrder = {'SOURCEBUS.1','SOURCEBUS.2','SOURCEBUS.3','650.1','650.2',...
+                '650.3','RG60.1','RG60.2','RG60.3','633.1','633.2','633.3',...
+                '634.1','634.2','634.3','632.1','632.2','632.3','670.1',...
+                '670.2','670.3','671.1','671.2','671.3','680.1','680.2',...
+                '680.3','645.3','645.2','646.3','646.2','692.1','692.2',...
+                '692.3','675.1','675.2','675.3','684.1','684.3','611.3','652.1'};
+            
+VtBl = NaN*zeros(numel(YZNodeOrder),1);
+TtBl = NaN*zeros(numel(YZNodeOrder),1);
+for i = 1:numel(YZNodeOrder)
+    if ismember(YZNodeOrder{i},YNodeOrderBl)
+        idx = find(strcmp(YNodeOrderBl,YZNodeOrder{i}));
+        VtBl(i) = v_testfeederBl(idx);
+        TtBl(i) = t_testfeederBl(idx);
+    end
+end
+
+% save('bolognani_ieee13');
+%%
+
+% Linearized model
 
 e0 = [1;zeros(n-1,1)];
 a = exp(-1j*2*pi/3);
@@ -72,8 +101,6 @@ NNN = Nmatrix(6*n);
 LLL = bracket(Y);
 % PPP = Rmatrix(ones(3*n,1), kron(ones(n,1),angle(aaa)));
 
-
-
 % equivalent, when linearizing around the no load solution
 RRR = bracket(kron(eye(n),diag(aaa)));
 Amat = [NNN*inv(RRR)*LLL*RRR eye(6*n); VTV; VTT; PQP; PQQ];
@@ -86,7 +113,7 @@ t_linearized = x(3*n+1:2*3*n);
 
 v_linearized(isnan(v_testfeeder))=NaN;
 v_linearized_nl(isnan(v_testfeeder))=NaN;
-t_linearized(isnan(t_testfeeder))=NaN;
+t_linearized(isnan(t_testfeederBl))=NaN;
 
 % print
 
@@ -120,7 +147,7 @@ for ph=1:3
 	end
 
     subplot(3,2,(ph-1)*2+2)
-    plot(1:13, t_testfeeder(rw(1:n,ph))/pi*180, 'ko', 1:13, t_linearized(rw(1:n,ph))/pi*180, 'k*')
+    plot(1:13, t_testfeederBl(rw(1:n,ph))/pi*180, 'ko', 1:13, t_linearized(rw(1:n,ph))/pi*180, 'k*')
     xlim([0 14])
 	set(gca,'XTick',[1 13])
 	
