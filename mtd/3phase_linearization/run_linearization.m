@@ -78,10 +78,10 @@ end
 % PLOT the real and approximated values at nominal values
 %plot(log(Xhat_n(1:n))); hold on; plot(log(abs(YNodeV)));
 
-plot(VtBl,'o'); hold on; plot(1e-3*abs(YNodeV)./Vb,'*'); %plot(1e-3*Xhat_n(1:n)./Vb,'+');
-%%
- hold on; plot(1e-3*abs(YNodeV)./Vb,'o'); grid on;
-axis([0 45 0.95 1.1]);
+% plot(VtBl,'o'); hold on; plot(1e-3*abs(YNodeV)./Vb,'*'); %plot(1e-3*Xhat_n(1:n)./Vb,'+');
+% %%
+%  hold on; plot(1e-3*abs(YNodeV)./Vb,'o'); grid on;
+% axis([0 45 0.95 1.1]);
 
 
 %%
@@ -182,7 +182,9 @@ subplot(236)
 clabel(cc); axis equal; title('% error');
 
 %%
-fig = figure('Color','White');
+fig = figure('Color','White','Position',[100 100 1000 800]);
+fig_loc = 'C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc170918\figures';
+fig_name = [fig_loc,'\run_linearization'];
 subplot(331)
 [cc,~]=contourf(Pgenmat,Qgenmat,Vgen1);
 clabel(cc); axis equal; title('Meas (Phase 1)'); grid on;
@@ -213,7 +215,8 @@ subplot(339)
 [cc,~]=contourf(Pgenmat,Qgenmat, (reshape(Xnut_n(3,:),size(Pg)) - Vgen3)*100);
 clabel(cc); axis equal; title('% error'); grid on;
 
-
+% export_fig(fig,fig_name);
+% export_fig(fig,[fig_name,'.pdf'],'-dpdf');
 
 
 

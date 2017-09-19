@@ -9,12 +9,11 @@
 %
 %	MatLab OR GNU Octave, version 3.8.1 available at http://www.gnu.org/software/octave/
 %	MATPOWER 5.1 available at http://www.pserc.cornell.edu/matpower/
-%
+
 
 clear all 
 close all
 clc
-
 Vbase = 4160/sqrt(3);
 Sbase = 5e6;
 Zbase = Vbase^2/Sbase;
@@ -61,6 +60,7 @@ t_testfeeder = reshape(t_testfeeder.',3*n,1)/180*pi;
 e0 = [1;zeros(n-1,1)];
 a = exp(-1j*2*pi/3);
 aaa = [1; a; a^2];
+% aaaf = [1; a; a^2].*v_testfeeder(1:3);
 
 VTV = [kron(e0',eye(3)), zeros(3, 3*n), zeros(3, 3*n), zeros(3, 3*n)];
 VTT = [zeros(3, 3*n), kron(e0',eye(3)), zeros(3, 3*n), zeros(3, 3*n)];
@@ -72,14 +72,17 @@ NNN = Nmatrix(6*n);
 LLL = bracket(Y);
 % PPP = Rmatrix(ones(3*n,1), kron(ones(n,1),angle(aaa)));
 
-
-
 % equivalent, when linearizing around the no load solution
 RRR = bracket(kron(eye(n),diag(aaa)));
+% RRRf = bracket(kron(eye(n),diag(aaaf)));
+
 Amat = [NNN*inv(RRR)*LLL*RRR eye(6*n); VTV; VTT; PQP; PQQ];
+% Amatf = [NNN*inv(RRRf)*LLL*RRRf eye(6*n); VTV; VTT; PQP; PQQ];
+
 Bmat = [zeros(3*n,1); zeros(3*n,1); v(rw(1)); t(rw(1)); p(rw(2:n)); q(rw(2:n))]; 
 
 x = Amat\Bmat;
+% x = Amatf\Bmat;
 
 v_linearized = x(1:3*n);
 t_linearized = x(3*n+1:2*3*n);
@@ -129,3 +132,37 @@ for ph=1:3
 	end
 
 end
+
+%%
+
+figure('Position',[100 100 800 800])
+
+phnames = ['a' 'b' 'c'];
+for ph=1:3
+		
+    subplot(3,2,(ph-1)*2+1)
+    plot(1:13, v_testfeeder(rw(1:n,ph)) - v_linearized(rw(1:n,ph)), 'kx');
+    
+    xlim([0 14])
+	set(gca,'XTick',[1 13])
+	
+    ylabel(sprintf('phase %c',phnames(ph)), 'FontWeight','bold')
+	grid on;
+	if ph==1
+		title('magnitudes {v_i} [pu]')
+	end
+
+    subplot(3,2,(ph-1)*2+2)
+    plot(1:13, (t_testfeeder(rw(1:n,ph)) - t_linearized(rw(1:n,ph)))/pi*180, 'kx')
+    xlim([0 14])
+	set(gca,'XTick',[1 13])
+	
+	if ph==1
+		title('angles \theta_i [deg]')
+    end
+    grid on;
+end
+
+
+
+

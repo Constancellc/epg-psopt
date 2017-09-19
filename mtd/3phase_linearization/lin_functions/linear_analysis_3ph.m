@@ -62,37 +62,10 @@ TH = -diag(th);
 
 Ybus_flat = TH*Ybus/TH;
 %%
-
 % Linearised model
-WWW = bracket(diag(conj(Ybus*YNodeV0)));
-EEE = bracket(diag(YNodeV0));
-NNN = Nmatrix(2*n);
-LLL = bracket(Ybus);
 RRR = Rmatrix(abs(YNodeV0),angle(YNodeV0));
+[ Amat ] = calc_amat( Ybus,RRR );
 
-WWWu = bracket(diag(conj(Ybus_flat*YNodeU0)));
-EEEu = bracket(diag(YNodeU0));
-NNNu = Nmatrix(2*n);
-LLLu = bracket(Ybus_flat);
-RRRu = Rmatrix(abs(YNodeU0),angle(YNodeU0));
-
-VTV = [              eye(3),zeros(3,n-3),          zeros(3,3*n)];
-VTT = [zeros(3,1*n),eye(3),zeros(3,n-3),          zeros(3,2*n)];
-PQP = [zeros(n-3,2*n),zeros(n-3,3),eye(n-3), zeros(n-3,1*n)];
-PQQ = [zeros(n-3,3*n),zeros(n-3,3),eye(n-3)               ];
-
-Amat = [((WWW + EEE*NNN*LLL)*RRR), -eye(2*n); 
-        VTV; 
-        VTT; 
-        PQP; 
-        PQQ];
-
-Amatu = [((WWWu + EEEu*NNNu*LLLu)*RRRu), -eye(2*n); 
-        VTV; 
-        VTT; 
-        PQP; 
-        PQQ];
-    
 Vsrc = YNodeV0(1:3);
 BB = [zeros(n,1); zeros(n,1); 
         abs(Vsrc); 
@@ -101,15 +74,11 @@ BB = [zeros(n,1); zeros(n,1);
         imag(YNodeS)]; 
 if size(BB,1)==size(Amat,2)
     x = Amat\BB;
-    xu = Amatu\BB;
 else
     BB = NaN;
     x = NaN;
 end
-% v_linearized = x(1:n);
-% t_linearized = x(1*n+1:2*n);
-% p_linearized = x(2*n+1:3*n);
-% q_linearized = x(3*n+1:4*n);
+
 
 
 
