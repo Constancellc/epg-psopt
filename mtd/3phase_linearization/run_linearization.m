@@ -3,8 +3,8 @@ cd('C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\mtd\3phase_linearization'
 addpath('lin_functions');
 %% 13 BUS
 NUT = '671';
-pg_ssc = 10*linspace(-0.001,0.2,20);
-qg_ssc = 10*linspace(-0.4,0.03,20);
+pg_ssc = 10*linspace(-0.1,0.25,200);
+qg_ssc = 10*linspace(-0.4,0.07,100);
 
 % remain the same:
 SRC = 'SOURCEBUS';
@@ -13,8 +13,8 @@ Cregs = {'Reg1','Reg2','Reg3'};
 FF.feeder_loc = '\13Bus_copy\IEEE13Nodeckt_yy';
 FF.filename_y = [pwd,FF.feeder_loc,'_y'];
 FF.filename_v = [pwd,FF.feeder_loc,'_v'];
+FF.feeder = '13bus';
 elmpwr_fnm = [pwd,'\13Bus_copy\IEEE13Nodeckt_EXP_ElemPowers.csv'];
-feeder = '13bus';
 
 % Run the DSS
 [~, DSSObj, DSSText] = DSSStartup;
@@ -28,17 +28,15 @@ DSSSolution.Solve;
 DSSCircuit.Sample;
 
 [ TC_No0,TR_name,TC_bus ] = find_tap_pos( DSSCircuit );
-
-% With the taps known we calculate the linear A matrix and Ybus matrix
-[ YNodeV0,Ybus0,~,n,Amat,~] = linear_analysis_3ph( DSSObj,FF,0,TR_name,TC_No0 );
+[ YNodeV0,Ybus0,~,n,Amat,~] = linear_analysis_3ph( DSSObj,FF,0,TR_name,'whtd',TC_No0 );
 
 % Now set up the full circuit with fixed taps
 DSSText.command=['Compile (',pwd,FF.feeder_loc,'.dss)'];
 DSSCircuit=DSSObj.ActiveCircuit;
 if isempty(TR_name)==0
-    if strcmp(feeder,'13bus')
+    if strcmp(FF.feeder,'13bus')
         regname = 'RegControl.';
-    elseif strcmp(feeder,'34bus')
+    elseif strcmp(FF.feeder,'34bus')
         regname = 'RegControl.c';
     end
     for i =1:numel(TR_name)
@@ -46,19 +44,16 @@ if isempty(TR_name)==0
         DSSText.command=[regname,TR_name{i},'.maxtapchange=0']; % fix taps
     end
 end
-DSSSolution=DSSCircuit.Solution;
 DSSSolution.Solve;
 
 % Use to calculate nominal voltages:
 YNodeVarray = DSSCircuit.YNodeVarray';
 YNodeV = YNodeVarray(1:2:end) + 1i*YNodeVarray(2:2:end);
 YNodeS = YNodeV.*conj(Ybus0*YNodeV);
-YNodeS0 = YNodeV0.*conj(Ybus0*YNodeV0);
-BB_n = [zeros(2*n,1);abs(YNodeV(1:3));angle(YNodeV(1:3));real(YNodeS(4:end));imag(YNodeS(4:end))];
-BB_0 = [zeros(2*n,1);abs(YNodeV(1:3));angle(YNodeV(1:3));zeros(2*n-6,1)];
+BB_n = [zeros(2*n,1);abs(YNodeV(1:3));angle(YNodeV(1:3));-real(YNodeS(4:end));-imag(YNodeS(4:end))];
 
 Xhat_n = Amat\BB_n;
-
+% plot(abs(YNodeV)./Xhat_n(1:n));
 
 % Withdraw unit bases
 [Zbus,YZNodeOrder] = create_zbus(DSSCircuit);
@@ -75,18 +70,8 @@ for i = 1:numel(YZNodeOrder)
     Vb(i) = DSSCircuit.ActiveBus.kVbase;
 end
 
-% PLOT the real and approximated values at nominal values
-%plot(log(Xhat_n(1:n))); hold on; plot(log(abs(YNodeV)));
-
-% plot(VtBl,'o'); hold on; plot(1e-3*abs(YNodeV)./Vb,'*'); %plot(1e-3*Xhat_n(1:n)./Vb,'+');
-% %%
-%  hold on; plot(1e-3*abs(YNodeV)./Vb,'o'); grid on;
-% axis([0 45 0.95 1.1]);
-
-
-%%
 DSSCircuit.Transformers.First;
-if strcmp(feeder,'34bus')
+if strcmp(FF.feeder,'34bus')
     sb = DSSCircuit.Transformers.kVA/10; %NB!!! for some reason they put this as 25000?
 else
     sb = DSSCircuit.Transformers.kVA;
@@ -161,29 +146,10 @@ nut_idx=nut_idx(nut_idx~=0);
 Sg_mes_lin = sb*1e3*(Pgen_lin'+1i*Qgen_lin'); %watts
 
 [ VgLin_n,Xnut_n ] = linear_solve( Amat,Sg_mes_lin,BB_n,nut_idx,Pg,vbN ); %volts
-[ VgLin_0,Xnut_0 ] = linear_solve( Amat,Sg_mes_lin,BB_0,nut_idx,Pg,vbN ); %volts
 
-fig = figure('Color','White');
-subplot(231)
-[cc,~]=contourf(Pgenmat,Qgenmat,Vgen);
-clabel(cc); axis equal;
-subplot(232)
-[cc,~]=contourf(Pgenmat,Qgenmat,VgLin_0);
-clabel(cc); axis equal;
-subplot(233)
-[cc,~]=contourf(Pgenmat,Qgenmat,VgLin_n);
-clabel(cc); axis equal;
-
-subplot(235)
-[cc,~]=contourf(Pgenmat,Qgenmat,100*(VgLin_0-Vgen));
-clabel(cc); axis equal; title('% error');
-subplot(236)
-[cc,~]=contourf(Pgenmat,Qgenmat,100*(VgLin_n-Vgen));
-clabel(cc); axis equal; title('% error');
-
-%%
 fig = figure('Color','White','Position',[100 100 1000 800]);
-fig_loc = 'C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc170918\figures';
+fig_loc = 'C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc170925\figures';
+
 fig_name = [fig_loc,'\run_linearization'];
 subplot(331)
 [cc,~]=contourf(Pgenmat,Qgenmat,Vgen1);

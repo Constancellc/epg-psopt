@@ -149,10 +149,10 @@ New Line.671692    Phases=3 Bus1=671   Bus2=692  Switch=y  r1=1e-1 r0=1e-1 x1=0.
 
 !Bus 670 is the concentrated point load of the distributed load on line 632 to 671 located at 1/3 the distance from node 632
 
-Transformer.Reg1.Taps=[1.0 1.0625]
-Transformer.Reg2.Taps=[1.0 1.0500]
-Transformer.Reg3.Taps=[1.0 1.06875]
-Set Controlmode=OFF
+!Transformer.Reg1.Taps=[1.0 1.0625]
+!Transformer.Reg2.Taps=[1.0 1.0500]
+!Transformer.Reg3.Taps=[1.0 1.06875]
+!Set Controlmode=OFF
 
 Set Voltagebases=[115, 4.16, .48]
 calcv

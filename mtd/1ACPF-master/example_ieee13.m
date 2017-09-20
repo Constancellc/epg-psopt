@@ -10,9 +10,8 @@
 %	MatLab OR GNU Octave, version 3.8.1 available at http://www.gnu.org/software/octave/
 %	MATPOWER 5.1 available at http://www.pserc.cornell.edu/matpower/
 
-
-clear all 
-close all
+clear all;
+close all;
 clc
 Vbase = 4160/sqrt(3);
 Sbase = 5e6;

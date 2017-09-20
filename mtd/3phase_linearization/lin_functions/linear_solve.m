@@ -11,13 +11,15 @@ n_nut = numel(nut_idx);
 X = zeros(4*n,numel(Pg));
 
 for i = 1:numel(Pg)
+    BB = BB0;
     
     idx_p = (2*n + 3) + nut_idx;
     idx_q = (3*n) + nut_idx;
-    BB0(idx_p) = Pg_mes(i,:)/n_nut;
-    BB0(idx_q) = Qg_mes(i,:)/n_nut;
     
-    X(:,i) = Amat\BB0;
+    BB(idx_p) = BB0(idx_p) - (Pg_mes(i,:)/n_nut);
+    BB(idx_q) = BB0(idx_q) - (Qg_mes(i,:)/n_nut);
+    
+    X(:,i) = Amat\BB;
 end
 
 Xnut = X(nut_idx,:)/(vb*sqrt(1/3)*1e3);

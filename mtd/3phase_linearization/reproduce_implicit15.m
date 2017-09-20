@@ -1,33 +1,25 @@
-% This script was used simply to try and reproduce the IEEE13 bus results
-% using OpenDSS. It turns out that you MUST make sure to specify the
-% frequency base on your machine if you have been using the European LV
-% Test Feeder! 
+% A script that looks to reproduce the accuracy of the 'flat' solution seen
+% in the paper 'Fast Power System Analysis via Implicit Linearization of
+% the Power Flow Manifold' by Bolognani & Dorfler, 2015, using OpenDSS,
+% with the inclusion of tap changers; transformers; using the Ybus creation
+% capabilities of OpenDSS, to automate the procedure (and slightly as an
+% exercise...).
 
-clear all 
-close all
-clc
-cd('C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\mtd\3phase_linearization');
-addpath('lin_functions\');
+clear all; close all; clc;
 
 fig_loc = [pwd,'\figures\'];
-%% First withdraw nominal constants from Bolognani paper:
-VbaseBl = 4160/sqrt(3);
-SbaseBl = 5e6;
-ZbaseBl = VbaseBl^2/SbaseBl;
+addpath('lin_functions');
+fig_pos = [100 200 520 540];
 
-[YBl,vBl,tBl,pBl,qBl,nBl] = ieee13_mod();
+axis1 = [0 45 0.96 1.08];
+axis2 = [0 45 -0.015 0.005];
+%% First withdraw nominal constants from ETH paper:
+VbETH = 4160/sqrt(3);
+SbETH = 5e6;
 
-sBl = pBl + 1i*qBl;
+[Yeth,~,~,pEth,qEth,nEth] = ieee13_mod();
 
-YNodeOrderBl0={'RG60';'632';'633';'634';'645';'646';'671';'680';'675';'692';'684';'611';'652'};
-YNodeOrderBl = cell(numel(YNodeOrderBl0)*3,1);
-for i = 1:numel(YNodeOrderBl0)
-    for j = 1:3
-        YNodeOrderBl{(i-1)*3 + j} = [YNodeOrderBl0{i},'.',num2str(j)];
-    end
-end
-
-v_testfeederBl = [...
+v_testfeederEth = [...
     1.0625  1.0500  1.0687  ;...
     1.0210  1.0420  1.0174  ;...
     1.0180  1.0401  1.0148  ;...
@@ -42,9 +34,9 @@ v_testfeederBl = [...
     NaN     NaN     0.9738  ;...
     0.9825  NaN     NaN     ];
 
-v_testfeederBl = reshape(v_testfeederBl.',3*nBl,1);
+v_testfeederEth = reshape(v_testfeederEth.',3*nEth,1);
 
-t_testfeederBl = [...
+t_testfeederEth = [...
     0.00    -120.00 120.00  ;...
     -2.49   -121.72 117.83  ;...
     -2.56   -121.77 117.82  ;...
@@ -59,71 +51,124 @@ t_testfeederBl = [...
     NaN     NaN     115.78  ;...
     -5.25   NaN     NaN     ];
 
-t_testfeederBl = reshape(t_testfeederBl.',3*nBl,1)/180*pi;
+t_testfeederEth = reshape(t_testfeederEth.',3*nEth,1)/180*pi;
 
 %% First, reproduce the original result.
 a = exp(-1j*2*pi/3);
 aaa = [1; a; a^2];
 
-RRRBl = bracket( kron(eye(size(YBl,1)/3),diag(aaa)) );
+Veth = kron(ones(size(Yeth,1)/3,1),aaa);
+Vbl_nf = kron(ones(size(Yeth,1)/3,1),aaa.*v_testfeederEth(1:3));
 
-[ AmatBl ] = ieee13_redo( YBl,RRRBl );
-BB_b = [zeros(2*3*nBl,1);v_testfeederBl(1:3);t_testfeederBl(1:3);pBl(4:end);qBl(4:end)];
+Aeth = calc_amat( Yeth,Veth );
+Aeth_nf = calc_amat( Yeth,Vbl_nf );
 
-Xhat_b = AmatBl\BB_b;
+BB_eth = [zeros(2*3*nEth,1);v_testfeederEth(1:3);t_testfeederEth(1:3);pEth(4:end);qEth(4:end)];
 
-plot(v_testfeederBl - Xhat_b(1:3*nBl),'x'); grid on; % cf eth_errors.fig in 'figures'
-%% now retrieve Ybus matrix from opendss:
-feeder_loc = '\13Bus_copy\IEEE13Nodeckt';
-% Run the DSS
+Xhat_eth = Aeth\BB_eth;
+Xhat_ethnf = Aeth_nf\BB_eth;
+
+
+% ------------ PLOT
+figname = [fig_loc,'/ETH_sln'];
+fig = figure('Color','White','Position',fig_pos);
+
+subplot(211)
+plot(v_testfeederEth,'o'); grid on; hold on; % cf eth_errors.fig in 'figures'
+plot(Xhat_eth(1:3*nEth),'*');
+plot(Xhat_ethnf(1:3*nEth),'x');
+legend('True','1 pu','No ld','Location','SouthWest');
+xlabel('Bus no.'); ylabel('Voltage (pu)'); title('ETH: problem solutions');
+axis(axis1);
+
+subplot(212);
+plot(0,0); grid on; hold on;
+pl1 = plot(v_testfeederEth - Xhat_eth(1:3*nEth),'*'); % cf eth_errors.fig in 'figures'
+pl2 = plot(v_testfeederEth - Xhat_ethnf(1:3*nEth),'x');
+legend([pl1,pl2],'Error, 1 pu','Error, no ld','Location','SouthWest');
+xlabel('Bus no.'); ylabel('dV (pu)'); title('Solution error');
+axis(axis2);
+% export_fig(fig,figname);
+% export_fig(fig,[figname,'.pdf'],'-dpdf');
+
+%% Run the no-transformer model
 [~, DSSObj, DSSText] = DSSStartup;
+FF.filename = '\13Bus_copy\IEEE13Node_notr';
+FF.filename_y = [pwd,FF.filename,'_y'];
+FF.filename_v = [pwd,FF.filename,'_v'];
 
-% First we need to find the nominal tap positions for the flat voltage profile
-DSSText.command=['Compile (',pwd,feeder_loc,'.dss)'];
+[ ~,Ybus,~,n,AmatV,~] = linear_analysis_3ph( DSSObj,FF,0,[],'flat' );
+[ ~,~,~,~   ,AmatU,~] = linear_analysis_3ph( DSSObj,FF,0,[],'nold' );
 
-DSSCircuit=DSSObj.ActiveCircuit;
-DSSSolution=DSSCircuit.Solution;
-DSSSolution.Solve;
-% Use to calculate nominal voltages:
+DSSText.command=['Compile (',pwd,FF.filename,'.dss)'];
+DSSCircuit=DSSObj.ActiveCircuit; DSSSolution=DSSCircuit.Solution; DSSSolution.Solve;
+
+YNodeVarray = DSSCircuit.YNodeVarray';
+YNodeV = YNodeVarray(1:2:end) + 1i*YNodeVarray(2:2:end);
+YNodeS = YNodeV.*conj(Ybus*YNodeV);
 YZNodeOrder = DSSCircuit.YNodeOrder;
+
+BB_eth = [zeros(2*n,1);abs(YNodeV(1:3));angle(YNodeV(1:3));...
+                    real(YNodeS(4:end));imag(YNodeS(4:end))];
 Vb = zeros(numel(YZNodeOrder),1);
 for i = 1:numel(YZNodeOrder)
     DSSCircuit.SetActiveBus(YZNodeOrder{i});
     Vb(i) = DSSCircuit.ActiveBus.kVbase;
 end
 
-% remain the same:
-NUT = '671';
-SRC = 'SOURCEBUS';
-FF.feeder_loc = '\13Bus_copy\IEEE13Nodeckt_yy';
-FF.filename_y = [pwd,FF.feeder_loc,'_y'];
-FF.filename_v = [pwd,FF.feeder_loc,'_v'];
-feeder = '13bus';
+BB_n = [zeros(2*n,1);abs(YNodeV(1:3));angle(YNodeV(1:3));-real(YNodeS(4:end));-imag(YNodeS(4:end))];
 
-% Run the DSS
-[~, DSSObj, DSSText] = DSSStartup;
+Xhat_nV = AmatV\BB_n;
+Xhat_nU = AmatU\BB_n;
 
-% First we need to find the nominal tap positions for the flat voltage profile
-% so that we can check I = YV, S = VI*.
-DSSText.command=['Compile (',pwd,FF.feeder_loc,'.dss)'];
 
+% ------------ PLOT
+figname = [fig_loc,'/Opendss_sln'];
+fig = figure('Color','White','Position',fig_pos);
+
+subplot(211)
+plot(1e-3*abs(YNodeV)./Vb,'o'); grid on; hold on;
+plot(1e-3*Xhat_nV(1:n)./Vb,'*');
+plot(1e-3*Xhat_nU(1:n)./Vb,'+');
+legend('True','1 pu','No ld','Location','SouthWest');
+xlabel('Bus no.'); ylabel('Voltage (pu)'); title('Opendss: problem solutions');
+axis(axis1);
+
+subplot(212);
+plot(0,0); grid on; hold on;
+pl1 = plot(1e-3*(abs(YNodeV) - Xhat_nV(1:n))./Vb,'*');
+pl2 = plot(1e-3*(abs(YNodeV) - Xhat_nU(1:n))./Vb,'+');
+legend([pl1,pl2],'Error, 1 pu','Error, no ld','Location','SouthWest');
+xlabel('Bus no.'); ylabel('dV (pu)'); title('Solution error');
+axis(axis2);
+
+% export_fig(fig,figname);
+% export_fig(fig,[figname,'.pdf'],'-dpdf');
+
+%% Full transformer model
+FF.filename = '\13Bus_copy\IEEE13Nodeckt_yy';
+FF.filename_y = [pwd,FF.filename,'_y'];
+FF.filename_v = [pwd,FF.filename,'_v'];
+FF.feeder = '13bus';
+
+DSSText.command=['Compile (',pwd,FF.filename,'.dss)'];
 DSSCircuit=DSSObj.ActiveCircuit;
-DSSSolution=DSSCircuit.Solution;
-DSSSolution.Solve;
-DSSCircuit.Sample;
+DSSSolution=DSSCircuit.Solution; DSSSolution.Solve; DSSCircuit.Sample;
 
 [ TC_No0,TR_name,TC_bus ] = find_tap_pos( DSSCircuit );
 
 % With the taps known we calculate the linear A matrix and Ybus matrix
-[ YNodeV0,Ybus0,~,n,Amat,~] = linear_analysis_3ph( DSSObj,FF,0,TR_name,TC_No0 );
+[ YNodeV0,Ybus0,~,n,AmatV,~] = linear_analysis_3ph( DSSObj,FF,0,TR_name,'nold',TC_No0 );
+[ ~,~,~,~,AmatW,~] = linear_analysis_3ph( DSSObj,FF,0,TR_name,'whtd',TC_No0 );
+[ ~,~,~,~,AmatU,~] = linear_analysis_3ph( DSSObj,FF,0,TR_name,'flat',TC_No0 );
 
 % Now set up the full circuit with fixed taps
-DSSText.command=['Compile (',pwd,FF.feeder_loc,'.dss)'];
+DSSText.command=['Compile (',pwd,FF.filename,'.dss)'];
 DSSCircuit=DSSObj.ActiveCircuit;
 if isempty(TR_name)==0
-    if strcmp(feeder,'13bus')
+    if strcmp(FF.feeder,'13bus')
         regname = 'RegControl.';
-    elseif strcmp(feeder,'34bus')
+    elseif strcmp(FF.feeder,'34bus')
         regname = 'RegControl.c';
     end
     for i =1:numel(TR_name)
@@ -134,90 +179,70 @@ end
 DSSSolution=DSSCircuit.Solution;
 DSSSolution.Solve;
 
-
 % Use to calculate nominal voltages:
 YZNodeOrder = DSSCircuit.YNodeOrder;
 
-DSSCircuit.SetActiveBus(NUT);
-vbN = sqrt(3)*DSSCircuit.ActiveBus.kVBase; %NB this is LINE-NEUTRAL (not LL!)
-DSSCircuit.SetActiveBus(SRC);
-vbS = sqrt(3)*DSSCircuit.ActiveBus.kVbase;
-nTr0 = vbN/vbS;
-%
 Vb = zeros(numel(YZNodeOrder),1);
 for i = 1:numel(YZNodeOrder)
     DSSCircuit.SetActiveBus(YZNodeOrder{i});
     Vb(i) = DSSCircuit.ActiveBus.kVbase;
 end
 
-
-VtBl = NaN*zeros(numel(YZNodeOrder),1);
-TtBl = NaN*zeros(numel(YZNodeOrder),1);
-PBl = zeros(numel(YZNodeOrder),1);
-QBl = zeros(numel(YZNodeOrder),1);
-
-
-for i = 1:numel(YZNodeOrder)
-    if ismember(YZNodeOrder{i},YNodeOrderBl)
-        idx = find(strcmp(YNodeOrderBl,YZNodeOrder{i}));
-        VtBl(i) = v_testfeederBl(idx);
-        TtBl(i) = t_testfeederBl(idx);
-        if isnan(pBl(idx))~=1
-            PBl(i) = pBl(idx);
-        end
-        if isnan(qBl(idx))~=1
-            QBl(i) = qBl(idx);
-        end
-    end
-end
-
-
-
 % Use to calculate nominal voltages:
 YNodeVarray = DSSCircuit.YNodeVarray';
 YNodeV = YNodeVarray(1:2:end) + 1i*YNodeVarray(2:2:end);
 YNodeS = YNodeV.*conj(Ybus0*YNodeV);
-YNodeS0 = YNodeV0.*conj(Ybus0*YNodeV0);
-YNodeSBl = -SbaseBl*(PBl + 1i*QBl);
 
 BB_n = [zeros(2*n,1);abs(YNodeV(1:3));angle(YNodeV(1:3));-real(YNodeS(4:end));-imag(YNodeS(4:end))];
-BB_b = [zeros(2*n,1);abs(YNodeV(1:3));angle(YNodeV(1:3));-real(YNodeSBl(4:end));-imag(YNodeSBl(4:end))];
-BB_0 = [zeros(2*n,1);abs(YNodeV(1:3));angle(YNodeV(1:3));zeros(2*n-6,1)];
 
-Xhat_n = Amat\BB_n;
-Xhat_b = Amat\BB_b;
+Xhat_nU = AmatU\BB_n;
+Xhat_nV = AmatV\BB_n;
+Xhat_nW = AmatW\BB_n;
 
-% PLOT the real and approximated values at nominal values
-plot(1e-3*abs(YNodeV)./Vb,'o');hold on; grid on;
-% plot(VtBl,'*');
-plot(1e-3*Xhat_n(1:n)./Vb,'+');
-plot(1e-3*Xhat_b(1:n)./Vb,'+');
+% ------------ PLOT
+figname = [fig_loc,'/Tr_sln'];
+fig = figure('Color','White','Position',fig_pos);
 
-% axis([0 45 0.95 1.1]);
-%%
-plot(1e-3*(abs(YNodeV) - Xhat_n(1:n))./Vb,'o');hold on; grid on;
-% plot(VtBl,'*');
-% plot(1e-3*Xhat_n(1:n)./Vb,'+');
-% plot(1e-3*Xhat_b(1:n)./Vb,'+');
+subplot(211);
+plot(1e-3*abs(YNodeV)./Vb,'o');hold on; grid on; 
+plot(1e-3*Xhat_nW(1:n)./Vb,'*');
+plot(1e-3*Xhat_nV(1:n)./Vb,'+');
+legend('True','Weighted','No ld','Location','East');
+xlabel('Bus no.'); ylabel('Voltage (pu)'); title('Opendss w/ Transformer: problem solutions');
+axis(axis1);
 
+subplot(212);
+plot(0,0);hold on; grid on;
+pl1=plot(1e-3*(abs(YNodeV)-Xhat_nW(1:n))./Vb,'*');
+pl2=plot(1e-3*(abs(YNodeV)-Xhat_nV(1:n))./Vb,'+');
+legend([pl1,pl2],'Error, weighted','Error, no ld','Location','SouthWest');
+xlabel('Bus no.'); ylabel('dV (pu)'); title('Solution error');
+axis(axis2);
 
+% export_fig(fig,figname);
+% export_fig(fig,[figname,'.pdf'],'-dpdf')
+%% Finally plot the 'wrong' solution with a flat voltage profile.
 
-% VtBl0 = NaN*zeros(numel(YZNodeOrder),1);
-% for i = 1:numel(YZNodeOrder)
-%     if ismember(YZNodeOrder{i},YNodeOrderBl)
-%         idx = find(strcmp(YNodeOrderBl,YZNodeOrder{i}));
-%         VtBl0(i) = Xhat_b(idx);
-%     end
-% end
-% plot(1e-3*abs(YNodeV)./Vb,'o');hold on; grid on;
-% plot(VtBl0,'*');
+% ------------ PLOT
+figname = [fig_loc,'/Tr_fault'];
+fig = figure('Color','White','Position',fig_pos);
 
+subplot(211);
+plot(1e-3*abs(YNodeV)./Vb,'o');hold on; grid on; 
+plot(1e-3*Xhat_nU(1:n)./Vb,'*');
+plot(1e-3*Xhat_nV(1:n)./Vb,'+');
+legend('True','1 pu','No ld');%,'Location','East'
+xlabel('Bus no.'); ylabel('Voltage (pu)'); title('Opendss w/ Transformer: problem solutions');
 
+subplot(212);
+plot(0,0);hold on; grid on;
+pl1=plot(1e-3*(abs(YNodeV)-Xhat_nU(1:n))./Vb,'*');
+pl2=plot(1e-3*(abs(YNodeV)-Xhat_nV(1:n))./Vb,'+');
+legend([pl1,pl2],'Error, 1 pu','Error, no ld','Location','West');
+xlabel('Bus no.'); ylabel('dV (pu)'); title('Solution error');
 
-
-
-
-
+% export_fig(fig,figname);
+% export_fig(fig,[figname,'.pdf'],'-dpdf')
 
 
 

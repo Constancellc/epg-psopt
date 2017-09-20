@@ -1,4 +1,4 @@
-function [ YNodeV0,Ybus,x,n,Amat,BB ] = linear_analysis_3ph( DSSObj,GG,YNodeS,TR_name,V_type,TC_No0 )
+function [ YNodeV0,Ybus,x,n,Amat,BB ] = linear_analysis_3ph( DSSObj,GG,YNodeS,TR_name,TC_No0,YNodeVTr )
 
 DSSText = DSSObj.Text;
 
@@ -8,9 +8,9 @@ DSSCircuit=DSSObj.ActiveCircuit;
 DSSSolution=DSSCircuit.Solution;
 
 if isempty(TR_name)==0
-    if strcmp(GG.feeder,'13bus')
+    if strcmp(feeder,'13bus')
         regname = 'RegControl.';
-    elseif strcmp(GG.feeder,'34bus')
+    elseif strcmp(feeder,'34bus')
         regname = 'RegControl.c';
     end
     for i =1:numel(TR_name)
@@ -19,6 +19,12 @@ if isempty(TR_name)==0
     end
 end
 
+if isempty(TR_name)==0
+    for i =1:numel(TR_name)
+        DSSText.command=['edit RegControl.',TR_name{i},' tapnum=',num2str(TC_No0(i))]; % fix taps
+        DSSText.command=['RegControl.',TR_name{i},'.maxtapchange=0']; % fix taps
+    end
+end
 DSSSolution.Solve;
 [Ybus_,YZNodeOrder_] = create_ybus(DSSCircuit);
 Ybus = Ybus_(4:end,4:end);
@@ -60,17 +66,26 @@ end
 % TH = -diag(th);
 % 
 % Ybus_flat = TH*Ybus/TH;
-
-if strcmp(V_type,'flat')
-    [ Amat ] = calc_amat( Ybus,YNodeU0 );
-elseif strcmp(V_type,'nold')
-    [ Amat ] = calc_amat( Ybus,YNodeV0 );
-elseif strcmp(V_type,'whtd')
-    YNodeV = YNodeU0;
-    YNodeV(1:3) = YNodeV(1:3).*abs(YNodeV0(4:6)./YNodeV0(7:9));
-    YNodeV(4:6) = YNodeV(4:6).*abs(YNodeV0(4:6)./YNodeV0(7:9));
-    [ Amat ] = calc_amat( Ybus,YNodeV );
-end
+%%
+% Linearised model
+% WWW = bracket(diag(conj(Ybus*YNodeV0)));
+% EEE = bracket(diag(YNodeV0));
+% NNN = Nmatrix(2*n);
+% LLL = bracket(Ybus);
+% RRR = Rmatrix(abs(YNodeV0),angle(YNodeV0));
+% 
+% VTV = [              eye(3),zeros(3,n-3),          zeros(3,3*n)];
+% VTT = [zeros(3,1*n),eye(3),zeros(3,n-3),          zeros(3,2*n)];
+% PQP = [zeros(n-3,2*n),zeros(n-3,3),eye(n-3), zeros(n-3,1*n)];
+% PQQ = [zeros(n-3,3*n),zeros(n-3,3),eye(n-3)               ];
+% 
+% Amat = [((WWW + EEE*NNN*LLL)*RRR), eye(2*n); 
+%         VTV; 
+%         VTT; 
+%         PQP; 
+%         PQQ];
+% [ Amat ] = calc_amat( Ybus,YNodeV0 );
+[ Amat ] = calc_amat( Ybus,YNodeU0 );
 
 Vsrc = YNodeV0(1:3);
 BB = [zeros(n,1); zeros(n,1); 
