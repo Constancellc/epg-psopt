@@ -4,6 +4,11 @@ import numpy as np
 
 from test13 import nodes, lines, spotLoads, Z, transformers, slackbus, nodeVoltageBases, voltageSolutions
 
+# converting Z into symmetrical matrix, 3 phase case
+for config in Z:
+    Z[config][1] = Z[config][0][1] + Z[config][1]
+    Z[config][2] = Z[config][0][2] + Z[config][1][2] + Z[config][2]
+    
 Pbase = 7000000 # W
 Qbase = 7000000 # Va
 
@@ -49,7 +54,15 @@ for node in nodes:
 R = []
 X = []
 
-for line in lines:
+R2 = {}
+
+for i in range(0,len(lines)):
+    line = lines[i]
+
+    if i not in R2:
+        R2[i] = {}
+        X2[i] = {}
+    
     length = float(line[2])*0.00018939 # ft -> miles
     config = line[3]
 
@@ -60,15 +73,30 @@ for line in lines:
 
     if config in transformers:
         for ph in range(0,nPhases):
+            
             if line[4][ph] == 0:
+                
+                R2[i][ph] = [0.0]*nPhases
+                X2[i][ph] = [0.0]*nPhases
                 r.append(0.0)
                 x.append(0.0)
             else:
+                R2[i][ph] = [0.0]*nPhases
+                X2[i][ph] = [0.0]*nPhases
+
+                R2[i][ph][ph] = transformers[config][0]
+                X2[i][ph][ph] = transformers[config][1]
                 r.append(transformers[config][0])
                 x.append(transformers[config][1])
 
     else:
         for ph in range(0,nPhases):
+            R2[i][ph] = [0.0]*nPhases
+
+            for j in range(0,nPhases):
+                R2[i][ph][j] = (length*Z[config][ph][j].real)/Zbase
+                X2[i][ph][j] = (length*Z[config][ph][j].real)/Zbase
+                
             r.append((length*Z[config][ph][0].real)/Zbase)
             x.append((length*Z[config][ph][0].imag)/Zbase)
 
@@ -84,7 +112,10 @@ A = matrix(0.0,(M,M))
 b = matrix(0.0,(M,1))
 
 for variable in lineVariables:
-    pq_index = variable[3]
+    #pq_index = variable[3]
+    pq_index = [0]*nPhases
+    # I need to also find the pq_index of the other phases on that line
+
     line = lines[variable[0]]
     ph = variable[1]
     kind = variable[2]
@@ -92,21 +123,31 @@ for variable in lineVariables:
     nodei = line[0]
     nodej = line[1]
 
-    A[pq_index,pq_index] = 1.0 # line flow in question
+    #A[pq_index,pq_index] = 1.0 # line flow in question
+
 
     # now look for things leaving from node j
     for variable2 in lineVariables:
-        if lines[variable2[0]][0] != nodej:
-            continue
 
-        if variable[1] != variable2[1]: # if not the same phase
+        # looking for pq_index of all phases on the line
+        if lines[variable2[0]][0] == nodei and lines[variable2[0]][1] == nodej\
+           and variable[2] == variable[2][2]:
+            pq_index[variable2[1]] = variable2[3]
+            
+        if lines[variable2[0]][0] != nodej:
             continue
 
         if variable[2] != variable2[2]: # if not the same flow kind
             continue
 
+        if variable[1] != variable2[1]: # if not the same phase
+            continue
+
+
         # so variable 2 leaves from j and is the same phase and type as variable
-        A[pq_index,variable2[3]] = -1.0
+        A[pq_index[ph],variable2[3]] = -1.0
+
+    A[pq_index[ph],pq_index[ph]] = 1.0 # line flow in question
 
     # lastly look for real loads at j
     if kind == 'p':
@@ -124,6 +165,15 @@ for variable in lineVariables:
     r = R[variable[0]][ph]
     x = R[variable[0]][ph]
 
+    ra = R[variable[0]][ph][0]
+    rb = R[variable[0]][ph][1]
+    rc = R[variable[0]][ph][2]
+    
+
+    xa = X[variable[0]][ph][0]
+    xb = X[variable[0]][ph][1]
+    xc = X[variable[0]][ph][2]
+    
     for node in nodeVariables:
         if node[2] != ph:
             continue
