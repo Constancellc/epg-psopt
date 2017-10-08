@@ -1,6 +1,4 @@
 
-
-
 # ok, this is assuming that I have the admittance matrix
 
 # y(3i+ph1,3j+ph2) is the admittance from node i phase 1 to node j phase 2
@@ -95,4 +93,8 @@ for i in range(nLineVariables,M):
     if variableList[i][1] == slackBus:
         A[i,i] = 1.0
         b[i] = 1.0
+
+# let x contian the solution
+
+# first 
     
