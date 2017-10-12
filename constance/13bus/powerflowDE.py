@@ -1,5 +1,6 @@
 from cvxopt import matrix
 import numpy as np
+import matplotlib.pyplot as plt
 # ok, this is assuming that I have the admittance matrix
 
 from ybus import R, X, nodeNames
@@ -10,7 +11,7 @@ from ybus import R, X, nodeNames
 
 Sbase = 5000000 # kW
 
-Zbase = Sbase/(np.power(4160,2))
+Zbase = np.power(4160,2)/Sbase
 
 loads = {'634.1':complex(160000,110000),
          '634.2':complex(120000,90000),
@@ -18,17 +19,17 @@ loads = {'634.1':complex(160000,110000),
          '645.2':complex(170000,125000),
          '646.2':complex(230000,132000),
          '652.1':complex(128000,86000),
-         '671.1':complex(385000+9000,220000+5000),
-         '671.2':complex(385000+33000,220000+19000),
-         '671.3':complex(385000+59000,220000+34000),
+         '671.1':complex(385000,220000),
+         '671.2':complex(385000,220000),
+         '671.3':complex(385000,220000),
          '675.1':complex(485000,190000-220000),
          '675.2':complex(68000,60000-200000),
          '675.3':complex(290000,212000-200000),
          '692.3':complex(170000,151000),
          '611.3':complex(170000,80000-100000),
-         '632.1':complex(9000,5000),
-         '632.2':complex(33000,19000),
-         '632.3':complex(59000,34000)}
+         '670.1':complex(18000,10000),
+         '670.2':complex(66000,38000),
+         '670.3':complex(118000,68000)}
 
 nNodes = len(nodeNames)
 nFlows = 0
@@ -43,19 +44,17 @@ for i in range(0,len(R)):
 
         if j > i:
             if R[i][j] != 0:
-                '''
+                
                 if nodei[:3] == nodej[:3]:
                     continue
                 if nodei[-1] != nodej[-1]:
                     continue
-                '''
+                
                 flows.append([nodei,nodej])
                 nFlows += 1
         
         R[i][j] = R[i][j]/Zbase
         X[i][j] = X[i][j]/Zbase
-
-        print(R[i][j])
 
 
 A = matrix(0.0,(nNodes+2*nFlows,nNodes+2*nFlows))
@@ -95,13 +94,13 @@ for i in range(3,len(nodeNames)):
     for l in range(0,len(flows)):
         if flows[l][0] == node:
             # line leaves from node
-            A[cn,int(nNodes+2*l)] = 1.0
-            A[cn+1,int(nNodes+2*l+1)] = 1.0
+            A[cn,int(nNodes+2*l)] = -1.0
+            A[cn+1,int(nNodes+2*l+1)] = -1.0
             
         elif flows[l][1] == node:
             # line enters node
-            A[cn,int(nNodes+2*l)] = -1.0
-            A[cn+1,int(nNodes+2*l+1)] = -1.0
+            A[cn,int(nNodes+2*l)] = 1.0
+            A[cn+1,int(nNodes+2*l+1)] = 1.0
 
     try:
         load = loads[node]
@@ -113,103 +112,82 @@ for i in range(3,len(nodeNames)):
 
     cn += 1
 
-print(flows)
+print(nodeNames)
 
 sol = np.linalg.solve(A,b)
 
+print(sol)
+
+V = sol[:len(nodeNames)]
+
+vSols = {'RG60.1':1.0,
+         'RG60.2':1.0,
+         'RG60.3':1.0,
+         '632.1':1.021,
+         '632.2':1.042,
+         '632.3':1.0687,
+         '671.1':0.99,
+         '671.2':1.0529,
+         '671.3':1.0174,
+         '680.1':0.99,
+         '680.2':1.0529,
+         '680.3':0.9778,
+         '633.1':1.018,
+         '633.2':1.0401,
+         '633.3':1.0174,
+         '645.3':1.0155,
+         '645.2':1.0329,
+         '646.3':1.0134,
+         '646.2':1.0311,
+         '692.1':0.99,
+         '692.2':1.0529,
+         '692.3':0.9777,
+         '675.1':0.9835,
+         '675.2':1.0553,
+         '675.3':0.9758,
+         '684.1':0.9881,
+         '684.3':0.9758,
+         '611.3':0.9738,
+         '652.1':0.9825,
+         '634.1':0.994,
+         '634.2':1.0218,
+         '634.3':0.9960}
+
+est = []
+tru = []
+x_ticks = []
+
+for i in range(0,3):
+    est.append([])
+    tru.append([])
+    x_ticks.append([])
+
+for i in range(0,len(nodeNames)):
+    try:
+        sol = vSols[nodeNames[i]]
+    except:
+        continue
+
+    ph = int(nodeNames[i][-1])-1
+    node = nodeNames[i][:3]
+
+    est[ph].append(V[i])
+    tru[ph].append(sol)
+    x_ticks[ph].append(node)
+
 '''
-nPhases = 3
-
-lines = [[nodei, nodej, [0,0,0], [r,r,r], [x,x,x]],
-         []]
-nodes = [[node,[0,0,0]],
-         []]
-
-nNodes = len(nodes)
-
-variableList = []
-
-slackBus = [node]
-
-nLineVariables = 0
-for line in lines:
-    nodei = line[0]
-    nodej = line[1]
-    for ph in range(0,nPhases):
-        if line[2][ph] != 0:
-            variableList.append(['power',nodei,nodej,ph,'p',r])
-            variableList.append(['power',nodei,nodej,ph,'q',x])
-    
-    nLineVariables += sum(line[2])*2
-
-nNodeVariables = 0
-for node in nodes:
-    for ph in range(0,nPhases):
-        if node[1][ph] != 0:
-            variableList.append(['voltage',node[0],ph])
-    nNodeVariables += sum(node[1])
-
-M = nNodeVariables + nLineVariables
-
-A = matrix(0.0,(M,M))
-b = matrix(0.0,(M,1))
-
-# first continuity - power in equals power out
-for i in range(0,nLineVariables):
-    nodei = variableList[i][1]
-    nodej = variableList[i][2]
-    ph = variableList[i][3]
-    kind = variableList[i][4]
-
-    A[i,i] = 1.0 # line flow in question
-
-    # looking for things leaving from j
-    for i2 in range(0,nLineVariables):
-        if i2 == i:
-            continue
-        if variableList[i2][1] != nodej:
-            continue
-        if variableList[i2][3] != ph:
-            continue
-        if variableList[i2][4] != kind:
-            continue
-
-        A[i,i2] = -1.0
-
-    # now add the load
-    b[i] = # load for nodej phase and kind
-
-    # now adding resistances
-
-    # looking for node voltages
-    for i2 in range(nLineVariables,M):
-        
-        if variableList[i][1] == nodei:
-            if variableList[i][2] != ph:
-                continue
-            Vi_index = i2
-            
-        elif variableList[i][1] == nodej:
-            if variableList[i][2] != ph:
-                continue
-            Vj_index = i2
-
-        else:
-            continue
-
-    A[Vj_index,Vi_index] = 1.0
-    A[Vj_index,Vj_index] = -1.0
-
-    A[Vj_index,i] = variableList[i][5] # r, x
-
-# finally the slack bus
-for i in range(nLineVariables,M):
-    if variableList[i][1] == slackBus:
-        A[i,i] = 1.0
-        b[i] = 1.0
-
-# let x contian the solution
-
-# first 
-    
+for ph in range(0,3):
+    scale = tru[ph][1]
+    for i in range(0,len(tru[ph])):
+        tru[ph][i] = tru[ph][i]/scale
 '''
+
+plt.figure(1)
+for ph in range(0,3):
+    plt.subplot(3,1,ph+1)
+    plt.plot(range(0,len(est[ph])),est[ph])
+    plt.plot(range(0,len(est[ph])),tru[ph])
+    plt.xticks(range(0,len(est[ph])),x_ticks[ph])
+plt.show()
+
+# I think the problem with the non decoupled might be in the continuity equations with things flowing when not physically connected

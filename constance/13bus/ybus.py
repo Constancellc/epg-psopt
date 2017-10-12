@@ -9,15 +9,14 @@ with open('nodeNames.csv','rU') as csvfile:
         cell = row[0][1:]
         nodeNames.append(cell[:len(cell)-1])
 
+
 R = []
 X = []
-Y = []
 with open('yBus.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
-        rRow =[]
+        rRow = []
         xRow = []
-        yRow = []
         for cell in row:
             reNum = ''
             i = 0
@@ -33,14 +32,22 @@ with open('yBus.csv','rU') as csvfile:
             reNum = float(reNum)
             imNum = float(imNum)
 
-            rRow.append(float(reNum)*-1*mag)
-            xRow.append(float(imNum)*mag)
+            try:
+                z = -1/(complex(reNum,imNum))
+            except:
+                z = complex(0,0)
 
-            yRow.append(complex(reNum,imNum))
-        
+            rRow.append(z.real)
+            xRow.append(z.imag)
+                   
+
         R.append(rRow)
         X.append(xRow)
-        Y.append(yRow)
+
+for i in range(0,len(R)):
+    R[i][i] = 0
+    X[i][i] = 0
 
 
-print(matrix(R))
+
+
