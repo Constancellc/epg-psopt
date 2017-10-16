@@ -60,6 +60,9 @@ for i in range(0,len(R)):
 A = matrix(0.0,(nNodes+2*nFlows,nNodes+2*nFlows))
 b = matrix(0.0,(nNodes+2*nFlows,1))
 
+print(nNodes)
+print(nFlows)
+
 print(flows)
 for i in range(0,3): # source bus
     A[i,i] = 1
@@ -86,6 +89,8 @@ for ln in range(0,len(flows)):
 
 # now continuity equations
 for i in range(3,len(nodeNames)):
+    print(cn,end=' ')
+    print(i)
     cn += 1
 
     node = nodeNames[i]
@@ -106,13 +111,14 @@ for i in range(3,len(nodeNames)):
         load = loads[node]
     except:
         load = complex(0,0)
-            
+
     b[cn] = load.real/Sbase
     b[cn+1] = load.imag/Sbase
+    
 
     cn += 1
 
-print(nodeNames)
+print(flows)
 
 sol = np.linalg.solve(A,b)
 

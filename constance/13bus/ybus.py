@@ -12,30 +12,31 @@ with open('nodeNames.csv','rU') as csvfile:
 
 R = []
 X = []
-with open('yBus.csv','rU') as csvfile:
+with open('../YBus.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
+        if row == []:
+            continue
         rRow = []
         xRow = []
         for cell in row:
-            reNum = ''
-            i = 0
-            while cell[i] != ' ':
-                reNum += cell[i]
-                i += 1
-
-            imNum=cell[i+1]
-            i += 3
-
-            imNum += cell[i:len(cell)-1]
-
-            reNum = float(reNum)
-            imNum = float(imNum)
-
-            try:
-                z = -1/(complex(reNum,imNum))
-            except:
+            if cell == '0j':
                 z = complex(0,0)
+            else:
+                
+                reNum = cell[1]
+                i = 2
+                while cell[i] not in ['+', '-']:
+                    reNum += cell[i]
+                    i += 1
+
+                imNum = cell[i:len(cell)-2]
+
+                reNum = float(reNum)
+                imNum = float(imNum)
+
+                z = -1/(complex(reNum,imNum))
+
 
             rRow.append(z.real)
             xRow.append(z.imag)
@@ -47,7 +48,4 @@ with open('yBus.csv','rU') as csvfile:
 for i in range(0,len(R)):
     R[i][i] = 0
     X[i][i] = 0
-
-
-
-
+    
