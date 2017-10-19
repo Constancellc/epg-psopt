@@ -70,6 +70,8 @@ elseif strcmp(V_type,'whtd')
     YNodeV(1:3) = YNodeV(1:3).*abs(YNodeV0(4:6)./YNodeV0(7:9));
     YNodeV(4:6) = YNodeV(4:6).*abs(YNodeV0(4:6)./YNodeV0(7:9));
     [ Amat ] = calc_amat( Ybus,YNodeV );
+else
+    Amat = NaN;
 end
 
 Vsrc = YNodeV0(1:3);
