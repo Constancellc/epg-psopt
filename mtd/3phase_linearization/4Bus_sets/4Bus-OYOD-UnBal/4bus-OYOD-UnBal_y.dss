@@ -17,7 +17,8 @@ New linecode.300 nphases=3 basefreq=60 units=mi
 ~ xmatrix = ( 1.4133 | .8515 1.4133 | .7266  .7802  1.4133 )
 ~ cmatrix = (15.04 | -4.8706 15.855 | -1.8655 -3.1008  14.3 )
 
-New Line.L1      Phases=3 Bus1=sourcebus                    Bus2=SD_UNBAL_OY_OD_2  LineCode=400 Length=2.0 units=kft
+!================> DICONNECT sourcebus for *_y
+New Line.L1      Phases=3 Bus1=sourcebus0                    Bus2=SD_UNBAL_OY_OD_2  LineCode=400 Length=2.0 units=kft
 New Line.L2      Phases=3 Bus1=SD_UNBAL_OY_OD_3   Bus2=SD_UNBAL_OY_OD_4  LineCode=300 Length=2.5 units=kft
 
 
@@ -28,11 +29,10 @@ New Transformer.SD_UNBAL_OY_OD_XFMB Phases=1 Windings=2 Xhl=6 ppm=0
 ~ wdg=1 bus=SD_UNBAL_OY_OD_2.2.0  conn=Wye   kv= 7.20 kva=2000  %r=0.5
 ~ wdg=2 bus=SD_UNBAL_OY_OD_3.2.3  conn=Delta kv= 4.16 kva=2000  %r=0.5
 
-
-! spot loads
-New Load.SD_UNBAL_D_GY_Load1 Phases=1  Bus1=SD_UNBAL_OY_OD_4.1.2  kW=850       PF=.85 kV=4.16 conn=delta vminpu=0.7
-New Load.SD_UNBAL_D_GY_Load2 Phases=1  Bus1=SD_UNBAL_OY_OD_4.2.3  kW=1200      PF=.90 kV=4.16 conn=delta vminpu=0.7
-New Load.SD_UNBAL_D_GY_Load3 Phases=1  Bus1=SD_UNBAL_OY_OD_4.3.1  kW=1583.33  PF=.95 kV=4.16 conn=delta vminpu=0.7
+! spot loads ============? REMOVE for *_v and *_y
+!New Load.SD_UNBAL_D_GY_Load1 Phases=1  Bus1=SD_UNBAL_OY_OD_4.1.2  kW=850       PF=.85 kV=4.16 conn=delta vminpu=0.7
+!New Load.SD_UNBAL_D_GY_Load2 Phases=1  Bus1=SD_UNBAL_OY_OD_4.2.3  kW=1200      PF=.90 kV=4.16 conn=delta vminpu=0.7
+!New Load.SD_UNBAL_D_GY_Load3 Phases=1  Bus1=SD_UNBAL_OY_OD_4.3.1  kW=1583.33  PF=.95 kV=4.16 conn=delta vminpu=0.7
 
 Set voltagebases=(12.47, 4.16)
 Calcv

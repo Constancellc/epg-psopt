@@ -68,7 +68,6 @@ BB_eth = [zeros(2*3*nEth,1);v_testfeederEth(1:3);t_testfeederEth(1:3);pEth(4:end
 Xhat_eth = Aeth\BB_eth;
 Xhat_ethnf = Aeth_nf\BB_eth;
 
-
 % ------------ PLOT
 figname = [fig_loc,'/ETH_sln'];
 fig = figure('Color','White','Position',fig_pos);

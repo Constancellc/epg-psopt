@@ -1,4 +1,24 @@
 function [ YNodeV0,Ybus,x,n,Amat,BB ] = linear_analysis_3ph( DSSObj,GG,YNodeS,TR_name,V_type,TC_No0 )
+% linear_analysis_3ph is a script to create a linear model of a
+% distribution network, Amat*x = BB.
+% 
+% INPUTS
+% DSSObj is a DSS COM object.
+% YNodeS is a set of powers to create Amat, BB, if required. Set to zero
+% will simply return NaNs for these.
+% TR_name is the names of the transformers, created by find_tap_pos.
+% GG contains the original, no-load, and fixed tap files.
+% TC_No0 gives the position of the taps at the locations of interest.
+% V_type is the voltage type- 'flat', no load 'nold', weighted 'whtd'
+%
+% OUTPUTS
+% YNodeV0 returns the fixed-tap voltages at no load.
+% Ybus returns the Ybus matrix
+% x returns the problem solution at YNodeS
+% n returns the number of nodes
+% Amat returns the A matrix, if specified 
+% BB returns the BB matrix, if specified
+
 
 DSSText = DSSObj.Text;
 
@@ -10,11 +30,11 @@ DSSSolution=DSSCircuit.Solution;
 if isempty(TR_name)==0
     if strcmp(GG.feeder,'13bus')
         regname = 'RegControl.';
-    elseif strcmp(GG.feeder,'34bus')
+    elseif strcmp(GG.feeder,'34bus') + strcmp(GG.feeder,'37bus')
         regname = 'RegControl.c';
     end
     for i =1:numel(TR_name)
-        DSSText.command=['edit ,',regname,TR_name{i},' tapnum=',num2str(TC_No0(i))];
+        DSSText.command=['edit ',regname,TR_name{i},' tapnum=',num2str(TC_No0(i))];
         DSSText.command=[regname,TR_name{i},'.maxtapchange=0']; % fix taps
     end
 end
@@ -31,8 +51,8 @@ DSSCircuit=DSSObj.ActiveCircuit;
 DSSSolution=DSSCircuit.Solution;
 if isempty(TR_name)==0
     for i =1:numel(TR_name)
-        DSSText.command=['edit RegControl.',TR_name{i},' tapnum=',num2str(TC_No0(i))]; % fix taps
-        DSSText.command=['RegControl.',TR_name{i},'.maxtapchange=0']; % fix taps
+        DSSText.command=['edit ',regname,TR_name{i},' tapnum=',num2str(TC_No0(i))]; % fix taps
+        DSSText.command=[regname,TR_name{i},'.maxtapchange=0']; % fix taps
     end
 end
 DSSSolution.Solve;

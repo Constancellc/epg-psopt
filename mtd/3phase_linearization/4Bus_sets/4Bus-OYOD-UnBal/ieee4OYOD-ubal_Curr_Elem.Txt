@@ -1,0 +1,68 @@
+
+CIRCUIT ELEMENT CURRENTS
+
+(Currents into element from indicated bus)
+
+Power Delivery Elements
+
+  Bus            Phase    Magnitude, A     Angle      (Real)   +j  (Imag)
+
+ELEMENT = "Vsource.SOURCE"
+SOURCEBUS            1           424.76 /_  106.2 =    -118.33 +j    407.94
+SOURCEBUS            2           440.31 /_   61.5 =     210.26 +j    386.86
+SOURCEBUS            3         0.017326 /_   26.4 =   0.015513 +j 0.0077157
+------------
+SOURCEBUS            0           424.76 /_  -73.8 =     118.33 +j   -407.94
+SOURCEBUS            0           440.31 /_ -118.5 =    -210.26 +j   -386.86
+SOURCEBUS            0         0.017326 /_ -153.6 =  -0.015513 +j -0.0077157
+
+ELEMENT = "Line.L1"
+SOURCEBUS            1           424.76 /_  -73.8 =     118.33 +j   -407.94
+SOURCEBUS            2           440.31 /_ -118.5 =    -210.26 +j   -386.86
+SOURCEBUS            3         0.017326 /_ -153.6 =  -0.015513 +j -0.0077157
+------------
+SD_UNBAL_OY_OD_2     1           424.78 /_  106.2 =    -118.34 +j    407.96
+SD_UNBAL_OY_OD_2     2           440.31 /_   61.5 =     210.28 +j    386.85
+SD_UNBAL_OY_OD_2     3      4.0674E-012 /_ -116.6 =  -1.819E-012 +j -3.638E-012
+
+ELEMENT = "Line.L2"
+SD_UNBAL_OY_OD_3     1           735.19 /_  -73.8 =     204.81 +j   -706.08
+SD_UNBAL_OY_OD_3     2           569.93 /_  176.3 =    -568.76 +j    36.541
+SD_UNBAL_OY_OD_3     3           762.07 /_   61.5 =     363.95 +j    669.54
+------------
+SD_UNBAL_OY_OD_4     1           735.19 /_  106.2 =    -204.81 +j    706.09
+SD_UNBAL_OY_OD_4     2           569.94 /_   -3.7 =     568.76 +j   -36.549
+SD_UNBAL_OY_OD_4     3           762.07 /_ -118.5 =    -363.95 +j   -669.54
+
+ELEMENT = "Transformer.SD_UNBAL_OY_OD_XFMA"
+SD_UNBAL_OY_OD_2     1           424.78 /_  -73.8 =     118.34 +j   -407.96
+SD_UNBAL_OY_OD_2     0           424.78 /_  106.2 =    -118.34 +j    407.96
+------------
+SD_UNBAL_OY_OD_3     1           735.19 /_  106.2 =    -204.81 +j    706.08
+SD_UNBAL_OY_OD_3     2           735.19 /_  -73.8 =     204.81 +j   -706.08
+
+ELEMENT = "Transformer.SD_UNBAL_OY_OD_XFMB"
+SD_UNBAL_OY_OD_2     2           440.31 /_ -118.5 =    -210.28 +j   -386.85
+SD_UNBAL_OY_OD_2     0           440.31 /_   61.5 =     210.28 +j    386.85
+------------
+SD_UNBAL_OY_OD_3     2           762.07 /_   61.5 =     363.95 +j    669.54
+SD_UNBAL_OY_OD_3     3           762.07 /_ -118.5 =    -363.95 +j   -669.54
+
+= = = = = = = = = = = = = = = = = = =  = = = = = = = = = = =  = =
+
+Power Conversion Elements
+
+  Bus            Phase    Magnitude, A     Angle      (Real)   +j  (Imag)
+
+ELEMENT = "Load.SD_UNBAL_D_GY_LOAD1"
+SD_UNBAL_OY_OD_4     1           302.43 /_  -33.3 =     252.88 +j   -165.87
+SD_UNBAL_OY_OD_4     2           302.43 /_  146.7 =    -252.88 +j    165.87
+
+ELEMENT = "Load.SD_UNBAL_D_GY_LOAD2"
+SD_UNBAL_OY_OD_4     2           341.33 /_ -157.7 =    -315.88 +j   -129.32
+SD_UNBAL_OY_OD_4     3           341.33 /_   22.3 =     315.88 +j    129.32
+
+ELEMENT = "Load.SD_UNBAL_D_GY_LOAD3"
+SD_UNBAL_OY_OD_4     3           542.38 /_   84.9 =     48.056 +j    540.25
+SD_UNBAL_OY_OD_4     1           542.38 /_  -95.1 =    -48.056 +j   -540.25
+

@@ -47,6 +47,6 @@ solve
 !Show Voltage  LL Nodes
 !show voltages LN Nodes 
 !show currents resid=yes elements  ! this shows sum of phase currents
-Show Powers kva Elements
+! Show Powers kva Elements
 
 

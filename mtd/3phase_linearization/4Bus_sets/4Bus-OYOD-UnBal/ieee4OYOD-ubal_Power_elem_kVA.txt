@@ -1,0 +1,78 @@
+
+CIRCUIT ELEMENT POWER FLOW
+
+(Power Flow into element from indicated Bus)
+
+Power Delivery Elements
+
+  Bus            Phase     kW     +j   kvar         kVA         PF
+
+ELEMENT = "Vsource.SOURCE"
+SOURCEBUS            1      -851.9 +j  -2937.0     3058.0       0.2786
+SOURCEBUS            2     -3169.0 +j     81.6     3170.0      -0.9997
+SOURCEBUS            3        -0.0 +j      0.1        0.1      -0.0620
+   TERMINAL TOTAL ........ -4020.9 +j  -2855.2     4931.5       0.8153
+SOURCEBUS            0         0.0 +j      0.0        0.0       1.0000
+SOURCEBUS            0         0.0 +j      0.0        0.0       1.0000
+SOURCEBUS            0         0.0 +j      0.0        0.0       1.0000
+   TERMINAL TOTAL ........     0.0 +j      0.0        0.0       1.0000
+
+ELEMENT = "Line.L1"
+SOURCEBUS            1       851.9 +j   2937.0     3058.0       0.2786
+SOURCEBUS            2      3169.0 +j    -81.6     3170.0      -0.9997
+SOURCEBUS            3         0.0 +j     -0.1        0.1      -0.0620
+   TERMINAL TOTAL ........  4020.9 +j   2855.2     4931.5       0.8153
+SD_UNBAL_OY_OD_2     1      -787.8 +j  -2845.9     2953.0       0.2668
+SD_UNBAL_OY_OD_2     2     -3151.8 +j    191.5     3157.6      -0.9982
+SD_UNBAL_OY_OD_2     3        -0.0 +j     -0.0        0.0       0.5431
+   TERMINAL TOTAL ........ -3939.7 +j  -2654.4     4750.5       0.8293
+
+ELEMENT = "Line.L2"
+SD_UNBAL_OY_OD_3     1      1154.8 +j    838.0     1426.8       0.8094
+SD_UNBAL_OY_OD_3     2      1150.6 +j    756.4     1377.0       0.8356
+SD_UNBAL_OY_OD_3     3      1537.2 +j    477.9     1609.8       0.9549
+   TERMINAL TOTAL ........  3842.6 +j   2072.3     4365.8       0.8802
+SD_UNBAL_OY_OD_4     1     -1053.2 +j   -670.6     1248.6       0.8435
+SD_UNBAL_OY_OD_4     2     -1116.8 +j   -663.9     1299.2       0.8596
+SD_UNBAL_OY_OD_4     3     -1463.1 +j   -293.7     1492.3       0.9804
+   TERMINAL TOTAL ........ -3633.1 +j  -1628.3     3981.3       0.9125
+
+ELEMENT = "Transformer.SD_UNBAL_OY_OD_XFMA"
+SD_UNBAL_OY_OD_2     1       787.8 +j   2845.9     2953.0       0.2668
+SD_UNBAL_OY_OD_2     0         0.0 +j      0.0        0.0       1.0000
+   TERMINAL TOTAL ........   787.8 +j   2845.9     2953.0       0.2668
+SD_UNBAL_OY_OD_3     1     -1154.8 +j   -838.0     1426.8       0.8094
+SD_UNBAL_OY_OD_3     2       413.8 +j  -1727.4     1776.2      -0.2329
+   TERMINAL TOTAL ........  -741.1 +j  -2565.3     2670.2       0.2775
+
+ELEMENT = "Transformer.SD_UNBAL_OY_OD_XFMB"
+SD_UNBAL_OY_OD_2     2      3151.8 +j   -191.5     3157.6      -0.9982
+SD_UNBAL_OY_OD_2     0         0.0 +j      0.0        0.0       1.0000
+   TERMINAL TOTAL ........  3151.8 +j   -191.5     3157.6      -0.9982
+SD_UNBAL_OY_OD_3     2     -1564.3 +j    970.9     1841.2      -0.8496
+SD_UNBAL_OY_OD_3     3     -1537.2 +j   -477.9     1609.8       0.9549
+   TERMINAL TOTAL ........ -3101.6 +j    493.0     3140.5      -0.9876
+
+= = = = = = = = = = = = = = = = = = =  = = = = = = = = = = =  = =
+
+Power Conversion Elements
+
+  Bus            Phase     kW   +j  kvar         kVA         PF
+
+ELEMENT = "Load.SD_UNBAL_D_GY_LOAD1"
+SD_UNBAL_OY_OD_4     1     508.5 +j  -72.2      513.6      -0.9901
+SD_UNBAL_OY_OD_4     2     341.4 +j  598.9      689.4       0.4953
+  TERMINAL TOTAL  ........   850.0 +j    526.8     1000.0       0.8500
+
+ELEMENT = "Load.SD_UNBAL_D_GY_LOAD2"
+SD_UNBAL_OY_OD_4     2     775.4 +j   64.9      778.1       0.9965
+SD_UNBAL_OY_OD_4     3     424.6 +j  516.2      668.4       0.6353
+  TERMINAL TOTAL  ........  1200.0 +j    581.1     1333.3       0.9000
+
+ELEMENT = "Load.SD_UNBAL_D_GY_LOAD3"
+SD_UNBAL_OY_OD_4     3    1038.5 +j -222.5     1062.1      -0.9778
+SD_UNBAL_OY_OD_4     1     544.7 +j  742.8      921.1       0.5914
+  TERMINAL TOTAL  ........  1583.3 +j    520.3     1666.6       0.9500
+
+
+Total Circuit Losses =  387.8 +j 1226.9
