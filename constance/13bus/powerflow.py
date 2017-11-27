@@ -30,16 +30,17 @@ loads = {'634.1':complex(160000,110000),
          '670.2':complex(66000,38000),
          '670.3':complex(118000,68000)}
 
+sourceBus = ['RG60.1','RG60.2','RG60.3']
 nNodes = len(nodeNames)
 nFlows = 0
 flows = []
 
+print(nodeNames)
 # converting resistances to per unit
 for i in range(0,len(R)):
     nodei = nodeNames[i]
     for j in range(0,len(R[0])):
         nodej = nodeNames[j]
-
 
         if j > i:
             if R[i][j] != 0:
@@ -55,20 +56,21 @@ for i in range(0,len(R)):
         R[i][j] = R[i][j]/Zbase
         X[i][j] = X[i][j]/Zbase
 
+A = []
+b = []
 
-A = matrix(0.0,(nNodes+2*nFlows,nNodes+2*nFlows))
-b = matrix(0.0,(nNodes+2*nFlows,1))
+# variables: voltages in order of nodeNames, power flows p1 q1 p2 q2..
 
-print(nNodes)
-print(nFlows)
+# source bus
+for i in range(0,3):
+    A.append([0.0]*int(nNodes+2*nFlows))
+    A[-1][i] = 1.0
+    b.append(1.0)
 
-print(flows)
-for i in range(0,3): # source bus
-    A[i,i] = 1
-    b[i] = 1
-
+# voltage drop
 for ln in range(0,len(flows)):
-    cn = ln+3 # constraint number
+    A.append([0.0]*int(nNodes+2*nFlows))
+    b.append(0.0)
     
     nodei = flows[ln][0]
     nodej = flows[ln][1]
@@ -80,10 +82,52 @@ for ln in range(0,len(flows)):
         elif nodeNames[k] == nodej:
             j_in = k
 
-    A[cn,i_in] = 1.0
-    A[cn,j_in] = -1.0
-    A[cn,int(nNodes+2*ln)] = -R[i_in][j_in]
-    A[cn,int(nNodes+2*ln+1)] = -X[i_in][j_in]
+    A[-1][i_in] = 1.0
+    A[-1][j_in] = -1.0
+    A[-1][int(nNodes+2*ln)] = -R[i_in][j_in]
+    A[-1][int(nNodes+2*ln+1)] = -X[i_in][j_in]    
+
+# continuity
+for i in range(len(nodeNames)):
+    node = nodeNames[i]
+    if node in sourceBus:
+        continue
+
+    A.append([0.0]*int(nNodes+2*nFlows)) # real
+    A.append([0.0]*int(nNodes+2*nFlows)) # imag
+    b.append(0.0)
+    b.append(0.0)
+
+    # first look for power flows in and out of the node
+
+    for l in range(len(flows)):
+        nodei = flows[l][0]
+        nodej = flows[l][1]
+        if nodei == node:
+            A[-2][int(nNodes+2*l)] = 1.0
+            A[-1][int(nNodes+2*l)] = 1.0
+        elif nodej == node:
+            A[-2][int(nNodes+2*l)] = -1.0
+            A[-1][int(nNodes+2*l)] = -1.0
+
+A = np.array(A)
+b = np.array(b)
+
+x = np.linalg.lstsq(A, b)
+print(x)
+'''           
+A = matrix(0.0,(nNodes+2*nFlows,nNodes+2*nFlows))
+b = matrix(0.0,(nNodes+2*nFlows,1))
+
+print(nNodes)
+print(nFlows)
+
+print(flows)
+for i in range(0,3): # source bus
+    A[i,i] = 1
+    b[i] = 1
+
+
 
 # now continuity equations
 for i in range(3,len(nodeNames)):
@@ -179,12 +223,12 @@ for i in range(0,len(nodeNames)):
     tru[ph].append(sol)
     x_ticks[ph].append(node)
 
-'''
+
 for ph in range(0,3):
     scale = tru[ph][1]
     for i in range(0,len(tru[ph])):
         tru[ph][i] = tru[ph][i]/scale
-'''
+
 
 plt.figure(1)
 for ph in range(0,3):
@@ -195,3 +239,4 @@ for ph in range(0,3):
 plt.show()
 
 # I think the problem with the non decoupled might be in the continuity equations with things flowing when not physically connected
+'''
