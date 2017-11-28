@@ -3,11 +3,13 @@ import numpy as np
 from cvxopt import matrix
 
 nodeNames = []
-with open('nodeNames.csv','rU') as csvfile:
+with open('../nodeNames.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
-        cell = row[0][1:]
-        nodeNames.append(cell[:len(cell)-1])
+        if row == []:
+            continue
+        cell = row[0]#[1:]
+        nodeNames.append(cell)#[:len(cell)-1])
 
 
 R = []

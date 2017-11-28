@@ -1,6 +1,7 @@
-from cvxopt import matrix
+from cvxopt import matrix, spdiag, solvers, sparse
 import numpy as np
 import matplotlib.pyplot as plt
+import csv
 # ok, this is assuming that I have the admittance matrix
 
 from ybus import R, X, nodeNames
@@ -30,46 +31,43 @@ loads = {'634.1':complex(160000,110000),
          '670.2':complex(66000,38000),
          '670.3':complex(118000,68000)}
 
+sourceBus = ['RG60.1','RG60.2','RG60.3']
 nNodes = len(nodeNames)
 nFlows = 0
 flows = []
 
+print(nodeNames)
 # converting resistances to per unit
 for i in range(0,len(R)):
     nodei = nodeNames[i]
     for j in range(0,len(R[0])):
         nodej = nodeNames[j]
 
-
         if j > i:
             if R[i][j] != 0:
                 
                 if nodei[:3] == nodej[:3]:
                     continue
+                '''
                 if nodei[-1] != nodej[-1]:
                     continue
-                
+                '''
                 flows.append([nodei,nodej])
                 nFlows += 1
         
         R[i][j] = R[i][j]/Zbase
         X[i][j] = X[i][j]/Zbase
 
-
-A = matrix(0.0,(nNodes+2*nFlows,nNodes+2*nFlows))
-b = matrix(0.0,(nNodes+2*nFlows,1))
-
-print(nNodes)
-print(nFlows)
-
 print(flows)
-for i in range(0,3): # source bus
-    A[i,i] = 1
-    b[i] = 1
+A1 = matrix(0.0,(nFlows,int(nNodes+2*nFlows)))
+A2 = matrix(0.0,(int(2*(nNodes)-len(sourceBus)),int(nNodes+2*nFlows)))
+b1 = matrix(0.0,(nFlows,1))
+b2 = matrix(0.0,(int(2*(nNodes)-len(sourceBus)),1))
 
+
+# voltage drop
 for ln in range(0,len(flows)):
-    cn = ln+3 # constraint number
-    
+            
     nodei = flows[ln][0]
     nodej = flows[ln][1]
 
@@ -80,49 +78,61 @@ for ln in range(0,len(flows)):
         elif nodeNames[k] == nodej:
             j_in = k
 
-    A[cn,i_in] = 1.0
-    A[cn,j_in] = -1.0
-    A[cn,int(nNodes+2*ln)] = -R[i_in][j_in]
-    A[cn,int(nNodes+2*ln+1)] = -X[i_in][j_in]
+    A1[ln,i_in] = 1.0
+    A1[ln,j_in] = -1.0
+    A1[ln,int(nNodes+2*ln)] = -R[i_in][j_in]
+    A1[ln,int(nNodes+2*ln+1)] = -X[i_in][j_in]
 
-# now continuity equations
-for i in range(3,len(nodeNames)):
-    print(cn,end=' ')
-    print(i)
-    cn += 1
 
+cn = 0
+# continuity
+for i in range(len(nodeNames)):
     node = nodeNames[i]
-
-    # looking for lines in
-    for l in range(0,len(flows)):
-        if flows[l][0] == node:
-            # line leaves from node
-            A[cn,int(nNodes+2*l)] = -1.0
-            A[cn+1,int(nNodes+2*l+1)] = -1.0
-            
-        elif flows[l][1] == node:
-            # line enters node
-            A[cn,int(nNodes+2*l)] = 1.0
-            A[cn+1,int(nNodes+2*l+1)] = 1.0
+    if node in sourceBus:
+        A2[cn,i] = 1.0
+        b2[cn] = 1.0
+        cn += 1
+        continue
 
     try:
-        load = loads[node]
+        ld = loads[node]
     except:
-        load = complex(0,0)
-
-    b[cn] = load.real/Sbase
-    b[cn+1] = load.imag/Sbase
+        ld = complex(0.0,0.0)
     
+    for l in range(len(flows)):
+        nodei = flows[l][0]
+        nodej = flows[l][1]
+        if nodei == node:
+            A2[cn,int(nNodes+2*l)] = -1.0
+            A2[cn+1,int(nNodes+2*l+1)] = -1.0
+        elif nodej == node:
+            A2[cn,int(nNodes+2*l)] = 1.0
+            A2[cn+1,int(nNodes+2*l+1)] = 1.0
 
-    cn += 1
+    b2[cn] = ld.real/Sbase
+    b2[cn+1] = ld.imag/Sbase
+            
+    cn += 2
 
-print(flows)
 
-sol = np.linalg.solve(A,b)
+A_ = sparse([A1,A2])
+b_ = sparse([b1,b2])
 
-print(sol)
+q = matrix(-1*A_.T*b_)
+P = A_.T*A_
 
-V = sol[:len(nodeNames)]
+G1 = sparse([[matrix(0.0,(nNodes-3,3))],[spdiag([-1]*(nNodes-3))],[matrix(0.0,(nNodes-3,2*nFlows))]])
+G2 = sparse([[matrix(0.0,(nNodes-3,3))],[spdiag([1]*(nNodes-3))],[matrix(0.0,(nNodes-3,2*nFlows))]])
+h1 = matrix(-0.8,(nNodes-3,1))
+h2 = matrix(1.2,(nNodes-3,1))
+
+G = sparse([G1,G2])
+h = matrix(sparse([h1,h2]))
+
+sol = solvers.qp(P,q,G,h,A2,b2) # solve quadratic program
+X = sol['x']
+
+vEst = X[:nNodes]
 
 vSols = {'RG60.1':1.0,
          'RG60.2':1.0,
@@ -157,41 +167,17 @@ vSols = {'RG60.1':1.0,
          '634.2':1.0218,
          '634.3':0.9960}
 
-est = []
 tru = []
-x_ticks = []
-
-for i in range(0,3):
-    est.append([])
-    tru.append([])
-    x_ticks.append([])
+est = []
 
 for i in range(0,len(nodeNames)):
     try:
-        sol = vSols[nodeNames[i]]
+        tru.append(vSols[nodeNames[i]])
     except:
         continue
-
-    ph = int(nodeNames[i][-1])-1
-    node = nodeNames[i][:3]
-
-    est[ph].append(V[i])
-    tru[ph].append(sol)
-    x_ticks[ph].append(node)
-
-'''
-for ph in range(0,3):
-    scale = tru[ph][1]
-    for i in range(0,len(tru[ph])):
-        tru[ph][i] = tru[ph][i]/scale
-'''
+    est.append(vEst[i])
 
 plt.figure(1)
-for ph in range(0,3):
-    plt.subplot(3,1,ph+1)
-    plt.plot(range(0,len(est[ph])),est[ph])
-    plt.plot(range(0,len(est[ph])),tru[ph])
-    plt.xticks(range(0,len(est[ph])),x_ticks[ph])
+plt.scatter(range(len(est)),tru)
+plt.scatter(range(len(est)),est)
 plt.show()
-
-# I think the problem with the non decoupled might be in the continuity equations with things flowing when not physically connected
