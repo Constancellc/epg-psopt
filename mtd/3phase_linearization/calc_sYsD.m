@@ -7,7 +7,8 @@ iY = zeros(size(YZ));
 sY = zeros(size(YZ));
 
 for i = 1:numel(B)
-    idx{i,1} = find_node_idx(YZ,B{i}(1:3));
+    idx{i,1} = find_node_idx(YZ,B{i});
+%     idx{i,1} = find_node_idx(YZ,B{i}(1:3));
     if D{i}==1
         if numel(B{i})>4
             if strcmp(B{i}(end-3),'.') && strcmp(B{i}(end-1),'.')

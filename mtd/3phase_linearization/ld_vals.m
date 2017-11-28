@@ -2,7 +2,7 @@ function [B,V,I,S,D] = ld_vals( DSSCircuit )
 
 
 % Element_names = DSSCircuit.AllElementNames;
-ii=DSSCircuit.FirstPCElement;
+ii = DSSCircuit.FirstPCElement;
 AE = DSSCircuit.ActiveElement;
 LDS = DSSCircuit.loads;
 i = 1;

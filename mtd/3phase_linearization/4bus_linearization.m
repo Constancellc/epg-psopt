@@ -29,7 +29,7 @@ YZNodeOrder = DSSCircuit.YNodeOrder;
 YNodeVarray = DSSCircuit.YNodeVarray';
 YNodeV = YNodeVarray(1:2:end) + 1i*YNodeVarray(2:2:end);
 [B,V,I,S,D] = ld_vals( DSSCircuit )
-
+[iD,sD,iY,sY] = calc_sYsD( YZNodeOrder,B,I,S,D );
 
 [ YNodeV0,Ybus,~,~,~,~ ] = linear_analysis_3ph( DSSObj,GG,0,[],'flat',[] );
 
@@ -44,8 +44,27 @@ bus_ma(YZNodeOrder,abs(YNodeV),angle(YNodeV)*180/pi,'');
 bus_ma(YZNodeOrder,abs(YNodeI),angle(-YNodeI)*180/pi,'');
 bus_ma(YZNodeOrder,real(YNodeS),imag(YNodeS),'');
 
+%%
+xhy = [real(sY);imag(sY)];
+xhd = [real(sD);imag(sD)];
+xh = [xhy;xhd];
 
 [ My,Md,a,Ky,Kd,b ] = nrel_linearization( xh,H,Ybus,YNodeV(4:end),YNodeV(1:3) );
+
+% define linear model:
+vc = My*xhy + Md*xhd + a;
+vm = Ky*xhy + Kd*xhd + b;
+
+% Check the values of (14):
+norm(vc - YNodeV(4:end))/norm(YNodeV(4:end))
+plot(abs(vc)); hold on;
+plot(abs(YNodeV(4:end)));
+
+
+
+
+
+
 
 %% to compare OYOD Unbalanced
 % bus_ma(YZNodeOrder,real(-YNodeI),imag(-YNodeI));
@@ -60,6 +79,13 @@ dI = [I12; I23; I31];
 
 H = [1 -1 0;0 1 -1;-1 0 1];
 H'*dI;
+
+
+
+
+
+
+
 
 
 
