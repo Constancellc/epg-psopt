@@ -1,9 +1,10 @@
-function [B,V,I,S] = ld_vals( DSSCircuit )
+function [B,V,I,S,D] = ld_vals( DSSCircuit )
 
 
 % Element_names = DSSCircuit.AllElementNames;
 ii=DSSCircuit.FirstPCElement;
 AE = DSSCircuit.ActiveElement;
+LDS = DSSCircuit.loads;
 i = 1;
 while ii
     name = AE.Name;
@@ -14,6 +15,7 @@ while ii
     I{i,1} = crrnts(1:2:end) + 1i*crrnts(2:2:end);
     voltgs = AE.Voltages';
     V{i,1} = voltgs(1:2:end) + 1i*voltgs(2:2:end);
+    D{i,1} = LDS.IsDelta;
     
     if strcmp(name(1:4),'Load')
         B{i,1}=AE.bus{:};
@@ -24,7 +26,7 @@ while ii
     i=i+1;
 end
 
-% LDS = DSSCircuit.loads;
+% 
 % ii = LDS.First;
 % jj = 1;
 % while ii

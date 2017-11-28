@@ -20,7 +20,6 @@ GG.filename = [WD,'\37Bus_copy\ieee37'];
 GG.filename_v = [GG.filename,'_v'];
 GG.filename_y = [GG.filename,'_y'];
 GG.feeder='37bus';
-
 % First we need to find the nominal tap positions for the flat voltage profile
 DSSText.command=['Compile (',GG.filename,'.dss)'];
 [ TC_No0,TR_name,TC_bus ] = find_tap_pos( DSSCircuit );
@@ -46,36 +45,35 @@ abs(iYD)
 angle(iYD)*180/pi;
 %%
 DSSText.command=['Compile (',GG.filename,'.dss)'];
-[B,V,I,S,D] = ld_vals( DSSCircuit );
+[B,V,I,S] = ld_vals( DSSCircuit );
 
-% iD = zeros(size(YZNodeOrder));
-% sD = zeros(size(YZNodeOrder));
-% for i = 1:numel(B)
-%     idx{i,1} = find_node_idx(YZNodeOrder,B{i}(1:3));
-%     if numel(B{i})>4 && D{i}==1
-%         if strcmp(B{i}(end-3),'.') && strcmp(B{i}(end-1),'.')
-%             ph1=str2num(B{i}(end-2));
-%             ph2=str2num(B{i}(end));
-%             if ph1==1 && ph2==2
-%                 iD(idx{i,1}(1)) = I{i}(1);
-%                 sD(idx{i,1}(1)) = S{i}(1) + S{i}(2);
-%             elseif ph1==2 && ph2==3
-%                 iD(idx{i,1}(2)) = I{i}(1);
-%                 sD(idx{i,1}(2)) = S{i}(1) + S{i}(2);
-%             elseif ph1==3 && ph2==1
-%                 iD(idx{i,1}(3)) = I{i}(1);
-%                 sD(idx{i,1}(3)) = S{i}(1) + S{i}(2);
-%             end
-%         end
-%         
-%     else
-%         iD(idx{i,1}) = I{i}*exp(+1i*pi/6)/sqrt(3);
-%         sD(idx{i,1}) = S{i};
-%     end
-%     
-% end
-
-[iD,sD,iY,sY] = calc_sYsD( YZNodeOrder,B,I,S,D );
+iD = zeros(size(YZNodeOrder));
+sD = zeros(size(YZNodeOrder));
+v = YNodeV;
+for i = 1:numel(B)
+    idx{i,1} = find_node_idx(YZNodeOrder,B{i}(1:3));
+    if numel(B{i})>4
+        if strcmp(B{i}(end-3),'.') && strcmp(B{i}(end-1),'.')
+            ph1=str2num(B{i}(end-2));
+            ph2=str2num(B{i}(end));
+            if ph1==1 && ph2==2
+                iD(idx{i,1}(1)) = I{i}(1);
+                sD(idx{i,1}(1)) = S{i}(1) + S{i}(2);
+            elseif ph1==2 && ph2==3
+                iD(idx{i,1}(2)) = I{i}(1);
+                sD(idx{i,1}(2)) = S{i}(1) + S{i}(2);
+            elseif ph1==3 && ph2==1
+                iD(idx{i,1}(3)) = I{i}(1);
+                sD(idx{i,1}(3)) = S{i}(1) + S{i}(2);
+            end
+        end
+        
+    else
+        iD(idx{i,1}) = I{i}*exp(+1i*pi/6)/sqrt(3);
+        sD(idx{i,1}) = S{i};
+    end
+    
+end
 
 bus_ma(YZNodeOrder,abs(iD),angle(iD)*180/pi,'');
 % bus_ma(YZNodeOrder,abs(v)/1e3,angle(v)*180/pi,'');
@@ -86,7 +84,8 @@ G = [1 -1 0;0 1 -1; -1 0 1];
 HH = kron(eye(39),G);
 % bus_ma(YZNodeOrder,abs(H*iD),angle(H*iD)*180/pi,'');
 
-sD_p = diag((HH*YNodeV))*conj(iD);
+sD_p = diag((HH*v))*conj(iD);
+
 sD_er = (real(sD_p)/1e3 - real(sD))./real(sD) + 1i*((imag(sD_p)/1e3 - imag(sD))./imag(sD));
 
 bus_ma(YZNodeOrder,real(sD_er)*100,imag(sD_er)*100,'');
@@ -100,43 +99,40 @@ Y = Ybus;
 
 H = kron(eye(38),G);
 
-% sY = zeros(size(sD));
-xhy = -1e3*[real(sY(4:end));imag(sY(4:end))];
-xhd = -1e3*[real(sD(4:end));imag(sD(4:end))];
-xh = [xhy;xhd];
+sY = zeros(size(sD));
+xh = -1e3*[real(sY(4:end));imag(sY(4:end));real(sD(4:end));imag(sD(4:end))];
 
 V0 = YNodeV(1:3);
 Vh = YNodeV(4:end);
-% vh = abs(YNodeV(4:end));
+vh = abs(YNodeV(4:end));
 
-[ My,Md,a,Ky,Kd,b ] = nrel_linearization( xh,H,Ybus,Vh,V0 );
-%
+%%
 % V0 = Vh(1:3);
 % V0=[1;exp(-1i*2*pi/3);exp(1i*2*pi/3)]*132*1e3;
 
 % find derived values
-% Nd = size(H,1);
-% Ny = size(H,2);
-% 
-% xhy = xh(1:2*Ny);
-% xhd = xh(2*Ny+1:end);
-% 
-% Yll = Y(4:end,4:end);
-% Yl0 = Y(4:end,1:3);
-% 
-% w = -Yll\Yl0*V0;
-% 
-% % now create linearisation matrices
-% My0 = inv(diag(conj(Vh))*Yll);
-% Md0 = inv(Yll)*(H')*inv(diag(H*conj(Vh)));
-% My = [ My0, -1i*My0 ]; %#ok<MINV>
-% Md = [ Md0, -1i*Md0 ];
-% 
-% Ky = diag(vh)\real( diag(conj(Vh))*My );
-% Kd  = diag(vh)\real( diag(conj(Vh))*Md );
-% 
-% a = w;
-% b = vh - Ky*xhy - Kd*xhd;
+Nd = size(H,1);
+Ny = size(H,2);
+
+xhy = xh(1:2*Ny);
+xhd = xh(2*Ny+1:end);
+
+Yll = Y(4:end,4:end);
+Yl0 = Y(4:end,1:3);
+
+w = -Yll\Yl0*V0;
+
+% now create linearisation matrices
+My0 = inv(diag(conj(Vh))*Yll);
+Md0 = inv(Yll)*(H')*inv(diag(H*conj(Vh)));
+My = [ My0, -1i*My0 ]; %#ok<MINV>
+Md = [ Md0, -1i*Md0 ];
+
+Ky = diag(vh)\real( diag(conj(Vh))*My );
+Kd  = diag(vh)\real( diag(conj(Vh))*Md );
+
+a = w;
+b = vh - Ky*xhy - Kd*xhd;
  
 % define linear model:
 vc = My*xhy + Md*xhd + a;
