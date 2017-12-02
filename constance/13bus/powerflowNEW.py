@@ -48,10 +48,10 @@ for i in range(0,len(R)):
                 
                 if nodei[:3] == nodej[:3]:
                     continue
-                '''
+                #'''
                 if nodei[-1] != nodej[-1]:
                     continue
-                '''
+                #'''
                 flows.append([nodei,nodej])
                 nFlows += 1
         
