@@ -37,9 +37,9 @@ YNodeS = YNodeV.*conj(YNodeI)/1e3;
 I0 = Ybus*YNodeV0;
 
 clc
-bus_ma(YZNodeOrder,abs(YNodeV),angle(YNodeV)*180/pi);
-bus_ma(YZNodeOrder,abs(YNodeI),angle(-YNodeI)*180/pi);
-bus_ma(YZNodeOrder,real(YNodeS),imag(YNodeS));
+bus_ma(YZNodeOrder,abs(YNodeV),angle(YNodeV)*180/pi,'');
+bus_ma(YZNodeOrder,abs(YNodeI),angle(-YNodeI)*180/pi,'');
+bus_ma(YZNodeOrder,real(YNodeS),imag(YNodeS),'');
 
 %% to compare OYOD Unbalanced
 % bus_ma(YZNodeOrder,real(-YNodeI),imag(-YNodeI));

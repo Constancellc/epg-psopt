@@ -26,7 +26,6 @@ while ii
     i=i+1;
 end
 
-% 
 % ii = LDS.First;
 % jj = 1;
 % while ii

@@ -1,3 +1,7 @@
+%run_linearization is (a rather old) script that gets the 13 bus
+%linearization up and running. It then checks the linearization at a
+%particular bus (rather than doing a nice continuation analysis).
+
 close all; clear all; clc;
 cd('C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\mtd\3phase_linearization')
 addpath('lin_functions');
