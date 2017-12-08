@@ -1,11 +1,13 @@
-function [iD,sD,iY,sY] = calc_sYsD( YZ,B,I,S,D )
-
+function [iD,sD,iY,sY] = calc_sYsD( YZ,BB,I,S,D )
+% calc_sYsD is a function that takes YZNodeOrder, bus list B, corresponding
+% current injections I, power injections S, and delta existence list D and
+% uses this to create sD, sY parameters in the form of the NREL paper.
 
 iD = zeros(size(YZ));
 sD = zeros(size(YZ));
 iY = zeros(size(YZ));
 sY = zeros(size(YZ));
-
+B = upper(BB);
 for i = 1:numel(B)
     idx{i,1} = find_node_idx(YZ,B{i});
 %     idx{i,1} = find_node_idx(YZ,B{i}(1:3));
@@ -30,7 +32,8 @@ for i = 1:numel(B)
             sD(idx{i,1}) = S{i};
         end
     else
-        if numel(B{i})>4
+        if sum(B{i}=='.')>0
+%         if numel(B{i})>4
                 ph=str2num(B{i}(end));
                 if ph==1
                     iY(idx{i,1}(1)) = I{i}(1);
@@ -43,8 +46,8 @@ for i = 1:numel(B)
                     sY(idx{i,1}(3)) = S{i}(1) + S{i}(2);
                 end
         else
-            iY(idx{i,1}) = I{i};
-            sY(idx{i,1}) = S{i};
+            iY(idx{i,1}) = I{i}(1:3);
+            sY(idx{i,1}) = S{i}(1:3);
         end
 
     end

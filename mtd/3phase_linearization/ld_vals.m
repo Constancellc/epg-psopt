@@ -1,5 +1,6 @@
 function [B,V,I,S,D] = ld_vals( DSSCircuit )
-
+% ld_vals is a function that returns bus names,voltage/currents/powers at
+% buses and whether or not the load is delta connected
 
 % Element_names = DSSCircuit.AllElementNames;
 ii = DSSCircuit.FirstPCElement;

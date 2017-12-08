@@ -4,13 +4,13 @@ Set DefaultBaseFrequency=50  ! for European system
 
 New circuit.LVTest
 Edit Vsource.Source BasekV=11 pu=1.05  ISC3=3000  ISC1=5
+Redirect Transformers.txt !==> moved to make order line up with _y
 Redirect LineCode.txt
 Redirect LoadShapes.txt
 batchedit loadshape..* useactual=no
 Redirect Lines.txt
-Redirect Transformers.txt
-Redirect Loads.txt
 Redirect Monitors.txt
+!Redirect Loads.txt ===> removed for _v
 
 New energymeter.m1 LINE.LINE1 1
 

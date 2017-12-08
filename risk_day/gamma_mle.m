@@ -2,7 +2,7 @@ function [ a,b ] = gamma_mle( X )
 
 X = X+1e-6; % get rid of any zeros
 xb = mean(X);
-A = logspace(-1,2,1e2);
+A = logspace(-1,1,1e4);
 B = A/xb;
 
 % lL = zeros(size(A));
@@ -12,6 +12,7 @@ B = A/xb;
 %         lL(i) = lL(i) + lL_c + (A(i)-1)*log(X(j)) - B(i)*X(j);
 %     end
 % end
+% see e.g. https://en.wikipedia.org/wiki/Gamma_distribution#Maximum_likelihood_estimation
 lL = sum( ones(size(X))*(A.*log(B) - log(gamma(A))) + ...
                         log(X)*(A - 1) - X.*B , 1 );
 % semilogx(A,lL);

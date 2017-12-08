@@ -11,14 +11,10 @@ WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\mtd\3phase_linearizatio
 cd(WD);
 addpath('lin_functions');
 
-fn_YY = [WD,'\4Bus_sets\4Bus-YY-Bal\4bus-YY-Bal'];
-fn_DY = [WD,'\4Bus_sets\4Bus-DY-Bal\4bus-DY-Bal'];
-fn_YD = [WD,'\4Bus_sets\4Bus-YD-Bal\4bus-YD-Bal'];
-fn_GrdYD = [WD,'\4Bus_sets\4Bus-GrdYD-Bal\4bus-GrdYD-Bal'];
-fn_OYOD_UB = [WD,'\4Bus_sets\4Bus-OYOD-UnBal\4bus-OYOD-UnBal'];
+fn = [WD,'\LVTestCase_copy\Master'];
 G = [1 -1 0;0 1 -1; -1 0 1]; %gamma matrix
 
-GG.filename = fn_GrdYD;
+GG.filename = fn;
 GG.filename_v = [GG.filename,'_v'];
 GG.filename_y = [GG.filename,'_y'];
 %% ----------
@@ -54,8 +50,9 @@ bus_ma(YZNodeOrder,real(YNodeS),imag(YNodeS),'Power (P,Q), kVAR');
 xhy = -1e3*[real(sY(4:end));imag(sY(4:end))];
 xhd = -1e3*[real(sD(4:end));imag(sD(4:end))];
 xh = [xhy;xhd];
+v0 = YNodeV(1:3);
 
-[ My,Md,a,Ky,Kd,b ] = nrel_linearization( xh,H,Ybus,YNodeV(4:end),YNodeV(1:3) );
+[ My,Md,a,Ky,Kd,b ] = nrel_linearization( xh,H,Ybus,YNodeV(4:end),v0 );
 
 % define linear model:
 vc = My*xhy + Md*xhd + a;
@@ -66,7 +63,9 @@ norm(vc - YNodeV(4:end))/norm(YNodeV(4:end))
 % plot(abs(vc)); hold on;
 plot(abs(YNodeV(4:end)./abs(vc)));
 
+Vlin = [v0;vc];
 
+%%
 
 
 

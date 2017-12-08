@@ -29,7 +29,6 @@ title('1830');
 X = M(:,17*2 + 1);
 [ a,b ] = gamma_mle( X );
 
-%
 figure;
 [N,EDGES] = histcounts(X);
 x = linspace(min(EDGES),max(EDGES),1e4);

@@ -25,11 +25,10 @@ Kd  = diag(vh)\real( diag(conj(Vh))*Md );
 
 a = w;
 b = vh - Ky*xhy - Kd*xhd;
- 
+
 % define linear model:
 % vc = My*xhy + Md*xhd + a;
 % vm = Ky*xhy + Kd*xhd + b;
 
 
 end
-
