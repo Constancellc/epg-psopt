@@ -1,6 +1,7 @@
 import csv
 
 file = 'riskDayLoadIn.csv'
+#file = '../../../Documents/riskDaySpecifiedVsAppliedLoaad.csv'
 
 data = []
 
