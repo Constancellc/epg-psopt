@@ -63,17 +63,15 @@ Vlin = [v0;vc];
 Slin = Vlin.*conj(Ybus*Vlin)/1e3;
 %%
 % Check the values of (14):
-norm(vc - YNodeV(4:end))/norm(YNodeV(4:end));
-subplot(311)
-plot(abs(YNodeV(4:end)./abs(vc)));
-subplot(312)
-plot(real(Slin)); hold on; 
-subplot(313)
-plot((real(Slin)-real(YNodeS))); hold on; 
+% norm(vc - YNodeV(4:end))/norm(YNodeV(4:end));
+% subplot(311)
+% plot(abs(YNodeV(4:end)./abs(vc)));
+% subplot(312)
+% plot(real(Slin)); hold on; 
+% subplot(313)
+% plot((real(Slin)-real(YNodeS))); hold on; 
 
-save('lvtestcase_lin','My','a','v0','vh');
-
-
+save([WD,'\lvtestcase_lin.mat'],'My','a','v0','vh','sY','Ybus');
 
 
 
