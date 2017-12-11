@@ -6,6 +6,7 @@ file = '../../../Documents/riskDaySpecifiedVsAppliedLoaad.csv'
 
 appl = []
 spec = []
+ratio = []
 
 with open(file,'rU') as csvfile:
     reader = csv.reader(csvfile)
@@ -15,7 +16,13 @@ with open(file,'rU') as csvfile:
             continue
         spec.append(float(row[0]))
         appl.append(float(row[1]))
+        ratio.append(float(row[0])/float(row[1]))
 
+xx = np.arange(0,1,0.001)
+yr = [0]*len(xx)
+
+for i in range(len(ratio)):
+    yr[int(1000*ratio[i])] += 1
 
 
 x = np.arange(0,8,0.01)
@@ -47,4 +54,8 @@ plt.plot(x,y2,label='specified')
 plt.legend()
 plt.xlim(0,3)
 plt.ylim(0,0.016)
+
+plt.figure(2)
+plt.bar(xx,yr,width=0.001)
+plt.xlim(0.9,1)
 plt.show()
