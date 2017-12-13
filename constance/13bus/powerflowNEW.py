@@ -48,10 +48,10 @@ for i in range(0,len(R)):
                 
                 if nodei[:3] == nodej[:3]:
                     continue
-                #'''
+                '''
                 if nodei[-1] != nodej[-1]:
                     continue
-                #'''
+                '''
                 flows.append([nodei,nodej])
                 nFlows += 1
         
@@ -118,6 +118,17 @@ for i in range(len(nodeNames)):
 A_ = sparse([A1,A2])
 b_ = sparse([b1,b2])
 
+print(A_.size)
+print(b_.size)
+
+with open('A.csv','w') as csvfile:
+    writer = csv.writer(csvfile)
+    for i in range(A_.size[0]):
+        row = []
+        for j in range(A_.size[1]):
+            row.append(A_[i,j])
+        writer.writerow(row)
+        
 q = matrix(-1*A_.T*b_)
 P = A_.T*A_
 
@@ -128,7 +139,8 @@ h2 = matrix(1.2,(nNodes-3,1))
 
 G = sparse([G1,G2])
 h = matrix(sparse([h1,h2]))
-
+print(G.size)
+print(h.size)
 sol = solvers.qp(P,q,G,h,A2,b2) # solve quadratic program
 X = sol['x']
 
