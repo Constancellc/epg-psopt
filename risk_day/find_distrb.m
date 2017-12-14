@@ -29,12 +29,18 @@ title('1830');
 X = M(:,17*2 + 1);
 [ a,b ] = gamma_mle( X );
 
-figure;
-[N,EDGES] = histcounts(X);
-x = linspace(min(EDGES),max(EDGES),1e4);
-pdf = ((b^a)/gamma(a))*((x.^(a-1)).*exp(-b*x));
+fgnm = 'find_distrb';
+fig = figure('Position',[100 200 350 300],'Color','White');
+
 % figure;
-histogram(X,'Normalization','pdf'); hold on;
-plot(x,pdf);
+HH = histogram(X,'Normalization','pdf'); hold on;
+x = linspace(min(HH.BinEdges),max(HH.BinEdges),1e4);
+pdf = ((b^a)/gamma(a))*((x.^(a-1)).*exp(-b*x));
+
+
+plot(x,pdf,'k','Linewidth',2);
+xlabel('Household Load P_H (kW)'); ylabel('p(P_H)');
+legend('Smart Meter Data','Fitted Gamma Distrbution');
+export_fig(fig,fgnm);
 % ==> seems about ok
 % save('gamma_consts','a','b');
