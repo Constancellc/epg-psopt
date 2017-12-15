@@ -8,8 +8,8 @@
 close all; clear all; clc;
 
 G = [1 -1 0;0 1 -1; -1 0 1]; %gamma matrix
-WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\risk_day';
-% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\risk_day';
+% WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\risk_day';
+WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\risk_day';
 cd(WD);
 addpath('mtd_fncs');
 

@@ -1,6 +1,7 @@
 close all; clear all; clc;
 
-WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\risk_day_mtlb';
+% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\risk_day_mtlb';
+WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\risk_day';
 cd(WD);
 %%
 M = csvread('household_demand_pool_matt.csv');
@@ -30,17 +31,17 @@ X = M(:,17*2 + 1);
 [ a,b ] = gamma_mle( X );
 
 fgnm = 'find_distrb';
-fig = figure('Position',[100 200 350 300],'Color','White');
+fig = figure('Position',[100 200 270 220],'Color','White');
 
 % figure;
 HH = histogram(X,'Normalization','pdf'); hold on;
 x = linspace(min(HH.BinEdges),max(HH.BinEdges),1e4);
 pdf = ((b^a)/gamma(a))*((x.^(a-1)).*exp(-b*x));
 
-
 plot(x,pdf,'k','Linewidth',2);
-xlabel('Household Load P_H (kW)'); ylabel('p(P_H)');
-legend('Smart Meter Data','Fitted Gamma Distrbution');
+xlabel('Household Load $P_{H}$, (kW)','Interpreter','Latex'); 
+ylabel('$p(P_{H})$','Interpreter','Latex');
+legend('Smart Meter Data','Fitted Gamma PDF');
 export_fig(fig,fgnm);
 % ==> seems about ok
 % save('gamma_consts','a','b');
