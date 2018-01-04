@@ -5,7 +5,7 @@ folder = '../../../Documents/LV_LPF/'
 
 hh_nodes = []
 
-n = 0
+n = -3
 with open(folder+'Sy.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
@@ -29,7 +29,7 @@ with open(folder+'a.csv','rU') as csvfile:
         a_r.append(float(row[0][:c]))
         a_i.append(float(row[0][c:-1]))
 
-a = a_r+a_i
+#a = a_r+a_i
             
 print(hh_nodes)
         
