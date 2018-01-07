@@ -92,13 +92,14 @@ for v in range(55):
 
     # picks random start time between 7 and 11 and gets actual end time
     avaliable.append([int(6*60+random.random()*int((i/60)-6)*60),i])
-
+'''
 c = []
 with open('c.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
         c.append(float(row[0]))
-
+'''
+c = [1.0]*55
 c = c*T
     
 c = matrix(c)
