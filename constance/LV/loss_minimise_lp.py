@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 from cvxopt import matrix, spdiag, sparse, solvers
 import random
 
-Pmax = 3.5 # kW
+Pmax = 70 # kW
 x0 = 0.0 # kW
-pph = 60
+pph = 6
 T = 24*pph
 
-skipUnused = True
+skipUnused = False
 unused = []
 '''
 NOTES
@@ -92,112 +92,56 @@ for v in range(55):
 
     # picks random start time between 7 and 11 and gets actual end time
     avaliable.append([int(6*60+random.random()*int((i/60)-6)*60),i])
-
-
-n = 55-len(unused)
-
-A2 = matrix(0.0,(55,55))
-Q0 = matrix(0.0,(n,n))
-with open('A2.csv','rU') as csvfile:
+'''
+c = []
+with open('c.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
-    i = 0
     for row in reader:
-        for j in range(len(row)):
-            A2[i,j] -= float(row[j])
-        i += 1
-
-iskp = 0
-for i in range(55):
-    if i in unused:
-        iskp += 1
-        continue
-    jskp = 0
-    for j in range(55):
-        if j in unused:
-            jskp += 1
-            continue
-        Q0[i-iskp,j-jskp] = A2[i,j]
-
-a = 0.5*(A2 + A2.T)
-print('examining Q0')
-print('size')
-for i in range(Q0.size[0]):
-    for j in range(Q0.size[1]):
-        if Q0[i,j] > 1.0e-10:
-            print('X',end='')
-        else:
-            print('0',end='')
-    print('')
-
-
-#P = spdiag([Q0]*T)
-P = spdiag([1.0e-07]*n*T)
-
-q = []
-# for each time instant I need the hosuehold loads
-for t in range(T):
-    x_h = []
-    for i in range(55):
-        x_h.append(household_profiles[chosen[i]][t])
-
-    x_h = matrix(x_h)
-
-    new = a*x_h
-    for i in range(55):
-        if i in unused:
-            continue
-        q.append(new[i])
-        
-q = matrix(q)
+        c.append(float(row[0]))
+'''
+c = [1.0]*55
+c = c*T
+    
+c = matrix(c)
 
 # x[:55] is the charging power of all vehicles at the first time instant
 
-A = matrix(0.0,(n,n*T))
-b = matrix(0.0,(n,1))
+A = matrix(0.0,(110,55*T))
+b = matrix(0.0,(110+110*T,1))
 
-skp = 0
-for j in range(55):
-    if j in unused:
-        skp += 1
-        continue
-    v = j-skp
-    b[v] = energyV[j]#x0*24 # energy required in kW
+for v in range(55):
+    b[2*v] = energyV[v]+energyHH[v]-x0*24 # energy required in kW
+    b[2*v+1] = -energyV[v]-energyHH[v]+x0*24
     
     for t in range(T):
-        A[v,n*t+v] = 1.0/pph
+        A[2*v,55*t+v] = 1.0/pph
+        A[2*v+1,55*t+v] = -1.0/pph
         
-G = sparse([spdiag([-1]*n*T),spdiag([1]*n*T)])
-h = matrix(0.0,(2*n*T,1))
+A = sparse([A,spdiag([-1]*55*T),spdiag([1]*55*T)])
 
-for i in range(n*T):
-    t = int(int(i/n)*60/pph)
+for i in range(55*T):
+    hh = chosen[i%55]
+    t = int(int(i/55)*60/pph)
     
-    h[i] = 0
-    h[int(n*T+i)] = Pmax
+    b[110+i] = -household_profiles[hh][t]+x0
+    
+    if t > avaliable[i%55][0] and t < avaliable[i%55][1]: # if unavaliable
+        b[110+55*T+i,0] = household_profiles[hh][t]-x0
+    else:
+        b[110+55*T+i,0] = household_profiles[hh][t]-x0+Pmax
 
-sol=solvers.qp(P,q,G,h,A,b)
+sol=solvers.lp(c,A,b)
 x = sol['x']
-
-print('losses are approx:')
-dx = x-matrix(x0,(n*T,1))
-
-print(q.T*dx+dx.T*P*dx)
-
-
 lm = [0.0]*T
 bl = [0.0]*T
-skp = 0
-for j in range(55):
-    if j in unused:
-        skp += 1
-        continue
-    v = j-skp
+for v in range(55):
     for t in range(T):
-        lm[t] += (x[n*t+v]+x0)/55
-        bl[t] += household_profiles[chosen[j]][int(t*60/pph)]
+        lm[t] += x[55*t+v]/55
+        bl[t] += household_profiles[chosen[v]][int(t*60/pph)]
 
 # NOW EMBARKING ON THE LOAD FLATTENING FOR COMPARISON
-
+n = 55-len(unused)
+print(n)
 b = []
 
 for i in range(55):
@@ -247,8 +191,16 @@ q = matrix(q)
 I = spdiag([1]*T)
 P = sparse([[I]*n]*n)
 
+print(A.size)
+print(b.size)
+print(P.size)
+print(q.size)
+print(G.size)
+print(h.size)
+
 sol = solvers.qp(P,q,G,h,A,b)
 x = sol['x']
+
 
 lf = [0.0]*T
 
@@ -265,20 +217,9 @@ for i in range(55):
 for i in range(len(bl)):
     bl[i] = bl[i]/55
     lf[i] += bl[i]
-    lm[i] += bl[i]
     
 plt.figure(1)
-plt.subplot(2,1,1)
-plt.plot(bl,c='k',ls=':')
+plt.plot(bl)
 plt.plot(lm)
 plt.plot(lf)
-
-for i in range(T):
-    lm[i] -= bl[i]
-    lf[i] -= bl[i]
-
-plt.subplot(2,1,2)
-plt.plot(lm)
-plt.plot(lf)
-
 plt.show()        

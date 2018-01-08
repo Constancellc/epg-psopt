@@ -42,7 +42,7 @@ for ph in range(3):#3):
          My_r.T*k.T*k*Y_i*My_i - My_i.T*Y_i.T*k.T*k*My_r + \
          My_i.T*k.T*k*Y_i*My_r + My_r.T*Y_i.T*k.T*k*My_i) + alpha*alpha*(\
          My_i.T*k.T*k*Y_r*My_i + My_i.T*Y_r.T*k.T*k*My_i)
-
+    '''
     for i in range(A2.size[0]):
         for j in range(A2.size[1]):
             Q[i,j] -= A2[i,j] # not 100% about negative sign!
@@ -53,37 +53,10 @@ for ph in range(3):#3):
     
     for i in range(55):
         c[i] -= new_c[i,0]
-
+    '''
     k[0,ph] = 0.0
                                                              
-#v0 = M*x0 + a
-#v0r = v0[:2718,:]
-#v0i = v0[2718:,:]
-#v0 = sparse([matrix(vs_r),v0r,matrix(vs_i),v0i])
-'''
-D = matrix(0.0,(1,2718))#21))
 
-I = spdiag([1]*2718)#21)
-O = spdiag([0]*2718)#21)
-
-Cr = sparse([[I],[O]])
-Ci = sparse([[O],[I]])
-
-A1 = sparse([[Y_r],[-1*Y_i]])
-A2 = sparse([[Y_i],[Y_r]])
-    
-K4 = matrix(0.0,(1,55))
-
-for p in range(3):
-    D[p] = 1.0
-
-    DCr = D*Cr
-    DCi = D*Ci
-    DA1 = D*A1
-    DA2 = D*A2
-
-    K1 = DCr*v0*DA1 + DA1*v0*DCr + DCi*v0*DA2 + DA2*v0*DCi
-    K4 += K1*M-matrix(1.0,(1,55))
 '''
 with open('p.csv','w') as csvfile:
     writer = csv.writer(csvfile)
@@ -94,3 +67,9 @@ with open('Q.csv','w') as csvfile:
     writer = csv.writer(csvfile)
     for i in range(Q.size[0]):
         writer.writerow(Q[i,:])
+'''
+
+with open('A2.csv','w') as csvfile:
+    writer = csv.writer(csvfile)
+    for i in range(A2.size[0]):
+        writer.writerow(A2[i,:])
