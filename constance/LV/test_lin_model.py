@@ -2,6 +2,7 @@ import numpy as np
 from reduce_matricies import a_r, a_i, My_r, My_i, Y_r, Y_i
 from cvxopt import matrix
 import csv
+from dec_mat_mul import MM
 '''
 M = matrix(complex(0,0),(2721,110))
 a = matrix(complex(0,0),(2721,1))
@@ -27,9 +28,19 @@ print(x.size)
 print(a.size)
 '''
 
-x = np.array([-1000.0]*55+[-330]*55)
+                
+            
+
+x = np.zeros((110,1))
+for i in range(55):
+    x[i] = -1000.0
+for i in range(55,110):
+    x[i] = -330.0
 
 v = np.matmul(M,x) + a
+
+print(len(v))
+print(len(v[0]))
 
 '''
 Vlin_r = []
@@ -51,42 +62,46 @@ for i in range(2721):
     if Vlin[i] != v[i]:
         print(Vlin[i]-v[i])
 '''                     
-Y = matrix(complex(0,0),(2721,2721))
-
+#Y = matrix(complex(0,0),(2721,2721))
+Y = np.empty((2721,2721),dtype=complex)
 
 for i in range(2721):
     for j in range(2721):
-        Y[i,j] = complex(Y_r[i,j],Y_i[i,j])
+        Y[i][j] = complex(Y_r[i][j],Y_i[i][j])
 
-I = Y*v
+I = np.matmul(Y,v)
 
 I_ = matrix(complex(0,0),(2721,1))
 for i in range(2721):
     I_[i] = complex(I[i].real,-I[i].imag)
 
-print(I_.T*v.real)
+print(np.matmul(np.transpose(I_),v).real)
 
-P = []
+P = np.zeros((110,110))
 q = []
 
 with open('P.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
+    i = 0
     for row in reader:
-        new = []
-        for i in range(len(row)):
-            new.append(float(row[i]))
-        P.append(new)
-
+        for j in range(110):
+            P[i][j] = float(row[i])
+        i += 1
+'''
 P = np.array(P)
 P = matrix(P)
-
+'''
 with open('q.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
         q.append(float(row[0]))
 
-q = matrix(q)
+q = np.array(q)
 
-losses  = x.T*P*x + q.T*x + a_r.T*Y_r*a_r - a_r.T*Y_i*a_i + a_i.T*Y_r*a_r + a_i.T*Y_i*a_i
+print(a_i.shape)
+losses  = MM(MM(np.transpose(x),P),x) + MM(np.transpose(q),x) + \
+          MM(MM(np.transpose(a_r),Y_r),a_r) - MM(MM(np.transpose(a_r),Y_i),a_i) + \
+          MM(MM(np.transpose(a_i),Y_r),a_r) + \
+          MM(MM(np.transpose(a_i),Y_i),a_i)
 
 print(losses)

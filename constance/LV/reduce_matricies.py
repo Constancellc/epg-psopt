@@ -28,6 +28,9 @@ with open(folder+'a_i.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
         a_i.append(Decimal(row[0]))
+
+a_r = np.array(a_r)
+a_i = np.array(a_i)
                
 My_r = []
 My_i = []
