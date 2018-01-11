@@ -6,7 +6,7 @@ import random
 
 Pmax = 6 # kW
 #x0 = 0.0 # kW
-pph = 10
+pph = 15
 T = 24*pph
 t_int = int(60/pph)
 
@@ -142,7 +142,7 @@ x_h = []
 
 for t in range(T):
     for j in range(n):
-        x_h.append(household_profiles[chosen[ind_map[j]]][int(t*t_int)])
+        x_h.append(-household_profiles[chosen[ind_map[j]]][int(t*t_int)])
 
 x_h = matrix(x_h)
 
@@ -164,9 +164,9 @@ for j in range(n):
            t < avaliable[ind_map[j]][1]/t_int:
             A[j+n,n*t+j] = 1.0
 
-    b[j] = energyV[ind_map[j]]
+    b[j] = -energyV[ind_map[j]]
 
-G = sparse([spdiag([1.0]*(n*T)),spdiag([-1.0]*(n*T))])
+G = sparse([spdiag([-1.0]*(n*T)),spdiag([1.0]*(n*T))])
 h = matrix([Pmax]*(n*T)+[0.0]*(n*T))
 
 print(A.size)
@@ -187,7 +187,7 @@ skp = 0
 
 for j in range(n):
     for t in range(T):
-        lm[t] += (x[n*t+j])/55
+        lm[t] -= (x[n*t+j])/55
         
 for j in  range(55):
     for t in range(T):
