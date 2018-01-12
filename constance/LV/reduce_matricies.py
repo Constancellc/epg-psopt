@@ -36,32 +36,36 @@ with open(folder+'a_i.csv','rU') as csvfile:
 #a_r = np.array(a_r)
 #a_i = np.array(a_i)
                
-My_r = []
-My_i = []
+My_r = np.empty((2721,110))
+My_i = np.empty((2721,110))
 
 with open(folder+'My_r.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
+    i = 0
     for row in reader:
-        new = []
-        for i in range(len(row)):
-            if i not in hh_nodes:
+        j = 0
+        for node in range(len(row)):
+            if node not in hh_nodes:
                 continue
-            new.append(Decimal(row[i]))
-        My_r.append(new)
+            My_r[i][j] = Decimal(row[node])
+            j += 1
+        i += 1
 
 
 with open(folder+'My_i.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
+    i = 0
     for row in reader:
-        new = []
-        for i in range(len(row)):
-            if i not in hh_nodes:
+        j = 0
+        for node in range(len(row)):
+            if node not in hh_nodes:
                 continue
-            new.append(Decimal(row[i]))
-        My_i.append(new)
+            My_i[i][j] = Decimal(row[node])
+            j += 1
+        i += 1
 
-My_r = np.array(My_r)
-My_i = np.array(My_i)
+#My_r = np.array(My_r)
+#My_i = np.array(My_i)
 
 Y_r = np.empty((2721,2721))
 Y_i = np.empty((2721,2721))

@@ -3,6 +3,7 @@ import numpy as np
 from cvxopt import matrix, spdiag, sparse
 # or get them from some csv file
 from reduce_matricies import My_r, My_i, a_r, a_i, Y_r, Y_i
+from dec_mat_mul import MM
 '''
 My_r = matrix(My_r)
 My_i = matrix(My_i)
@@ -21,6 +22,18 @@ print(Y_i.size)
 
 # first get household loads
 
+P = MM(MM(np.transpose(My_r),Y_r),My_r) - \
+    MM(MM(np.transpose(My_r),Y_i),My_i) + \
+    MM(MM(np.transpose(My_i),Y_r),My_r) + \
+    MM(MM(np.transpose(My_i),Y_i),My_i) 
+
+q = 2*MM(MM(np.transpose(My_r),Y_r),a_r) - \
+    MM(MM(np.transpose(My_r),Y_i),a_i) - \
+    MM(MM(np.transpose(My_i),Y_i),a_r) + \
+    MM(MM(np.transpose(My_i),Y_r),a_r) + \
+    MM(MM(np.transpose(My_r),Y_r),a_i) + \
+    2*MM(MM(np.transpose(My_i),Y_i),a_i)
+'''
 P = np.matmul(np.matmul(np.transpose(My_r),Y_r),My_r) - \
     np.matmul(np.matmul(np.transpose(My_r),Y_i),My_i) + \
     np.matmul(np.matmul(np.transpose(My_i),Y_r),My_r) + \
@@ -32,7 +45,7 @@ q = 2*np.matmul(np.matmul(np.transpose(My_r),Y_r),a_r) - \
     np.matmul(np.matmul(np.transpose(My_i),Y_r),a_r) + \
     np.matmul(np.matmul(np.transpose(My_r),Y_r),a_i) + \
     2*np.matmul(np.matmul(np.transpose(My_i),Y_i),a_i)
-
+'''
 '''
 print(P.size)
 print(q.size)
