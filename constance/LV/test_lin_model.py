@@ -38,9 +38,6 @@ for i in range(55,110):
 
 v = np.matmul(M,x) + a
 
-print(len(v))
-print(len(v[0]))
-
 '''
 Vlin_r = []
 Vlin_i = []
@@ -96,12 +93,12 @@ with open('q.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     i = 0
     for row in reader:
-        q[i][0] = float(row[0])
+        #q[i][0] = float(row[0])
+        q[i][0] = float(row[0][1:len(row[0])-1])
         i += 1
 
 #q = np.array(q)
 
-print(a_i.shape)
 losses  = MM(MM(np.transpose(x),P),x) + MM(np.transpose(q),x) + \
           MM(MM(np.transpose(a_r),Y_r),a_r) - MM(MM(np.transpose(a_r),Y_i),a_i) + \
           MM(MM(np.transpose(a_i),Y_r),a_r) + \

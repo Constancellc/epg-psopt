@@ -59,4 +59,4 @@ with open('P.csv','w') as csvfile:
 with open('q.csv','w') as csvfile:
     writer = csv.writer(csvfile)
     for i in range(len(q)):
-        writer.writerow([q[i]])
+        writer.writerow([q[i][0]])
