@@ -7,11 +7,12 @@ from dec_mat_mul import MM
 M = matrix(complex(0,0),(2721,110))
 a = matrix(complex(0,0),(2721,1))
 '''
+
 M = np.empty((2721,110),dtype=complex)
 a = np.empty((2721,1),dtype=complex)
 
 for i in range(2721):
-    a[i] = complex(float(a_r[i]),float(a_i[i]))
+    a[i] = complex(float(a_r[i][0]),float(a_i[i][0]))
 
     for j in range(110):
         #M[i,j] = complex(My_r[i][j],My_i[i][j])
@@ -27,8 +28,6 @@ print(M.size)
 print(x.size)
 print(a.size)
 '''
-
-                
             
 
 x = np.zeros((110,1))
@@ -91,12 +90,16 @@ with open('P.csv','rU') as csvfile:
 P = np.array(P)
 P = matrix(P)
 '''
+
+q = np.empty((110,1))
 with open('q.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
+    i = 0
     for row in reader:
-        q.append(float(row[0]))
+        q[i][0] = float(row[0])
+        i += 1
 
-q = np.array(q)
+#q = np.array(q)
 
 print(a_i.shape)
 losses  = MM(MM(np.transpose(x),P),x) + MM(np.transpose(q),x) + \

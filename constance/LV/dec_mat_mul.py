@@ -12,10 +12,12 @@ def MM(a,b):
         a = b
         b = a
     '''
-    r = len(a)
-    c = len(b[0])
-    n = len(a[0])
-    if len(b) != n:
+    print('input:')
+    print(a.shape)
+    print(b.shape)
+    r = a.shape[0]
+    c = b.shape[1]
+    if a.shape[1] != b.shape[0]:
         raise Exception
     
     out = np.empty((r,c))
@@ -23,7 +25,10 @@ def MM(a,b):
     for i in range(r):
         for j in range(c):
             tot = Decimal(0.0)
-            for ii in range(n):
+            for ii in range(a.shape[1]):
                 tot += Decimal(a[i][ii]*b[ii][j])
             out[i][j] = tot
+
+    print('outputing:')
+    print(out.shape)
     return out
