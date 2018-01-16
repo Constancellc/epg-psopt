@@ -6,27 +6,19 @@ import random
 
 Pmax = 6 # kW
 #x0 = 0.0 # kW
-pph = 15
+pph = 60
 T = 24*pph
 t_int = int(60/pph)
 
 pf = 0.95 # power factor
 alpha = round(np.sqrt(np.power(1/pf,2)-1),2)
 
-skipUnused = True
+skipUnused = False
+constrainAvaliability = False
+
 unused = []
-'''
-NOTES
 
-desisions need to be made about formulation - how is the valley filling going
-to be taken into account
-
-also need to figure out what we're doing with reactive power
-
-need to crack the units question once and for all
-
-'''
-# first pick the households
+# either using HH data
 household_profiles = []
 with open('household_demand_pool_HH.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
@@ -43,6 +35,7 @@ with open('household_demand_pool_HH.csv','rU') as csvfile:
             profile.append((1-f)*hh[p1] + f*hh[p2])
         household_profiles.append(profile)
 
+# or using the crest profiles
 chosen = []
 
 while len(chosen) < 55:
@@ -111,7 +104,7 @@ for i in range(55):
     ind_map[j] = i
     j += 1
     
-P0 = matrix(0.0,(2*n,2*n))
+P0 = matrix(0.0,(n,n))
 
 with open('P.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
@@ -119,65 +112,56 @@ with open('P.csv','rU') as csvfile:
     iskp = 0
     for row in reader:
         
-        if i in unused or i-55 in unused:
+        if i in unused:
             i += 1
             iskp += 1
             continue
         
         jskp = 0
         for j in range(len(row)):
-            if j in unused or j-55 in unused:
+            if j in unused:
                 jskp += 1
                 continue
             P0[i-iskp,j-jskp] += float(row[j])
         i += 1
 
 
-P0_r = P0[0:n,0:n] + matrix(alpha*P0[n:2*n,0:n]) + matrix(alpha*P0[0:n,n:2*n])\
-       + matrix(alpha*alpha*P0[n:2*n,n:2*n])
 
-P = spdiag([P0_r]*T)
-#P = spdiag([1.0]*(n*T))
+P = spdiag([P0]*T)
+
 x_h = []
 
 for t in range(T):
     for j in range(n):
-        x_h.append(-household_profiles[chosen[ind_map[j]]][int(t*t_int)])
+        x_h.append(-household_profiles[chosen[ind_map[j]]][int(t*t_int)]*1000)
 
 x_h = matrix(x_h)
 
-q = 2*x_h.T*P
-q = q.T
+q = (P+P.T)*x_h
 
 # x[:n] is the real power of all vehicles at the first time instant
-# x[n:2n] is the imaginary power at the first time instant
 
-A = matrix(0.0,(2*n,n*T))
-b = matrix(0.0,(2*n,1))
+if constrainAvaliability == False:
+    A = matrix(0.0,(n,n*T))
+    b = matrix(0.0,(n,1))
+else:
+    A = matrix(0.0,(2*n,n*T))
+    b = matrix(0.0,(2*n,1))
+    
 # skipping avaliability constraint for now
-
 for j in range(n):
     for t in range(T):
         A[j,n*t+j] = 1.0/pph # energy requirement
-
+        '''
         if t > avaliable[ind_map[j]][0]/t_int and \
            t < avaliable[ind_map[j]][1]/t_int:
             A[j+n,n*t+j] = 1.0
-
-    b[j] = -energyV[ind_map[j]]
+        '''
+    b[j] = -energyV[ind_map[j]]*1000
 
 G = sparse([spdiag([-1.0]*(n*T)),spdiag([1.0]*(n*T))])
-h = matrix([Pmax]*(n*T)+[0.0]*(n*T))
+h = matrix([Pmax*1000]*(n*T)+[0.0]*(n*T))
 
-print(A.size)
-print(b.size)
-print(G.size)
-print(h.size)
-'''
-for fp in np.arange(0.1,1,0.1):
-    test = matrix([fp]*(n*T))
-    print(q.T*test+test.T*P*test)
-'''
 sol=solvers.qp(P,q,G,h,A,b)
 x = sol['x']
 
@@ -187,22 +171,11 @@ skp = 0
 
 for j in range(n):
     for t in range(T):
-        lm[t] -= (x[n*t+j])/55
+        lm[t] -= (x[n*t+j])/55000
         
 for j in  range(55):
     for t in range(T):
         bl[t] += household_profiles[chosen[j]][int(t*t_int)]
-        
-'''
-test = matrix([sum(bl)/T]*(n*T))
-print(q.T*test+test.T*P*test)
-x = []
-for i in range(n):
-    x += bl
-test = matrix(x)
-print(test.size)
-print(q.T*test+test.T*P*test)
-'''
 
 # NOW EMBARKING ON THE LOAD FLATTENING FOR COMPARISON
 
@@ -215,9 +188,6 @@ for i in range(55):
     
 A1 = matrix(0.0,(n,T*n))
 A2 = matrix(0.0,(n,T*n))
-
-b += [0.0]*n
-b = matrix(b)
 
 skp = 0
 for j in range(55):
@@ -233,7 +203,14 @@ for j in range(55):
         if i*60/pph > avaliable[j][0] and i*60/pph < avaliable[j][1]:
             A2[n*(T*v+i)+v] = 1.0
 
-A = sparse([A1,A2])
+if constrainAvaliability == False:
+    A = A1
+else:
+    A = sparse([A1,A2])
+    b += [0.0]*n
+    
+b = matrix(b)
+
 A3 = spdiag([-1]*(T*n))
 A4 = spdiag([1]*(T*n))
 G = sparse([A3,A4])
