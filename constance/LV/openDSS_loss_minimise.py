@@ -15,6 +15,7 @@ constrainAvaliability = False
 
 nRuns = 10
 losses = {'lm':[],'lf':[]}
+totalLoads = {'lm':[],'lf':[]}
 
 household_profiles = []
 vehicle_profiles = []
@@ -334,15 +335,25 @@ for mc in range(nRuns):
                     powerOut[i] += float(row[2])
                     i += 1
 
-        #total_loads.append(powerOut)
+        totalLoads[key].append(powerOut)
         net = []
         for i in range(0,1440):
             net.append(powerIn[i]-powerOut[i])
 
         losses[key].append(sum(net))
 
+for key in losses:
+    with open(key+'_loads.csv','w') as csvfile:
+        writer = csv.writer(csvfile)
+        for t in range(1440):
+            row = []
+            for i in range(len(totalLoads[key])):
+                row.append(totalLoads[key][i][t])
+            writer.writerow(row)
+            
 with open('lf_lm_losses.csv','w') as csvfile:
     writer = csv.writer(csvfile)
-    writer.writerow(['load flattening','loss minimising'])
+    writer.writerow(['load flattening','loss minimising','total Load'])
     for i in range(nRuns):
-        writer.writerow([runs['lf'][i],runs['lm'][i]])
+        writer.writerow([losses['lf'][i],losses['lm'][i],
+                         sum(totalLoads['lf'][i])])
