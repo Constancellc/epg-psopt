@@ -13,7 +13,7 @@ t_int = int(60/pph)
 pf = 0.95 # power factor
 alpha = round(np.sqrt(np.power(1/pf,2)-1),2)
 
-skipUnused = False
+skipUnused = True
 constrainAvaliability = False
 
 unused = []
@@ -125,9 +125,23 @@ with open('P.csv','rU') as csvfile:
             P0[i-iskp,j-jskp] += float(row[j])
         i += 1
 
-
-
 P = spdiag([P0]*T)
+
+q0 = []
+with open('q.csv','rU') as csvfile:
+    reader = csv.reader(csvfile)
+    i = 0
+    for row in reader:
+        if i in unused:
+            i += 1
+            continue
+        q0.append(float(row[0]))
+        i += 1
+
+q = []
+for t in range(T):
+    q += q0
+q = matrix(q)
 
 x_h = []
 
@@ -137,7 +151,12 @@ for t in range(T):
 
 x_h = matrix(x_h)
 
-q = (P+P.T)*x_h
+q += (P+P.T)*x_h
+
+with open('c.csv','rU') as csvfile:
+    reader = csv.reader(csvfile)
+    for row in reader:
+        c = float(row[0])
 
 # x[:n] is the real power of all vehicles at the first time instant
 
@@ -165,6 +184,16 @@ h = matrix([Pmax*1000]*(n*T)+[0.0]*(n*T))
 sol=solvers.qp(P,q,G,h,A,b)
 x = sol['x']
 
+y = x+x_h
+
+print('I think total losses are:')
+print(y.T*P*y + q.T*y + c*T)
+print('per second:')
+print((y.T*P*y + q.T*y + c*T)/1440)
+
+Pl = P
+ql = q
+
 lm = [0.0]*T
 bl = [0.0]*T
 skp = 0
@@ -180,7 +209,6 @@ for j in  range(55):
 # NOW EMBARKING ON THE LOAD FLATTENING FOR COMPARISON
 
 b = []
-
 for i in range(55):
     if i in unused:
         continue
@@ -235,6 +263,17 @@ P = sparse([[I]*n]*n)
 sol = solvers.qp(P,q,G,h,A,b)
 x = sol['x']
 
+y2 = matrix(0.0,(n*T,1))
+for t in range(T):
+    for i in range(n):
+        y2[n*t+i] = -1000*x[i*T+t]
+
+y2 += x_h
+
+print('I think total losses are:')
+print(y2.T*Pl*y2 + ql.T*y2 + c*T)
+print('per second:')
+print((y2.T*Pl*y2 + ql.T*y2 + c*T)/1440)
 lf = [0.0]*T
 
 v = 0

@@ -10,21 +10,21 @@ pph = 60
 T = 24*pph
 t_int = int(60/pph)
 
-skipUnused = False
+skipUnused = True
 constrainAvaliability = False
 
-nRuns = 10
-losses = {'lm':[],'lf':[]}
-totalLoads = {'lm':[],'lf':[]}
+nRuns = 100
+losses = {'lm':[],'lf':[],'uc':[]}
+predictions = {'lm':[],'lf':[],'uc':[]}
+totalLoads = {'lm':[],'lf':[],'uc':[]}
 
 household_profiles = []
 vehicle_profiles = []
 for i in range(0,1000):
     household_profiles.append([0.0]*1440)
-    vehicle_profiles.append([0.0]*1440)
 
 # the following is using CREST
-'''
+#'''
 i = 0
 with open('household_demand_pool.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
@@ -51,18 +51,28 @@ with open('household_demand_pool_HH.csv','rU') as csvfile:
             f = float(j%30)/30
             household_profiles[i][j] = (1-f)*hh[p1] + f*hh[p2]
         i += 1
-
-i = 0
+'''
 with open('vehicle_demand_pool.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
-        if row == []:
-            continue
-        for j in range(0,1440):
-            vehicle_profiles[i][j] = float(row[j])
-        i += 1
-
+        profile = []
+        for i in range(len(row)):
+            profile.append(float(row[i]))
+        if skipUnused == True:
+            if sum(profile) == 0:
+                continue
+        vehicle_profiles.append(profile)
+        
 for mc in range(nRuns):
+    
+    lm_profiles = []
+    lf_profiles = []
+    uc_profiles = []
+    for i in range(55):
+        lm_profiles.append([0.0]*1440)
+        lf_profiles.append([0.0]*1440)
+        uc_profiles.append([0.0]*1440)
+        
     # pick households
     unused = []
     chosen = []
@@ -71,19 +81,7 @@ for mc in range(nRuns):
         if ran not in chosen:
             chosen.append(ran)
             
-    # then pick the vehicles
-    with open('vehicle_demand_pool.csv','rU') as csvfile:
-        reader = csv.reader(csvfile)
-        for row in reader:
-            profile = []
-            for i in range(len(row)):
-                profile.append(float(row[i]))
-            if skipUnused == True:
-                if sum(profile) == 0:
-                    continue
-
-            vehicle_profiles.append(profile)
-            
+    # then pick the vehicles    
     chosenV = []
 
     while len(chosenV) < 55:
@@ -96,7 +94,7 @@ for mc in range(nRuns):
     avaliable = [] # contains range for which charging NOT allowed
 
     for v in range(55):
-        energyV.append(sum(vehicle_profiles[chosenV[v]])/60)
+        energyV.append(float(sum(vehicle_profiles[chosenV[v]]))/60)
             
         hh_en = 0
             
@@ -154,13 +152,36 @@ for mc in range(nRuns):
 
     P = spdiag([P0]*T)
 
+    q0 = []
+    with open('q.csv','rU') as csvfile:
+        reader = csv.reader(csvfile)
+        i = 0
+        for row in reader:
+            if i in unused:
+                i += 1
+                continue
+            q0.append(float(row[0]))
+            i += 1
+
+    q = []
+    for t in range(T):
+        q += q0
+    q = matrix(q)
+
     x_h = []
+
     for t in range(T):
         for j in range(n):
             x_h.append(-household_profiles[chosen[ind_map[j]]][int(t*t_int)]*1000)
 
     x_h = matrix(x_h)
-    q = (P+P.T)*x_h
+
+    q += (P+P.T)*x_h
+
+    with open('c.csv','rU') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            c = float(row[0])
 
     # x[:n] is the real power of all vehicles at the first time instant
     # x[n:2n] is the imaginary power at the first time instant
@@ -189,16 +210,13 @@ for mc in range(nRuns):
     sol=solvers.qp(P,q,G,h,A,b)
     x = sol['x']
 
-    lm_profiles = []
-    lf_profiles = []
-    for i in range(55):
-        lm_profiles.append([0.0]*1440)
-        lf_profiles.append([0.0]*1440)
+    y = x+x_h
+    predictions['lm'].append(y.T*P*y + q.T*y + c*T)
 
     for j in range(n):
         p = []
         for t in range(T):
-            p.append((-x[n*t+j])/1000)
+            p.append(float(-x[n*t+j])/1000)
         # now I may need to interpolate
         for t in range(1440):
             p1 = int(t/t_int)
@@ -265,15 +283,15 @@ for mc in range(nRuns):
         
     h = matrix(h)
 
-    q = []
+    q1 = []
     for i in range(n):
-        q += bl
+        q1 += bl
 
-    q = matrix(q)
+    q1 = matrix(q1)
     I = spdiag([1]*T)
-    P = sparse([[I]*n]*n)
+    P1 = sparse([[I]*n]*n)
 
-    sol = solvers.qp(P,q,G,h,A,b)
+    sol = solvers.qp(P1,q1,G,h,A,b)
     x = sol['x']
 
     for j in range(n):
@@ -289,13 +307,26 @@ for mc in range(nRuns):
             f = float(t%t_int)
             lf_profiles[ind_map[j]][t] = (1-f)*p[p1] + f*p[p2] + \
                                          household_profiles[chosen[ind_map[j]]][t]
+    y2 = matrix(0.0,(n*T,1))
+    for t in range(T):
+        for i in range(n):
+            y2[n*t+i] = -1000*x[i*T+t]
 
+    y2 += x_h
+    predictions['lf'].append(y2.T*P*y2 + q.T*y2 + c*T)
+
+    # for comparison let's get the uncontrolled charging results
+
+    for i in range(55):
+        for t in range(1440):
+            uc_profiles[i][t] = household_profiles[chosen[i]][t] + \
+                                vehicle_profiles[chosenV[i]][t]
+    
     # NOW FOR THE OPEN DSS PORTION OF THE EVENT
-
     engine = win32com.client.Dispatch("OpenDSSEngine.DSS")
     engine.Start("0")
 
-    runs = {'lf':lf_profiles, 'lm':lm_profiles}
+    runs = {'lf':lf_profiles, 'lm':lm_profiles, 'uc':uc_profiles}
 
     for key in runs:
         profiles = runs[key]
@@ -353,7 +384,10 @@ for key in losses:
             
 with open('lf_lm_losses.csv','w') as csvfile:
     writer = csv.writer(csvfile)
-    writer.writerow(['load flattening','loss minimising','total Load'])
+    writer.writerow(['load flattening','loss minimising','uncontrolled',
+                     'total Load','delta','predicted delta'])
     for i in range(nRuns):
-        writer.writerow([losses['lf'][i],losses['lm'][i],
-                         sum(totalLoads['lf'][i])])
+        writer.writerow([losses['lf'][i],losses['lm'][i],losses['uc'][i],
+                         sum(totalLoads['lf'][i]),
+                         losses['lf'][i]-losses['lm'][i],
+                         (predictions['lf'][i]-predictions['lm'][i])[0]/1000])
