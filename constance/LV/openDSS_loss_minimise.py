@@ -17,6 +17,7 @@ nRuns = 100
 losses = {'lm':[],'lf':[],'uc':[]}
 predictions = {'lm':[],'lf':[],'uc':[]}
 totalLoads = {'lm':[],'lf':[],'uc':[]}
+individuals = {'lm':{0:[],54:[]},'lf':{0:[],54:[]},'bl':{0:[],54:[]}}
 
 household_profiles = []
 vehicle_profiles = []
@@ -315,6 +316,11 @@ for mc in range(nRuns):
     y2 += x_h
     predictions['lf'].append(y2.T*P*y2 + q.T*y2 + c*T)
 
+    for hh in [0,54]:
+        individuals['lf'][hh].append(lf_profiles[hh])
+        individuals['lm'][hh].append(lm_profiles[hh])
+        individuals['bl'][hh].append(household_profiles[chosen[hh]])
+
     # for comparison let's get the uncontrolled charging results
 
     for i in range(55):
@@ -391,3 +397,18 @@ with open('lf_lm_losses.csv','w') as csvfile:
                          sum(totalLoads['lf'][i]),
                          losses['lf'][i]-losses['lm'][i],
                          (predictions['lf'][i]-predictions['lm'][i])[0]/1000])
+
+for hh in [0,54]:
+    with open('lf_lm_inidividuals'+str(hh)+'.csv','w') as csvfile:
+        writer = csv.writer(csvfile)
+        header = ['t']
+        for i in range(nRuns):
+            header += ['lf','lm','bl']
+        writer.writerow(header)
+        for t in range(1440):
+            row = [str(t)]
+            for i in range(nRuns):
+                row.append(individuals['lf'][hh][i][t])
+                row.append(individuals['lm'][hh][i][t])
+                row.append(individuals['bl'][hh][i][t])
+            writer.writerow(row)
