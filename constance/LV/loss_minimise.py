@@ -181,6 +181,7 @@ for j in range(n):
 G = sparse([spdiag([-1.0]*(n*T)),spdiag([1.0]*(n*T))])
 h = matrix([Pmax*1000]*(n*T)+[0.0]*(n*T))
 
+solvers.options['abstol'] = 1e-9
 sol=solvers.qp(P,q,G,h,A,b)
 x = sol['x']
 
