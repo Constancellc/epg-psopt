@@ -69,3 +69,9 @@ dlmwrite('q.csv',qr,'delimiter',',','precision',16);
 dlmwrite('c.csv',c,'delimiter',',','precision',16);
 
 
+dlmwrite('P0.csv',P(1:55,1:55),'delimiter',',','precision',16);
+dlmwrite('q0.csv',q(1:55),'delimiter',',','precision',16);
+
+
+
+
