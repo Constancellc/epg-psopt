@@ -145,6 +145,9 @@ plt.subplot(1,2,1)
 plt.imshow(heatmap2)
 plt.xticks(ax,ax_ticks)
 plt.yticks(ax,ax_ticks2)
+plt.xlabel('HH54 P1 (kW)')
+plt.ylabel('HH1 P1 (kW)')
+plt.title('OpenDSS')
 #plt.colorbar()
 CS = plt.contour(heatmap2, colors="white", levels=levels,linewidths=1.0)
 plt.clabel(CS, inline=1, fontsize=10, manual=manual_locations)
@@ -221,9 +224,25 @@ plt.subplot(1,2,2)
 plt.imshow(heatmap3)
 plt.xticks(ax,ax_ticks)
 plt.yticks(ax,ax_ticks2)
+plt.xlabel('HH54 P1 (kW)')
+plt.ylabel('HH1 P1 (kW)')
+plt.title('Model')
 #levels = np.arange(0.5,1.0,0.05)
 #plt.colorbar()
 CS = plt.contour(heatmap3, colors="white", levels=levels,linewidths=1.0)
 plt.clabel(CS, inline=1, fontsize=10, manual=manual_locations)
 plt.grid()
+
+
+
+heatmap4 = np.zeros((len(heatmap2),len(heatmap2)))
+sf = len(heatmap3)/len(heatmap2)
+
+for i in range(len(heatmap4)):
+    for j in range(len(heatmap4)):
+        heatmap4[i][j] = heatmap2[i][j] - heatmap3[int(i*sf)][int(j*sf)]
+
+plt.figure(3)
+plt.imshow(heatmap4)
+plt.colorbar()
 plt.show()
