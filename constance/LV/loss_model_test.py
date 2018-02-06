@@ -242,7 +242,13 @@ for i in range(len(heatmap4)):
     for j in range(len(heatmap4)):
         heatmap4[i][j] = heatmap2[i][j] - heatmap3[int(i*sf)][int(j*sf)]
 
+x1 = np.linspace(0,0.5,num=len(heatmap3))
+x2 = np.linspace(0,0.5,num=len(heatmap2))
+y1 = np.linspace(0.5,0,num=len(heatmap3))
+y2 = np.linspace(0.5,0,num=len(heatmap2))
 plt.figure(3)
-plt.imshow(heatmap4)
-plt.colorbar()
+CS = plt.contour(x1,y1,heatmap3,colors="blue", levels=levels,linewidths=1.0)
+#plt.clabel(CS, inline=1, fontsize=10)
+CS2 = plt.contour(x2,y2,heatmap2,colors="black", levels=levels,linewidths=1.0)
+#plt.clabel(CS2, inline=1, fontsize=10)
 plt.show()
