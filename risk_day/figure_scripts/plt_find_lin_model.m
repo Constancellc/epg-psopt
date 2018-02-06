@@ -43,9 +43,9 @@ YNodeS = YNodeV.*conj(YNodeI)/1e3;
 I0 = Ybus*YNodeV0;
 
 clc
-bus_ma(YZNodeOrder,abs(YNodeV),angle(YNodeV)*180/pi,'Voltages (|V|,arg(V))');
-bus_ma(YZNodeOrder,abs(YNodeI),angle(-YNodeI)*180/pi,'Current inj');
-bus_ma(YZNodeOrder,real(YNodeS),imag(YNodeS),'Power (P,Q), kVAR');
+% bus_ma(YZNodeOrder,abs(YNodeV),angle(YNodeV)*180/pi,'Voltages (|V|,arg(V))');
+% bus_ma(YZNodeOrder,abs(YNodeI),angle(-YNodeI)*180/pi,'Current inj');
+% bus_ma(YZNodeOrder,real(YNodeS),imag(YNodeS),'Power (P,Q), kVAR');
 
 %%
 xhy = -1e3*[real(sY(4:end));imag(sY(4:end))];
@@ -64,7 +64,8 @@ Vlin = [v0;vc];
 Slin = Vlin.*conj(Ybus*Vlin)/1e3;
 %%
 % Check the values of (14):
-% norm(vc - YNodeV(4:end))/norm(YNodeV(4:end));
+norm(vc - YNodeV(4:end))/norm(YNodeV(4:end));
+
 % subplot(311)
 % plot(abs(YNodeV(4:end)./abs(vc)));
 % subplot(312)
@@ -72,6 +73,8 @@ Slin = Vlin.*conj(Ybus*Vlin)/1e3;
 % subplot(313)
 % plot((real(Slin)-real(YNodeS))); hold on; 
 
+
+%%
 save([WD,'\lvtestcase_lin.mat'],'My','a','v0','vh','sY','Ybus');
 %%
 save([WD,'\YZNodeOrder.mat'],'YZNodeOrder')

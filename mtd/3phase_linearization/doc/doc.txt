@@ -1,6 +1,0 @@
-BRIEF OVERVIEW OF HOW THIS CODE WORKS
-
-Task: create a linear model of the European low voltage test feeder.
-
-1) Change to Y-Y transformer?
-2) 

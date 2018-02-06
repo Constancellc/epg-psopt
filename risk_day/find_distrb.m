@@ -8,6 +8,7 @@ M = csvread('household_demand_pool_matt.csv');
 figure
 subplot(211)
 plot(sum(M)); grid on;
+
 subplot(212)
 plot((0:0.5:23.5),sum(M));  grid on;
 % ==> Biggest times: 1700-1900

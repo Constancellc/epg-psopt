@@ -48,6 +48,9 @@ HH = kron(eye(39),G);
 sD_p = diag((HH*YNodeV))*conj(iD);
 sD_er = (real(sD_p)/1e3 - real(sD))./real(sD) + 1i*((imag(sD_p)/1e3 - imag(sD))./imag(sD));
 bus_ma(YZNodeOrder,real(sD_er)*100,imag(sD_er)*100,'');
+
+
+
 % note that we get a small error out for the three phase load. This is
 % presumed to be because we cannot specify iD from i exactly and so instead
 % the currents have simply been assumed to shift by 30 degrees. If needed
