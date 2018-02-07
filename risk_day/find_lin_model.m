@@ -8,8 +8,8 @@
 close all; clear all; clc;
 
 G = [1 -1 0;0 1 -1; -1 0 1]; %gamma matrix
-% WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\risk_day';
-WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\risk_day';
+WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\risk_day';
+% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\risk_day';
 cd(WD);
 addpath('mtd_fncs');
 
@@ -42,10 +42,10 @@ YNodeS = YNodeV.*conj(YNodeI)/1e3;
 
 I0 = Ybus*YNodeV0;
 
-clc
-bus_ma(YZNodeOrder,abs(YNodeV),angle(YNodeV)*180/pi,'Voltages (|V|,arg(V))');
-bus_ma(YZNodeOrder,abs(YNodeI),angle(-YNodeI)*180/pi,'Current inj');
-bus_ma(YZNodeOrder,real(YNodeS),imag(YNodeS),'Power (P,Q), kVAR');
+% clc
+% bus_ma(YZNodeOrder,abs(YNodeV),angle(YNodeV)*180/pi,'Voltages (|V|,arg(V))');
+% bus_ma(YZNodeOrder,abs(YNodeI),angle(-YNodeI)*180/pi,'Current inj');
+% bus_ma(YZNodeOrder,real(YNodeS),imag(YNodeS),'Power (P,Q), kVAR');
 
 %%
 xhy = -1e3*[real(sY(4:end));imag(sY(4:end))];

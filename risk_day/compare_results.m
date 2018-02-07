@@ -1,10 +1,10 @@
 clear all; close all; clc;
 
-% WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\risk_day';
-WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\risk_day';
+WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\risk_day';
+% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\risk_day';
 cd(WD);
 
-CC = csvread('riskDayLoadsInAndOut.csv',1,0);
+CC = csvread('datasets/riskDayLoadsInAndOut.csv',1,0);
 
 
 %%
@@ -12,8 +12,9 @@ Sfd_CC = CC(:,1) + 1i*CC(:,2);
 Sld = CC(:,3:2:end) + 1i*CC(:,4:2:end);
 Sls_CC = Sfd_CC - sum(Sld,2);
 Ssm = sum(Sld,2);
+
 %%
-DD = load('lvtestcase_lin');
+DD = load('datasets/lvtestcase_lin');
 sY = DD.sY; Ybus = DD.Ybus; a = DD.a; v0 = DD.v0; vh = DD.vh; My = DD.My;
 sY0 = sY(find(sY));
 sYidx = find(sY);
@@ -35,7 +36,7 @@ for i = 1:size(Sld,1)
 end
 toc
 %%
-[100 200 270 220]
+
 fig = figure('Position',[100 200 330 220],'Color','White');
 fn = 'compare_results';
 histogram(abs(Sls_CC)); hold on;
@@ -43,7 +44,7 @@ histogram(abs(Sls_DD));
 legend('PF (OpenDSS)','Lin. PF');
 xlabel('$S_{l}$ (kVA)','Interpreter','Latex');
 ylabel('$n$','Interpreter','Latex');
-export_fig(fig,fn);
+% export_fig(fig,fn);
 
 %%
 % figure;

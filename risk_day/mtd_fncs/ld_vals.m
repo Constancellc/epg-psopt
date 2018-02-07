@@ -27,21 +27,4 @@ while ii
     i=i+1;
 end
 
-% ii = LDS.First;
-% jj = 1;
-% while ii
-%     isD(jj,1) = LDS.IsDelta;
-%     ld_val(jj,1) = LDS.kW + 1i*LDS.kvar;
-% %     nPh(jj) = LDS.nphases;
-%     zipv = LDS.model;
-%     ld_type{jj,1} = zipv;
-%     ld_name{jj,1} = LDS.Name;
-%     jj=jj+1;
-%     ii = LDS.Next;
-% end
-
-
-
-
-
 end

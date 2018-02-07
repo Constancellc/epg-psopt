@@ -2,3 +2,10 @@ risk_day/riskDayLoadsInAndOut.csv
 risk_day/lvtestcase_lin.mat
 risk_day/lin_model.mat
 risk_day/LVTestCase_copy/lin_model.mat
+risk_day/datasets/lvtestcase_lin4.mat
+risk_day/datasets/lvtestcase_lin3.mat
+risk_day/datasets/lvtestcase_lin2.mat
+risk_day/datasets/lvtestcase_lin1.mat
+risk_day/datasets/lvtestcase_lin.mat
+risk_day/datasets/riskDaySpecifiedVsAppliedLoaad.csv
+risk_day/datasets/riskDayLoadsInAndOut.csv

@@ -1,7 +1,7 @@
 function [ My,Md,a,Ky,Kd,b ] = nrel_linearization( xh,H,Y,VV )
-% function [ My,Md,a,Ky,Kd,b ] = nrel_linearization( xh,H,Y,Vh,V0 )
-%NREL_LINEARIZATION Summary of this function goes here
-%   Detailed explanation goes here
+% The linearization is based on the paper 'Load-Flow in Multiphase
+% Distribution Networks: Existence, Uniqueness, and Linear Models' by
+% Bernstein et al, available here: https://arxiv.org/pdf/1702.03310.pdf
 
 V0 = VV(1:3);
 Vh = VV(4:end);
