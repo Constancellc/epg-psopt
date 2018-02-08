@@ -131,7 +131,7 @@ tic % ~40 seconds
 [ My4,~,a4,~,~,~ ] = nrel_linearization( xh,H,Ybus,[v0;vh] );
 toc
 save([WD,'\datasets\lvtestcase_lin4.mat'],'My4','a4','v0','vh','sY','Ybus');
-%%
+%
 k = (-0.75:0.05:1.75);
 
 cpf = zeros(4,numel(k)); 
@@ -164,14 +164,14 @@ for i = 1:numel(k)
 end
 toc
 
-
 %%
 fg_nm = [fg_lc,'lin_cpf'];
 fig = figure('Color','White','Position',fg_ps);
 
 plot(k,cpf);
 xlabel('$k$'); ylabel('$||\tilde{v} - v||_{2}/||v||_{2}$');
-lgnd=legend('$\hat{S} = 1.0 \times S_{Ld}$','$\hat{S} = 1.25 \times S_{Ld}$','$\hat{S} = 0.75 \times S_{Ld}$');%
+lgnd=legend('$\hat{S} = 0.2 \times S_{Ld}$','$\hat{S} = 0.6 \times S_{Ld}$',...
+            '$\hat{S} = 1.0 \times S_{Ld}$','$\hat{S} = 1.4 \times S_{Ld}$');%
 set(lgnd,'Interpreter','Latex')
 xlim([-inf inf]);
 

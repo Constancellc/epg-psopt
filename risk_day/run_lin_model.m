@@ -1,4 +1,7 @@
 clear all; close all; clc;
+% I think this is the old code that was used hat was superceded by the
+% 'compare_results.m' script that takes the direct loads and simply applies
+% them straight to the problem.
 
 WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\risk_day';
 % WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\risk_day';

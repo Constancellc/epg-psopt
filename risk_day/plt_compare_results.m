@@ -4,9 +4,17 @@ WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\risk_day';
 % WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\risk_day';
 cd(WD);
 
-CC = csvread('datasets/riskDayLoadsInAndOut.csv',1,0);
+fg_lc = 'C:\Users\Matt\Documents\DPhil\risk_day\rd_ppt\figures\';
+% fg_lc = 'C:\Users\chri3793\Documents\DPhil\risk_day\rd_ppt\figures\';   
+fg_ps = [200 300 400 400];
 
+set(0,'defaulttextinterpreter','latex');
+set(0,'defaultaxesfontsize',14);
+set(0,'defaulttextfontsize',14);
 
+%%
+% CC = csvread('datasets/riskDayLoadsInAndOut.csv',1,0);
+CC = csvread('datasets/riskDayLoadsInAndOut_z.csv',1,0);
 %%
 Sfd_CC = CC(:,1) + 1i*CC(:,2);
 Sld = CC(:,3:2:end) + 1i*CC(:,4:2:end);
@@ -35,68 +43,119 @@ Ybus_SP = sparse(Ybus);
 %
 Sfd_DD = zeros(size(Sld,2),4);
 Sls_DD = zeros(size(Sld,2),4);
+Sld_DD = zeros(size(Sld,2),4);
 tic % ~11 seconds x4 = ~45 seconds
 for i = 1:size(Sld,1)
+
     sY(sYidx)=Sld(i,:);
     xhy = sparse( -1e3*[real(sY(4:end));imag(sY(4:end))] );
-    
+
     vc = My1*xhy + a1;
     Vlin = [v0;vc];
     Slin = Vlin.*conj(Ybus_SP*Vlin)/1e3;
     Sfd_DD(i,1) = sum(Slin(1:3));
-    Sls_DD(i,1) = sum(Slin);
+    Sld_DD(i,1) = sum(Slin(sYidx));
+%     Sls_DD(i,1) = sum(Slin);
     
+
     vc = My2*xhy + a2;
     Vlin = [v0;vc];
     Slin = Vlin.*conj(Ybus_SP*Vlin)/1e3;
     Sfd_DD(i,2) = sum(Slin(1:3));
-    Sls_DD(i,2) = sum(Slin);
+    Sld_DD(i,2) = sum(Slin(sYidx));
+%     Sls_DD(i,2) = sum(Slin);
     
     vc = My3*xhy + a3;
     Vlin = [v0;vc];
     Slin = Vlin.*conj(Ybus_SP*Vlin)/1e3;
     Sfd_DD(i,3) = sum(Slin(1:3));
-    Sls_DD(i,3) = sum(Slin);
+    Sld_DD(i,3) = sum(Slin(sYidx));
+%     Sls_DD(i,3) = sum(Slin);
     
     vc = My4*xhy + a4;
     Vlin = [v0;vc];
     Slin = Vlin.*conj(Ybus_SP*Vlin)/1e3;
     Sfd_DD(i,4) = sum(Slin(1:3));
-    Sls_DD(i,4) = sum(Slin);
+    Sld_DD(i,4) = sum(Slin(sYidx));
+%     Sls_DD(i,4) = sum(Slin);
 end
 toc
+
+DLd = Sld_DD + Ssm;
+Sfd_DD = Sfd - DLd;
+Sls_DD = Sfd_DD + Sld_DD;
+
 %%
-fn = 'compare_results';
+n = 1440;
+%
 figure;
-histogram(abs(Sls_CC)); hold on;
-histogram(abs(Sls_DD(:,1)));
-histogram(abs(Sls_DD(:,2)));
-% histogram(abs(Sls_DD(:,3)));
-% histogram(abs(Sls_DD(:,4)));
-% legend('PF (OpenDSS)','Lin. PF');
-xlabel('$S_{l}$ (kVA)','Interpreter','Latex');
-ylabel('$n$','Interpreter','Latex');
-% export_fig(fig,fn);
+plot(Sfd_CC(1:n),'ko'); hold on;
+plot(Sfd_DD(1:n,1),'rx');
+plot(Sfd_DD(1:n,2),'bx');
+plot(Sfd_DD(1:n,3),'gx');
+plot(Sfd_DD(1:n,4),'kx');
+axis equal;
+xlabel('P'); ylabel('Q'); grid on;
+
+%%
+plot(DLd,'x')
+
+
+%%
+
+
+
+
+
+%%
+fig = figure('Color','White','Position',fg_ps);
+fg_nm = [fg_lc,'Sl'];
+
+n=80;
+plot(Sls_CC(1:n),'ko'); hold on;
+plot(Sls_DD(1:n,:),'x');
+axis equal;
+xlabel('$P_{l}$'); ylabel('$Q_{l}$'); grid on;
+lgnd = legend('True','$0.2\,\hat{S}$','$0.6\,\hat{S}$','$1.0\,\hat{S}$','$1.4\,\hat{S}$');
+set(lgnd,'Location','NorthWest','Interpreter','Latex');
+
+% export_fig(fig,fg_nm);
+% export_fig(fig,[fg_nm,'.pdf'],'-dpdf');
+
+%%
+fig = figure('Color','White','Position',fg_ps);
+fg_nm = [fg_lc,'DSl'];
+
+plot(Sls_DD - Sls_CC,'x')
+
+xlabel('$\Delta P_{l}$'); ylabel('$\Delta Q_{l}$'); grid on; axis equal;
+lgnd = legend('$0.2\,\hat{S}$','$0.6\,\hat{S}$','$1.0\,\hat{S}$','$1.4\,\hat{S}$');
+set(lgnd,'Location','NorthWest','Interpreter','Latex');
+
+% export_fig(fig,fg_nm);
+% export_fig(fig,[fg_nm,'.pdf'],'-dpdf');
+
+%%
+n = 20;
+figure;
+plot(Sfd_CC(1:n),'ko'); hold on;
+plot(Sfd_DD(1:n,:) + DLd(1:n,:),'x');
+
 
 %%
 figure;
+plot(Sfd_CC-(Sfd_DD + DLd),'x');
+grid on; axis equal; 
+xlabel('DPT'); ylabel('DQT');
+
+
+
+%%
+
 histogram(abs(Sfd_CC)); hold on;
-histogram(abs(Sfd_DD(:,1)));
-% histogram(abs(Sfd_DD(:,2)));
-% histogram(abs(Sfd_DD(:,3)));
-% histogram(abs(Sfd_DD(:,4)));
-% legend('PF (OpenDSS)','Lin. PF');
-xlabel('$S_{l}$ (kVA)','Interpreter','Latex');
-ylabel('$n$','Interpreter','Latex');
-% export_fig(fig,fn);
-
-
-%%
-% figure;
-% histogram(abs(Sfd_CC)); hold on;
-% histogram(abs(Sfd_DD));
-% histogram(abs(Ssm));
-% legend('OpenDSS (True)','Linear','Sum');
+histogram(abs(Sfd_DD));
+histogram(abs(Ssm));
+legend('OpenDSS (True)','Linear','Sum');
 
 %% SUMMARY STATISTICS
 clc
