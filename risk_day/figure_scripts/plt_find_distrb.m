@@ -7,13 +7,14 @@ cd(WD);
 fg_lc = 'C:\Users\chri3793\Documents\DPhil\risk_day\rd_ppt\figures\';
 fg_ps_tll = [200 300 340 400];
 fg_ps = [200 300 400 400];
+fg_ps_sht = [200 300 400 240];
 
 
 set(0,'defaulttextinterpreter','latex');
 set(0,'defaultaxesfontsize',14);
 set(0,'defaulttextfontsize',14);
 %%
-M = csvread('household_demand_pool_matt.csv');
+M = csvread('datasets\household_demand_pool_matt.csv');
 
 %%
 fg_nm = [fg_lc,'all_loads'];
@@ -54,7 +55,7 @@ title('1830');
 % ==> Choose 1700 for arguments sake
 %% For sake of ease, use the gamma distribution (no need to rescale)
 fg_nm = [fg_lc,'mle_500'];
-fig = figure('Position',fg_ps,'Color','White');
+fig = figure('Position',fg_ps_sht,'Color','White');
 
 X = M(:,17*2 + 1);
 
@@ -64,11 +65,13 @@ A = logspace(-1,1,1e4);
 B = A/xb;
 lL = sum( ones(size(X))*(A.*log(B) - log(gamma(A))) + ...
                         log(X)*(A - 1) - X.*B , 1 );
-semilogx(A,lL);
+% semilogx(A,lL); grid on;
+loglog(A,lL); grid on;
 xlabel('Shape parameter $\alpha$');
+ylabel('Log Likelihood');
 
-export_fig(fig,fg_nm);
-export_fig(fig,[fg_nm,'.pdf'],'-dpdf');
+% export_fig(fig,fg_nm);
+% export_fig(fig,[fg_nm,'.pdf'],'-dpdf');
 %%
 fg_nm = [fg_lc,'nom_histogram'];
 fig = figure('Position',fg_ps,'Color','White');
@@ -94,7 +97,7 @@ plot(x,pdf,'k','Linewidth',2);
 xlabel('Household Load $P_{H}$, (kW)'); 
 ylabel('$p(P_{H})$');
 legend('Smart Meter Data (17:00)','Fitted Gamma PDF');
-export_fig(fig,fg_nm,'-r300');
+% export_fig(fig,fg_nm,'-r300');
 % ==> seems about ok
 % save('gamma_consts','a','b');
 
@@ -116,6 +119,26 @@ ylim([0 4]); xticks((0:20:100)); grid on;
 
 % export_fig(fig,fg_nm);
 % export_fig(fig,[fg_nm,'.pdf'],'-dpdf');
+
+%%
+fig = figure('Color','White','Position',fg_ps_sht);
+fg_nm = [fg_lc,'gamma_ab_500'];
+
+% aa = NaN*zeros(size(X));
+% bb = NaN*zeros(size(X));
+% for j = 1:numel(X)
+%         [ aa(j),bb(j) ] = gamma_mle( X(j:end) );
+% end
+
+plot((numel(X):-1:1)',aa');
+xlabel('No. Houses'); ylabel('$\alpha$');
+ylim([0 4]); xlim([-inf inf]);
+grid on;
+
+% export_fig(fig,fg_nm);
+% export_fig(fig,[fg_nm,'.pdf'],'-dpdf');
+
+
 %%
 HH = histogram(X,'Normalization','pdf'); hold on;
 x = linspace(min(HH.BinEdges),max(HH.BinEdges),1e4); close;
