@@ -1,4 +1,5 @@
-load('../../../Documents/lin_model.mat')
+%load('../../../Documents/lin_model.mat')
+load('../../../Documents/lvtestcase_lin_CC.mat')
 
 sY = csvread('sY.csv');
 
@@ -64,14 +65,14 @@ qr = q(1:55) + alpha*q(56:end);
 
 const_pf_model_losses = transpose(xr)*Pr*xr + transpose(qr)*xr + c
 
-dlmwrite('P.csv',Pr,'delimiter',',','precision',16);
-dlmwrite('q.csv',qr,'delimiter',',','precision',16);
-dlmwrite('c.csv',c,'delimiter',',','precision',16);
+dlmwrite('P_.csv',Pr,'delimiter',',','precision',16);
+dlmwrite('q_.csv',qr,'delimiter',',','precision',16);
+dlmwrite('c_.csv',c,'delimiter',',','precision',16);
 
-
+%{
 dlmwrite('P0.csv',P(1:55,1:55),'delimiter',',','precision',16);
 dlmwrite('q0.csv',q(1:55),'delimiter',',','precision',16);
-
+%}
 
 
 

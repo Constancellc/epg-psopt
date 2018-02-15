@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cvxopt import matrix, spdiag, sparse, solvers
 import random
+import copy
 import win32com.client
 
 Pmax = 3.5 # kW
@@ -10,14 +11,36 @@ pph = 60
 T = 24*pph
 t_int = int(60/pph)
 
+plotIndividual = False
 skipUnused = True
 constrainAvaliability = False
 
 nRuns = 100
-losses = {'lm':[],'lf':[],'uc':[]}
+losses = {'lm':[],'lf':[],'uc':[],'po':{}}
 predictions = {'lm':[],'lf':[],'uc':[]}
-totalLoads = {'lm':[],'lf':[],'uc':[]}
-individuals = {'lm':{0:[],54:[]},'lf':{0:[],54:[]},'bl':{0:[],54:[]}}
+totalLoads = {'lm':[],'lf':[],'uc':[],'po':[]}
+if plotIndividual == True:
+    individuals = {'lm':{0:[],54:[]},'lf':{0:[],54:[]},'bl':{0:[],54:[]}}
+
+# getting national valley filling profile
+std = [24385,23518,23089,22818,22492,22280,21962,21991,21856,21881,22370,23502,
+       26891,29993,33385,35125,36058,35948,36440,36550,36333,36407,36364,36397,
+       36172,36093,36006,35659,35491,35364,35381,36081,36998,38085,38645,38831,
+       38944,39333,40428,40440,39095,37713,36167,33910,31752,29580,27250,25256]
+
+# inverting
+off = max(std)+1
+for i in range(std):
+    std[i] = off-std[i]
+
+# interpolating
+new = []
+for j in range(0,1440):
+    p1 = int(j/30)
+    p2 = p1 + 1
+    f = float(j%30)/30
+    new.append((1-f)*hh[p1] + f*hh[p2])
+std = new
 
 household_profiles = []
 vehicle_profiles = []
@@ -68,10 +91,12 @@ for mc in range(nRuns):
     
     lm_profiles = []
     lf_profiles = []
+    po_profiles = []
     uc_profiles = []
     for i in range(55):
         lm_profiles.append([0.0]*1440)
         lf_profiles.append([0.0]*1440)
+        po_profiles.append([0.0]*1440)
         uc_profiles.append([0.0]*1440)
         
     # pick households
@@ -315,11 +340,12 @@ for mc in range(nRuns):
 
     y2 += x_h
     predictions['lf'].append(y2.T*P*y2 + q.T*y2 + c*T)
-
-    for hh in [0,54]:
-        individuals['lf'][hh].append(lf_profiles[hh])
-        individuals['lm'][hh].append(lm_profiles[hh])
-        individuals['bl'][hh].append(household_profiles[chosen[hh]])
+    
+    if plotIndividual == True:
+        for hh in [0,54]:
+            individuals['lf'][hh].append(lf_profiles[hh])
+            individuals['lm'][hh].append(lm_profiles[hh])
+            individuals['bl'][hh].append(household_profiles[chosen[hh]])
 
     # for comparison let's get the uncontrolled charging results
 
@@ -327,12 +353,24 @@ for mc in range(nRuns):
         for t in range(1440):
             uc_profiles[i][t] = household_profiles[chosen[i]][t] + \
                                 vehicle_profiles[chosenV[i]][t]
+
+    # and the psuedo optimal
+
+    for i in range(55):
+        req_en = sum(vehicle_profiles[chosenV[i]])
+        p = copy.copy(std)
+
+        sf = req_en/sum(p)
+        for t in range(1440):
+            po_profiles[i][t] = household_profiles[chosen[i]][t] + \
+                                p[chosenV[i]][t]*sf
     
     # NOW FOR THE OPEN DSS PORTION OF THE EVENT
     engine = win32com.client.Dispatch("OpenDSSEngine.DSS")
     engine.Start("0")
 
-    runs = {'lf':lf_profiles, 'lm':lm_profiles, 'uc':uc_profiles}
+    runs = {'lf':lf_profiles,'lm':lm_profiles,'po':uc_profiles,
+            'uc':uc_profiles}
 
     for key in runs:
         profiles = runs[key]
@@ -390,25 +428,26 @@ for key in losses:
             
 with open('lf_lm_losses.csv','w') as csvfile:
     writer = csv.writer(csvfile)
-    writer.writerow(['load flattening','loss minimising','uncontrolled',
-                     'total Load','delta','predicted delta'])
+    writer.writerow(['load flattening','loss minimising','pusedo optimal',
+                     'uncontrolled','total Load'])#,'delta','predicted delta'])
     for i in range(nRuns):
-        writer.writerow([losses['lf'][i],losses['lm'][i],losses['uc'][i],
-                         sum(totalLoads['lf'][i]),
-                         losses['lf'][i]-losses['lm'][i],
-                         (predictions['lf'][i]-predictions['lm'][i])[0]/1000])
+        writer.writerow([losses['lf'][i],losses['lm'][i],losses['po'][i],
+                         losses['uc'][i],sum(totalLoads['lf'][i])])
+#                         losses['lf'][i]-losses['lm'][i],
+#                         (predictions['lf'][i]-predictions['lm'][i])[0]/1000])
 
-for hh in [0,54]:
-    with open('lf_lm_inidividuals'+str(hh)+'.csv','w') as csvfile:
-        writer = csv.writer(csvfile)
-        header = ['t']
-        for i in range(nRuns):
-            header += ['lf','lm','bl']
-        writer.writerow(header)
-        for t in range(1440):
-            row = [str(t)]
+if plotIndividual == True:
+    for hh in [0,54]:
+        with open('lf_lm_inidividuals'+str(hh)+'.csv','w') as csvfile:
+            writer = csv.writer(csvfile)
+            header = ['t']
             for i in range(nRuns):
-                row.append(individuals['lf'][hh][i][t])
-                row.append(individuals['lm'][hh][i][t])
-                row.append(individuals['bl'][hh][i][t])
-            writer.writerow(row)
+                header += ['lf','lm','bl']
+            writer.writerow(header)
+            for t in range(1440):
+                row = [str(t)]
+                for i in range(nRuns):
+                    row.append(individuals['lf'][hh][i][t])
+                    row.append(individuals['lm'][hh][i][t])
+                    row.append(individuals['bl'][hh][i][t])
+                writer.writerow(row)

@@ -10,12 +10,12 @@ T = 24*pph
 t_int = int(60/pph)
 
 # okay so this script is going to calculate the optimal losses for some false
-# energy requirements, I'm assuming no base load
+# energy requirements
 
 # first I need to set up the energy demands
 energy = [] # kWh
 for hh in range(55):
-    energy.append(100)
+    energy.append(100*random.random())
 
 # then I need to acquire the losses model
 P0 = matrix(0.0,(55,55))
@@ -68,5 +68,17 @@ x = sol['x']
 losses_lm = x.T*P*x + q.T*x
 print(losses_lf[0])
 print(losses_lm[0])
+
+av_lm = [0.0]*T
+av_lf = [sum(energy)/24]*T
+
+for i in range(55):
+    for t in range(T):
+        av_lm[t] -= x[55*t+i]/1000
+
+plt.figure(1)
+plt.plot(av_lm)
+plt.plot(av_lf)
+plt.show()
 
 # finally I should store and / or plot the results
