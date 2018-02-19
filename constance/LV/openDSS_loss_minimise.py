@@ -233,7 +233,7 @@ for mc in range(nRuns):
     G = sparse([spdiag([-1.0]*(n*T)),spdiag([1.0]*(n*T))])
     h = matrix([Pmax*1000]*(n*T)+[0.0]*(n*T))
 
-    sol=solvers.qp(P,q,G,h,A,b)
+    sol=solvers.qp(P*2,q,G,h,A,b)
     x = sol['x']
 
     y = x+x_h

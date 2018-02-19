@@ -113,11 +113,8 @@ for mc in range(10):
     x_h = matrix(x_h)
     q = copy.copy(q0) + (P+P.T)*x_h
 
-    sol=solvers.qp(P,q,G,h,A,b)
+    sol=solvers.qp(P*2,q,G,h,A,b)
     x = sol['x']
-    print(sum(x))
-
-    print(x.T*P*x+2*q.T*x)
 
     # estimate losses
     y = x+x_h
@@ -150,21 +147,14 @@ for mc in range(10):
 
     sol2 = solvers.qp(P2,q2,G,h2,A2,b)
     x2 = sol2['x']
-    print(sum(x2))
     # estimate losses
     y2 = matrix(0.0,(55*T,1))
     for t in range(T):
         for i in range(55):
             y2[55*t+i] = -x2[i*T+t]
-    print(sum(y2))
     
-    print(y2.T*P*y2+2*q.T*y2)
     y2 += x_h
     
-    plt.figure(1)
-    plt.plot(y2,alpha=0.2)
-    plt.plot(y,alpha=0.2)
-    plt.show()
     lf_losses.append((y2.T*P*y2 + q0.T*y2 + c*T)[0])
 
     # store results
