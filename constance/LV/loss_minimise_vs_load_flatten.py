@@ -84,8 +84,9 @@ lf_losses = []
 lm_losses = []
 chosenHH = []
 
+totalEn = []
 # for run in mc
-for mc in range(10):
+for mc in range(100):
     # chose hh profiles
     chosen = []
     while len(chosen) < 55:
@@ -98,6 +99,13 @@ for mc in range(10):
     vEnergy = []
     for i in range(55):
         vEnergy.append(30*random.random())
+
+    # record total energy
+    tot = 0
+    for i in range(55):
+        tot += sum(household_profiles[chosen[i]])
+        tot += vEnergy[i]*60
+    totalEn.append(tot)
 
     # loss minimize
     b = []
@@ -166,15 +174,21 @@ for mc in range(10):
         profiles.append(profile)
     lf_profiles.append(profiles)
 
-diff = []
+diff = [0.0]*100
 for i in range(len(lf_losses)):
-    diff.append(lf_losses[i]-lm_losses[i])
-diff = sorted(diff)
+    diff[int(1000*(lf_losses[i]-lm_losses[i])/lf_losses[i])] += 1
+    lf_losses[i] = lf_losses[i]*0.1/totalEn[i] # lm_losses in Wmins, totalEn in kWmins
+    lm_losses[i] = lm_losses[i]*0.1/totalEn[i] # result in %
 
 plt.figure(1)
 plt.subplot(2,1,1)
 plt.boxplot([lf_losses,lm_losses],0,'',whis=[0.05, 99.5])
+plt.xticks([1,2],['Load Flattening','Loss Minimising'])
+plt.ylabel('Energy Lost (%)')
 plt.grid()
 plt.subplot(2,1,2)
-plt.plot(diff)
+plt.ylabel('Frequency')
+plt.xlabel('% Saved by loss minimization over load flattening')
+plt.bar(np.arange(0,10,0.1),diff,0.1)
+plt.grid()
 plt.show()
