@@ -48,7 +48,7 @@ for i in range(0,1000):
     household_profiles.append([0.0]*1440)
 
 # the following is using CREST
-#'''
+'''
 i = 0
 with open('household_demand_pool.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
@@ -75,7 +75,7 @@ with open('household_demand_pool_HH.csv','rU') as csvfile:
             f = float(j%30)/30
             household_profiles[i][j] = (1-f)*hh[p1] + f*hh[p2]
         i += 1
-'''
+#'''
 with open('vehicle_demand_pool.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
