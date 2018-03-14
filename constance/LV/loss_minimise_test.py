@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from cvxopt import matrix, spdiag, sparse, solvers
 import random
 
+from lv_optimization import LVTestFeeder
+
 Pmax = 6 # kW
 pph = 60
 T = 24*pph
