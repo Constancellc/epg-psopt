@@ -38,7 +38,7 @@ with open('data/EVchargingWedJanUT.csv','rU') as csvfile:
 
 outfile = '../../../Documents/simulation_results/LV/total_losses/'
 
-for mc in range(100):
+for mc in range(200):
     chosen = []
     while len(chosen) < 55:
         ran = int(random.random()*len(household_profiles))
