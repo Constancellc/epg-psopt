@@ -68,7 +68,6 @@ for mc in range(100):
     totallf = feeder.predict_losses()
     feeder.loss_minimise(7,constrain=False)
     totallm = feeder.predict_losses()
-    base = feeder.base
 
     with open(outfile+str(mc+1)+'.csv','w') as csvfile:
         writer = csv.writer(csvfile)
