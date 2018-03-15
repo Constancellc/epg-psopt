@@ -10,7 +10,11 @@ class LVTestFeeder:
 
     def __init__(self):
         self.hh = None
-        self.ev = None
+        
+        profiles = []
+        for i in range(55):
+            profiles.append([0.0]*1440)
+        self.ev = profiles
 
         # might as well get the loss model coefficients now
         self.P0 = matrix(0.0,(55,55))
@@ -59,6 +63,10 @@ class LVTestFeeder:
             
             self.b.append(vehicles[j][0])
             self.times.append(vehicles[j][1:])
+
+            # hack to present singular optimisation
+            if self.times[-1][0] >= self.times[-1][1]:
+                self.times[-1][0] = self.times[-1][1]-60
             
         self.n = len(self.b)
 
@@ -69,6 +77,10 @@ class LVTestFeeder:
 
         for i in range(self.n):
             e = self.b[i]
+
+            if e < power/60:
+                continue
+            
             a = self.times[i][1]
 
             chargeTime = int(e*60/power)+1
@@ -85,10 +97,22 @@ class LVTestFeeder:
         profiles = []
         for i in range(55):
             profiles.append([0.0]*1440)
+
+        Pr = matrix(0.0,(self.n,self.n))
+        qr = []
+        for i in range(self.n):
+            qr.append(self.q0[self.map[i]])
+            for j in range(self.n):
+                Pr[i,j] = self.P0[self.map[i],self.map[j]]
+
+        x_h = []
+        for t in range(1440):
+            for v in range(self.n):
+                x_h.append(self.x_h[t*55+self.map[v]])
         
-        P = spdiag([self.P0]*1440)
-        x_h = matrix(self.x_h)
-        q = matrix(self.q0*1440)
+        P = spdiag([Pr]*1440)
+        x_h = matrix(x_h)
+        q = matrix(qr*1440)
         q += (P+P.T)*x_h
 
         if constrain == False:
@@ -124,6 +148,7 @@ class LVTestFeeder:
         profiles = []
         for i in range(55):
             profiles.append([0.0]*1440)
+
         
         q = copy.copy(self.base)*self.n
         q = matrix(q)
@@ -136,6 +161,7 @@ class LVTestFeeder:
         else:
             A = matrix(0.0,(2*self.n,self.n*1440))
             b = matrix(0.0,(2*self.n,1))
+        
 
         for v in range(self.n):
             for t in range(1440):
@@ -163,8 +189,13 @@ class LVTestFeeder:
         profiles = []
         for i in range(55):
             profiles.append([0.0]*1440)
+
+        Pr = matrix(0.0,(self.n,self.n))
+        for i in range(self.n):
+            for j in range(self.n):
+                Pr[i,j] = self.P0[self.map[i],self.map[j]]
         
-        P = spdiag([self.P0]*1440)
+        P = spdiag([Pr]*1440)
         P += spdiag([alpha]*(1440*self.n))
         x_h = matrix(self.x_h)
         q = matrix(self.q0*1440)
@@ -221,9 +252,7 @@ class LVTestFeeder:
 
         for t in range(1440):
             for i in range(55):
-                total_load[t] += self.hh[i][t]
-            for v in range(self.n):
-                total_load[t] += self.ev[v][t]
+                total_load[t] += self.hh[i][t] + self.ev[i][t]
 
         return total_load
 
