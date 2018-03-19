@@ -74,11 +74,11 @@ for i in range(len(heatmap)):
 
         except:
             continue
-print(best)
-print(worst)
+
 plt.figure(1)
 plt.imshow(heatmap)
 plt.colorbar()
+
 
 empty = []
 for i in range(1,len(heatmap)-1):
@@ -134,25 +134,9 @@ heatmap2 = scipy.ndimage.filters.gaussian_filter(heatmap2,1)
 
 levels = np.arange(0.55,1.05,0.1)
 spc = len(heatmap2)/8
-manual_locations = [(46,338),(103,285),(173,221),(270,168)]
 
-x_int = len(heatmap2)/5
-ax = [0,1*x_int,2*x_int,3*x_int,4*x_int,5*x_int-1]
-ax_ticks = ['0.0','0.1','0.2','0.3','0.4','0.5']
-ax_ticks2 = ['0.5','0.4','0.3','0.2','0.1','0.0']
-plt.figure(2)
-plt.subplot(1,2,1)
-plt.imshow(heatmap2)
-plt.xticks(ax,ax_ticks)
-plt.yticks(ax,ax_ticks2)
-plt.xlabel('HH54 P1 (kW)')
-plt.ylabel('HH1 P1 (kW)')
-plt.title('OpenDSS')
-#plt.colorbar()
-CS = plt.contour(heatmap2, colors="white", levels=levels,linewidths=1.0)
-plt.clabel(CS, inline=1, fontsize=10, manual=manual_locations)
-plt.grid()
-##plt.show()
+
+
 
 
 # ok great, now I want to do the same for my loss-minimisation model to compare
@@ -216,6 +200,37 @@ for i in range(len(heatmap3)):
     for j in range(len(heatmap3)):
         heatmap3[i][j] = heatmap3[i][j]/np.amax(heatmap3)
 
+
+manual_locations = [(46,338),(103,285),(173,221),(270,168)]
+
+x_int = len(heatmap2)/5
+ax = [0,1*x_int,2*x_int,3*x_int,4*x_int,5*x_int-1]
+ax_ticks = ['0.0','0.1','0.2','0.3','0.4','0.5']
+ax_ticks2 = ['0.5','0.4','0.3','0.2','0.1','0.0']
+
+
+x1 = np.linspace(0,len(heatmap2),num=len(heatmap3))
+x2 = np.linspace(0,len(heatmap3),num=len(heatmap2))
+y1 = np.linspace(len(heatmap2),0,num=len(heatmap3))
+y2 = np.linspace(len(heatmap3),0,num=len(heatmap2))
+
+plt.figure(figsize=(6,3))
+plt.rcParams["font.family"] = 'serif'
+plt.rcParams['font.size'] = 8
+
+plt.subplot(1,2,1)
+plt.imshow(heatmap2)
+plt.xticks(ax,ax_ticks)
+plt.yticks(ax,ax_ticks2)
+plt.xlabel('HH54 P1 (kW)')
+plt.ylabel('HH1 P1 (kW)')
+plt.title('OpenDSS')
+plt.contour(x1,x1,heatmap3,colors="black",linestyles='dashed',levels=levels,
+            linewidths=1.0)
+plt.grid()
+#plt.colorbar()
+CS = plt.contour(heatmap2, colors="white", levels=levels,linewidths=1.0)
+plt.clabel(CS, inline=1, fontsize=10, manual=manual_locations)##plt.show()
 x_int = len(heatmap3)/5
 ax = [0,1*x_int,2*x_int,3*x_int,4*x_int,5*x_int-1]
 
@@ -225,16 +240,20 @@ plt.imshow(heatmap3)
 plt.xticks(ax,ax_ticks)
 plt.yticks(ax,ax_ticks2)
 plt.xlabel('HH54 P1 (kW)')
-plt.ylabel('HH1 P1 (kW)')
 plt.title('Model')
 #levels = np.arange(0.5,1.0,0.05)
 #plt.colorbar()
+plt.contour(x2,x2,heatmap2,colors="black",linestyles='dashed',levels=levels,
+            linewidths=1.0)
+plt.grid()
 CS = plt.contour(heatmap3, colors="white", levels=levels,linewidths=1.0)
 plt.clabel(CS, inline=1, fontsize=10, manual=manual_locations)
-plt.grid()
 
+plt.tight_layout()
+plt.savefig('../../../Dropbox/papers/losses/2bus.eps', format='eps', dpi=1000)
 
-
+plt.show()
+'''
 heatmap4 = np.zeros((len(heatmap2),len(heatmap2)))
 sf = len(heatmap3)/len(heatmap2)
 
@@ -252,3 +271,4 @@ CS = plt.contour(x1,y1,heatmap3,colors="blue", levels=levels,linewidths=1.0)
 CS2 = plt.contour(x2,y2,heatmap2,colors="black", levels=levels,linewidths=1.0)
 #plt.clabel(CS2, inline=1, fontsize=10)
 plt.show()
+'''
