@@ -33,8 +33,15 @@ v = [0.0]*30
 for i in range(600):
     m[int(i/20)] += diffs[i]/20
 
-for i in range(600):
-    v[int(i/20)] += np.power(diffs[i]-m[int(i/20)],2)/20
+for i in range(30):
+    d = []
+    for j in range(20):
+        d.append(diffs[20*i+j])
+    d = sorted(d)
+    d = d[1:19]
+
+    for j in range(18):
+        v[i] += np.power(d[j]-m[i],2)/20
 
 u = [0.0]*30
 l = [0.0]*30
@@ -42,12 +49,16 @@ l = [0.0]*30
 for i in range(30):
     u[i] = m[i]+np.sqrt(v[i])
     l[i] = m[i]-np.sqrt(v[i])
+
+m = [0.0] + m
+u = [0.01] + u
+l = [0.0] + l
 plt.figure(figsize=(6,3))
 plt.rcParams["font.family"] = 'serif'
 plt.rcParams['font.size'] = 8
-plt.fill_between(range(1,31),u,l,color='#c5d9f9')
-plt.plot(range(1,31),m,'b')
-plt.xlim(1,31)
+plt.fill_between(range(31),u,l,color='#c5d9f9')
+plt.plot(range(31),m,'b')
+plt.xlim(0,30)
 plt.xlabel('Energy required per EV (kWh)')
 plt.ylabel('% Difference in losses')
 plt.grid()
