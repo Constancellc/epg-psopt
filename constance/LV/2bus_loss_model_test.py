@@ -17,7 +17,7 @@ base = 0.0 # kW load of all unused houses
 hh_A = 1 # test households
 hh_B = 54
 
-data = '../../../Documents/loss_model_test_map.csv'
+data = '../../../Documents/simulation_results/LV/loss_model_test_map.csv'
 
 # ok i'm now going to get a set of readings from which I need to interpolate,
 # or maybe just find the nearest?
@@ -51,8 +51,8 @@ highest = 0
 worst = None
 
 heatmap = []
-for i in range(int(0.5/step)+1):
-    heatmap.append([0.0]*(int(0.5/step)+1))
+for i in range(int(1.0/step)+1):
+    heatmap.append([0.0]*(int(1.0/step)+1))
 
 for i in range(len(heatmap)):
     for j in range(len(heatmap[0])):
@@ -64,21 +64,12 @@ for i in range(len(heatmap)):
         try:
             heatmap[i][j] = losses[p11][p12]+losses[p21][p22]
 
-            if heatmap[i][j] < lowest:
-                lowest = heatmap[i][j]
-                best = [p11,p12,p21,p22]
-
-            if heatmap[i][j] > highest:
-                highest = heatmap[i][j]
-                worst = [p11,p12,p21,p22]
-
         except:
             continue
 
 plt.figure(1)
 plt.imshow(heatmap)
 plt.colorbar()
-
 
 empty = []
 for i in range(1,len(heatmap)-1):
@@ -99,12 +90,12 @@ for i in range(len(heatmap)):
         j2 += 1
     i2 += 1
 
-# now flip in y
+# now flip in x and y
 new = np.zeros((len(heatmap2),len(heatmap2)))
 
 for i in range(len(heatmap2)):
     for j in range(len(heatmap2)):
-        new[len(heatmap2)-1-i][j] = heatmap2[i][j]
+        new[len(heatmap2)-1-i][len(heatmap2)-1-j] = heatmap2[i][j]
 
 heatmap2 = new
         
@@ -187,26 +178,31 @@ def model_losses(p11,p12):
 
     return x.T*P*x+q.T*x+c*2
 
-heatmap3 = np.zeros((int(0.5/step),int(0.5/step)))
+
+heatmap3 = np.zeros((int(1.0/step),int(1.0/step)))
+heatmap4 = np.zeros((int(1.0/step),int(1.0/step)))
 
 for i in range(len(heatmap3)):
     for j in range(len(heatmap3)):
-        p11 = i*0.5/len(heatmap3)
-        p12 = j*0.5/len(heatmap3)
-        heatmap3[len(heatmap3)-1-i][j] = model_losses(p11,p12)[0]
+        p11 = i*1.0/len(heatmap3)
+        p12 = j*1.0/len(heatmap3)
+        heatmap3[len(heatmap3)-1-i][len(heatmap3)-1-j] = model_losses(p11,p12)[0]
+        heatmap4[len(heatmap3)-1-i][len(heatmap3)-1-j] = np.power(p11+p12,2) + \
+                                         np.power(2.0-p11-p12,2)
 
 
 for i in range(len(heatmap3)):
     for j in range(len(heatmap3)):
         heatmap3[i][j] = heatmap3[i][j]/np.amax(heatmap3)
+        heatmap4[i][j] = heatmap4[i][j]/np.amax(heatmap4)
 
 
-manual_locations = [(46,338),(103,285),(173,221),(270,168)]
+#manual_locations = [(46,338),(103,285),(173,221),(270,168)]
 
 x_int = len(heatmap2)/5
 ax = [0,1*x_int,2*x_int,3*x_int,4*x_int,5*x_int-1]
-ax_ticks = ['0.0','0.1','0.2','0.3','0.4','0.5']
-ax_ticks2 = ['0.5','0.4','0.3','0.2','0.1','0.0']
+ax_ticks = ['0.0','0.2','0.4','0.6','0.8','1.0']
+ax_ticks2 = ['1.0','0.8','0.6','0.4','0.2','0.0']
 
 
 x1 = np.linspace(0,len(heatmap2),num=len(heatmap3))
@@ -219,56 +215,58 @@ plt.rcParams["font.family"] = 'serif'
 plt.rcParams['font.size'] = 8
 
 plt.subplot(1,2,1)
-plt.imshow(heatmap2)
-plt.xticks(ax,ax_ticks)
-plt.yticks(ax,ax_ticks2)
-plt.xlabel('HH54 P1 (kW)')
-plt.ylabel('HH1 P1 (kW)')
-plt.title('OpenDSS')
-plt.contour(x1,x1,heatmap3,colors="black",linestyles='dashed',levels=levels,
-            linewidths=1.0)
-plt.grid()
-#plt.colorbar()
-CS = plt.contour(heatmap2, colors="white", levels=levels,linewidths=1.0)
-plt.clabel(CS, inline=1, fontsize=10, manual=manual_locations)##plt.show()
-x_int = len(heatmap3)/5
+x_int = len(heatmap2)/5
 ax = [0,1*x_int,2*x_int,3*x_int,4*x_int,5*x_int-1]
 
 manual_locations = [(72,393),(148,343),(218,258),(349,205)]
+plt.imshow(heatmap4,cmap='inferno')
+plt.xticks(ax,ax_ticks)
+plt.yticks(ax,ax_ticks)
+plt.xlabel('EV2 P1 (kW)')
+plt.ylabel('EV1 P1 (kW)')
+plt.title('Load Flattening')
+CS = plt.contour(heatmap4,colors="white", levels=levels,linewidths=1.0)
+plt.xlim(1,len(heatmap4)-2)
+plt.ylim(1,len(heatmap4)-2)
+
 plt.subplot(1,2,2)
-plt.imshow(heatmap3)
+plt.imshow(heatmap2,cmap='inferno')
+plt.xticks(ax,ax_ticks)
+plt.yticks(ax,ax_ticks)
+plt.xlabel('EV2 P1 (kW)')
+plt.title('Loss Minimising')
+plt.contour(x1,x1,heatmap3,colors="cyan",linestyles='dashed',levels=levels,
+            linewidths=1.0)
+#plt.grid()
+#plt.colorbar()
+CS = plt.contour(heatmap2, colors="white", levels=levels,linewidths=1.0)
+plt.xlim(1,len(heatmap2)-2)
+plt.ylim(1,len(heatmap2)-2)
+#plt.clabel(CS, inline=1, fontsize=8,manual=manual_locations)##plt.show()
+
+'''
+x_int = len(heatmap3)/5
+ax = [0,1*x_int,2*x_int,3*x_int,4*x_int,5*x_int-1]
+
+#manual_locations = [(72,393),(148,343),(218,258),(349,205)]
+plt.subplot(1,2,2)
+plt.imshow(heatmap3,cmap='inferno')
 plt.xticks(ax,ax_ticks)
 plt.yticks(ax,ax_ticks2)
 plt.xlabel('HH54 P1 (kW)')
 plt.title('Model')
 #levels = np.arange(0.5,1.0,0.05)
 #plt.colorbar()
-plt.contour(x2,x2,heatmap2,colors="black",linestyles='dashed',levels=levels,
+plt.contour(x2,x2,heatmap2,colors="cyan",linestyles='dashed',levels=levels,
             linewidths=1.0)
-plt.grid()
-CS = plt.contour(heatmap3, colors="white", levels=levels,linewidths=1.0)
-plt.clabel(CS, inline=1, fontsize=10, manual=manual_locations)
+#plt.grid()
+CS = plt.contour(heatmap3,colors="white", levels=levels,linewidths=1.0)
 
+plt.xlim(1,len(heatmap3)-2)
+plt.ylim(1,len(heatmap3)-2)
+#plt.clabel(CS, inline=1, fontsize=10, manual=manual_locations)
+'''
 plt.tight_layout()
 plt.savefig('../../../Dropbox/papers/losses/2bus.eps', format='eps', dpi=1000)
 
 plt.show()
-'''
-heatmap4 = np.zeros((len(heatmap2),len(heatmap2)))
-sf = len(heatmap3)/len(heatmap2)
-
-for i in range(len(heatmap4)):
-    for j in range(len(heatmap4)):
-        heatmap4[i][j] = heatmap2[i][j] - heatmap3[int(i*sf)][int(j*sf)]
-
-x1 = np.linspace(0,0.5,num=len(heatmap3))
-x2 = np.linspace(0,0.5,num=len(heatmap2))
-y1 = np.linspace(0.5,0,num=len(heatmap3))
-y2 = np.linspace(0.5,0,num=len(heatmap2))
-plt.figure(3)
-CS = plt.contour(x1,y1,heatmap3,colors="blue", levels=levels,linewidths=1.0)
-#plt.clabel(CS, inline=1, fontsize=10)
-CS2 = plt.contour(x2,y2,heatmap2,colors="black", levels=levels,linewidths=1.0)
-#plt.clabel(CS2, inline=1, fontsize=10)
-plt.show()
-'''
