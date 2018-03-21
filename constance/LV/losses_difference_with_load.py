@@ -38,7 +38,7 @@ with open('data/EVchargingWedJanUT.csv','rU') as csvfile:
 
 outfile = '../../../Documents/simulation_results/LV/losses_difference_with_load.csv'
 results = []
-for mc in range(300):
+for mc in range(3000):
     chosen = []
     while len(chosen) < 55:
         ran = int(random.random()*len(household_profiles))
@@ -47,24 +47,26 @@ for mc in range(300):
             
     # all EVs having the same energy requirement
     energy = []
-    en = float(int(mc/10)+1)#random.random()*30)
+    en = float(int(mc/100)+1)#random.random()*30)
     while len(energy) < 55:
         ran = int(random.random()*len(vehicle_pool))
         if vehicle_pool[ran] not in energy:
             energy.append([en]+vehicle_pool[ran][1:])
 
-           
-    feeder = LVTestFeeder()
-    feeder.set_households(chosen)
-    feeder.set_evs(energy)
+    try:           
+        feeder = LVTestFeeder()
+        feeder.set_households(chosen)
+        feeder.set_evs(energy)
 
-    Load0 = sum(feeder.get_feeder_load())
-    feeder.load_flatten(7,constrain=False)
-    lf = sum(feeder.predict_losses())/Load0
-    feeder.loss_minimise(7,constrain=False)
-    lm = sum(feeder.predict_losses())/Load0
+        Load0 = sum(feeder.get_feeder_load())
+        feeder.load_flatten(7,constrain=False)
+        lf = sum(feeder.predict_losses())/Load0
+        feeder.loss_minimise(7,constrain=False)
+        lm = sum(feeder.predict_losses())/Load0
 
-    results.append([en,lf,lm])
+        results.append([en,lf,lm])
+    except:
+        continue
 
 with open(outfile,'w') as csvfile:
     writer = csv.writer(csvfile)
