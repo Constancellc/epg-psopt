@@ -37,9 +37,9 @@ with open('data/EVchargingWedJanUT.csv','rU') as csvfile:
                                  int(float(row[2]))])
 
 
-plt.figure(figsize=(5,4))
+plt.figure(figsize=(5,3.5))
 plt.rcParams["font.family"] = 'serif'
-plt.rcParams['font.size'] = 9
+plt.rcParams['font.size'] = 8
 t = np.linspace(0,24,num=1440)
 x = [2,6,10,14,18,22]
 x_ticks = ['02:00','06:00','10:00','14:00','18:00','22:00']
