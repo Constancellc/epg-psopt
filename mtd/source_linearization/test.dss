@@ -1,0 +1,7 @@
+clear
+
+Set DefaultBaseFrequency=60
+
+New circuit.LVTest
+!Edit Vsource.Source BasekV=11 pu=1.05  ISC3=3000  ISC1=5 ===========> REMOVED
+solve
