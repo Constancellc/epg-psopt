@@ -3,18 +3,13 @@ clear
 Set DefaultBaseFrequency=50  ! for European system
 
 New circuit.LVTest
-!Edit Vsource.Source BasekV=11 pu=1.05  ISC3=3000  ISC1=5 ===========> REMOVED
-solve
 !=================
 !Edit Vsource.Source BasekV=11 pu=1.05  ISC3=3000  ISC1=5 ===========> REMOVED
-Edit Vsource.Source BasekV=11 pu=1.05  ISC3=1000000  ISC1=1050000 ===========> SOURCE STIFFENED
-print Vsource.R1
-new linecode.sourcecode nphases=3 R1=3.97 X1=0.099 R0=3.97 X0=0.099 C1=0 C0=0 Units=km
+Edit Vsource.Source BasekV=11 pu=1.05  ISC3=3000000  ISC1=1050000 ===========> SOURCE STIFFENED
+new linecode.sourcecode nphases=3 R1=0.5134 X1=2.0537 R0=1203.7 X0=3611.0 C1=0 C0=0 Units=km !calculated using source_impedance.m
 new line.SourceLine bus1=sourcebus Bus2=sourcebus_s phases=3 Linecode=sourcecode Length=1 Units=km
-
 Redirect Transformers_s.txt !==> moved to change order as above
 !=================
-
 Redirect LineCode.txt
 Redirect LoadShapes.txt
 batchedit loadshape..* useactual=no

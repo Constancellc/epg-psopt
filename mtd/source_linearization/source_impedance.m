@@ -1,10 +1,10 @@
-function [ Z1,Z0 ] = source_impedance( vll,sc3,sc1,x1r1,x0r0 )
+function [ Z1,Z0 ] = source_impedance( vll,Isc3,Isc1,x1r1,x0r0 )
 
 % assume for now sc3, sc1 are Isc
 vln = vll/sqrt(3); % kV
 
-z1_a = vln*1e3/sc3;
-zs_a = vln*1e3/sc1;
+z1_a = vln*1e3/Isc3;
+zs_a = vln*1e3/Isc1;
 
 Z1 = z1_a*exp(1i*atan(x1r1));
 R1 = real(Z1); X1 = imag(Z1);
