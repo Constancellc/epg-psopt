@@ -8,7 +8,7 @@
 % find the appropriate (assumed) impedance of the soruce impedance line
 % that is required.
 %
-% results discussed in WB 09/04/18.
+% results discussed in WB 09/04/18, and in src_parameters.txt.
 close all; clear all; clc;
 
 WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\mtd\source_linearization';
