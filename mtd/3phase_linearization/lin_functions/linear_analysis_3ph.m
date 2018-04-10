@@ -20,29 +20,30 @@ function [ YNodeV0,Ybus,x,n,Amat,BB ] = linear_analysis_3ph( DSSObj,GG,YNodeS,TR
 % BB returns the BB matrix, if specified
 
 
-DSSText = DSSObj.Text;
-
-% first get the ybus matrix:
-DSSText.command=['Compile (',GG.filename_y,')'];
-DSSCircuit=DSSObj.ActiveCircuit;
-DSSSolution=DSSCircuit.Solution;
-
-if isempty(TR_name)==0
-    if strcmp(GG.feeder,'13bus')
-        regname = 'RegControl.';
-    elseif strcmp(GG.feeder,'34bus') + strcmp(GG.feeder,'37bus')
-        regname = 'RegControl.c';
-    end
-    for i =1:numel(TR_name)
-        DSSText.command=['edit ',regname,TR_name{i},' tapnum=',num2str(TC_No0(i))];
-        DSSText.command=[regname,TR_name{i},'.maxtapchange=0']; % fix taps
-    end
-end
-
-DSSSolution.Solve;
-[Ybus_,YZNodeOrder_] = create_ybus(DSSCircuit);
-Ybus = Ybus_(4:end,4:end);
-YZNodeOrder = [YZNodeOrder_(1:3);YZNodeOrder_(7:end)];
+% DSSText = DSSObj.Text;
+% 
+% % first get the ybus matrix:
+% DSSText.command=['Compile (',GG.filename_y,')'];
+% DSSCircuit=DSSObj.ActiveCircuit;
+% DSSSolution=DSSCircuit.Solution;
+% 
+% if isempty(TR_name)==0
+%     if strcmp(GG.feeder,'13bus')
+%         regname = 'RegControl.';
+%     elseif strcmp(GG.feeder,'34bus') + strcmp(GG.feeder,'37bus')
+%         regname = 'RegControl.c';
+%     end
+%     for i =1:numel(TR_name)
+%         DSSText.command=['edit ',regname,TR_name{i},' tapnum=',num2str(TC_No0(i))];
+%         DSSText.command=[regname,TR_name{i},'.maxtapchange=0']; % fix taps
+%     end
+% end
+% 
+% DSSSolution.Solve;
+% [Ybus_,YZNodeOrder_] = create_ybus(DSSCircuit);
+% Ybus = Ybus_(4:end,4:end);
+% YZNodeOrder = [YZNodeOrder_(1:3);YZNodeOrder_(7:end)];
+[Ybus,YZNodeOrder] = create_tapped_ybus( DSSObj,GG.filename_y,GG.feeder,TR_name,TC_No0 );
 n = numel(YZNodeOrder);
 
 % now get the flat voltage solution:
@@ -50,6 +51,11 @@ DSSText.command=['Compile (',GG.filename_v,')'];
 DSSCircuit=DSSObj.ActiveCircuit;
 DSSSolution=DSSCircuit.Solution;
 if isempty(TR_name)==0
+    if strcmp(GG.feeder,'13bus')
+        regname = 'RegControl.';
+    elseif strcmp(GG.feeder,'34bus') + strcmp(GG.feeder,'37bus')
+        regname = 'RegControl.c';
+    end
     for i =1:numel(TR_name)
         DSSText.command=['edit ',regname,TR_name{i},' tapnum=',num2str(TC_No0(i))]; % fix taps
         DSSText.command=[regname,TR_name{i},'.maxtapchange=0']; % fix taps

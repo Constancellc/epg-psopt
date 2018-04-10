@@ -24,7 +24,7 @@ YZNodeOrder = DSSCircuit.YNodeOrder;
 YNodeVarray = DSSCircuit.YNodeVarray';
 YNodeV = YNodeVarray(1:2:end) + 1i*YNodeVarray(2:2:end);
 
-[B,V,I,S,D] = ld_vals( DSSCircuit )
+[B,V,I,S,D] = ld_vals( DSSCircuit );
 [iD,sD,iY,sY] = calc_sYsD( YZNodeOrder,B,I,S,D );
 H = kron(eye(DSSCircuit.NumBuses - 1),G);
 

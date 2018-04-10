@@ -1,10 +1,15 @@
-function [ Z1,Z0 ] = source_impedance( vll,Isc3,Isc1,x1r1,x0r0 )
+function [ Z1,Z0 ] = source_impedance( vll,Asc3,Asc1,x1r1,x0r0,type )
 
 % assume for now sc3, sc1 are Isc
 vln = vll/sqrt(3); % kV
-
-z1_a = vln*1e3/Isc3;
-zs_a = vln*1e3/Isc1;
+switch type
+    case 'isc'
+        z1_a = vln*1e3/Asc3;
+        zs_a = vln*1e3/Asc1;
+    case 'mvasc'
+        z1_a = vll^2/Asc3;
+        zs_a = vll^2/Asc1;
+end
 
 Z1 = z1_a*exp(1i*atan(x1r1));
 R1 = real(Z1); X1 = imag(Z1);

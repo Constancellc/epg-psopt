@@ -34,7 +34,7 @@ YNodeS = YNodeV.*conj(YNodeI);
 clc
 % bus_ma(YZNodeOrder,abs(YNodeV)/1e3,angle(YNodeV)*180/pi,'Voltage (|V| [kv], ang(V) [deg])');
 % bus_ma(YZNodeOrder,abs(YNodeI),angle(-YNodeI)*180/pi,'Current(|I| [A], ang(I) [deg])');
-bus_ma(YZNodeOrder,real(YNodeS)/1e3,imag(YNodeS)/1e3,'Power (P [kW], Q [kVar])');
+% bus_ma(YZNodeOrder,real(YNodeS)/1e3,imag(YNodeS)/1e3,'Power (P [kW], Q [kVar])');
 
 %% REPRODUCE the 'Delta Power Flow Eqns' (1)
 DSSText.command=['Compile (',GG.filename,'.dss)'];
@@ -48,8 +48,6 @@ HH = kron(eye(39),G);
 sD_p = diag((HH*YNodeV))*conj(iD);
 sD_er = (real(sD_p)/1e3 - real(sD))./real(sD) + 1i*((imag(sD_p)/1e3 - imag(sD))./imag(sD));
 bus_ma(YZNodeOrder,real(sD_er)*100,imag(sD_er)*100,'');
-
-
 
 % note that we get a small error out for the three phase load. This is
 % presumed to be because we cannot specify iD from i exactly and so instead
