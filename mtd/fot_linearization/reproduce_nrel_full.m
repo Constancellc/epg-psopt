@@ -23,8 +23,9 @@ fn_y = [fn,'_y'];
 % Run the DSS 
 [~, DSSObj, DSSText] = DSSStartup;
 DSSCircuit=DSSObj.ActiveCircuit; DSSSolution = DSSCircuit.Solution;
-% DSSText.command=['Compile (',fn,'.dss)'];
 DSSText.command=['Compile (',fn,'.dss)'];
+% [~] = set_cp_loads(DSSCircuit); % fix taps at their current positions
+
 [ TC_No0,TR_name,TC_bus ] = find_tap_pos( DSSCircuit );
 
 H = calc_Hmat( DSSCircuit );
@@ -32,10 +33,11 @@ H = calc_Hmat( DSSCircuit );
 
 %% REPRODUCE the 'Delta Power Flow Eqns' (1)
 DSSText.command=['Compile (',fn,'.dss)'];
+% [~] = set_cp_loads(DSSCircuit); % fix taps at their current positions
+
 % get the Y, D currents/powers
 [B,V,I,S,D] = ld_vals( DSSCircuit );
 [iD,sD,iY,sY] = calc_sYsD( YZNodeOrder,B,I,S,D );
-% [ BB0,SS0 ] = cpf_get_loads( DSSCircuit.Loads );
 [ BB0,SS0 ] = cpf_get_loads( DSSCircuit );
 
 YNodeVarray = DSSCircuit.YNodeVarray';
@@ -51,8 +53,8 @@ Vh = YNodeV(4:end);
 [ My,Md,a,Ky,Kd,b ] = nrel_linearization( xh0,H,Ybus,Vh,V0 );
 [ Myf,Mdf,af,Kyf,Kdf,bf ] = nrel_fot_linearization( xh0,H,Ybus,Vh,V0,iD,sD );
 %%
-% k = (-0.75:0.005:1.75);
-k = (-0.75:0.05:1.75);
+k = (-0.75:0.005:1.75);
+% k = (-0.75:0.01:1.75);
 
 v = zeros(numel(k),numel(YZNodeOrder));
 v_l = zeros(numel(k),numel(YZNodeOrder) - 3);
@@ -64,9 +66,14 @@ ve0 = zeros(size(k));
 vef = zeros(size(k));
 
 DSSText.command=['Compile (',fn,')'];
+% [~] = set_cp_loads(DSSCircuit); % fix taps at their current positions
 [~] = set_taps(DSSCircuit.RegControls); % fix taps at their current positions
 
 for i = 1:numel(k)
+    DSSText.command=['Compile (',fn,')'];
+    % [~] = set_cp_loads(DSSCircuit); % fix taps at their current positions
+    [~] = set_taps(DSSCircuit.RegControls); % fix taps at their current positions
+
     [~] = cpf_set_loads(DSSCircuit,BB0,SS0,k(i));
     DSSSolution.Solve;
     
@@ -96,7 +103,7 @@ end
 plot(k,ve); hold on;
 plot(k,ve0);
 plot(k,vef);
-
+xlabel('k'); ylabel('|V - V_e|/|V|');
 
 %%
 
