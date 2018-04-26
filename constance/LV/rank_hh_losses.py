@@ -65,6 +65,7 @@ plt.rcParams["font.family"] = 'serif'
 plt.rcParams['font.size'] = 8
 plt.scatter(range(1,56),losses,marker='x')
 plt.xlim(0,56)
+plt.ylim(0,4)
 plt.grid()
 plt.xlabel('Node #')
 plt.ylabel('Losses due to 1kW Load (W)')

@@ -294,7 +294,6 @@ class LVTestFeeder:
             for v in range(self.n):
                 i = self.map[v]
                 y[i] -= self.ev[v][t]*1000
-
             y = matrix(y)
 
             ir = (Ar*y+br)
@@ -310,8 +309,7 @@ class LVTestFeeder:
 
             # phase c only
             current110.append(np.sqrt(np.power(ir[2,0]+ii[2,0],2)))
-            current296.append(np.sqrt(np.power(ir[5,0]+ii[5,0],2)))
-
+            current296.append(np.sqrt(np.power(ir[3,0]+ii[3,0],2)))
 
         return [current110,current296]
                 
