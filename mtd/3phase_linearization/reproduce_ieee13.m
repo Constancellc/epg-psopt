@@ -10,7 +10,6 @@ addpath('lin_functions\');
 
 fig_loc = [pwd,'\figures\'];
 %% First withdraw true voltages
-
 YNodeOrderTrue0={'650';'RG60';'632';'633';'634';'645';'646';'671';'680';'675';'692';'684';'611';'652'};
 YNodeOrderTrue = cell(numel(YNodeOrderTrue0)*3,1);
 nEth = numel(YNodeOrderTrue0) - 1;

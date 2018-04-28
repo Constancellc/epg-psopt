@@ -77,3 +77,13 @@ plot(abs(YNodeV(4:end)./abs(vc)));
 
 
 
+
+
+
+
+
+
+
+
+
+

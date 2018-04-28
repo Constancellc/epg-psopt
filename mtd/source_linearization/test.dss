@@ -1,0 +1,12 @@
+clear
+
+Set DefaultBaseFrequency=50  ! for European system
+
+New circuit.LVTest
+!Edit Vsource.Source BasekV=115 ISC3=10000  ISC1=10500
+!Edit Vsource.Source BasekV=11 pu=1.05  ISC3=3000  ISC1=5
+Edit Vsource.Source BasekV=115 MVASC3=3000 MVASC1=3000
+
+solve
+solve mode=fault
+Export SeqZ
