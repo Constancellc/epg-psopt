@@ -10,7 +10,7 @@ DSSText.command=['Compile (',fn_y,')'];
 DSSCircuit=DSSObj.ActiveCircuit;
 DSSSolution=DSSCircuit.Solution;
 
-if isempty(TR_name)==0
+if isempty(TR_name{1})==0
     if strcmp(feeder,'13bus')
         regname = 'RegControl.';
     elseif strcmp(feeder,'34bus') + strcmp(feeder,'37bus')
