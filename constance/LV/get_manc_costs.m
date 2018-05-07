@@ -49,6 +49,6 @@ Pr = P(1:nH,1:nH) + alpha*P(nH+1:end,1:nH) + alpha*P(1:nH,nH+1:end) + ...
     alpha^2*P(nH+1:end,nH+1:end);
 qr = q(1:nH) + alpha*q(nH+1:end);
 
-dlmwrite('manc_models/P4.csv',Pr,'delimiter',',','precision',16);
-dlmwrite('manc_models/q4.csv',qr,'delimiter',',','precision',16);
-dlmwrite('manc_models/c4.csv',c,'delimiter',',','precision',16);
+%dlmwrite('manc_models/P4.csv',Pr,'delimiter',',','precision',16);
+%dlmwrite('manc_models/q4.csv',qr,'delimiter',',','precision',16);
+%dlmwrite('manc_models/c4.csv',c,'delimiter',',','precision',16);

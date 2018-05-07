@@ -228,6 +228,7 @@ plt.title('Load Flattening')
 CS = plt.contour(heatmap4,colors="white", levels=levels,linewidths=1.0)
 plt.xlim(1,len(heatmap4)-2)
 plt.ylim(1,len(heatmap4)-2)
+plt.plot([0,len(heatmap4)],[len(heatmap4),0],ls='--',color='r')
 
 plt.subplot(1,2,2)
 plt.imshow(heatmap2,cmap='inferno')
@@ -237,6 +238,7 @@ plt.xlabel('EV2 P1 (kW)')
 plt.title('Loss Minimising')
 plt.contour(x1,x1,heatmap3,colors="cyan",linestyles='dashed',levels=levels,
             linewidths=1.0)
+plt.scatter([len(heatmap2)/2],[len(heatmap2)/2],marker='x',color='r')
 #plt.grid()
 #plt.colorbar()
 CS = plt.contour(heatmap2, colors="white", levels=levels,linewidths=1.0)
@@ -267,6 +269,6 @@ plt.ylim(1,len(heatmap3)-2)
 #plt.clabel(CS, inline=1, fontsize=10, manual=manual_locations)
 '''
 plt.tight_layout()
-plt.savefig('../../../Dropbox/papers/losses/2bus.eps', format='eps', dpi=1000)
+#plt.savefig('../../../Dropbox/papers/losses/2bus.eps', format='eps', dpi=1000)
 
 plt.show()

@@ -308,8 +308,8 @@ class LVTestFeeder:
             '''
 
             # phase c only
-            current110.append(np.sqrt(np.power(ir[2,0]+ii[2,0],2)))
-            current296.append(np.sqrt(np.power(ir[3,0]+ii[3,0],2)))
+            current110.append(10*np.sqrt(np.power(ir[2,0]+ii[2,0],2)))
+            current296.append(10*np.sqrt(np.power(ir[3,0]+ii[3,0],2)))
 
         return [current110,current296]
                 
