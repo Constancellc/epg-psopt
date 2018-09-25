@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from cvxopt import matrix, spdiag, sparse, solvers
 import random
 
-from lv_optimization import LVTestFeeder
+from lv_optimization2 import LVTestFeeder
 
 household_profiles = []
 with open('data/household_demand_pool_HH.csv','rU') as csvfile:
@@ -48,14 +48,24 @@ while len(energy) < 55:
 feeder = LVTestFeeder()
 feeder.set_households(chosen)
 feeder.set_evs(energy)
-feeder.load_flatten(6,constrain=False)
+feeder.load_flatten(6,constrain=True)
 total3 = feeder.get_feeder_load()
 base2, combined2 = feeder.get_inidividual_load(54)
 print(sum(feeder.predict_losses()))
-feeder.loss_minimise(6,constrain=False)
+v = feeder.predict_voltages()
+plt.figure()
+for i in range(55):
+    plt.plot(v[i])
+feeder.loss_minimise(6,constrain=True)
 total2 = feeder.get_feeder_load()
 base1, combined1 = feeder.get_inidividual_load(54)
 print(sum(feeder.predict_losses()))
+
+v = feeder.predict_voltages()
+plt.figure()
+for i in range(55):
+    plt.plot(v[i])
+plt.show()
 
 plt.figure(1)
 plt.plot(total2)

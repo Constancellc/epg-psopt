@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from cvxopt import matrix, spdiag, sparse, solvers
 import random
 
-from lv_optimization import LVTestFeeder
+from lv_optimization2 import LVTestFeeder
 
 household_profiles = []
 with open('data/household_demand_pool_HH.csv','rU') as csvfile:
@@ -29,15 +29,11 @@ with open('data/EVchargingWedJanUT.csv','rU') as csvfile:
     for row in reader:
         if row == []:
             continue
-        if float(row[0]) != 0:
-            vehicle_pool.append([float(row[0]),int(360+random.random()*360),
-                                 int(720+random.random()*720)])
-        else:
-            vehicle_pool.append([0.01,int(float(row[1])),
-                                 int(float(row[2]))])
+        vehicle_pool.append([float(row[0]),int(float(row[1])),
+                             int(float(row[2]))])
 
 outfile = '../../../Documents/simulation_results/LV/total_load/'
-
+fileN = 1
 for mc in range(100):
     chosen = []
     while len(chosen) < 55:
@@ -61,18 +57,29 @@ for mc in range(100):
     totalu3 = feeder.get_feeder_load()
     feeder.uncontrolled(7.0)
     totalu7 = feeder.get_feeder_load()
-    feeder.load_flatten(7,constrain=False)
+    try:
+        feeder.load_flatten(7,constrain=True)
+    except:
+        continue
+    if feeder.status != 'optimal':
+        continue
     totallf = feeder.get_feeder_load()
-    feeder.loss_minimise(7,constrain=False)
+    try:
+        feeder.loss_minimise(7,constrain=True)
+    except:
+        continue
+    if feeder.status != 'optimal':
+        continue
     totallm = feeder.get_feeder_load()
     base = feeder.base
 
-    with open(outfile+str(mc+1)+'.csv','w') as csvfile:
+    with open(outfile+str(fileN)+'.csv','w') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['time','no_ev','uncontrolled3.5','uncontolled7',
                          'load_flatten','loss_minimise'])
         for t in range(1440):
             writer.writerow([t+1,base[t],totalu3[t],totalu7[t],totallf[t],
                              totallm[t]])
+    fileN += 1
 
 
