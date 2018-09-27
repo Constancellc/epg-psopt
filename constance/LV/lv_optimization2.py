@@ -289,7 +289,7 @@ class LVTestFeeder:
 
         return losses
     
-    def predict_voltages(self):
+    def predict_voltage(self):
         v_ = []
         for i in range(55):
             v_.append([])
@@ -310,7 +310,41 @@ class LVTestFeeder:
                 v_[i].append(vv)
                 i += 1
 
-        return v_
+        v_av = [0.0]*1440
+        for t in range(1440):
+            for i in range(55):
+                v_av[t] += v_[i][t]/55
+
+        return v_av
+    
+    def predict_lowest_voltage(self):
+        v_ = []
+        for i in range(55):
+            v_.append([])
+
+        for t in range(1440):
+            y = [0.0]*55
+            for i in range(55):
+                y[i] -= self.hh[i][t]*1000
+            for v in range(self.n):
+                i = self.map[v]
+                y[i] -= self.ev[v][t]*1000
+
+            y = matrix(y)
+
+            v_new = self.M0*y+matrix(self.a0)
+            i = 0
+            for vv in v_new:
+                v_[i].append(vv)
+                i += 1
+
+        v_l = [1000.0]*1440
+        for t in range(1440):
+            for i in range(55):
+                if v_[i][t] < v_l[t]:
+                    v_l[t] = v_[i][t]
+
+        return v_l
     
 
     def getLineCurrents(self):

@@ -32,9 +32,7 @@ with open('data/EVchargingWedJanUT.csv','rU') as csvfile:
         vehicle_pool.append([float(row[0]),int(float(row[1])),
                              int(float(row[2]))])
 
-outfile = '../../../Documents/simulation_results/LV/total_load/'
-fileN = 1
-for mc in range(100):
+for mc in range(1):
     chosen = []
     while len(chosen) < 55:
         ran = int(random.random()*len(household_profiles))
@@ -54,30 +52,26 @@ for mc in range(100):
     feeder.set_evs(energy)
 
     feeder.uncontrolled(3.5)
-    totalu3 = feeder.get_feeder_load()
-    feeder.uncontrolled(7.0)
-    totalu7 = feeder.get_feeder_load()
-    try:
-        feeder.load_flatten(7,constrain=True)
-    except:
-        continue
-    if feeder.status != 'optimal':
-        continue
-    totallf = feeder.get_feeder_load()
-    try:
-        feeder.loss_minimise(7,constrain=True)
-    except:
-        continue
-    if feeder.status != 'optimal':
-        continue
-    totallm = feeder.get_feeder_load()
-    base = feeder.base
+    u3 = feeder.predict_lowest_voltage()
+    feeder.load_flatten(7,constrain=True)
+    lf = feeder.predict_lowest_voltage()
+    feeder.loss_minimise(7,constrain=True)
+    lm = feeder.predict_lowest_voltage()
 
-    with open(outfile+str(fileN)+'.csv','w') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(['time','no_ev','uncontrolled3.5','uncontolled7',
-                         'load_flatten','loss_minimise'])
-        for t in range(1440):
-            writer.writerow([t+1,base[t],totalu3[t],totalu7[t],totallf[t],
-                             totallm[t]])
-    fileN += 1
+t = np.linspace(0,24,num=1440)
+plt.figure(figsize=(6,2))
+plt.rcParams["font.family"] = 'serif'
+plt.rcParams["font.size"] = '9'
+plt.plot(t,u3,c='g',ls=':',label='Uncontrolled')
+plt.plot(t,lf,c='b',label='Load Flattening')
+plt.plot(t,lm,c='r',ls='--',label='Loss Minimizing')
+plt.legend(ncol=3)
+plt.ylabel('Lowest Bus Voltage (V)')
+plt.tight_layout()
+plt.xlim(0,24)
+plt.ylim(240,251)
+plt.grid()
+plt.xticks([2,6,10,14,18,22],['02:00','06:00','10:00','14:00','18:00','22:00'])
+plt.savefig('../../../Dropbox/papers/losses/img/voltages2.eps', format='eps', dpi=1000)
+plt.show()
+
