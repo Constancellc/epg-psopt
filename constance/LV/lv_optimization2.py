@@ -65,13 +65,13 @@ class LVTestFeeder:
 
     def set_evs(self,vehicles):
         # n foorm [kWh,departure,arrival]
-        
+        self.nV = len(vehicles)
         self.b = []
         self.map = {} # maps the hh number to the vehicle number
         self.times = []
         
         i = 0
-        for j in range(55):
+        for j in range(self.nV):
             if vehicles[j][0] == 0:
                 continue
             self.map[i] = j

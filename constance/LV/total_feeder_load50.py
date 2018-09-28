@@ -32,8 +32,8 @@ with open('data/EVchargingWedJanUT.csv','rU') as csvfile:
         vehicle_pool.append([float(row[0]),int(float(row[1])),
                              int(float(row[2]))])
 
-outfile = '../../../Documents/simulation_results/LV/total_load/'
-fileN = 64
+outfile = '../../../Documents/simulation_results/LV/total_load30/'
+fileN = 1
 for mc in range(100):
     chosen = []
     while len(chosen) < 55:
@@ -43,10 +43,14 @@ for mc in range(100):
             
     # for actual EV demands
     energy = []
-    while len(energy) < 55:
+    nV = np.random.poisson(55*0.3)
+    while len(energy) < nV:
         ran = int(random.random()*len(vehicle_pool))
         if vehicle_pool[ran] not in energy:
             energy.append(vehicle_pool[ran])
+    while len(energy) < 55:
+        energy.append([0,0,0])
+    np.random.shuffle(energy)
 
            
     feeder = LVTestFeeder()
