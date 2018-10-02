@@ -1,6 +1,4 @@
 function [ My,Md,a,Ky,Kd,b ] = nrel_linearization( xh,H,Y,Vh,V0 )
-%NREL_LINEARIZATION Summary of this function goes here
-%   Detailed explanation goes here
 
 % Nd = size(H,1);
 Ny = size(H,2);

@@ -43,6 +43,6 @@ plot(x,pdf,'k','Linewidth',2);
 xlabel('Household Load $P_{H}$, (kW)','Interpreter','Latex'); 
 ylabel('$p(P_{H})$','Interpreter','Latex');
 legend('Smart Meter Data','Fitted Gamma PDF');
-export_fig(fig,fgnm);
+%export_fig(fig,fgnm);
 % ==> seems about ok
 % save('gamma_consts','a','b');

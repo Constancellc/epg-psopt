@@ -15,4 +15,4 @@ Redirect Loads_snap.txt
 
 solve
 
-solve mode=faultstudy
+!solve mode=faultstudy

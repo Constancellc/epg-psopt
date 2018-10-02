@@ -34,7 +34,7 @@ a4 = DD.a4; My4 = DD.My4;
 sY = DD.sY; Ybus = DD.Ybus; v0 = DD.v0;
 Ybus_sp = sparse(Ybus);
 %%
-n = 10000;
+n = 100;
 GC = load([WD,'\datasets\gamma_consts.mat']);
 GM = gamrnd(GC.a,1/GC.b,[n,55]);
 

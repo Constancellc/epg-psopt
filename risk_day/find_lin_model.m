@@ -128,25 +128,42 @@ DSSText.command=['Compile (',GG.filename,')'];
 % toc
 % % save([WD,'\datasets\lvtestcase_lin4.mat'],'My4','a4','v0','vh','sY','Ybus');
 %
-% %-------------CC: hat(S) = 0.6 kW (0.95 PF)
+%-------------CC: hat(S) = 0.6 kW (0.95 PF)
 % Phat = 0.6;
 % DSSCircuit = set_loads(DSSCircuit,S0*Phat);
 % DSSSolution.Solve;
-% 
+
 % YNodeVarray = DSSCircuit.YNodeVarray';
 % YNodeV = YNodeVarray(1:2:end) + 1i*YNodeVarray(2:2:end);
 % [B,V,I,S,D] = ld_vals( DSSCircuit );
 % [~,sD,~,sY] = calc_sYsD( YZNodeOrder,B,I,S,D );
-% 
+
 % xhy = -1e3*[real(sY(4:end));imag(sY(4:end))];
 % xhd = -1e3*[real(sD(4:end));imag(sD(4:end))];
 % xh = [xhy;xhd];
-% 
+
 % v0 = YNodeV(1:3); vh = YNodeV(4:end);
 % tic % ~40 seconds
 % [ My,~,a,~,~,~ ] = nrel_linearization( xh,H,Ybus,[v0;vh] );
 % toc
-% save([WD,'\datasets\lvtestcase_lin_CC.mat'],'My','a','v0','vh','sY','Ybus','xhy');
+% save([WD,'\datasets\lvtestcase_lin_check.mat'],'My','a','v0','vh','sY','Ybus','xhy');Phat = 0.6;
+% DSSCircuit = set_loads(DSSCircuit,S0*Phat);
+% DSSSolution.Solve;
+
+% YNodeVarray = DSSCircuit.YNodeVarray';
+% YNodeV = YNodeVarray(1:2:end) + 1i*YNodeVarray(2:2:end);
+% [B,V,I,S,D] = ld_vals( DSSCircuit );
+% [~,sD,~,sY] = calc_sYsD( YZNodeOrder,B,I,S,D );
+
+% xhy = -1e3*[real(sY(4:end));imag(sY(4:end))];
+% xhd = -1e3*[real(sD(4:end));imag(sD(4:end))];
+% xh = [xhy;xhd];
+
+% v0 = YNodeV(1:3); vh = YNodeV(4:end);
+% tic % ~40 seconds
+% [ My,~,a,~,~,~ ] = nrel_linearization( xh,H,Ybus,[v0;vh] );
+% toc
+% save([WD,'\datasets\lvtestcase_lin_check.mat'],'My','a','v0','vh','sY','Ybus','xhy');
 
 
 
