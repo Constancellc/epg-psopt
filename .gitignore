@@ -12,3 +12,7 @@ risk_day/datasets/riskDayLoadsInAndOut.csv
 risk_day/datasets/riskDayLoadsInAndOut_z.csv
 risk_day/datasets/lvtestcase_lin_CC.mat
 mtd/source_linearization/datasets/lvtestcase_lin.mat
+mtd/fot_linearization/n4f1.mat
+mtd/fot_linearization/n3f1.mat
+mtd/fot_linearization/n2f1.mat
+mtd/fot_linearization/n1f1.mat

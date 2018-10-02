@@ -12,16 +12,14 @@ WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\mtd\fot_linearization';
 cd(WD);
 addpath('lin_functions\');
 
-% fn = [WD,'\37Bus_copy\ieee37'];
-% feeder='37bus';
-% fn = [WD,'\manchester_models\network_1\Feeder_1\master'];
-% feeder='n1f1';
+fn = [WD,'\manchester_models\network_1\Feeder_1\master'];
+feeder='n1f1';
 % fn = [WD,'\manchester_models\network_2\Feeder_1\master'];
 % feeder='n2f1';
 % fn = [WD,'\manchester_models\network_3\Feeder_1\master'];
 % feeder='n3f1';
-fn = [WD,'\manchester_models\network_4\Feeder_1\master'];
-feeder='n4f1';
+% fn = [WD,'\manchester_models\network_4\Feeder_1\master'];
+% feeder='n4f1';
 
 fn_y = [fn,'_y'];
 sn=[WD,'\',feeder];
@@ -110,7 +108,7 @@ plot(k,ve0);
 xlabel('k'); ylabel('|V - V_e|/|V|');
 
 %%
-save(sn,'My','a','Ybus_sp','lin_point')
+save(sn,'My','a','Ybus_sp','lin_point','V0','xhy0')
 
 
 
