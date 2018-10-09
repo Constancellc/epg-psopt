@@ -26,7 +26,8 @@ feeder='eulv';
 fn_y = [fn,'_y'];
 sn=[WD,'\',feeder];
 
-lin_points=[0.3,0.6,1.0];%kw
+% lin_points=[0.3,0.6,1.0];%kw
+lin_points=[0.3];%kw
 
 k = (-0.7:0.1:1.7)';
 %k = (-0.7:0.01:1.7);
@@ -120,10 +121,10 @@ end
 %%
 %save(sn,'My','a','Ybus_sp','lin_point','V0','xhy0') % save models where required
 
-Mcsv = [NaN, lin_points; k, ve];
+% Mcsv = [NaN, lin_points; k, ve];
 
-csvwrite('eulv_k_error.csv',Mcsv)
+% csvwrite('eulv_k_error.csv',Mcsv)
 
 plot(k,ve(:,1)); hold on;
-plot(k,ve(:,2))
-plot(k,ve(:,3))
+plot(k,ve(:,2));
+plot(k,ve(:,3));

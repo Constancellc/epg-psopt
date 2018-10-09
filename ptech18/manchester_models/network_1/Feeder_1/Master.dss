@@ -1,0 +1,18 @@
+Clear
+
+New object=circuit.manc
+
+! from file: -----
+!Edit Vsource.Source BasekV=11 pu=1.00  ISC3=3000  ISC1=2500
+Edit Vsource.Source BasekV=11 pu=1.00  ISC3=3000000  ISC1=2500000
+Redirect Transformers.txt
+Redirect LineCode.txt
+!Redirect LoadShapes.txt
+Redirect Lines.txt
+Redirect Loads_snap.txt
+!Redirect Monitors.txt
+! -------------------
+
+solve
+
+!solve mode=faultstudy
