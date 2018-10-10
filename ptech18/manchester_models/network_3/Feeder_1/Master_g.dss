@@ -9,13 +9,8 @@ Redirect Transformers.txt
 Redirect LineCode.txt
 !Redirect LoadShapes.txt
 Redirect Lines.txt
-Redirect Loads_snap.txt
+Redirect Loads_snap_g.txt
 !Redirect Monitors.txt
 ! -------------------
 
-Set voltagebases=[11  .416]
-Calcvoltagebases
-
 solve
-
-!solve mode=faultstudy

@@ -95,7 +95,7 @@ for K = 1:numel(lin_points)
 		xhy = -1e3*[real(sY(4:end));imag(sY(4:end))];
 		xhd = -1e3*[real(sD(4:end));imag(sD(4:end))];
 
-		v_l(i,:) = My*xhy+ a;
+		v_l(i,:) = My*xhy + a;
 		% v_l0(i,:) = k(i)*My*xhy0 + a;
 
 		ve(i,K) = norm(v_l(i,:) - v(i,4:end))/norm(v(i,4:end));
