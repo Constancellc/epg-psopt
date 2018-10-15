@@ -8,7 +8,8 @@ clear all; close all; clc;
 %%
 fig_loc = [pwd,'\figures\'];
 % feeder_loc = '\13Bus_copy\IEEE13Nodeckt';
-WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\mtd\fot_linearization';
+WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\mtd\fot_linearization';
+% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\mtd\fot_linearization';
 cd(WD);
 addpath('lin_functions\');
 

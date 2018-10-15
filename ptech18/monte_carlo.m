@@ -1,9 +1,10 @@
 % clear all; close all;
 tic
-WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
-% addpath('lin_functions');
+% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
+WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
+addpath('lin_functions');
 
-modeli = 1; % CHOOSE model here
+modeli = 3; % CHOOSE model here
 nl = linspace(0,1,7); % number of load here
 
 models = {'eulv','n1f1','n2f1','n3f1','n4f1'};
@@ -24,7 +25,8 @@ load([WD,'\lin_models\',model]);
 
 nl(1) = 1e-4;
 Nl = ceil(nl*LDS.count);
-Ns = 30; % number of samples
+
+Ns = 2*1000; % number of samples
 
 Vb = 230;
 vp = 1.10;
@@ -91,21 +93,54 @@ kX = X.*Nl*1e-3;
 
 figure;
 subplot(121);
-boxplot(X*1e-3,'Positions',Nl);
+boxplot(X*1e-3,'Positions',Nl,'Whisker',10);
 xticklabels(cellstr(num2str(Nl')))
 title('Power per House');
 xlabel('# houses'); ylabel('kW/house'); grid on;
 
 subplot(122);
-boxplot(kX,'Positions',Nl);
+boxplot(kX,'Positions',Nl,'Whisker',10);
 xticklabels(cellstr(num2str(Nl')))
 title('Total Power');
 xlabel('Number of loads'); ylabel('kW'); grid on;
 
 figure;
-boxplot(Vub,'Positions',Nl);
+boxplot(Vub,'Positions',Nl,'Whisker',10);
 xticklabels(cellstr(num2str(Nl')))
 title('Voltage unbalance');
-xlabel('# houses'); ylabel('Voltage unbalance, |V_n_s|/|V_p_s|'); grid on;
+xlabel('# houses'); ylabel('Voltage unbalance, |V_n_s|/|V_p_s| (%)'); grid on;
 
-save(sn,'modeli','X','Nl','kX','mc_time','gen_pf','Vub')
+
+figure;
+boxplot(kX(1:Ns/2,:),'Positions',Nl,'Whisker',10,'Width',0.5); hold on;
+boxplot(kX(Ns/2 + 1:end,:),'Positions',Nl+1,'Whisker',10,'Width',0.5);
+xticklabels(cellstr(num2str(Nl')))
+title('Total Power');
+xlabel('Number of loads'); ylabel('kW'); grid on;
+
+% subplot(122);
+% xticklabels(cellstr(num2str(Nl')))
+% title('Total Power');
+% xlabel('Number of loads'); ylabel('kW'); grid on;
+
+%%
+mn0 = min(kX(1:Ns/2,:));
+mx0 = max(kX(1:Ns/2,:));
+qnt0 = quantile(kX(1:Ns/2,:),[0.05,0.25,0.75,0.95])
+mdn0 = median(kX(1:Ns/2,:));
+
+mn1 = min(kX(Ns/2 + 1:end,:));
+mx1 = max(kX(Ns/2 + 1:end,:));
+qnt1 = quantile(kX(Ns/2 + 1:end,:),[0.05,0.25,0.75,0.95])
+mdn1 = median(kX(Ns/2 + 1:end,:));
+
+figure;
+plot(Nl,qnt0,'x'); hold on;
+plot(Nl,qnt1,'o');
+
+figure;
+e_qnt = 100*(qnt0-qnt1)./qnt0;
+plot(Nl,e_qnt,'x');
+xlabel('# houses'); ylabel('% error'); grid on;
+legend('5%','25%','75%','95%')
+% save(sn,'modeli','X','Nl','kX','mc_time','gen_pf','Vub')

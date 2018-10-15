@@ -3,20 +3,22 @@ clear all; close all;
 
 fig_loc = [pwd,'\figures\'];
 % feeder_loc = '\13Bus_copy\IEEE13Nodeckt';
-WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
+
+% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
+WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
 cd(WD);
 addpath('lin_functions\');
 
-% fn = [WD,'\LVTestCase_copy\master_z'];
-% feeder='eulv';
+fn = [WD,'\LVTestCase_copy\master_z'];
+feeder='eulv';
 % fn = [WD,'\manchester_models\network_1\Feeder_1\master'];
 % feeder='n1f1';
 % fn = [WD,'\manchester_models\network_2\Feeder_1\master'];
 % feeder='n2f1';
 % fn = [WD,'\manchester_models\network_3\Feeder_1\master'];
 % feeder='n3f1';
-fn = [WD,'\manchester_models\network_4\Feeder_1\master'];
-feeder='n4f1';
+% fn = [WD,'\manchester_models\network_4\Feeder_1\master'];
+% feeder='n4f1';
 
 fn_y = [fn,'_y'];
 sn=[WD,'\lin_models\',feeder];
