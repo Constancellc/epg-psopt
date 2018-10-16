@@ -1,10 +1,10 @@
 clear all; % close all;
 tic
-% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
-WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
+WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
+% WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
 addpath('lin_functions');
 
-modeli = 3; % CHOOSE model here
+modeli = 5; % CHOOSE model here
 % nl = linspace(0,1,7); % number of load here
 % nl(1) = 1e-4;
 nl = linspace(0.4,0.6,5); % number of load here
@@ -31,7 +31,7 @@ load([WD,'\lin_models\',model]);
 
 Nl = ceil(nl*LDS.count);
 
-% Ns = 2*1000; % number of samples
+Ns = 2*1000; % number of samples
 Ns = 1000; % number of samples
 
 Vb = 230;
@@ -157,7 +157,11 @@ if strcmp(mode,'Vfix')
             A = real(Mk./ang0);
             Anew = A(xhp0~=0);
             bnew = b(xhp0~=0);
-            [X(j,i),FVal,exitflag] = linprog(f,Anew,bnew);
+
+			xab = bnew./Anew;
+			xab = xab + 0./(xab>0); % get rid of negative values
+
+			X(j,i) = min(xab); % this is the value that maximises the o.f.
             
             Vout = My*(xhy0 + xhs*X(j,i)) + a;
             Vps = PSm*Vout;
