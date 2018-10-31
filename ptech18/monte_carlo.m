@@ -1,15 +1,18 @@
 clear all; % close all;
 tic
-WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
-% WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
+% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
+WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
 addpath('lin_functions');
+
+FD = 'C:\Users\Matt\Documents\DPhil\malcolm_updates\wc181031\';
 
 modeli = 5; % CHOOSE model here
 % nl = linspace(0,1,7); % number of load here
 % nl(1) = 1e-4;
-nl = linspace(0.4,0.6,5); % number of load here
+nl = 0.1;
+% nl = linspace(0.4,0.6,5); % number of load here
 mode = 'Vfix'; % fix voltages
-% mode = 'Wfix'; % fix voltages
+mode = 'Wfix'; % fix powers (W)
 rng('shuffle');
 frac_set = 0.05;
 
@@ -17,7 +20,7 @@ models = {'eulv','n1f1','n2f1','n3f1','n4f1'};
 fn{1} = [WD,'\LVTestCase_copy\master_z_g'];
 fn{2} = [WD,'\manchester_models\network_1\Feeder_1\master_g'];
 fn{3} = [WD,'\manchester_models\network_2\Feeder_1\master_g'];
-fn{4} = [WD,'\manchester_models\network_3\Feeder_1\master_g'];
+fn{4} = [WD,'\manchester_models\network_3\Feeder_1qua\master_g'];
 fn{5} = [WD,'\manchester_models\network_4\Feeder_1\master_g'];
 
 [~,DSSObj,DSSText] = DSSStartup;
@@ -31,8 +34,8 @@ load([WD,'\lin_models\',model]);
 
 Nl = ceil(nl*LDS.count);
 
-Ns = 2*1000; % number of samples
-Ns = 1000; % number of samples
+% Ns = 2*1000; % number of samples
+Ns = 500; % number of samples
 
 Vb = 230;
 vp = 1.10;
@@ -75,7 +78,6 @@ PPa = [];
 PPb = [];
 
 if strcmp(mode,'Wfix')
-    % first, calculate 
     xhs = sparse(zeros(size(xhp0)));
     xhs(fxp0) = 1;
     xhs = [xhs;xhs*qgen];
@@ -105,10 +107,11 @@ if strcmp(mode,'Wfix')
             Vout_mx(j,i) = max(abs(Vout_ld));
         end
     end
-    frac_b = (nnz(Vout_mx>vp)/numel(Vout_mx)) - frac_set
+    frac_b = (nnz(Vout_mx>vp)/numel(Vout_mx)) - frac_set;
     Pc = 0.5*(Pb + Pa);
     
     error = abs((frac_a-frac_b))/(abs(frac_b) + 1);
+    count = 0;
     while error > 0.01
         PPa(end+1) = Pa;
         PPb(end+1) = Pb;
@@ -120,15 +123,12 @@ if strcmp(mode,'Wfix')
                 xhs = [xhs;xhs*qgen];
                 
                 Vout = My*(xhy0 + xhs) + a;
-                % Vps = PSm*Vout;
-                % Vns = NSm*Vout;
-                % Vub(j,i) = max(100*abs(Vns)./abs(Vps)); % in %
                 Vout_ld = Vout(xhp0~=0)/Vb;
                 Vout_mx(j,i) = max(abs(Vout_ld));
             end
         end
         
-        frac_c = (nnz(Vout_mx>vp)/numel(Vout_mx)) - frac_set
+        frac_c = (nnz(Vout_mx>vp)/numel(Vout_mx)) - frac_set;
         
         if frac_c > 0
             Pa = Pa; frac_a = frac_a;
@@ -140,8 +140,10 @@ if strcmp(mode,'Wfix')
             Pc = 0.5*(Pa + Pb);
         end
         error = abs((frac_a-frac_b))/(abs(frac_b) + 1);
+        count = count + 1;
     end
     Pout = mean([Pa,Pb])*LDS.count/mean(Nl);
+    display(count);
     display(Pout);
 end
 
@@ -169,7 +171,7 @@ if strcmp(mode,'Vfix')
             Vub(j,i) = max(100*abs(Vns)./abs(Vps)); % in %
         end
     end
-    Pout = quantile(X(:),0.05);
+    Pout = quantile(X(:),frac_set);
     display(Pout);
     
     kX = X.*Nl*1e-3;
@@ -177,12 +179,14 @@ end
 mc_time=toc;
 display(mc_time);
 
-% figure;
+
+
+% figure('Color','White');;
 % subplot(121);
 % boxplot(X*1e-3,'Positions',Nl,'Whisker',10);
 % xticklabels(cellstr(num2str(Nl')))
 % title('Power per House');
-% xlabel('# houses'); ylabel('kW/house'); grid on;
+% xlabel('\# houses'); ylabel('kW/house'); grid on;
 
 % subplot(122);
 % boxplot(kX,'Positions',Nl,'Whisker',10);

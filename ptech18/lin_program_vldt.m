@@ -1,6 +1,8 @@
 % clear all; close all;
 
-WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
+% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
+WD = pwd;
+FD = 'C:\Users\Matt\Documents\DPhil\malcolm_updates\wc181031\';
 % addpath('lin_functions');
 models = {'eulv','n1f1','n2f1','n3f1','n4f1'};
 model = models{1};
@@ -25,8 +27,8 @@ DSSSolution = DSSCircuit.Solution;
 vmag=zeros(size(fn));
 X=zeros(size(fn));
 tic
-% for i = 1:numel(models)
-for i = 1:1
+for i = 1:numel(models)
+% for i = 1:1
 	model = models{i};
 	load([WD,'\lin_models\',model]);
 
@@ -62,6 +64,26 @@ end
 toc
 display(vmag);
 display(X);
+
+Vt = [1.05, 1,1,1,1]*240/230;
+
+dV =  [ones(1,5)*vp;vmag] - ones(2,1)*Vt;
+
+FN = [FD,'lin_program_vldt'];
+
+fig = figure('Color','White');
+bar(dV');
+xlabel('Model');
+ylabel('$\Delta V_{\mathrm{Max}}$ (pu)');
+set(0,'DefaultTextInterpreter','latex')
+    
+    
+legend('Predicted','Actual','Location','NorthWest');
+
+export_fig(fig,FN);
+export_fig(fig,[FN,'.pdf'],'-dpdf');
+
+
 
 
 
