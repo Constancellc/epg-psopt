@@ -1,18 +1,20 @@
 clear all; % close all;
 tic
-% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
-WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
+set(0,'DefaultTextInterpreter','Latex')
+WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
+% WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
 addpath('lin_functions');
 
-FD = 'C:\Users\Matt\Documents\DPhil\malcolm_updates\wc181031\';
+% FD = 'C:\Users\Matt\Documents\DPhil\malcolm_updates\wc181031\';
+FD = 'C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc181031\';
 
 modeli = 5; % CHOOSE model here
-% nl = linspace(0,1,7); % number of load here
-% nl(1) = 1e-4;
-nl = 0.1;
+nl = linspace(0,1,7); % number of load here
+nl(1) = 1e-4;
+% nl = 0.1;
 % nl = linspace(0.4,0.6,5); % number of load here
 mode = 'Vfix'; % fix voltages
-mode = 'Wfix'; % fix powers (W)
+% mode = 'Wfix'; % fix powers (W)
 rng('shuffle');
 frac_set = 0.05;
 
@@ -20,7 +22,7 @@ models = {'eulv','n1f1','n2f1','n3f1','n4f1'};
 fn{1} = [WD,'\LVTestCase_copy\master_z_g'];
 fn{2} = [WD,'\manchester_models\network_1\Feeder_1\master_g'];
 fn{3} = [WD,'\manchester_models\network_2\Feeder_1\master_g'];
-fn{4} = [WD,'\manchester_models\network_3\Feeder_1qua\master_g'];
+fn{4} = [WD,'\manchester_models\network_3\Feeder_1\master_g'];
 fn{5} = [WD,'\manchester_models\network_4\Feeder_1\master_g'];
 
 [~,DSSObj,DSSText] = DSSStartup;
@@ -35,7 +37,7 @@ load([WD,'\lin_models\',model]);
 Nl = ceil(nl*LDS.count);
 
 % Ns = 2*1000; % number of samples
-Ns = 500; % number of samples
+Ns = 1000; % number of samples
 
 Vb = 230;
 vp = 1.10;
@@ -181,24 +183,30 @@ display(mc_time);
 
 
 
-% figure('Color','White');;
-% subplot(121);
-% boxplot(X*1e-3,'Positions',Nl,'Whisker',10);
-% xticklabels(cellstr(num2str(Nl')))
-% title('Power per House');
-% xlabel('\# houses'); ylabel('kW/house'); grid on;
+fig = figure('Color','White');
 
-% subplot(122);
-% boxplot(kX,'Positions',Nl,'Whisker',10);
-% xticklabels(cellstr(num2str(Nl')))
-% title('Total Power');
-% xlabel('Number of loads'); ylabel('kW'); grid on;
+FL = [FD,'variable_N_',num2str(modeli)];
+subplot(121);
+boxplot(X*1e-3,'Positions',Nl,'Whisker',10);
+xticklabels(cellstr(num2str(Nl')))
+xlabel(['\# houses (model ',num2str(modeli),')']); ylabel('Power per house, kW'); grid on;
+
+subplot(122);
+boxplot(kX,'Positions',Nl,'Whisker',10);
+xticklabels(cellstr(num2str(Nl')))
+xlabel(['Number of loads (model ',num2str(modeli),')']); 
+ylabel('Total Power, kW'); grid on;
 
 % figure;
 % boxplot(Vub,'Positions',Nl,'Whisker',10);
 % xticklabels(cellstr(num2str(Nl')))
 % title('Voltage unbalance');
 % xlabel('# houses'); ylabel('Voltage unbalance, |V_n_s|/|V_p_s| (%)'); grid on;
+
+
+export_fig(fig,FL);
+export_fig(fig,[FL,'.pdf'],'-pdf');
+saveas(fig,FL,'meta')
 
 
 % figure;

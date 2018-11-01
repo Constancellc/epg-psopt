@@ -1,8 +1,10 @@
 % clear all; close all;
 
+set(0,'DefaultTextInterpreter','latex')
 % WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
 WD = pwd;
-FD = 'C:\Users\Matt\Documents\DPhil\malcolm_updates\wc181031\';
+% FD = 'C:\Users\Matt\Documents\DPhil\malcolm_updates\wc181031\';
+FD = 'C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc181031\';
 % addpath('lin_functions');
 models = {'eulv','n1f1','n2f1','n3f1','n4f1'};
 model = models{1};
@@ -72,19 +74,17 @@ dV =  [ones(1,5)*vp;vmag] - ones(2,1)*Vt;
 FN = [FD,'lin_program_vldt'];
 
 fig = figure('Color','White');
+subplot(121);
+bar(X/1e3)
+xlabel('Model');
+ylabel('Power per house, kW (n = 100\%)')
+subplot(122);
 bar(dV');
 xlabel('Model');
 ylabel('$\Delta V_{\mathrm{Max}}$ (pu)');
-set(0,'DefaultTextInterpreter','latex')
-    
-    
+axis([-inf inf 0 0.08]);
 legend('Predicted','Actual','Location','NorthWest');
 
 export_fig(fig,FN);
 export_fig(fig,[FN,'.pdf'],'-dpdf');
-
-
-
-
-
-
+saveas(fig,FN,'meta');
