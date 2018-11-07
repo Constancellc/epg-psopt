@@ -1,29 +1,27 @@
 clear all; % close all;
 tic
 set(0,'DefaultTextInterpreter','Latex')
-WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
-% WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
-addpath('lin_functions');
 
-% FD = 'C:\Users\Matt\Documents\DPhil\malcolm_updates\wc181031\';
-FD = 'C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc181031\';
+FD = 'C:\Users\Matt\Documents\DPhil\pesgm19\pesgm19_paper\figures\';
 
 modeli = 5; % CHOOSE model here
 nl = linspace(0,1,7); % number of load here
+nl = linspace(0,1,13);
 nl(1) = 1e-4;
 % nl = 0.1;
 % nl = linspace(0.4,0.6,5); % number of load here
 mode = 'Vfix'; % fix voltages
 % mode = 'Wfix'; % fix powers (W)
-rng('shuffle');
+rng(0);
 frac_set = 0.05;
+% frac_set = 0.95;
 
 models = {'eulv','n1f1','n2f1','n3f1','n4f1'};
-fn{1} = [WD,'\LVTestCase_copy\master_z_g'];
-fn{2} = [WD,'\manchester_models\network_1\Feeder_1\master_g'];
-fn{3} = [WD,'\manchester_models\network_2\Feeder_1\master_g'];
-fn{4} = [WD,'\manchester_models\network_3\Feeder_1\master_g'];
-fn{5} = [WD,'\manchester_models\network_4\Feeder_1\master_g'];
+fn{1} = [pwd,'\LVTestCase_copy\master_z_g'];
+fn{2} = [pwd,'\manchester_models\network_1\Feeder_1\master_g'];
+fn{3} = [pwd,'\manchester_models\network_2\Feeder_1\master_g'];
+fn{4} = [pwd,'\manchester_models\network_3\Feeder_1\master_g'];
+fn{5} = [pwd,'\manchester_models\network_4\Feeder_1\master_g'];
 
 [~,DSSObj,DSSText] = DSSStartup;
 DSSCircuit = DSSObj.ActiveCircuit;
@@ -32,23 +30,21 @@ LDS = DSSCircuit.loads;
 DSSText.command=['Compile (',fn{modeli},')'];
 model = models{modeli};
 
-load([WD,'\lin_models\',model]);
+load([pwd,'\lin_models\',model]);
 
 Nl = ceil(nl*LDS.count);
 
-% Ns = 2*1000; % number of samples
 Ns = 1000; % number of samples
 
 Vb = 230;
 vp = 1.10;
 vmax = Vb*vp;
-p0 = 300; % watts
 % gen_pf = -0.95;
 gen_pf = 1.00;
 aa = exp(1i*2*pi/3);
 
-sn = [WD,'\lin_models\mc_out_',model];
-% sn = [WD,'\lin_models\mc_out_',model,'_upf']
+sn = [pwd,'\lin_models\mc_out_',model];
+% sn = [pwd,'\lin_models\mc_out_',model,'_upf']
 
 qgen = sin(acos(abs(gen_pf)))/gen_pf;
 
@@ -149,6 +145,7 @@ if strcmp(mode,'Wfix')
     display(Pout);
 end
 
+
 if strcmp(mode,'Vfix')
     for i = 1:numel(Nl)
         for j = 1:Ns
@@ -172,10 +169,8 @@ if strcmp(mode,'Vfix')
             Vns = NSm*Vout;
             Vub(j,i) = max(100*abs(Vns)./abs(Vps)); % in %
         end
+        Pout(i) = quantile(X(:,i),frac_set);
     end
-    Pout = quantile(X(:),frac_set);
-    display(Pout);
-    
     kX = X.*Nl*1e-3;
 end
 mc_time=toc;
@@ -183,19 +178,57 @@ display(mc_time);
 
 
 
-fig = figure('Color','White');
+fig = figure('Color','White','Position',[100 150 550 270]);
 
 FL = [FD,'variable_N_',num2str(modeli)];
+
+if modeli==3
+    fdr = 'N2.1';
+    xx = 100*Nl./Nl(end);
+    xtl = cellstr(num2str(xx','%.0f'));
+    xtl(2:3:end) = {''};
+    xtl(3:3:end) = {''};
+    xtl(1) = {'0.57'};
+elseif modeli==5
+    fdr = 'N4.1';
+    xx = 100*Nl./Nl(end);
+    xtl = cellstr(num2str(xx','%.0f'));
+    xtl(2:3:end) = {''};
+    xtl(3:3:end) = {''};
+    xtl(1) = {'4.2'};
+else
+    fdr = num2str(modeli);
+    xtl = cellstr(num2str(Nl'));
+end
+
 subplot(121);
-boxplot(X*1e-3,'Positions',Nl,'Whisker',10);
-xticklabels(cellstr(num2str(Nl')))
-xlabel(['\# houses (model ',num2str(modeli),')']); ylabel('Power per house, kW'); grid on;
+plot(xx,Pout*1e-3.*Nl,'rx'); hold on;
+boxplot(kX,'Positions',xx,'Whisker',10); hold on;
+xticklabels(xtl);
+xlabel(['Penetration $n_{\mathrm{pen}}$, \% (Fdr. ',fdr,')']); 
+ylabel('Hosting capacity $\Phi$, kW'); grid on;
+xs = axis; axis([xs(1:2),0,xs(4)])
+lgnd = legend('$\Phi_{\mathrm{5\%}}$');
+set(lgnd,'Interpreter','Latex','FontSize',12,'Location','SouthEast');
+
 
 subplot(122);
-boxplot(kX,'Positions',Nl,'Whisker',10);
-xticklabels(cellstr(num2str(Nl')))
-xlabel(['Number of loads (model ',num2str(modeli),')']); 
-ylabel('Total Power, kW'); grid on;
+plot(xx,Pout*1e-3,'ro'); hold on;
+boxplot(X*1e-3,'Positions',xx,'Whisker',10); hold on;
+xticklabels(xtl)
+xlabel(['Penetration $n_{\mathrm{pen}}$, \% (Fdr. ',fdr,')']); 
+ylabel('Power per generator $\phi$, kW'); grid on;
+if modeli==3
+    xs=axis; axis([xs(1:2),0,25]);
+else
+    xs = axis; axis([xs(1:2),0,40]);
+end
+lgnd = legend('$\phi_{\mathrm{5\%}}$');
+set(lgnd,'Interpreter','Latex','FontSize',12);
+
+export_fig(gcf,FL);
+export_fig(gcf,[FL,'.pdf'],'-pdf');
+saveas(gcf,FL,'meta')
 
 % figure;
 % boxplot(Vub,'Positions',Nl,'Whisker',10);
@@ -204,9 +237,7 @@ ylabel('Total Power, kW'); grid on;
 % xlabel('# houses'); ylabel('Voltage unbalance, |V_n_s|/|V_p_s| (%)'); grid on;
 
 
-export_fig(fig,FL);
-export_fig(fig,[FL,'.pdf'],'-pdf');
-saveas(fig,FL,'meta')
+
 
 
 % figure;

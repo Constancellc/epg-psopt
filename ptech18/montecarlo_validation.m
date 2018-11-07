@@ -95,7 +95,7 @@ Tfn = [FD,Tnm];
 
 headerRow = {'Feeder','$\Phi_{5\%}$ (run A), kW','$\Phi_{5\%}$ (run B), kW','Rel. error, \%'};
 headerCol = {'EU LV','N1.1','N2.1','N3.1','N4.1'};
-caption = 'Estimated hosting capacity and error for two monte carlo runs ($n$ = 1000, $N_{\mathrm{Pen}}=50\%$)';
+caption = 'Estimated hosting capacity and error for two monte carlo runs ($N_{\mathrm{MC}}$ = 1000, $n_{\mathrm{pen}}=50\%$)';
 formatCol = {'$%.1f$','$%.1f$','$%.2f$'}
 
 matrix2latex(mat,Tfn,'label',Tnm,'formatColumns',formatCol,'alignment','l','caption',caption,...
