@@ -3,9 +3,8 @@
 set(0,'DefaultTextInterpreter','latex')
 % WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
 WD = pwd;
-% FD = 'C:\Users\Matt\Documents\DPhil\malcolm_updates\wc181031\';
-FD = 'C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc181031\';
-% addpath('lin_functions');
+FD = 'C:\Users\Matt\Documents\DPhil\pesgm19\pesgm19_paper\figures\';
+addpath('lin_functions');
 models = {'eulv','n1f1','n2f1','n3f1','n4f1'};
 model = models{1};
 fn{1} = [WD,'\LVTestCase_copy\master_z_g'];
@@ -73,17 +72,20 @@ dV =  [ones(1,5)*vp;vmag] - ones(2,1)*Vt;
 
 FN = [FD,'lin_program_vldt'];
 
-fig = figure('Color','White');
+fig = figure('Color','White','Position',[100 150 550 250]);
 subplot(121);
 bar(X/1e3)
-xlabel('Model');
+xlabel('Feeder');
 ylabel('Power per house, kW (n = 100\%)')
+axis([-inf inf 0 11]);
+xticklabels({'EU LV','N1.1','N2.1','N3.1','N4.1'})
 subplot(122);
 bar(dV');
-xlabel('Model');
-ylabel('$\Delta V_{\mathrm{Max}}$ (pu)');
-axis([-inf inf 0 0.08]);
-legend('Predicted','Actual','Location','NorthWest');
+xlabel('Feeder');
+ylabel('$v^{\mathrm{max}} - v^{\mathrm{Sub}}$ (pu)');
+axis([-inf inf 0 0.09]);
+xticklabels({'EU LV','N1.1','N2.1','N3.1','N4.1'})
+legend('Predicted (Lin. Model)','Actual (OpenDSS)','Location','NorthWest');
 
 export_fig(fig,FN);
 export_fig(fig,[FN,'.pdf'],'-dpdf');
