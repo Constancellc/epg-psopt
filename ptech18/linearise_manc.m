@@ -4,8 +4,8 @@ clear all; close all;
 fig_loc = [pwd,'\figures\'];
 % feeder_loc = '\13Bus_copy\IEEE13Nodeckt';
 
-% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
-WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
+WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
+% WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
 cd(WD);
 addpath('lin_functions\');
 
@@ -39,7 +39,7 @@ for K = 1:numel(lin_points)
 	DSSCircuit=DSSObj.ActiveCircuit; 
 	DSSSolution = DSSCircuit.Solution;
 	DSSText.command=['Compile (',fn,'.dss)'];
-	[ TC_No0,TR_name,TC_bus ] = find_tap_pos( DSSCircuit );
+	[ TC_No0,TR_name,~ ] = find_tap_pos( DSSCircuit );
 
 	[Ybus,YZNodeOrder] = create_tapped_ybus( DSSObj,fn_y,feeder,TR_name,TC_No0 );
 

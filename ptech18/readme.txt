@@ -1,18 +1,14 @@
 3phase_linearization is a folder that is used to create and test various linearization codes.
 
 SCRIPTS:
-XX. 4bus_powerflows.m is used to fine all of the sY sD iY iD power flows within opendss that are requried for the linearisation. Is missing a script iD_iY for what it is supposed to be doing. (?)
-
-1.1 reproduce_ieee13.m reproduces the ieee13 bus results with opendss (with the finding that the frequency must be chosen carefully!)
-
-1.2 reproduce_implicit15.m attempts to reproduce the results from the bolognani paper, and demonstrates that they appear to be cheating slightly in that work.
 
 
-0. 4bus_linearization.m is a script that linearizes all of the different 4 bus cases. This seems to not work quite as well as the other case studies, perhaps due to capacitance in the lines? 
+0. figs_script.m is a script that is used to create the nominal figures;
+0. lin_program_vldt is a script that validates the linear models;
 
-0. create_lvtestcase.m demonstrates the linearization working for the eu lv test case for both losses and voltages.
+1. linearise_manc is a script that linearises the manchester network set and saves the linear model
+2. monte_carlo seems to be a working method of calculating all the stuff for 
 
-0. reproduce_nrel.m is a script that looks to reproduce the results of the paper "load-flow in multiphase distrbution networks: existence, uniqueness, and linear models", available at https://arxiv.org/abs/1702.03310 . does so for the delta connected 37 bus feeder.
-
-0. run_linearization is (a rather old) script that gets the 13 bus linearization up and running. It then checks the linearization at a particular bus (rather than doing a continuation analysis).
-
+Results
+r1 monte_carlo_comparison compares the monte carlo and initial results
+r2 monte_carlo_validation is used to validate the results by looking at the voltage from opendss and the linear model.

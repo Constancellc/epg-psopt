@@ -12,10 +12,14 @@ Redirect Lines.txt
 Redirect Loads_snap.txt
 !Redirect Monitors.txt
 ! -------------------
+new monitor.m1 element=line.line1
 
 Set voltagebases=[11  .416]
 Calcvoltagebases
 
 solve
+buscoords XY_Position.csv
+
+plot
 
 !solve mode=faultstudy
