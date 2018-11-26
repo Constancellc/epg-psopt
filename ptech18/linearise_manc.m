@@ -4,8 +4,8 @@ clear all; close all;
 fig_loc = [pwd,'\figures\'];
 % feeder_loc = '\13Bus_copy\IEEE13Nodeckt';
 
-WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
-% WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
+% WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
+WD = 'C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18';
 cd(WD);
 addpath('lin_functions\');
 
