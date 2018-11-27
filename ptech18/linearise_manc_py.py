@@ -4,7 +4,8 @@ import os
 from math import sqrt
 from scipy import sparse
 
-WD = "C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+# WD = "C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+WD = "C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 try:
 	DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
@@ -12,8 +13,6 @@ except:
 	print "Unable to stat the OpenDSS Engine"
 	raise SystemExit
 
-	
-	
 def cpf_get_loads(DSSCircuit):
 	SS = {}
 	BB = {}
@@ -149,7 +148,7 @@ def calc_sYsD( YZ,B,I,S,D ): # YZ as YNodeOrder
 
     
     
-    
+
     
 DSSText=DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
@@ -186,17 +185,17 @@ for lin_point in lin_points:
 	k00 = lin_point/SS00[1].real
 	cpf_set_loads(DSSCircuit,BB00,SS00,k00)
 	DSSSolution.Solve
-	print "world"
+
 	S,V,I,B,D = ld_vals(DSSCircuit)
-        print 'yo' # for some shitty reason wants 2x indents?
-        iY,sY,iD,sD = calc_sYsD(YNodeOrder,B,I,S,D) 
-        BB0,SS0 = cpf_get_loads(DSSCircuit)
-        YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
-        BB0,SS0 = cpf_get_loads(DSSCircuit)
-        xhy0 = -1e3*np.array([[sY.real],[sY.imag]])
-        V0 = YNodeV[0:2]
-        Vh = YNodeV[3:]
-        # My,a = nrel_linearization_My( Ybus,Vh,V0 )
+	iY,sY,iD,sD = calc_sYsD(YNodeOrder,B,I,S,D)
+	
+	BB0,SS0 = cpf_get_loads(DSSCircuit)
+	YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
+	BB0,SS0 = cpf_get_loads(DSSCircuit)
+	xhy0 = -1e3*np.array([[sY.real],[sY.imag]])
+	V0 = YNodeV[0:2]
+	Vh = YNodeV[3:]
+	# My,a = nrel_linearization_My( Ybus,Vh,V0 )
         
 	
 	
