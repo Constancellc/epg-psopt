@@ -8,22 +8,25 @@ import matplotlib.pyplot as plt
 try:
 	DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 except:
-	print "Unable to stat the OpenDSS Engine"
+	print("Unable to stat the OpenDSS Engine")
 	raise SystemExit
 
 DSSText = DSSObj.Text
 DSSCircuit=DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
 
-fig_loc = "C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc181126\\figures\\"
+# fig_loc = "C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc181126\\figures\\"
+fig_loc = r"C:\\Users\Matt\Documents\DPhil\malcolm_updates\wc181126\\tap_changes\\"
+
 
 # Things to do: 
 # 1. load a circuit;
-# WD = "C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-WD = "C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
-fn = WD+'\\LVTestCase_copy\\master_z'
-# fn = WD+'\\13Bus_copy\\IEEE13Nodeckt'
+WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+# WD = "C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+# fn = WD+'\\LVTestCase_copy\\master_z'
+fn = WD+'\\13Bus_copy\\IEEE13Nodeckt'
 
+Nreg = 4
 
 # 2. solve; find nominal voltages; 
 DSSText.command='Compile ('+fn+'.dss)'
@@ -34,8 +37,9 @@ DSSText.command='set controlmode=off'
 
 # 3. increment tap changers; find new voltages
 DSSCircuit.Transformers.First
+for i in range(Nreg):
+    DSSCircuit.Transformers.Next
 # DSSCircuit.Transformers.Next
-DSSCircuit.Transformers.Next
 tap_0 = DSSCircuit.Transformers.Tap
 dT = np.arange(-0.1,0.101,0.04)
 dt = 0.01

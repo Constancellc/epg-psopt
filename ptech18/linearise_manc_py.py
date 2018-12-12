@@ -3,85 +3,83 @@ import numpy as np
 import os
 from math import sqrt
 from scipy import sparse
+import matplotlib.pyplot as plt
 
-# WD = "C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-WD = "C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+# WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 try:
-	DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
+    DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 except:
-	print "Unable to stat the OpenDSS Engine"
-	raise SystemExit
+    print("Unable to stat the OpenDSS Engine")
+    raise SystemExit
 
 def cpf_get_loads(DSSCircuit):
-	SS = {}
-	BB = {}
-	i = DSSCircuit.Loads.First
-	while i!=0:
-		SS[i]=DSSCircuit.Loads.kW + 1j*DSSCircuit.Loads.kvar
-		BB[i]=DSSCircuit.Loads.Name
-		i=DSSCircuit.Loads.next
-	imax = DSSCircuit.Loads.Count
-	
-	j = DSSCircuit.Capacitors.First
-	while j!=0:
-		SS[imax+j]=1j*DSSCircuit.Capacitors.kvar
-		BB[imax+j]=DSSCircuit.Capacitors.Name
-	return BB,SS
+    SS = {}
+    BB = {}
+    i = DSSCircuit.Loads.First
+    while i!=0:
+        SS[i]=DSSCircuit.Loads.kW + 1j*DSSCircuit.Loads.kvar
+        BB[i]=DSSCircuit.Loads.Name
+        i=DSSCircuit.Loads.next
+    imax = DSSCircuit.Loads.Count
+    j = DSSCircuit.Capacitors.First
+    while j!=0:
+        SS[imax+j]=1j*DSSCircuit.Capacitors.kvar
+        BB[imax+j]=DSSCircuit.Capacitors.Name
+    return BB,SS
 
 def cpf_set_loads(DSSCircuit,BB,SS,k):
-	i = DSSCircuit.Loads.First
-	while i!=0:
-		DSSCircuit.Loads.Name=BB[i]
-		DSSCircuit.Loads.kW = k*SS[i].real
-		i=DSSCircuit.Loads.Next
-	imax = DSSCircuit.Loads.Count
-	j = DSSCircuit.Capacitors.First
-	while j!=0:
-		DSSCircuit.Capacitors.Name=BB[j+imax]
-		DSSCircuit.Capacitors.kVar=k*SS[j+imax].imag
-		j=DSSCircuit.Capacitors.next
-	return
+    i = DSSCircuit.Loads.First
+    while i!=0:
+        DSSCircuit.Loads.Name=BB[i]
+        DSSCircuit.Loads.kW = k*SS[i].real
+        i=DSSCircuit.Loads.Next
+    imax = DSSCircuit.Loads.Count
+    j = DSSCircuit.Capacitors.First
+    while j!=0:
+        DSSCircuit.Capacitors.Name=BB[j+imax]
+        DSSCircuit.Capacitors.kVar=k*SS[j+imax].imag
+        j=DSSCircuit.Capacitors.next
+    return
 		
 
 def assemble_ybus(SystemY):
-	AA = SystemY[np.arange(0,SystemY.size,2)]
-	BB = SystemY[np.arange(1,SystemY.size,2)]
-	n = int(sqrt(AA.size))
-	Ybus = sparse.dok_matrix(np.reshape(AA+1j*BB,(n,n))) # perhaps other sparse method might work better?
-	return Ybus
+    AA = SystemY[np.arange(0,SystemY.size,2)]
+    BB = SystemY[np.arange(1,SystemY.size,2)]
+    n = int(sqrt(AA.size))
+    Ybus = sparse.dok_matrix(np.reshape(AA+1j*BB,(n,n))) # perhaps other sparse method might work better?
+    return Ybus
 	
 def create_ybus(DSSCircuit):
-	SystemY = np.array(DSSCircuit.SystemY)
-	Ybus = assemble_ybus(SystemY)
-	YNodeOrder = DSSCircuit.YNodeOrder; 
-	n = Ybus.shape[0];
-	return Ybus, YNodeOrder, n
+    SystemY = np.array(DSSCircuit.SystemY)
+    Ybus = assemble_ybus(SystemY)
+    YNodeOrder = DSSCircuit.YNodeOrder; 
+    n = Ybus.shape[0];
+    return Ybus, YNodeOrder, n
 	
 def find_tap_pos(DSSCircuit):
-	TC_No=[]
-	TC_bus=[]
-	i = DSSCircuit.RegControls.First
-	while i!=0:
-		TC_No.append(DSSCircuit.RegControls.TapNumber)
-	return TC_No,TC_bus
-	
+    TC_No=[]
+    TC_bus=[]
+    i = DSSCircuit.RegControls.First
+    while i!=0:
+        TC_No.append(DSSCircuit.RegControls.TapNumber)
+    return TC_No,TC_bus
+
 def create_tapped_ybus( DSSObj,fn_y,feeder,TR_name,TC_No0 ):
-	DSSText = DSSObj.Text;
-
-	DSSText.command='Compile ('+fn_y+')'
-	DSSCircuit=DSSObj.ActiveCircuit
-	
-	i = DSSCircuit.RegControls.First
-	while i!=0:
-		DSSCircuit.RegControls.TapNumber=TC_No0[i]
+    DSSText = DSSObj.Text;
+    DSSText.command='Compile ('+fn_y+')'
+    DSSCircuit=DSSObj.ActiveCircuit
+    i = DSSCircuit.RegControls.First
+    while i!=0:
+        DSSCircuit.RegControls.TapNumber=TC_No0[i]
         i = DSSCircuit.RegControls.Next
+    DSSCircuit.Solution.Solve
+    Ybus_,YNodeOrder_,n = create_ybus(DSSCircuit)
+    Ybus = Ybus_[3:,3:]
+    YNodeOrder = YNodeOrder_[0:3]+YNodeOrder_[6:];
+    return Ybus, YNodeOrder
 
-	DSSCircuit.Solution.Solve
-	Ybus_,YNodeOrder_,n = create_ybus(DSSCircuit)
-	Ybus = Ybus_[3:,3:]
-	YNodeOrder = YNodeOrder_[0:3]+YNodeOrder_[6:];
-	return Ybus, YNodeOrder
 def tp_2_ar(tuple_ex):
     ar = np.array(tuple_ex[0::2]) + 1j*np.array(tuple_ex[1::2])
     return ar
@@ -90,17 +88,16 @@ def ld_vals( DSSCircuit ):
     ii = DSSCircuit.FirstPCElement()
     S=[]; V=[]; I=[]; B=[]; D=[]
     while ii!=0:
-        if DSSCircuit.ActiveElement.name[0:5].lower()=='load':
+        if DSSCircuit.ActiveElement.name[0:4].lower()=='load':
             S.append(tp_2_ar(DSSCircuit.ActiveElement.Powers))
             V.append(tp_2_ar(DSSCircuit.ActiveElement.Voltages))
             I.append(tp_2_ar(DSSCircuit.ActiveElement.Currents))
-            B.append(DSSCircuit.ActiveElement.bus)
+            B.append(DSSCircuit.ActiveElement.BusNames)
             D.append(DSSCircuit.Loads.IsDelta)
         ii=DSSCircuit.NextPCElement()
-    
     jj = DSSCircuit.FirstPDElement()
     while jj!=0:
-        if DSSCircuit.ActiveElement.name[0:5].lower()=='capa':
+        if DSSCircuit.ActiveElement.name[0:4].lower()=='capa':
             S.append(tp_2_ar(DSSCircuit.ActiveElement.Powers))
             V.append(tp_2_ar(DSSCircuit.ActiveElement.Powers))
             I.append(tp_2_ar(DSSCircuit.ActiveElement.Powers))
@@ -109,46 +106,75 @@ def ld_vals( DSSCircuit ):
         jj=DSSCircuit.NextPDElement()
     return S,V,I,B,D
     
-def find_node_idx(YZ,bus):
-    idx = np.zeros(3)
-    if bus[-2]=='.' & bus.count('.')==1:
-        ph = int(bus[-1])
-        idx[ph-1] = YZ.index(bus)
-    elif bus[-2]=='.' & bus.count('.')==2:
-        ph = int(bus[-3])
-        idx[ph-1] = YZ.index(bus[0:-2])
+def find_node_idx(n2y,bus,D):
+    idx = []
+    if D:
+        try:
+            idx.append(n2y[bus[0:-3]])
+        except:
+            idx.append(n2y[bus+'.1'])
+            idx.append(n2y[bus+'.2'])
+            idx.append(n2y[bus+'.3'])
     else:
-        for ph in range(0,3):
-            idx[ph-1] = YZ.index(bus+'.'+str(ph))
+        try:
+            idx.append(n2y[bus])
+        except:
+            idx.append(n2y[bus+'.1'])
+            idx.append(n2y[bus+'.2'])
+            idx.append(n2y[bus+'.3'])
     return idx
+    # idx = np.zeros(3,dtype=int) # NB only tested with single phase loads!
+    # for bus in buses:
+        # print(bus)
+        # if (bus[-2]=='.') & (bus.count('.')==1):
+            # ph = int(bus[-1])
+            # idx[ph-1] = YZ.index(bus)
+        # elif (bus[-2]=='.') & (bus.count('.')==2):
+            # ph = int(bus[-3])
+            # idx[ph-1] = YZ.index(bus[0:-2])
+        # else:
+            # for ph in range(0,3):
+                # idx[ph-1] = YZ.index((bus+'.'+str(ph)))
+    # return idx
     
-def calc_sYsD( YZ,B,I,S,D ): # YZ as YNodeOrder
-    iD = np.zeros(len(YZ));sD = np.zeros(len(YZ));iY = np.zeros(len(YZ));sY = np.zeros(len(YZ))
-    
-    for i in range(0,len(B)):
-        bus = B[i]
-        idx = find_node_idx(YZ,bus)
-        if D[i]:
-            if bus.count('.')==2:
-                ph = int(bus[-3])
-                iD[idx[ph-1]] = iD[idx[ph-1]] + I[i]
-                sD[idx[ph-1]] = sD[idx[ph-1]] + S[i][0] + S[i][1]
+def calc_sYsD( YZ,B,I,S,D,n2y ): # YZ as YNodeOrder
+    iD = np.zeros(len(YZ),dtype=complex);sD = np.zeros(len(YZ),dtype=complex);
+    iY = np.zeros(len(YZ),dtype=complex);sY = np.zeros(len(YZ),dtype=complex)
+    for i in range(len(B)):
+        for bus in B[i]:
+            idx = find_node_idx(n2y,bus,D[i])
+            if D[i]:
+                if bus.count('.')==2:
+                    ph = int(bus[-3])
+                    iD[idx[ph-1]] = iD[idx[ph-1]] + I[i]
+                    sD[idx[ph-1]] = sD[idx[ph-1]] + S[i][0] + S[i][1]
+                else:
+                    iD[idx] = iD[idx] + I[i]*np.exp(1j*np.pi/6)/np.sqrt(3)
+                    sD[idx] = sD[idx] + S[i]
             else:
-                iD[idx] = iD[idx] + I[i]*np.exp(1j*np.pi/6)/np.sqrt(3)
-                sD[idx] = sD[idx] + S[i]
-        else:
-            if bus.count('.')>0:
-                ph=int(bus[-1])
-                iY[idx[ph-1]] = iY[idx[ph-1]] + I[i]
-                sY[idx[ph-1]] = sY[idx[ph-1]] + S[i][0] + S[i][0]
-            else:
-                iY[idx] = iY[i] + I[i]
-                sY[idx] = sY[i] + S[i]
+                if bus.count('.')>0:
+                    # ph=int(bus[-1])
+                    iY[idx] = iY[idx] + I[i][0]
+                    sY[idx] = sY[idx] + S[i][0]
+                else:
+                    iY[idx] = iY[idx] + I[i]
+                    sY[idx] = sY[idx] + S[i]
     return iY, sY, iD, sD
 
-    
-    
-
+def nrel_linearization_My(Y_sp,Vh,V0):
+    Yll = Y_sp[3:,3:]
+    Yl0 = Y_sp[3:,0:3]
+    print(Yl0.shape)
+    print(Yll.shape)
+    print(Yll.ndim)
+    print(V0.shape)
+    QWE = np.array([-Yl0*V0]).T
+    print(QWE.shape)
+    print(QWE.ndim)
+    a = np.linalg.solve(Yll,QWE)
+    My0 = np.linalg.inv(np.diag(Vh.conj())*Yll)
+    My = np.concatenate((My0.real(),-My0.imag()))
+    return My,a
     
 DSSText=DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
@@ -167,37 +193,60 @@ k = np.arange(-0.7,1.8,0.1)
 ve=np.zeros([k.size,lin_points.size])
 ve0=np.zeros([k.size,lin_points.size])
 
-print 'hello'
+print('hello')
 
-for lin_point in lin_points:
-	DSSText.command='Compile ('+fn+'.dss)'
-	TC_No0,TC_bus = find_tap_pos(DSSCircuit)
-	TR_name = []
-	# Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,feeder,TR_name,TC_No0 )
-	YNodeOrder = DSSCircuit.YNodeOrder
-	print "hi"
-	# Reproduce delta-y power flow eqns (1)
-	DSSText.command='Compile ('+fn+'.dss)'
-	DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
-	DSSSolution.Solve;
-	BB00,SS00 = cpf_get_loads(DSSCircuit)
-	print "hello"
-	k00 = lin_point/SS00[1].real
-	cpf_set_loads(DSSCircuit,BB00,SS00,k00)
-	DSSSolution.Solve
+# for lin_point in lin_points:
+lin_point=0.3
+DSSText.command='Compile ('+fn+'.dss)'
+TC_No0,TC_bus = find_tap_pos(DSSCircuit)
+TR_name = []
 
-	S,V,I,B,D = ld_vals(DSSCircuit)
-	iY,sY,iD,sD = calc_sYsD(YNodeOrder,B,I,S,D)
-	
-	BB0,SS0 = cpf_get_loads(DSSCircuit)
-	YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
-	BB0,SS0 = cpf_get_loads(DSSCircuit)
-	xhy0 = -1e3*np.array([[sY.real],[sY.imag]])
-	V0 = YNodeV[0:2]
-	Vh = YNodeV[3:]
-	# My,a = nrel_linearization_My( Ybus,Vh,V0 )
-        
-	
+Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,feeder,TR_name,TC_No0 )
+# YNodeOrder = DSSCircuit.YNodeOrder
+print("hi")
+
+# Reproduce delta-y power flow eqns (1)
+DSSText.command='Compile ('+fn+'.dss)'
+DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+DSSSolution.Solve;
+BB00,SS00 = cpf_get_loads(DSSCircuit)
+print("hello")
+k00 = lin_point/SS00[1].real
+cpf_set_loads(DSSCircuit,BB00,SS00,k00)
+DSSSolution.Solve
+
+def node_to_YZ(DSSCircuit):
+    n2y = {}
+    YNodeOrder = DSSCircuit.YNodeOrder
+    for node in DSSCircuit.AllNodeNames:
+        n2y[node]=YNodeOrder.index(node.upper())
+    return n2y
+
+S,V,I,B,D = ld_vals(DSSCircuit)
+# print(S)
+n2y = node_to_YZ(DSSCircuit)
+iY,sY,iD,sD = calc_sYsD(YNodeOrder,B,I,S,D,n2y)
+
+BB0,SS0 = cpf_get_loads(DSSCircuit)
+YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
+
+BB0,SS0 = cpf_get_loads(DSSCircuit)
+xhy0 = -1e3*np.array([[sY.real],[sY.imag]])
+V0 = YNodeV[0:3]
+print(V0)
+Vh = YNodeV[3:]
+
+# Vt = np.linalg.solve(
+
+plt.subplot(1,2,1)
+plt.plot(np.abs(iY))
+plt.subplot(1,2,2)
+plt.plot(np.abs(Ybus*YNodeV))
+
+# My,a = nrel_linearization_My( Ybus,Vh,V0 )
+# print(a[0:10])
+# print(My[0:10])
+
 	
 	
 	
