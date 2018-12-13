@@ -50,7 +50,6 @@ dVdt = np.empty((len(dT),len(V0)))
 i=0
 for dt in dT:
 	DSSCircuit.Transformers.Tap=tap_0 + dt
-	# DSSText.Command='edit transformer.tr1 tap='+str(tap_0 + dt)
 	DSSSolution.Solve()
 	dV[i] = V0 - np.array(DSSCircuit.AllBusVmagPu)
 	dVdt[i] = -dV[i]/dt
@@ -59,26 +58,26 @@ for dt in dT:
 
 # 4. plot changes to voltages versus node number
 # plt.scatter(dT,dVdt[:,0]) # fast
-fig = plt.figure()
-for i in range(len(dVdt[0])):
-	plt.scatter(dT,dVdt[:,i])
-plt.grid()
-plt.xlabel('Tap change, dt (%)')
-plt.ylabel('Change in voltage per unit tap, dVdt')
-fig.gca().set_axisbelow(True)
-plt.show()
-fig.savefig(fig_loc+'dVdt_'+DSSCircuit.name+'_'+DSSCircuit.Transformers.name+'.pdf')
+# fig = plt.figure()
+# for i in range(len(dVdt[0])):
+	# plt.scatter(dT,dVdt[:,i])
+# plt.grid()
+# plt.xlabel('Tap change, dt (%)')
+# plt.ylabel('Change in voltage per unit tap, dVdt')
+# fig.gca().set_axisbelow(True)
+# plt.show()
+# fig.savefig(fig_loc+'dVdt_'+DSSCircuit.name+'_'+DSSCircuit.Transformers.name+'.pdf')
 
-fig = plt.figure()
-for i in range(len(dV[0])):
-	plt.scatter(dT,dV[:,i])
-plt.grid()
-plt.axis('equal')
-plt.xlabel('Tap change, dt (%)')
-plt.ylabel('Change in voltage, dV')
-fig.gca().set_axisbelow(True)
-plt.show()
-fig.savefig(fig_loc+'dV_'+DSSCircuit.name+'_'+DSSCircuit.Transformers.name+'.pdf')
+# fig = plt.figure()
+# for i in range(len(dV[0])):
+	# plt.scatter(dT,dV[:,i])
+# plt.grid()
+# plt.axis('equal')
+# plt.xlabel('Tap change, dt (%)')
+# plt.ylabel('Change in voltage, dV')
+# fig.gca().set_axisbelow(True)
+# plt.show()
+# fig.savefig(fig_loc+'dV_'+DSSCircuit.name+'_'+DSSCircuit.Transformers.name+'.pdf')
 # fig.savefig(fig_loc+'dV_eulv.pdf')
 
 
