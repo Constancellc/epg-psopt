@@ -3,7 +3,11 @@ import numpy as np
 import os
 from math import sqrt
 from scipy import sparse
+import scipy.sparse.linalg as spla
 import matplotlib.pyplot as plt
+import time 
+
+print('Start...\n',time.process_time())
 
 WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
 # WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
@@ -123,19 +127,6 @@ def find_node_idx(n2y,bus,D):
             idx.append(n2y[bus+'.2'])
             idx.append(n2y[bus+'.3'])
     return idx
-    # idx = np.zeros(3,dtype=int) # NB only tested with single phase loads!
-    # for bus in buses:
-        # print(bus)
-        # if (bus[-2]=='.') & (bus.count('.')==1):
-            # ph = int(bus[-1])
-            # idx[ph-1] = YZ.index(bus)
-        # elif (bus[-2]=='.') & (bus.count('.')==2):
-            # ph = int(bus[-3])
-            # idx[ph-1] = YZ.index(bus[0:-2])
-        # else:
-            # for ph in range(0,3):
-                # idx[ph-1] = YZ.index((bus+'.'+str(ph)))
-    # return idx
     
 def calc_sYsD( YZ,B,I,S,D,n2y ): # YZ as YNodeOrder
     iD = np.zeros(len(YZ),dtype=complex);sD = np.zeros(len(YZ),dtype=complex);
@@ -161,19 +152,21 @@ def calc_sYsD( YZ,B,I,S,D,n2y ): # YZ as YNodeOrder
                     sY[idx] = sY[idx] + S[i]
     return iY, sY, iD, sD
 
-def nrel_linearization_My(Y_sp,Vh,V0):
-    Yll = Y_sp[3:,3:]
-    Yl0 = Y_sp[3:,0:3]
-    print(Yl0.shape)
-    print(Yll.shape)
-    print(Yll.ndim)
-    print(V0.shape)
-    QWE = np.array([-Yl0*V0]).T
-    print(QWE.shape)
-    print(QWE.ndim)
-    a = np.linalg.solve(Yll,QWE)
-    My0 = np.linalg.inv(np.diag(Vh.conj())*Yll)
-    My = np.concatenate((My0.real(),-My0.imag()))
+def node_to_YZ(DSSCircuit):
+    n2y = {}
+    YNodeOrder = DSSCircuit.YNodeOrder
+    for node in DSSCircuit.AllNodeNames:
+        n2y[node]=YNodeOrder.index(node.upper())
+    return n2y
+
+def nrel_linearization_My(Ybus,Vh,V0):
+    Yll = Ybus[3:,3:].tocsc()
+    Yl0 = Ybus[3:,0:3].tocsc()
+    a = spla.spsolve(Yll,Yl0.dot(-V0))
+    Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) )
+    My_i = Vh_diag.dot(Yll)
+    My_0 = spla.inv(My_i.tocsc())
+    My = sparse.hstack((My_0,-1j*My_0))
     return My,a
     
 DSSText=DSSObj.Text
@@ -187,75 +180,70 @@ feeder='eulv'
 fn_y = fn+'_y'
 sn = WD + '\\lin_models\\' + feeder
 
-lin_points=np.array([0.3])
+lin_points=np.array([0.3,0.6,1.0])
 k = np.arange(-0.7,1.8,0.1)
+# k = np.arange(-0.1,0.5,0.1)
 
 ve=np.zeros([k.size,lin_points.size])
 ve0=np.zeros([k.size,lin_points.size])
 
-print('hello')
+for K in range(len(lin_points)):
+    lin_point = lin_points[K]
+    # lin_point=0.3
+    # run the dss
+    DSSText.command='Compile ('+fn+'.dss)'
+    TC_No0,TC_bus = find_tap_pos(DSSCircuit)
+    TR_name = []
+    print('Load Ybus\n',time.process_time())
+    Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,feeder,TR_name,TC_No0 )
+    # YNodeOrder = DSSCircuit.YNodeOrder # put in if not creating ybus as above
 
-# for lin_point in lin_points:
-lin_point=0.3
-DSSText.command='Compile ('+fn+'.dss)'
-TC_No0,TC_bus = find_tap_pos(DSSCircuit)
-TR_name = []
+    # Reproduce delta-y power flow eqns (1)
+    DSSText.command='Compile ('+fn+'.dss)'
+    DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+    DSSSolution.Solve()
+    BB00,SS00 = cpf_get_loads(DSSCircuit)
 
-Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,feeder,TR_name,TC_No0 )
-# YNodeOrder = DSSCircuit.YNodeOrder
-print("hi")
+    k00 = lin_point/SS00[1].real
+    
+    cpf_set_loads(DSSCircuit,BB00,SS00,k00)
+    DSSSolution.Solve()
+    
+    # get the Y, D currents/power
+    S,V,I,B,D = ld_vals(DSSCircuit)
+    n2y = node_to_YZ(DSSCircuit)
+    iY,sY,iD,sD = calc_sYsD(YNodeOrder,B,I,S,D,n2y)
+    BB0,SS0 = cpf_get_loads(DSSCircuit)
+    
+    YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
+    # --------------------
+    xhy0 = -1e3*np.array([[sY.real],[sY.imag]])
+    
+    V0 = YNodeV[0:3]
+    Vh = YNodeV[3:]
 
-# Reproduce delta-y power flow eqns (1)
-DSSText.command='Compile ('+fn+'.dss)'
-DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
-DSSSolution.Solve;
-BB00,SS00 = cpf_get_loads(DSSCircuit)
-print("hello")
-k00 = lin_point/SS00[1].real
-cpf_set_loads(DSSCircuit,BB00,SS00,k00)
-DSSSolution.Solve
+    print('Create linear model:\n',time.process_time())
+    My,a = nrel_linearization_My( Ybus,Vh,V0 )
+    
+    # now, check these are working
+    v_0 = np.zeros((len(k),len(YNodeOrder)),dtype=complex)
+    v_l = np.zeros((len(k),len(YNodeOrder)-3),dtype=complex)
 
-def node_to_YZ(DSSCircuit):
-    n2y = {}
-    YNodeOrder = DSSCircuit.YNodeOrder
-    for node in DSSCircuit.AllNodeNames:
-        n2y[node]=YNodeOrder.index(node.upper())
-    return n2y
+    print('Start validation\n',time.process_time())
+    for i in range(len(k)):
+        DSSText.command='Compile ('+fn+')'
+        DSSText.command='Set controlmode=off'
+        DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+        # cpf_set_loads(DSSCircuit,BB00,SS00,k[i]/lin_point)
+        cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point)
+        DSSSolution.Solve()
+        v_0[i,:] = tp_2_ar(DSSCircuit.YNodeVarray)
+        S,V,I,B,D = ld_vals(DSSCircuit)
+        iY,sY,iD,sD = calc_sYsD(YNodeOrder,B,I,S,D,n2y)
+        xhy = -1e3*np.concatenate((sY[3:].real,sY[3:].imag))
+        v_l[i,:] = My.dot(xhy) + a
+        ve[i,K] = np.linalg.norm( v_l[i,:] - v_0[i,3:] )/np.linalg.norm(v_0[i,3:])
 
-S,V,I,B,D = ld_vals(DSSCircuit)
-# print(S)
-n2y = node_to_YZ(DSSCircuit)
-iY,sY,iD,sD = calc_sYsD(YNodeOrder,B,I,S,D,n2y)
-
-BB0,SS0 = cpf_get_loads(DSSCircuit)
-YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
-
-BB0,SS0 = cpf_get_loads(DSSCircuit)
-xhy0 = -1e3*np.array([[sY.real],[sY.imag]])
-V0 = YNodeV[0:3]
-print(V0)
-Vh = YNodeV[3:]
-
-# Vt = np.linalg.solve(
-
-plt.subplot(1,2,1)
-plt.plot(np.abs(iY))
-plt.subplot(1,2,2)
-plt.plot(np.abs(Ybus*YNodeV))
-
-# My,a = nrel_linearization_My( Ybus,Vh,V0 )
-# print(a[0:10])
-# print(My[0:10])
-
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-
-	
+print('Complete.\n',time.process_time())
+plt.plot(k,ve)
+plt.show()

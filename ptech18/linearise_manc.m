@@ -107,7 +107,6 @@ for K = 1:numel(lin_points)
 		
 	end
 	toc
-
 end
 % plot(k,ve); hold on;
 % plot(k,ve0);
@@ -115,7 +114,7 @@ end
 % legend('Ve','Ve0');
 %%
 
-save(sn,'My','a','Ybus_sp','lin_point','V0','xhy0') % save models where required
+% save(sn,'My','a','Ybus_sp','lin_point','V0','xhy0') % save models where required
 
 plot(k,ve); hold on;
 
