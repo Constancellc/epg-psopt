@@ -4,6 +4,8 @@ def tp_2_ar(tuple_ex):
     ar = np.array(tuple_ex[0::2]) + 1j*np.array(tuple_ex[1::2])
     return ar
 
+def s_2_x(s):
+    return np.concatenate((s.real,s.imag))
     
 def ld_vals( DSSCircuit ):
     ii = DSSCircuit.FirstPCElement()
@@ -75,6 +77,14 @@ def node_to_YZ(DSSCircuit):
     for node in DSSCircuit.AllNodeNames:
         n2y[node]=YNodeOrder.index(node.upper())
     return n2y
+
+def get_sYsD(DSSCircuit):
+    S,V,I,B,D = ld_vals( DSSCircuit )
+    n2y = node_to_YZ(DSSCircuit)
+    YZ = DSSCircuit.YNodeOrder
+    iY, sY, iD, sD = calc_sYsD( YZ,B,I,S,D,n2y )
+    return sY,sD,iY,iD
+    
 
 def cpf_get_loads(DSSCircuit):
     SS = {}

@@ -15,14 +15,14 @@ DSSText = DSSObj.Text
 DSSCircuit=DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
 
-# fig_loc = "C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc181126\\figures\\"
-fig_loc = r"C:\\Users\Matt\Documents\DPhil\malcolm_updates\wc181126\\tap_changes\\"
+fig_loc = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc181126\\figures\\"
+# fig_loc = r"C:\\Users\Matt\Documents\DPhil\malcolm_updates\wc181126\\tap_changes\\"
 
 
 # Things to do: 
 # 1. load a circuit;
-WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-# WD = "C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+# WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 # fn = WD+'\\LVTestCase_copy\\master_z'
 fn = WD+'\\13Bus_copy\\IEEE13Nodeckt'
 
