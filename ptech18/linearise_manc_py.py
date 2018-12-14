@@ -11,8 +11,8 @@ from dss_python_funcs import *
 print('Start...\n',time.process_time())
 
 # ======== specify working directories
-# WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+# WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 try:
     DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
@@ -42,7 +42,7 @@ def find_tap_pos(DSSCircuit):
         TC_No.append(DSSCircuit.RegControls.TapNumber)
     return TC_No,TC_bus
 
-def create_tapped_ybus( DSSObj,fn_y,feeder,TR_name,TC_No0 ):
+def create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TR_name,TC_No0 ):
     DSSText = DSSObj.Text;
     DSSText.command='Compile ('+fn_y+')'
     DSSCircuit=DSSObj.ActiveCircuit
@@ -50,8 +50,10 @@ def create_tapped_ybus( DSSObj,fn_y,feeder,TR_name,TC_No0 ):
     while i!=0:
         DSSCircuit.RegControls.TapNumber=TC_No0[i]
         i = DSSCircuit.RegControls.Next
-    DSSCircuit.Solution.Solve
-    Ybus_,YNodeOrder_,n = create_ybus(DSSCircuit)
+    DSSCircuit.Solution.Solve()
+    
+    # Ybus_,YNodeOrder_,n = create_ybus(DSSCircuit)
+    Ybus_,YNodeOrder_,n = build_y(DSSObj,fn_ckt)
     Ybus = Ybus_[3:,3:]
     YNodeOrder = YNodeOrder_[0:3]+YNodeOrder_[6:];
     return Ybus, YNodeOrder
@@ -78,15 +80,17 @@ DSSText=DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
 
+fn_ckt = WD+'\\LVTestCase_copy'
 fn = WD+'\\LVTestCase_copy\\master_z'
 # fn = WD+'\\master_z'
 feeder='eulv'
 
 fn_y = fn+'_y'
+
 sn = WD + '\\lin_models\\' + feeder
 
-lin_points=np.array([0.3,0.6,1.0])
-# lin_points=np.array([1.0])
+# lin_points=np.array([0.3,0.6,1.0])
+lin_points=np.array([1.0])
 k = np.arange(-0.7,1.8,0.1)
 # k = np.arange(-0.1,0.5,0.1)
 
@@ -102,7 +106,7 @@ for K in range(len(lin_points)):
     TR_name = []
     test = tp_2_ar(DSSCircuit.YNodeVarray)
     print('Load Ybus\n',time.process_time())
-    Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,feeder,TR_name,TC_No0 )
+    Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TR_name,TC_No0 )
     # YNodeOrder = DSSCircuit.YNodeOrder # put in if not creating ybus as above
 
     # Reproduce delta-y power flow eqns (1)
@@ -158,9 +162,9 @@ for K in range(len(lin_points)):
         xhy = -1e3*s_2_x(sY[3:])
         v_l[i,:] = My.dot(xhy) + a
         ve[i,K] = np.linalg.norm( v_l[i,:] - v_0[i,3:] )/np.linalg.norm(v_0[i,3:])
-        va_l[i,:] = Ky.dot(xhy) + b
-        vae[i,K] = np.linalg.norm( va_l[i,:] - va_0[i,3:] )/np.linalg.norm(va_0[i,3:])
+        # va_l[i,:] = Ky.dot(xhy) + b
+        # vae[i,K] = np.linalg.norm( va_l[i,:] - va_0[i,3:] )/np.linalg.norm(va_0[i,3:])
 print('Complete.\n',time.process_time())
 
-# plt.plot(k,ve), plt.show()
+plt.plot(k,ve), plt.show()
 # plt.plot(k,vae), plt.show()

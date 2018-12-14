@@ -1,4 +1,6 @@
 import numpy as np
+import os
+from scipy import sparse
 
 def tp_2_ar(tuple_ex):
     ar = np.array(tuple_ex[0::2]) + 1j*np.array(tuple_ex[1::2])
@@ -114,3 +116,45 @@ def cpf_set_loads(DSSCircuit,BB,SS,k):
         DSSCircuit.Capacitors.kVar=k*SS[j+imax].imag
         j=DSSCircuit.Capacitors.next
     return
+
+def build_y(DSSObj,fn_ckt):
+    # DSSObj.Text.command='Compile ('+fn_z+'.dss)'
+    YNodeOrder = DSSObj.ActiveCircuit.YNodeOrder
+    DSSObj.Text.command='show Y'
+    os.system("TASKKILL /F /IM notepad.exe")
+    
+    fn_y = fn_ckt+'\\'+DSSObj.ActiveCircuit.name+'_SystemY.txt'
+    fn_csv = fn_ckt+'\\'+DSSObj.ActiveCircuit.name+'_SystemY_csv.txt'
+
+    file_r = open(fn_y,'r')
+    stream = file_r.read()
+
+    stream=stream.replace('[','')
+    # stream=stream.replace(']',',')
+    stream=stream.replace('] = ',',')
+    stream=stream.replace('j','')
+    stream=stream[89:]
+    stream=stream.replace('\n','j\n')
+    stream=stream.replace(' ','')
+
+    file_w = open(fn_csv,'w')
+    file_w.write(stream)
+
+    file_r.close()
+    file_w.close()
+
+    rc_data = np.loadtxt(fn_csv,delimiter=',',dtype=complex)
+    n_y = int(rc_data[-1,0].real)
+
+    I = np.concatenate((rc_data[:,0]-1,rc_data[:,1]-1)).real
+    J = np.concatenate((rc_data[:,1]-1,rc_data[:,0]-1)).real
+    V = np.concatenate((rc_data[:,2],rc_data[:,2]))
+    Ybus = sparse.coo_matrix((V,(I,J)),shape=(n_y,n_y),dtype=complex).tocsr()
+    
+    n = len(YNodeOrder)
+    for i in range(n):
+        Ybus[i,i] = Ybus[i,i]/2
+    
+    os.remove(fn_y)
+    os.remove(fn_csv)
+    return Ybus, YNodeOrder, n
