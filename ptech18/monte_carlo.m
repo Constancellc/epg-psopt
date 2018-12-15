@@ -35,7 +35,7 @@ load([pwd,'\lin_models\',model]);
 Nl = ceil(nl*LDS.count);
 
 Ns = 1000; % number of samples
-% Ns = 100; % number of samples
+Ns = 100; % number of samples
 
 Vb = 230;
 vp = 1.10;
