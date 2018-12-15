@@ -35,12 +35,14 @@ load([pwd,'\lin_models\',model]);
 Nl = ceil(nl*LDS.count);
 
 Ns = 1000; % number of samples
+% Ns = 100; % number of samples
 
 Vb = 230;
 vp = 1.10;
 vmax = Vb*vp;
 % gen_pf = -0.95;
-gen_pf = 1.00;
+% gen_pf = 1.00;
+gen_pf = 0.95;
 aa = exp(1i*2*pi/3);
 
 sn = [pwd,'\lin_models\mc_out_',model];
@@ -145,15 +147,17 @@ if strcmp(mode,'Wfix')
     display(Pout);
 end
 
-
+tic
 if strcmp(mode,'Vfix')
     for i = 1:numel(Nl)
+        toc
         for j = 1:Ns
             rdi = randperm(LDS.count,Nl(i));
             xhs = sparse(zeros(size(xhp0)));
 
             xhs(fxp0(rdi)) = 1;
             xhs = [xhs;xhs*qgen];
+            
             Mk = My*xhs;
             A = real(Mk./ang0);
             Anew = A(xhp0~=0);
@@ -173,10 +177,8 @@ if strcmp(mode,'Vfix')
     end
     kX = X.*Nl*1e-3;
 end
-mc_time=toc;
-display(mc_time);
-
-
+% mc_time=toc;
+% display(mc_time);
 
 fig = figure('Color','White','Position',[100 150 550 270]);
 
@@ -226,18 +228,15 @@ end
 lgnd = legend('$\phi_{\mathrm{5\%}}$');
 set(lgnd,'Interpreter','Latex','FontSize',12);
 
-export_fig(gcf,FL);
-export_fig(gcf,[FL,'.pdf'],'-pdf');
-saveas(gcf,FL,'meta')
+% export_fig(gcf,FL);
+% export_fig(gcf,[FL,'.pdf'],'-pdf');
+% saveas(gcf,FL,'meta')
 
 % figure;
 % boxplot(Vub,'Positions',Nl,'Whisker',10);
 % xticklabels(cellstr(num2str(Nl')))
 % title('Voltage unbalance');
 % xlabel('# houses'); ylabel('Voltage unbalance, |V_n_s|/|V_p_s| (%)'); grid on;
-
-
-
 
 
 % figure;
