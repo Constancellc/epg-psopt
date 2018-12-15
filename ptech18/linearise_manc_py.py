@@ -14,34 +14,6 @@ print('Start...\n',time.process_time())
 WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
 # WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
-try:
-    DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
-except:
-    print("Unable to stat the OpenDSS Engine")
-    raise SystemExit
-
-def assemble_ybus(SystemY):
-    AA = SystemY[np.arange(0,SystemY.size,2)]
-    BB = SystemY[np.arange(1,SystemY.size,2)]
-    n = int(sqrt(AA.size))
-    Ybus = sparse.dok_matrix(np.reshape(AA+1j*BB,(n,n))) # perhaps other sparse method might work better?
-    return Ybus
-	
-def create_ybus(DSSCircuit):
-    SystemY = np.array(DSSCircuit.SystemY)
-    Ybus = assemble_ybus(SystemY)
-    YNodeOrder = DSSCircuit.YNodeOrder; 
-    n = Ybus.shape[0];
-    return Ybus, YNodeOrder, n
-	
-def find_tap_pos(DSSCircuit):
-    TC_No=[]
-    TC_bus=[]
-    i = DSSCircuit.RegControls.First
-    while i!=0:
-        TC_No.append(DSSCircuit.RegControls.TapNumber)
-    return TC_No,TC_bus
-
 def create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TR_name,TC_No0 ):
     DSSText = DSSObj.Text;
     DSSText.command='Compile ('+fn_y+')'
@@ -52,7 +24,6 @@ def create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TR_name,TC_No0 ):
         i = DSSCircuit.RegControls.Next
     DSSCircuit.Solution.Solve()
     
-    # Ybus_,YNodeOrder_,n = create_ybus(DSSCircuit)
     Ybus_,YNodeOrder_,n = build_y(DSSObj,fn_ckt)
     Ybus = Ybus_[3:,3:]
     YNodeOrder = YNodeOrder_[0:3]+YNodeOrder_[6:];
@@ -75,7 +46,8 @@ def nrel_linearization_Ky(My,Vh,sY):
     Ky = Vhai_diag.dot( Vh_diag.dot(My).real ).toarray()
     b = abs(Vh) - Ky.dot(-1e3*s_2_x(sY[3:]))
     return Ky, b
-    
+
+DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText=DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
@@ -87,12 +59,14 @@ feeder='eulv'
 
 fn_y = fn+'_y'
 
-sn = WD + '\\lin_models\\' + feeder
+sn0 = WD + '\\lin_models\\' + feeder
 
 # lin_points=np.array([0.3,0.6,1.0])
 lin_points=np.array([1.0])
 k = np.arange(-0.7,1.8,0.1)
 # k = np.arange(-0.1,0.5,0.1)
+# test_model = False
+test_model = True
 
 ve=np.zeros([k.size,lin_points.size])
 vae=np.zeros([k.size,lin_points.size])
@@ -119,11 +93,6 @@ for K in range(len(lin_points)):
     
     cpf_set_loads(DSSCircuit,BB00,SS00,k00)
     DSSSolution.Solve()
-    
-    # get the Y, D currents/power
-    # S,V,I,B,D = ld_vals(DSSCircuit)
-    # n2y = node_to_YZ(DSSCircuit)
-    # iY,sY,iD,sD = calc_sYsD(YNodeOrder,B,I,S,D,n2y)
     sY,sD,iY,iD = get_sYsD(DSSCircuit)
     BB0,SS0 = cpf_get_loads(DSSCircuit)
     
@@ -139,32 +108,58 @@ for K in range(len(lin_points)):
     
     print('Create linear model Ky:\n',time.process_time())
     Ky,b = nrel_linearization_Ky(My,Vh,sY)
+    
+    DSSText.command='Compile ('+fn+')'
+    DSSText.command='Set controlmode=off'
+    DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+
+    # NB!!! -3 required for Ky which has the first three elements chopped off!
+    v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
+    v_idx = np.array(get_element_idxs(DSSCircuit,v_types)) - 3
+    p_idx = np.array(get_element_idxs(DSSCircuit,[DSSCircuit.Loads])) - 3
+    s_idx = np.concatenate((p_idx,p_idx+len(YNodeOrder)-3))
+
+    v_idx = v_idx[v_idx>=0]
+    s_idx = s_idx[s_idx>=0]
+
+    KyV = Ky[v_idx,:][:,s_idx]
+    bV = b[v_idx]
+
     # now, check these are working
     v_0 = np.zeros((len(k),len(YNodeOrder)),dtype=complex)
-    va_0 = np.zeros((len(k),len(YNodeOrder)),dtype=complex)
+    va_0 = np.zeros((len(k),len(YNodeOrder)))
     v_l = np.zeros((len(k),len(YNodeOrder)-3),dtype=complex)
-    va_l = np.zeros((len(k),len(YNodeOrder)-3),dtype=complex)
+    va_l = np.zeros((len(k),len(YNodeOrder)-3))
+    vv_l = np.zeros((len(k),len(v_idx)))
+    vva_l = np.zeros((len(k),len(v_idx)))
 
-    print('Start validation\n',time.process_time())
-    for i in range(len(k)):
-        DSSText.command='Compile ('+fn+')'
-        DSSText.command='Set controlmode=off'
-        DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
-        # cpf_set_loads(DSSCircuit,BB00,SS00,k[i]/lin_point)
-        cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point)
-        DSSSolution.Solve()
-        v_0[i,:] = tp_2_ar(DSSCircuit.YNodeVarray)
-        va_0[i,:] = abs(v_0[i,:])
-        # S,V,I,B,D = ld_vals(DSSCircuit)
-        # iY,sY,iD,sD = calc_sYsD(YNodeOrder,B,I,S,D,n2y)
-        sY,sD,iY,iD = get_sYsD(DSSCircuit)
-        # xhy = -1e3*np.concatenate((sY[3:].real,sY[3:].imag))
-        xhy = -1e3*s_2_x(sY[3:])
-        v_l[i,:] = My.dot(xhy) + a
-        ve[i,K] = np.linalg.norm( v_l[i,:] - v_0[i,3:] )/np.linalg.norm(v_0[i,3:])
-        # va_l[i,:] = Ky.dot(xhy) + b
-        # vae[i,K] = np.linalg.norm( va_l[i,:] - va_0[i,3:] )/np.linalg.norm(va_0[i,3:])
+    if test_model:
+        print('Start validation\n',time.process_time())
+        for i in range(len(k)):
+            cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point)
+            DSSSolution.Solve()
+            v_0[i,:] = tp_2_ar(DSSCircuit.YNodeVarray)
+            va_0[i,:] = abs(v_0[i,:])
+            sY,sD,iY,iD = get_sYsD(DSSCircuit)
+            # xhy = -1e3*s_2_x(sY[3:])
+            # v_l[i,:] = My.dot(xhy) + a
+            # ve[i,K] = np.linalg.norm( v_l[i,:] - v_0[i,3:] )/np.linalg.norm(v_0[i,3:])
+            # va_l[i,:] = Ky.dot(xhy) + b
+            # vae[i,K] = np.linalg.norm( va_l[i,:] - va_0[i,3:] )/np.linalg.norm(va_0[i,3:])
+            vva_l[i,:] = KyV.dot(xhy[s_idx]) + bV
+            vvae[i,K] = np.linalg.norm( vva_l[i,:] - vva_0[i,3:] )/np.linalg.norm(vva_0[i,3:])
+    # header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
+    lp_str = str(np.round(lin_point*100).astype(int)).zfill(3)
+    np.save(sn0+'Ky'+lp_str+'.npy',Ky)
+    
 print('Complete.\n',time.process_time())
 
-plt.plot(k,ve), plt.show()
-# plt.plot(k,vae), plt.show()
+
+# comments = 
+sn = DSSCircuit.name
+
+
+
+if test_model:
+    plt.plot(k,ve), plt.show()
+    # plt.plot(k,vae), plt.show()

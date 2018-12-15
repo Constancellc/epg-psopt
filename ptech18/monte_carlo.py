@@ -43,8 +43,11 @@ Nl = np.ceil(nl*LDS.count).astype(int)
 Ns = 100
 Vb = 230
 vp = 1.1
-vmax=Vb*vp
+vm = 0.9
+tp = 0.05
+tm = -0.05
 
+vmax=Vb*vp
 
 My = matrix(LM['My'])
 xhy0_raw=LM['xhy0'].astype('d')
@@ -74,7 +77,7 @@ print('Run simulations:\n',time.process_time())
 for i in range(len(Nl)):
     Vp = matrix(np.ones(Nl[i])*1)
     Vq = matrix(np.ones(Nl[i])*qgen)
-    J = matrix(np.zeros(Nl[i]).astype(int))    
+    J = matrix(np.zeros(Nl[i]).astype(int))
     for j in range(Ns):
         rdi = sample(LD_set,Nl[i])
         I = fxy0[rdi]

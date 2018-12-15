@@ -117,6 +117,14 @@ def cpf_set_loads(DSSCircuit,BB,SS,k):
         j=DSSCircuit.Capacitors.next
     return
 
+def find_tap_pos(DSSCircuit):
+    TC_No=[]
+    TC_bus=[]
+    i = DSSCircuit.RegControls.First
+    while i!=0:
+        TC_No.append(DSSCircuit.RegControls.TapNumber)
+    return TC_No,TC_bus
+
 def build_y(DSSObj,fn_ckt):
     # DSSObj.Text.command='Compile ('+fn_z+'.dss)'
     YNodeOrder = DSSObj.ActiveCircuit.YNodeOrder
@@ -158,3 +166,22 @@ def build_y(DSSObj,fn_ckt):
     os.remove(fn_y)
     os.remove(fn_csv)
     return Ybus, YNodeOrder, n
+
+def get_idxs(e_idx,DSSCircuit,ELE):
+    i = ELE.First
+    while i:
+        for bn in DSSCircuit.ActiveElement.BusNames:
+            bn = bn.upper()
+            try:
+                e_idx.append(DSSCircuit.YNodeOrder.index(bn))
+            except:
+                for ph in range(1,4):
+                    e_idx.append(DSSCircuit.YNodeOrder.index(bn+'.'+str(ph)))
+        i = ELE.next
+    return e_idx
+
+def get_element_idxs(DSSCircuit,ele_types):
+    e_idx = []
+    for ELE in ele_types:
+            e_idx = get_idxs(e_idx,DSSCircuit,ELE)
+    return e_idx
