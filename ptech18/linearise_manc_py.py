@@ -11,8 +11,8 @@ from dss_python_funcs import *
 print('Start...\n',time.process_time())
 
 # ======== specify working directories
-WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-# WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+# WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 def create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TR_name,TC_No0 ):
     DSSText = DSSObj.Text;
@@ -66,7 +66,6 @@ lin_points=np.array([0.3,0.6,1.0])
 k = np.arange(-0.7,1.8,0.1)
 # k = np.arange(-0.1,0.5,0.1)
 test_model = False
-# test_model = True
 
 ve=np.zeros([k.size,lin_points.size])
 vae=np.zeros([k.size,lin_points.size])
@@ -99,7 +98,7 @@ for K in range(len(lin_points)):
     
     YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
     # --------------------
-    xhy0 = -1e3*np.array([[sY.real],[sY.imag]])
+    xhy0 = -1e3*np.hstack((sY.real[3:],sY.imag[3:]))
     
     V0 = YNodeV[0:3]
     Vh = YNodeV[3:]
@@ -150,19 +149,16 @@ for K in range(len(lin_points)):
             vae[i,K] = np.linalg.norm( va_l[i,:] - va_0[i,3:] )/np.linalg.norm(va_0[i,3:])
             vva_l[i,:] = KyV.dot(xhy[s_idx]) + bV
             vvae[i,K] = np.linalg.norm( vva_l[i,:] - vva_0[i,:] )/np.linalg.norm(vva_0[i,:])
-        header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
-        lp_str = str(np.round(lin_point*100).astype(int)).zfill(3)
-        np.savetxt(sn0+'Ky'+lp_str+'.txt',KyV,header=header_str)
-        # np.save(sn0+'Ky'+lp_str+'.npy',Ky)
+    header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
+    lp_str = str(round(lin_point*100)).zfill(3)
+    np.savetxt(sn0+'Ky'+lp_str+'.txt',KyV,header=header_str)
+    np.savetxt(sn0+'bV'+lp_str+'.txt',bV,header=header_str)
+    np.savetxt(sn0+'xhy0'+lp_str+'.txt',xhy0[s_idx],header=header_str)
         
-    
+        # np.save(sn0+'Ky'+lp_str+'.npy',Ky)
 print('Complete.\n',time.process_time())
-
-
 # comments = 
 sn = DSSCircuit.name
-
-
 
 if test_model:
     # plt.plot(k,ve), plt.show()

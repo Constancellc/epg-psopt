@@ -5,18 +5,22 @@ import win32com.client
 from scipy.io import loadmat
 import matplotlib.pyplot as plt
 from cvxopt import matrix, spmatrix, sparse
+from cvxopt.solvers import lp, options
 from random import sample
 
 # based on monte_carlo.py
 print('Start.\n',time.process_time())
 
-FD = r"C:\\Users\Matt\Documents\DPhil\pesgm19\pesgm19_paper\figures\\"
-WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+
+FD = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc181217\\"
+# WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 nl = np.linspace(0,1,7)
 nl[0]=1e-4
 
 frac_set = 0.05
+lin_point = 1.0
 
 modeli = 4
 models = [('eulv',WD+'\LVTestCase_copy\master_z_g')]
@@ -27,76 +31,87 @@ models.append(('n4f1',WD+r'\manchester_models\\network_4\Feeder_1\master_g'))
 
 model = models[modeli]
 
-DSSObj = win32com.client.Dispatch("OpenDSSEngine.dss")
+feeder='eulv'
 
-DSSText=DSSObj.Text
-DSSCircuit = DSSObj.ActiveCircuit
-DSSSolution=DSSCircuit.Solution
+Ky = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Ky'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+Kt = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Kt'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+bV = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'bV'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+sy0 = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'xhy0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+DFs = np.loadtxt(WD+'\\datasets\\kersting235.txt',delimiter=',')
 
-LDS = DSSCircuit.loads
-LM = loadmat(WD+'\\lin_models\\'+model[0])
-DSSText.command='Compile ('+model[1]+')'
+nLds = len(sy0)//2
+Nl = np.ceil(nl*nLds).astype(int)
 
-Nl = np.ceil(nl*LDS.count).astype(int)
-
-# Ns = 1000
-Ns = 100
+Ns = 200
 Vb = 230
 vp = 1.1
 vm = 0.9
-tp = 0.05
-tm = -0.05
+tp = 0.0
+# tm = -0.05
+tm = -0.001
+
+MD = 5. # kW
+ADMD = 1e3*MD*nLds/DFs[nLds-1]
 
 vmax=Vb*vp
+vmin=Vb*vm
 
-My = matrix(LM['My'])
-xhy0_raw=LM['xhy0'].astype('d')
-xhy0 = spmatrix(xhy0_raw[xhy0_raw.nonzero()],xhy0_raw.nonzero()[0],xhy0_raw.nonzero()[1],(My.size[1],1))
-a = matrix(LM['a'])
-Vh0 = matrix((My*xhy0) + a)
-xhp0 = xhy0[0:xhy0.size[0]//2]
-
-ang0 = np.exp(1j*np.angle(Vh0))
-Va0 = (Vh0/ang0).real
-
-fxy0 = xhy0.I
-fxp0 = xhp0.I
-Vmax = vmax*np.ones(Vh0.size)
-
-b = Vmax - Va0;
-
-gen_pf = 1.00
 gen_pf = 0.95
-
 qgen = sin(acos(abs(gen_pf)))/gen_pf
 
 X = np.zeros((Ns,len(Nl)))
-LD_set = range(LDS.count)
+T = np.zeros((Ns,len(Nl)))
+LD_set = range(len(sy0)//2)
 print('Run simulations:\n',time.process_time())
 
+lp_c = matrix([-1.,0.])
+
+bb = Ky*sy0 + bV
+
+h00 = + bb - matrix(np.ones(len(bb))*vmax)
+h01 = - bb + matrix(np.ones(len(bb))*vmin)
+lp_h0 = matrix([matrix(h00),matrix(h01)])
+lp_h1 = matrix([tm,-tp])
+lp_h2 = matrix([-ADMD])
+lp_h = matrix([lp_h0,lp_h1,lp_h2])
+
+lp_G1 = matrix([[0,0],[1,-1]])
+
+options['show_progress']=False
+# options['maxiters']=1000 # needs to be increased slightly to solve some of these.
+options['maxiters']=100000 # needs to be increased slightly to solve some of these.
 for i in range(len(Nl)):
     Vp = matrix(np.ones(Nl[i])*1)
     Vq = matrix(np.ones(Nl[i])*qgen)
     J = matrix(np.zeros(Nl[i]).astype(int))
+    lp_G2 = matrix([[-float(Nl[i])],[0]])
+    print("Nl = ",Nl[i])
     for j in range(Ns):
-        rdi = sample(LD_set,Nl[i])
-        I = fxy0[rdi]
-        
-        xhp = spmatrix(Vp,I,J,(My.size[1]//2,1))
-        xhq = spmatrix(Vq,I,J,(My.size[1]//2,1))
+        I = sample(LD_set,Nl[i])
+        xhp = spmatrix(Vp,I,J,(Ky.size[1]//2,1))
+        xhq = spmatrix(Vq,I,J,(Ky.size[1]//2,1))
         xhs = sparse([xhp,xhq])
-        
-        Mk = My*xhs
-        
-        A = (Mk/ang0).real
+        Ktot = matrix([[Ky*xhs],[Kt]])
+        lp_G0 = matrix([-Ktot,Ktot])
+        lp_G = matrix([lp_G0,lp_G1,lp_G2])
+        lp_sln = lp(lp_c,-lp_G,-lp_h)
+        if lp_sln['status']=='optimal':
+            X[j,i] = lp_sln['x'][0]
+            T[j,i] = lp_sln['x'][1]
+        else:
+            print("Failed to solve, status: ",lp_sln['status'], ', I = ',I)
+print("Complete.\n",time.process_time())
 
-        Anew = A[fxp0]
-        bnew = b[fxp0]
-        
-        xab = bnew/Anew
-        xab[xab<0] = 1e10
-        
-        X[j,i] = xab.min()
-print(time.process_time())
-plt.boxplot(X*1e-3,positions=Nl), 
-plt.show()
+# plt.figure()
+# plt.grid(True), plt.xlabel("Number of Houses"), plt.ylabel("Power per house (kW)")
+# plt.boxplot(X*1e-3,positions=Nl)
+# plt.xlim(0,plt.xlim()[1]), plt.ylim(0,plt.ylim()[1])
+# plt.savefig(FD+feeder+'_X_'+str(round(tp*100)).zfill(3)+'_'+str(round(-tm*100)).zfill(3))
+# # plt.show()
+
+# plt.figure()
+# plt.grid(True), plt.xlabel("Number of Houses"), plt.ylabel("Total Power (kW)")
+# plt.boxplot(Nl*X*1e-3,positions=Nl)
+# plt.xlim(0,plt.xlim()[1]), plt.ylim(0,plt.ylim()[1])
+# # plt.show()
+# plt.savefig(FD+feeder+'_Nl_'+str(round(tp*100)).zfill(3)+'_'+str(round(-tm*100)).zfill(3))

@@ -18,15 +18,15 @@ DSSSolution=DSSCircuit.Solution
 
 # Things to do: 
 # 1. load a circuit;
-WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-# WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+# WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 fn = WD+'\\LVTestCase_copy\\master_z'
 # fn = WD+'\\13Bus_copy\\IEEE13Nodeckt'
 feeder='eulv'
 sn0 = WD + '\\lin_models\\' + feeder
 
 Nreg = 0 # which transformer/regulator to consider;
-test_model = True
+test_model = False
 
 lin_points = np.array([0.3,0.6,1.])
 # lin_points = np.array([0.6])
@@ -58,7 +58,8 @@ for i in range(len(lin_points)):
     for T in dT:
         DSSCircuit.Transformers.Tap=tap_0 + T
         DSSSolution.Solve()
-        dV[j] = np.array(DSSCircuit.AllBusVmagPu)[3:]
+        # dV[j] = np.array(DSSCircuit.AllBusVmagPu)[3:]
+        dV[j] = np.array(DSSCircuit.AllBusVmag)[3:]
         j+=1
     dVdt = (dV[1]-dV[0])/dt
     # sY,sD,iY,iD = dspf.get_sYsD(DSSCircuit)
@@ -68,9 +69,9 @@ for i in range(len(lin_points)):
     v_idx = np.array(get_element_idxs(DSSCircuit,v_types)) - 3
     v_idx = v_idx[v_idx>=0]
     dVdt = dVdt[v_idx]
-    lp_str = str(np.round(lin_point*100).astype(int)).zfill(3)
+    lp_str = str(round(lin_point*100)).zfill(3)
     header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
-    np.savetxt(sn0+'_Kt'+lp_str+'.txt',dVdt,header=header_str)
+    np.savetxt(sn0+'Kt'+lp_str+'.txt',dVdt,header=header_str)
 
     if test_model:
         print(lin_point)
