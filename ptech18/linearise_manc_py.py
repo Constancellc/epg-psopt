@@ -61,15 +61,16 @@ fn_y = fn+'_y'
 
 sn0 = WD + '\\lin_models\\' + feeder
 
-# lin_points=np.array([0.3,0.6,1.0])
-lin_points=np.array([1.0])
+lin_points=np.array([0.3,0.6,1.0])
+# lin_points=np.array([1.0])
 k = np.arange(-0.7,1.8,0.1)
 # k = np.arange(-0.1,0.5,0.1)
-# test_model = False
-test_model = True
+test_model = False
+# test_model = True
 
 ve=np.zeros([k.size,lin_points.size])
 vae=np.zeros([k.size,lin_points.size])
+vvae=np.zeros([k.size,lin_points.size])
 
 for K in range(len(lin_points)):
     lin_point = lin_points[K]
@@ -128,9 +129,9 @@ for K in range(len(lin_points)):
     # now, check these are working
     v_0 = np.zeros((len(k),len(YNodeOrder)),dtype=complex)
     va_0 = np.zeros((len(k),len(YNodeOrder)))
+    vva_0 = np.zeros((len(k),len(v_idx)))
     v_l = np.zeros((len(k),len(YNodeOrder)-3),dtype=complex)
     va_l = np.zeros((len(k),len(YNodeOrder)-3))
-    vv_l = np.zeros((len(k),len(v_idx)))
     vva_l = np.zeros((len(k),len(v_idx)))
 
     if test_model:
@@ -140,17 +141,20 @@ for K in range(len(lin_points)):
             DSSSolution.Solve()
             v_0[i,:] = tp_2_ar(DSSCircuit.YNodeVarray)
             va_0[i,:] = abs(v_0[i,:])
+            vva_0[i,:] = va_0[i,3:][v_idx]
             sY,sD,iY,iD = get_sYsD(DSSCircuit)
-            # xhy = -1e3*s_2_x(sY[3:])
-            # v_l[i,:] = My.dot(xhy) + a
-            # ve[i,K] = np.linalg.norm( v_l[i,:] - v_0[i,3:] )/np.linalg.norm(v_0[i,3:])
-            # va_l[i,:] = Ky.dot(xhy) + b
-            # vae[i,K] = np.linalg.norm( va_l[i,:] - va_0[i,3:] )/np.linalg.norm(va_0[i,3:])
+            xhy = -1e3*s_2_x(sY[3:])
+            v_l[i,:] = My.dot(xhy) + a
+            ve[i,K] = np.linalg.norm( v_l[i,:] - v_0[i,3:] )/np.linalg.norm(v_0[i,3:])
+            va_l[i,:] = Ky.dot(xhy) + b
+            vae[i,K] = np.linalg.norm( va_l[i,:] - va_0[i,3:] )/np.linalg.norm(va_0[i,3:])
             vva_l[i,:] = KyV.dot(xhy[s_idx]) + bV
-            vvae[i,K] = np.linalg.norm( vva_l[i,:] - vva_0[i,3:] )/np.linalg.norm(vva_0[i,3:])
-    # header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
-    lp_str = str(np.round(lin_point*100).astype(int)).zfill(3)
-    np.save(sn0+'Ky'+lp_str+'.npy',Ky)
+            vvae[i,K] = np.linalg.norm( vva_l[i,:] - vva_0[i,:] )/np.linalg.norm(vva_0[i,:])
+        header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
+        lp_str = str(np.round(lin_point*100).astype(int)).zfill(3)
+        np.savetxt(sn0+'Ky'+lp_str+'.txt',KyV,header=header_str)
+        # np.save(sn0+'Ky'+lp_str+'.npy',Ky)
+        
     
 print('Complete.\n',time.process_time())
 
@@ -161,5 +165,6 @@ sn = DSSCircuit.name
 
 
 if test_model:
-    plt.plot(k,ve), plt.show()
+    # plt.plot(k,ve), plt.show()
     # plt.plot(k,vae), plt.show()
+    plt.plot(k,vvae), plt.show()
