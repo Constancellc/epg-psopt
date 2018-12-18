@@ -20,6 +20,6 @@ Calcvoltagebases
 solve
 buscoords XY_Position.csv
 
-plot
+!plot
 
 !solve mode=faultstudy

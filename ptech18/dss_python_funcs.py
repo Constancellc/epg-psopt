@@ -185,3 +185,8 @@ def get_element_idxs(DSSCircuit,ele_types):
     for ELE in ele_types:
             e_idx = get_idxs(e_idx,DSSCircuit,ELE)
     return e_idx
+def feeder_to_fn(WD,feeder):
+    paths = []
+    paths.append(WD+'\\manchester_models\\network_'+feeder[3]+'\\Feeder_'+feeder[1])
+    paths.append(WD+'\\manchester_models\\network_'+feeder[3]+'\\Feeder_'+feeder[1]+'\master')
+    return paths

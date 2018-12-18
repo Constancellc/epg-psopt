@@ -15,7 +15,7 @@ print('Start...\n',time.process_time())
 WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 def create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TR_name,TC_No0 ):
-    DSSText = DSSObj.Text;
+    DSSText = DSSObj.Text
     DSSText.command='Compile ('+fn_y+')'
     DSSCircuit=DSSObj.ActiveCircuit
     i = DSSCircuit.RegControls.First
@@ -52,13 +52,21 @@ DSSText=DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
 
-fn_ckt = WD+'\\LVTestCase_copy'
-fn = WD+'\\LVTestCase_copy\\master_z'
-# fn = WD+'\\master_z'
-feeder='eulv'
+# --------------- circuit info
+fdr_i = 3 # do NOT set equal to 2!
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4']
+ckts = {'feeder_name':['fn_ckt','fn']}
+ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
+ckts[fdrs[1]] = feeder_to_fn(WD,fdrs[1])
+ckts[fdrs[2]] = feeder_to_fn(WD,fdrs[2])
+ckts[fdrs[3]] = feeder_to_fn(WD,fdrs[3])
+ckts[fdrs[4]] = feeder_to_fn(WD,fdrs[4])
+
+fn_ckt = ckts[fdrs[fdr_i]][0]
+fn = ckts[fdrs[fdr_i]][1]
+feeder=fdrs[fdr_i]
 
 fn_y = fn+'_y'
-
 sn0 = WD + '\\lin_models\\' + feeder
 
 lin_points=np.array([0.3,0.6,1.0])
@@ -81,7 +89,6 @@ for K in range(len(lin_points)):
     test = tp_2_ar(DSSCircuit.YNodeVarray)
     print('Load Ybus\n',time.process_time())
     Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TR_name,TC_No0 )
-    # YNodeOrder = DSSCircuit.YNodeOrder # put in if not creating ybus as above
 
     # Reproduce delta-y power flow eqns (1)
     DSSText.command='Compile ('+fn+'.dss)'
@@ -150,17 +157,13 @@ for K in range(len(lin_points)):
             vva_l[i,:] = KyV.dot(xhy[s_idx]) + bV
             vvae[i,K] = np.linalg.norm( vva_l[i,:] - vva_0[i,:] )/np.linalg.norm(vva_0[i,:])
     header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
-    lp_str = str(round(lin_point*100)).zfill(3)
+    lp_str = str(round(lin_point*100).astype(int)).zfill(3)
     np.savetxt(sn0+'Ky'+lp_str+'.txt',KyV,header=header_str)
     np.savetxt(sn0+'bV'+lp_str+'.txt',bV,header=header_str)
     np.savetxt(sn0+'xhy0'+lp_str+'.txt',xhy0[s_idx],header=header_str)
-        
-        # np.save(sn0+'Ky'+lp_str+'.npy',Ky)
 print('Complete.\n',time.process_time())
-# comments = 
-sn = DSSCircuit.name
 
 if test_model:
-    # plt.plot(k,ve), plt.show()
-    # plt.plot(k,vae), plt.show()
+    plt.plot(k,ve), plt.show()
+    plt.plot(k,vae), plt.show()
     plt.plot(k,vvae), plt.show()
