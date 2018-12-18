@@ -20,7 +20,7 @@ def create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TR_name,TC_No0 ):
     DSSCircuit=DSSObj.ActiveCircuit
     i = DSSCircuit.RegControls.First
     while i!=0:
-        DSSCircuit.RegControls.TapNumber=TC_No0[i]
+        DSSCircuit.RegControls.TapNumber=TC_No0[i-1]
         i = DSSCircuit.RegControls.Next
     DSSCircuit.Solution.Solve()
     
@@ -52,15 +52,20 @@ DSSText=DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
 
+
+
 # --------------- circuit info
-fdr_i = 3 # do NOT set equal to 2!
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4']
+fdr_i = 5 # do NOT set equal to 2!
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus']
 ckts = {'feeder_name':['fn_ckt','fn']}
 ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
-ckts[fdrs[1]] = feeder_to_fn(WD,fdrs[1])
-ckts[fdrs[2]] = feeder_to_fn(WD,fdrs[2])
-ckts[fdrs[3]] = feeder_to_fn(WD,fdrs[3])
-ckts[fdrs[4]] = feeder_to_fn(WD,fdrs[4])
+ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
+ckts[fdrs[2]]=feeder_to_fn(WD,fdrs[2])
+ckts[fdrs[3]]=feeder_to_fn(WD,fdrs[3])
+ckts[fdrs[4]]=feeder_to_fn(WD,fdrs[4])
+ckts[fdrs[5]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt']
+ckts[fdrs[6]]=[WD+'\\ieee_tn\\34Bus_copy',WD+'\\ieee_tn\\34Bus_copy\\ieee34Nodeckt_z']
+ckts[fdrs[7]]=[WD+'\\ieee_tn\\37Bus_copy',WD+'\\ieee_tn\\37Bus_copy\\ieee37']
 
 fn_ckt = ckts[fdrs[fdr_i]][0]
 fn = ckts[fdrs[fdr_i]][1]
@@ -69,11 +74,10 @@ feeder=fdrs[fdr_i]
 fn_y = fn+'_y'
 sn0 = WD + '\\lin_models\\' + feeder
 
-lin_points=np.array([0.3,0.6,1.0])
-# lin_points=np.array([1.0])
-k = np.arange(-0.7,1.8,0.1)
-# k = np.arange(-0.1,0.5,0.1)
-test_model = False
+# lin_points=np.array([0.3,0.6,1.0])
+lin_points=np.array([1.0])
+k = np.arange(-0.6,1.8,0.2)
+test_model = True
 
 ve=np.zeros([k.size,lin_points.size])
 vae=np.zeros([k.size,lin_points.size])
@@ -84,7 +88,7 @@ for K in range(len(lin_points)):
     # lin_point=0.3
     # run the dss
     DSSText.command='Compile ('+fn+'.dss)'
-    TC_No0,TC_bus = find_tap_pos(DSSCircuit)
+    TC_No0,TC_bus = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
     TR_name = []
     test = tp_2_ar(DSSCircuit.YNodeVarray)
     print('Load Ybus\n',time.process_time())
@@ -165,5 +169,5 @@ print('Complete.\n',time.process_time())
 
 if test_model:
     plt.plot(k,ve), plt.show()
-    plt.plot(k,vae), plt.show()
-    plt.plot(k,vvae), plt.show()
+    # plt.plot(k,vae), plt.show()
+    # plt.plot(k,vvae), plt.show()

@@ -11,66 +11,83 @@ def s_2_x(s):
     
 def ld_vals( DSSCircuit ):
     ii = DSSCircuit.FirstPCElement()
-    S=[]; V=[]; I=[]; B=[]; D=[]
+    S=[]; V=[]; I=[]; B=[]; D=[]; N=[]
     while ii!=0:
         if DSSCircuit.ActiveElement.name[0:4].lower()=='load':
+            DSSCircuit.Loads.Name=DSSCircuit.ActiveElement.Name.split(sep='.')[1]
             S.append(tp_2_ar(DSSCircuit.ActiveElement.Powers))
             V.append(tp_2_ar(DSSCircuit.ActiveElement.Voltages))
             I.append(tp_2_ar(DSSCircuit.ActiveElement.Currents))
             B.append(DSSCircuit.ActiveElement.BusNames)
             D.append(DSSCircuit.Loads.IsDelta)
+            N.append(DSSCircuit.Loads.Name)
         ii=DSSCircuit.NextPCElement()
     jj = DSSCircuit.FirstPDElement()
     while jj!=0:
         if DSSCircuit.ActiveElement.name[0:4].lower()=='capa':
+            DSSCircuit.Capacitors.Name=DSSCircuit.ActiveElement.Name.split(sep='.')[1]
             S.append(tp_2_ar(DSSCircuit.ActiveElement.Powers))
-            V.append(tp_2_ar(DSSCircuit.ActiveElement.Powers))
-            I.append(tp_2_ar(DSSCircuit.ActiveElement.Powers))
-            B.append(DSSCircuit.ActiveElement.bus)
+            V.append(tp_2_ar(DSSCircuit.ActiveElement.Voltages))
+            I.append(tp_2_ar(DSSCircuit.ActiveElement.Currents))
+            B.append(DSSCircuit.ActiveElement.BusNames)
             D.append(DSSCircuit.Capacitors.IsDelta)
+            N.append(DSSCircuit.Capacitors.Name)
         jj=DSSCircuit.NextPDElement()
-    return S,V,I,B,D
+    return S,V,I,B,D,N
 
 def find_node_idx(n2y,bus,D):
     idx = []
-    if D:
+    BS = bus.split('.',1)
+    bus_id,ph = [BS[0],BS[-1]] # catch cases where there is no phase
+    if ph=='1.2.3' or bus.count('.')==0:
+        idx.append(n2y[bus_id+'.1'])
+        idx.append(n2y[bus_id+'.2'])
+        idx.append(n2y[bus_id+'.3'])
+    elif ph=='0.0.0':
         try:
-            idx.append(n2y[bus[0:-3]])
+            idx.append(n2y[bus_id+'.1'])
         except:
-            idx.append(n2y[bus+'.1'])
-            idx.append(n2y[bus+'.2'])
-            idx.append(n2y[bus+'.3'])
+            pass
+        try:
+            idx.append(n2y[bus_id+'.2'])
+        except:
+            pass
+        try:
+            idx.append(n2y[bus_id+'.3'])
+                except:
+            pass
+    elif D:
+        idx.append(n2y[bus[0:-2]])
     else:
-        try:
-            idx.append(n2y[bus])
-        except:
-            idx.append(n2y[bus+'.1'])
-            idx.append(n2y[bus+'.2'])
-            idx.append(n2y[bus+'.3'])
+        idx.append(n2y[bus])
     return idx
     
 def calc_sYsD( YZ,B,I,S,D,n2y ): # YZ as YNodeOrder
-    iD = np.zeros(len(YZ),dtype=complex);sD = np.zeros(len(YZ),dtype=complex);
-    iY = np.zeros(len(YZ),dtype=complex);sY = np.zeros(len(YZ),dtype=complex)
+    iD = np.zeros(len(YZ),dtype=complex); sD = np.zeros(len(YZ),dtype=complex)
+    iY = np.zeros(len(YZ),dtype=complex); sY = np.zeros(len(YZ),dtype=complex)
     for i in range(len(B)):
         for bus in B[i]:
             idx = find_node_idx(n2y,bus,D[i])
+            BS = bus.split('.',1)
+            bus_id,ph = [BS[0],BS[-1]] # catch cases where there is no phase
             if D[i]:
                 if bus.count('.')==2:
-                    ph = int(bus[-3])
-                    iD[idx[ph-1]] = iD[idx[ph-1]] + I[i]
-                    sD[idx[ph-1]] = sD[idx[ph-1]] + S[i][0] + S[i][1]
+                    # iD[idx[ph-1]] = iD[idx[ph-1]] + I[i]
+                    # sD[idx[ph-1]] = sD[idx[ph-1]] + S[i][0] + S[i][1]
+                    iD[idx] = iD[idx] + I[i][0]
+                    sD[idx] = sD[idx] + S[i].sum()
                 else:
                     iD[idx] = iD[idx] + I[i]*np.exp(1j*np.pi/6)/np.sqrt(3)
                     sD[idx] = sD[idx] + S[i]
             else:
-                if bus.count('.')>0:
-                    # ph=int(bus[-1])
-                    iY[idx] = iY[idx] + I[i][0]
-                    sY[idx] = sY[idx] + S[i][0]
-                else:
-                    iY[idx] = iY[idx] + I[i]
-                    sY[idx] = sY[idx] + S[i]
+                if ph[0]!='0':
+                    if bus.count('.')>0:
+                        # ph=int(bus[-1])
+                        iY[idx] = iY[idx] + I[i][0]
+                        sY[idx] = sY[idx] + S[i][0]
+                    else:
+                        iY[idx] = iY[idx] + I[i][0:3]
+                        sY[idx] = sY[idx] + S[i][0:3]
     return iY, sY, iD, sD
 
 def node_to_YZ(DSSCircuit):
@@ -81,7 +98,7 @@ def node_to_YZ(DSSCircuit):
     return n2y
 
 def get_sYsD(DSSCircuit):
-    S,V,I,B,D = ld_vals( DSSCircuit )
+    S,V,I,B,D,N = ld_vals( DSSCircuit )
     n2y = node_to_YZ(DSSCircuit)
     YZ = DSSCircuit.YNodeOrder
     iY, sY, iD, sD = calc_sYsD( YZ,B,I,S,D,n2y )
@@ -101,6 +118,7 @@ def cpf_get_loads(DSSCircuit):
     while j!=0:
         SS[imax+j]=1j*DSSCircuit.Capacitors.kvar
         BB[imax+j]=DSSCircuit.Capacitors.Name
+        j = DSSCircuit.Capacitors.Next
     return BB,SS
 
 def cpf_set_loads(DSSCircuit,BB,SS,k):
@@ -123,6 +141,7 @@ def find_tap_pos(DSSCircuit):
     i = DSSCircuit.RegControls.First
     while i!=0:
         TC_No.append(DSSCircuit.RegControls.TapNumber)
+        i = DSSCircuit.RegControls.Next
     return TC_No,TC_bus
 
 def build_y(DSSObj,fn_ckt):
