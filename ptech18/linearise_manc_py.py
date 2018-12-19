@@ -11,17 +11,18 @@ from dss_python_funcs import *
 print('Start...\n',time.process_time())
 
 # ======== specify working directories
-# WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+# WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 def create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TR_name,TC_No0 ):
     DSSText = DSSObj.Text
     DSSText.command='Compile ('+fn_y+')'
     DSSCircuit=DSSObj.ActiveCircuit
-    i = DSSCircuit.RegControls.First
-    while i!=0:
-        DSSCircuit.RegControls.TapNumber=TC_No0[i-1]
-        i = DSSCircuit.RegControls.Next
+    fix_tap_pos(DSSCircuit, TC_No0)
+    # i = DSSCircuit.RegControls.First
+    # while i!=0:
+        # DSSCircuit.RegControls.TapNumber=TC_No0[i-1]
+        # i = DSSCircuit.RegControls.Next
     DSSCircuit.Solution.Solve()
     
     Ybus_,YNodeOrder_,n = build_y(DSSObj,fn_ckt)
@@ -52,10 +53,9 @@ DSSText=DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
 
-
-
 # --------------- circuit info
-fdr_i = 5 # do NOT set equal to 2!
+# fdr_i = 5 # do NOT set equal to 2!
+fdr_i = 0 # do NOT set equal to 2!
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus']
 ckts = {'feeder_name':['fn_ckt','fn']}
 ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
@@ -63,7 +63,7 @@ ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
 ckts[fdrs[2]]=feeder_to_fn(WD,fdrs[2])
 ckts[fdrs[3]]=feeder_to_fn(WD,fdrs[3])
 ckts[fdrs[4]]=feeder_to_fn(WD,fdrs[4])
-ckts[fdrs[5]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt']
+ckts[fdrs[5]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_z']
 ckts[fdrs[6]]=[WD+'\\ieee_tn\\34Bus_copy',WD+'\\ieee_tn\\34Bus_copy\\ieee34Nodeckt_z']
 ckts[fdrs[7]]=[WD+'\\ieee_tn\\37Bus_copy',WD+'\\ieee_tn\\37Bus_copy\\ieee37']
 
@@ -96,18 +96,26 @@ for K in range(len(lin_points)):
 
     # Reproduce delta-y power flow eqns (1)
     DSSText.command='Compile ('+fn+'.dss)'
+    fix_tap_pos(DSSCircuit, TC_No0)
+    DSSText.command='Set Controlmode=off'
     DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
     DSSSolution.Solve()
     BB00,SS00 = cpf_get_loads(DSSCircuit)
 
     k00 = lin_point/SS00[1].real
     
-    cpf_set_loads(DSSCircuit,BB00,SS00,k00)
+    # cpf_set_loads(DSSCircuit,BB00,SS00,k00)
     DSSSolution.Solve()
-    sY,sD,iY,iD = get_sYsD(DSSCircuit)
+    YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
+    # sY,sD,iY,iD = get_sYsD(DSSCircuit)
+    sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
+    #1c needs checking outside
+    print_node_array(YNodeOrder,abs(iTot - Ybus.dot(YNodeV)))
+    print_node_array(YNodeOrder,abs(iTot + Ybus.dot(YNodeV))/abs(iTot))
+    
     BB0,SS0 = cpf_get_loads(DSSCircuit)
     
-    YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
+    
     # --------------------
     xhy0 = -1e3*np.hstack((sY.real[3:],sY.imag[3:]))
     
@@ -152,7 +160,8 @@ for K in range(len(lin_points)):
             v_0[i,:] = tp_2_ar(DSSCircuit.YNodeVarray)
             va_0[i,:] = abs(v_0[i,:])
             vva_0[i,:] = va_0[i,3:][v_idx]
-            sY,sD,iY,iD = get_sYsD(DSSCircuit)
+            # sY,sD,iY,iD = get_sYsD(DSSCircuit)
+            sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
             xhy = -1e3*s_2_x(sY[3:])
             v_l[i,:] = My.dot(xhy) + a
             ve[i,K] = np.linalg.norm( v_l[i,:] - v_0[i,3:] )/np.linalg.norm(v_0[i,3:])

@@ -40,29 +40,20 @@ def find_node_idx(n2y,bus,D):
     BS = bus.split('.',1)
     bus_id,ph = [BS[0],BS[-1]] # catch cases where there is no phase
     if ph=='1.2.3' or bus.count('.')==0:
-        idx.append(n2y[bus_id+'.1'])
-        idx.append(n2y[bus_id+'.2'])
-        idx.append(n2y[bus_id+'.3'])
+        idx.append(n2y.get(bus_id+'.1',None))
+        idx.append(n2y.get(bus_id+'.2',None))
+        idx.append(n2y.get(bus_id+'.3',None))
     elif ph=='0.0.0':
-        try:
-            idx.append(n2y[bus_id+'.1'])
-        except:
-            pass
-        try:
-            idx.append(n2y[bus_id+'.2'])
-        except:
-            pass
-        try:
-            idx.append(n2y[bus_id+'.3'])
-                except:
-            pass
+        idx.append(n2y.get(bus_id+'.1',None))
+        idx.append(n2y.get(bus_id+'.2',None))
+        idx.append(n2y.get(bus_id+'.3',None))
     elif D:
         idx.append(n2y[bus[0:-2]])
     else:
         idx.append(n2y[bus])
     return idx
     
-def calc_sYsD( YZ,B,I,S,D,n2y ): # YZ as YNodeOrder
+def calc_sYsD( YZ,B,I,V,S,D,n2y ): # YZ as YNodeOrder
     iD = np.zeros(len(YZ),dtype=complex); sD = np.zeros(len(YZ),dtype=complex)
     iY = np.zeros(len(YZ),dtype=complex); sY = np.zeros(len(YZ),dtype=complex)
     for i in range(len(B)):
@@ -77,8 +68,14 @@ def calc_sYsD( YZ,B,I,S,D,n2y ): # YZ as YNodeOrder
                     iD[idx] = iD[idx] + I[i][0]
                     sD[idx] = sD[idx] + S[i].sum()
                 else:
+                    # iD[idx] = iD[idx] + I[i]*np.exp(1j*np.pi/6)/np.sqrt(3)
+                    # sD[idx] = sD[idx] + S[i]
+                    # iD[idx] = iD[idx] + delta_3ph_iD(I[i],V[i],S[i])
+                    # iD[idx] = iD[idx] + I[i]
+                    # sD[idx] = sD[idx] + S[i]
                     iD[idx] = iD[idx] + I[i]*np.exp(1j*np.pi/6)/np.sqrt(3)
-                    sD[idx] = sD[idx] + S[i]
+                    VX = np.array( [V[i][0]-V[i][1],V[i][1]-V[i][2],V[i][2]-V[i][0]] )
+                    sD[idx] = sD[idx] + iD[idx].conj()*VX*1e-3
             else:
                 if ph[0]!='0':
                     if bus.count('.')>0:
@@ -90,6 +87,18 @@ def calc_sYsD( YZ,B,I,S,D,n2y ): # YZ as YNodeOrder
                         sY[idx] = sY[idx] + S[i][0:3]
     return iY, sY, iD, sD
 
+# def delta_3ph_iD(I,V,S): ====> this doesn't give extra info compared to the case, ie is still arbitrary!
+    # Bsolve = np.array([I[0],I[1],S.sum().conj()])
+    # Ht_S = np.array( [[1,0,-1],[-1,1,0],[1e-3*(V[0]-V[1]).conj() , 1e-3*(V[1]-V[2]).conj() , 1e-3*(V[2]-V[0]).conj() ]] )
+    # Ht_S = np.array( [[1,-1,0],[0,1,-1],[1e-3*(V[1]-V[0]).conj() , 1e-3*(V[2]-V[1]).conj() , 1e-3*(V[0]-V[2]).conj() ]] )
+    # print(Ht_S)
+    # print(Bsolve)
+    # iD = np.linalg.solve(Ht_S,Bsolve)
+    # print('Solution:'+str(iD))
+    # print('Error:'+str(Ht_S.dot(iD) - Bsolve))
+    # print(np.linalg.matrix_rank(Ht_S))
+    # return iD
+
 def node_to_YZ(DSSCircuit):
     n2y = {}
     YNodeOrder = DSSCircuit.YNodeOrder
@@ -100,11 +109,34 @@ def node_to_YZ(DSSCircuit):
 def get_sYsD(DSSCircuit):
     S,V,I,B,D,N = ld_vals( DSSCircuit )
     n2y = node_to_YZ(DSSCircuit)
+    V0 = tp_2_ar(DSSCircuit.YNodeVarray)*1e-3
     YZ = DSSCircuit.YNodeOrder
-    iY, sY, iD, sD = calc_sYsD( YZ,B,I,S,D,n2y )
-    return sY,sD,iY,iD
+    iY, sY, iD, sD = calc_sYsD( YZ,B,I,V,S,D,n2y )
+    H = create_Hmat(DSSCircuit,n2y)
+    H = H[iD.nonzero()]
+    sD = sD[iD.nonzero()]
+    yzD = [YZ[i] for i in iD.nonzero()[0]]
+    iD = iD[iD.nonzero()]
+    iTot = iY + (H.T).dot(iD)
+    chka = abs((H.T).dot(iD.conj())*V0 + sY - V0*(iTot.conj())) # 1a error, kW
+    chkb = abs(sD - ((H.dot(V0))*(iD.conj())) ) # 1b error, kW
+    return sY,sD,iY,iD,yzD,iTot,H
     
-
+def create_Hmat(DSSCircuit,n2y):
+    Hmat = np.zeros((DSSCircuit.NumNodes,DSSCircuit.NumNodes))
+    for bus in DSSCircuit.AllBusNames:
+        idx = find_node_idx(n2y,bus,False)
+        if idx[0]!=None and idx[1]!=None:
+            Hmat[idx[0],idx[0]] = 1
+            Hmat[idx[0],idx[1]] = -1
+        if idx[1]!=None and idx[2]!=None:
+            Hmat[idx[1],idx[1]] = 1
+            Hmat[idx[1],idx[2]] = -1
+        if idx[2]!=None and idx[0]!=None:
+            Hmat[idx[2],idx[2]] = 1
+            Hmat[idx[2],idx[0]] = -1
+    return Hmat
+    
 def cpf_get_loads(DSSCircuit):
     SS = {}
     BB = {}
@@ -144,6 +176,12 @@ def find_tap_pos(DSSCircuit):
         i = DSSCircuit.RegControls.Next
     return TC_No,TC_bus
 
+def fix_tap_pos(DSSCircuit, TC_No):
+    i = DSSCircuit.RegControls.First
+    while i!=0:
+        DSSCircuit.RegControls.TapNumber = TC_No[i-1]
+        i = DSSCircuit.RegControls.Next
+    
 def build_y(DSSObj,fn_ckt):
     # DSSObj.Text.command='Compile ('+fn_z+'.dss)'
     YNodeOrder = DSSObj.ActiveCircuit.YNodeOrder
@@ -209,3 +247,7 @@ def feeder_to_fn(WD,feeder):
     paths.append(WD+'\\manchester_models\\network_'+feeder[3]+'\\Feeder_'+feeder[1])
     paths.append(WD+'\\manchester_models\\network_'+feeder[3]+'\\Feeder_'+feeder[1]+'\master')
     return paths
+    
+def print_node_array(YZ,thing):
+    for i in range(len(YZ)):
+        print(YZ[i]+': '+str(thing[i]))
