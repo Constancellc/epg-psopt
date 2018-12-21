@@ -64,9 +64,9 @@ DSSText=DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
 
-# --------------- circuit info
-fdr_i = 0 # do NOT set equal to 2!
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus']
+# ------------------------------------------------------------ circuit info
+fdr_i = 9
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node']
 ckts = {'feeder_name':['fn_ckt','fn']}
 ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
 ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
@@ -76,6 +76,8 @@ ckts[fdrs[4]]=feeder_to_fn(WD,fdrs[4])
 ckts[fdrs[5]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_z']
 ckts[fdrs[6]]=[WD+'\\ieee_tn\\34Bus_copy',WD+'\\ieee_tn\\34Bus_copy\\ieee34Mod1_z']
 ckts[fdrs[7]]=[WD+'\\ieee_tn\\37Bus_copy',WD+'\\ieee_tn\\37Bus_copy\\ieee37']
+ckts[fdrs[8]]=[WD+'\\ieee_tn\\123Bus_copy',WD+'\\ieee_tn\\123Bus_copy\\IEEE123Master_z']
+ckts[fdrs[9]]=[WD+'\\ieee_tn\\8500-Node_copy',WD+'\\ieee_tn\\8500-Node_copy\\Master-unbal_z']
 
 fn_ckt = ckts[fdrs[fdr_i]][0]
 fn = ckts[fdrs[fdr_i]][1]
@@ -85,27 +87,26 @@ fn_y = fn+'_y'
 sn0 = WD + '\\lin_models\\' + feeder
 
 lin_points=np.array([0.3,0.6,1.0])
-# lin_points=np.array([1.0])
-k = np.arange(-0.6,1.8,0.1)
+lin_points=np.array([1.0])
+k = np.arange(-0.6,1.8,0.2)
 test_model = True
 
 ve=np.zeros([k.size,lin_points.size])
+vve=np.zeros([k.size,lin_points.size])
 vae=np.zeros([k.size,lin_points.size])
 vvae=np.zeros([k.size,lin_points.size])
 
 for K in range(len(lin_points)):
     lin_point = lin_points[K]
-    # lin_point=0.3
     # run the dss
     DSSText.command='Compile ('+fn+'.dss)'
     TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
-    test = tp_2_ar(DSSCircuit.YNodeVarray)
     print('Load Ybus\n',time.process_time())
     Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TC_No0 )
 
     # Reproduce delta-y power flow eqns (1)
     DSSText.command='Compile ('+fn+'.dss)'
-    # fix_tap_pos(DSSCircuit, TC_No0)
+    fix_tap_pos(DSSCircuit, TC_No0)
     DSSText.command='Set Controlmode=off'
     DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
     DSSSolution.Solve()
@@ -118,9 +119,11 @@ for K in range(len(lin_points)):
     DSSSolution.Solve()
     YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
     sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
+    
     chkc = abs(iTot + Ybus.dot(YNodeV))/abs(iTot) # 1c needs checking outside
     chkc_n = np.linalg.norm(iTot + Ybus.dot(YNodeV))/np.linalg.norm(iTot) # 1c needs checking outside
     print_node_array(DSSCircuit.YNodeOrder,chkc)
+    # plt.plot( chkc_nom[np.isinf(chkc)==False] ), plt.show()
     BB0,SS0 = cpf_get_loads(DSSCircuit)
     # --------------------
     xhy0 = -1e3*s_2_x(sY[3:])
@@ -148,58 +151,69 @@ for K in range(len(lin_points)):
     # NB!!! -3 required for models which have the first three elements chopped off!
     v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
     v_idx = np.array(get_element_idxs(DSSCircuit,v_types)) - 3
-    p_idx = np.array(sY[3:].nonzero())
-    s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)
-
     v_idx = v_idx[v_idx>=0]
-    s_idx = s_idx[s_idx>=0]
+    
+    p_idx = np.array(sY[3:].nonzero())
+    s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)[0]
 
+    MyV = My[v_idx,:][:,s_idx]
+    aV = a[v_idx]
     KyV = Ky[v_idx,:][:,s_idx]
     bV = b[v_idx]
-    if len(H)!=0:
-        KdV = Kd[v_idx,:] # already gotten rid of s_idx.
-    
+    if len(H)!=0: # already gotten rid of s_idx
+        MdV = Md[v_idx,:]
+        KdV = Kd[v_idx,:]
+
     # now, check these are working
     v_0 = np.zeros((len(k),len(YNodeOrder)),dtype=complex)
+    vv_0 = np.zeros((len(k),len(v_idx)),dtype=complex)
     va_0 = np.zeros((len(k),len(YNodeOrder)))
     vva_0 = np.zeros((len(k),len(v_idx)))
     v_l = np.zeros((len(k),len(YNodeOrder)-3),dtype=complex)
+    vv_l = np.zeros((len(k),len(v_idx)),dtype=complex)
     va_l = np.zeros((len(k),len(YNodeOrder)-3))
     vva_l = np.zeros((len(k),len(v_idx)))
-
+    
+    Convrg = []
     if test_model:
         print('Start validation\n',time.process_time())
         for i in range(len(k)):
             cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point)
             DSSSolution.Solve()
+            Convrg.append(DSSSolution.Converged)
             v_0[i,:] = tp_2_ar(DSSCircuit.YNodeVarray)
+            vv_0[i,:] = v_0[i,3:][v_idx]
             va_0[i,:] = abs(v_0[i,:])
             vva_0[i,:] = va_0[i,3:][v_idx]
             sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
             xhy = -1e3*s_2_x(sY[3:])
             if len(H)==0:
                 v_l[i,:] = My.dot(xhy) + a
+                vv_l[i,:] = MyV.dot(xhy[s_idx]) + aV
                 va_l[i,:] = Ky.dot(xhy) + b
                 vva_l[i,:] = KyV.dot(xhy[s_idx]) + bV
             else:
                 xhd = -1e3*s_2_x(sD) # not [3:] like sY
                 v_l[i,:] = My.dot(xhy) + Md.dot(xhd) + a
+                vv_l[i,:] = MyV.dot(xhy[s_idx]) + MdV.dot(xhd) + aV
                 va_l[i,:] = Ky.dot(xhy) + Kd.dot(xhd) + b
                 vva_l[i,:] = KyV.dot(xhy[s_idx]) + KdV.dot(xhd) + bV
             ve[i,K] = np.linalg.norm( v_l[i,:] - v_0[i,3:] )/np.linalg.norm(v_0[i,3:])
+            vve[i,K] = np.linalg.norm( vv_l[i,:] - vv_0[i,:] )/np.linalg.norm(vv_0[i,:])
             vae[i,K] = np.linalg.norm( va_l[i,:] - va_0[i,3:] )/np.linalg.norm(va_0[i,3:])
             vvae[i,K] = np.linalg.norm( vva_l[i,:] - vva_0[i,:] )/np.linalg.norm(vva_0[i,:])
     header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
     lp_str = str(round(lin_point*100).astype(int)).zfill(3)
-    np.savetxt(sn0+'Ky'+lp_str+'.txt',KyV,header=header_str)
-    np.savetxt(sn0+'xhy0'+lp_str+'.txt',xhy0[s_idx],header=header_str)
-    np.savetxt(sn0+'bV'+lp_str+'.txt',bV,header=header_str)
-    if len(H)!=0:
-        np.savetxt(sn0+'Kd'+lp_str+'.txt',KdV,header=header_str)
-        np.savetxt(sn0+'xhd0'+lp_str+'.txt',xhd0,header=header_str)
+    # np.savetxt(sn0+'Ky'+lp_str+'.txt',KyV,header=header_str)
+    # np.savetxt(sn0+'xhy0'+lp_str+'.txt',xhy0[s_idx],header=header_str)
+    # np.savetxt(sn0+'bV'+lp_str+'.txt',bV,header=header_str)
+    # if len(H)!=0:
+        # np.savetxt(sn0+'Kd'+lp_str+'.txt',KdV,header=header_str)
+        # np.savetxt(sn0+'xhd0'+lp_str+'.txt',xhd0,header=header_str)
 print('Complete.\n',time.process_time())
-
+print(Convrg)
 if test_model:
     plt.plot(k,ve), plt.show()
-    plt.plot(k,vae), plt.show()
-    plt.plot(k,vvae), plt.show()
+    plt.plot(k,vve,'x-'), plt.show()
+    # plt.plot(k,vae), plt.show()
+    # plt.plot(k,vvae), plt.show()
