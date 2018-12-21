@@ -85,6 +85,8 @@ def calc_sYsD( YZ,B,I,V,S,D,n2y ): # YZ as YNodeOrder
                     else:
                         iY[idx] = iY[idx] + I[i][0:3]
                         sY[idx] = sY[idx] + S[i][0:3]
+                # else:
+                    # print(B[i])
     return iY, sY, iD, sD
 
 # def delta_3ph_iD(I,V,S): ====> this doesn't give extra info compared to the case, ie is still arbitrary!
@@ -120,6 +122,8 @@ def get_sYsD(DSSCircuit):
     iTot = iY + (H.T).dot(iD)
     chka = abs((H.T).dot(iD.conj())*V0 + sY - V0*(iTot.conj())) # 1a error, kW
     chkb = abs(sD - ((H.dot(V0))*(iD.conj())) ) # 1b error, kW
+    # print_node_array(YZ,abs(chka))
+    # print_node_array(yzD,abs(chkb))
     return sY,sD,iY,iD,yzD,iTot,H
     
 def create_Hmat(DSSCircuit,n2y):
@@ -134,7 +138,7 @@ def create_Hmat(DSSCircuit,n2y):
             Hmat[idx[1],idx[2]] = -1
         if idx[2]!=None and idx[0]!=None:
             Hmat[idx[2],idx[2]] = 1
-            Hmat[idx[2],idx[0]] = -1
+            Hmat[idx[2],idx[0]] = -1        
     return Hmat
     
 def cpf_get_loads(DSSCircuit):
@@ -195,7 +199,6 @@ def build_y(DSSObj,fn_ckt):
     stream = file_r.read()
 
     stream=stream.replace('[','')
-    # stream=stream.replace(']',',')
     stream=stream.replace('] = ',',')
     stream=stream.replace('j','')
     stream=stream[89:]
@@ -227,13 +230,16 @@ def build_y(DSSObj,fn_ckt):
 def get_idxs(e_idx,DSSCircuit,ELE):
     i = ELE.First
     while i:
-        for bn in DSSCircuit.ActiveElement.BusNames:
-            bn = bn.upper()
+        splt = DSSCircuit.ActiveElement.BusNames[0].upper().split('.')
+        if len(splt) > 1:
+            for j in range(1,len(splt)):
+                e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]+'.'+splt[j]))
+        else:
             try:
-                e_idx.append(DSSCircuit.YNodeOrder.index(bn))
+                e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]))
             except:
                 for ph in range(1,4):
-                    e_idx.append(DSSCircuit.YNodeOrder.index(bn+'.'+str(ph)))
+                    e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]+'.'+str(ph)))
         i = ELE.next
     return e_idx
 
