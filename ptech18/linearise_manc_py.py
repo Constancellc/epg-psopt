@@ -14,15 +14,6 @@ print('Start...\n',time.process_time())
 WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
 # WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
-def create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TC_No0 ):
-    DSSObj.Text.command='Compile ('+fn_y+')'
-    # fix_tap_pos(DSSObj.ActiveCircuit, TC_No0)
-    # DSSObj.ActiveCircuit.Solution.Solve()
-    Ybus_,YNodeOrder_,n = build_y(DSSObj,fn_ckt)
-    Ybus = Ybus_[3:,3:]
-    YNodeOrder = YNodeOrder_[0:3]+YNodeOrder_[6:];
-    return Ybus, YNodeOrder
-
 def nrel_linearization(Ybus,Vh,V0,H):
     Yll = Ybus[3:,3:].tocsc()
     Yl0 = Ybus[3:,0:3].tocsc()
@@ -65,8 +56,6 @@ def nrel_linearization_K(My,Md,Vh,sY,sD):
     Vhai_diag = sparse.dia_matrix( (np.ones(len(Vh))/abs(Vh),0),shape=(len(Vh),len(Vh)) )
     Ky = Vhai_diag.dot( Vh_diag.dot(My).real ).toarray()
     Kd = Vhai_diag.dot( Vh_diag.dot(Md).real ).toarray()
-    print(Kd.shape)
-    print(Ky.shape)
     b = abs(Vh) - Ky.dot(-1e3*s_2_x(sY[3:]))- Kd.dot(-1e3*s_2_x(sD))
     return Ky, Kd, b
 
@@ -85,7 +74,7 @@ ckts[fdrs[2]]=feeder_to_fn(WD,fdrs[2])
 ckts[fdrs[3]]=feeder_to_fn(WD,fdrs[3])
 ckts[fdrs[4]]=feeder_to_fn(WD,fdrs[4])
 ckts[fdrs[5]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_z']
-ckts[fdrs[6]]=[WD+'\\ieee_tn\\34Bus_copy',WD+'\\ieee_tn\\34Bus_copy\\ieee34Nodeckt_z']
+ckts[fdrs[6]]=[WD+'\\ieee_tn\\34Bus_copy',WD+'\\ieee_tn\\34Bus_copy\\ieee34Mod1_z']
 ckts[fdrs[7]]=[WD+'\\ieee_tn\\37Bus_copy',WD+'\\ieee_tn\\37Bus_copy\\ieee37']
 
 fn_ckt = ckts[fdrs[fdr_i]][0]
@@ -109,7 +98,7 @@ for K in range(len(lin_points)):
     # lin_point=0.3
     # run the dss
     DSSText.command='Compile ('+fn+'.dss)'
-    TC_No0,TC_bus = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
+    TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
     test = tp_2_ar(DSSCircuit.YNodeVarray)
     print('Load Ybus\n',time.process_time())
     Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TC_No0 )
@@ -130,7 +119,8 @@ for K in range(len(lin_points)):
     YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
     sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
     chkc = abs(iTot + Ybus.dot(YNodeV))/abs(iTot) # 1c needs checking outside
-    # print_node_array(DSSCircuit.YNodeOrder,chkc)
+    chkc_n = np.linalg.norm(iTot + Ybus.dot(YNodeV))/np.linalg.norm(iTot) # 1c needs checking outside
+    print_node_array(DSSCircuit.YNodeOrder,chkc)
     BB0,SS0 = cpf_get_loads(DSSCircuit)
     # --------------------
     xhy0 = -1e3*s_2_x(sY[3:])
@@ -153,14 +143,13 @@ for K in range(len(lin_points)):
     DSSText.command='Compile ('+fn+')'
     fix_tap_pos(DSSCircuit, TC_No0)
     DSSText.command='Set controlmode=off'
-    # DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
-    DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3 model=1'
+    DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
 
     # NB!!! -3 required for models which have the first three elements chopped off!
     v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
     v_idx = np.array(get_element_idxs(DSSCircuit,v_types)) - 3
-    p_idx = np.array(get_element_idxs(DSSCircuit,[DSSCircuit.Loads])) - 3
-    s_idx = np.concatenate((p_idx,p_idx+len(YNodeOrder)-3))
+    p_idx = np.array(sY[3:].nonzero())
+    s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)
 
     v_idx = v_idx[v_idx>=0]
     s_idx = s_idx[s_idx>=0]
@@ -210,7 +199,7 @@ for K in range(len(lin_points)):
         np.savetxt(sn0+'xhd0'+lp_str+'.txt',xhd0,header=header_str)
 print('Complete.\n',time.process_time())
 
-# if test_model:
-    # plt.plot(k,ve), plt.show()
-    # plt.plot(k,vae), plt.show()
-    # plt.plot(k,vvae), plt.show()
+if test_model:
+    plt.plot(k,ve), plt.show()
+    plt.plot(k,vae), plt.show()
+    plt.plot(k,vvae), plt.show()
