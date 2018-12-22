@@ -65,7 +65,7 @@ DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
-fdr_i = 9
+fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node']
 ckts = {'feeder_name':['fn_ckt','fn']}
 ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
@@ -74,7 +74,7 @@ ckts[fdrs[2]]=feeder_to_fn(WD,fdrs[2])
 ckts[fdrs[3]]=feeder_to_fn(WD,fdrs[3])
 ckts[fdrs[4]]=feeder_to_fn(WD,fdrs[4])
 ckts[fdrs[5]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_z']
-ckts[fdrs[6]]=[WD+'\\ieee_tn\\34Bus_copy',WD+'\\ieee_tn\\34Bus_copy\\ieee34Mod1_z']
+ckts[fdrs[6]]=[WD+'\\ieee_tn\\34Bus_copy',WD+'\\ieee_tn\\34Bus_copy\\ieee34Mod1_z_mod']
 ckts[fdrs[7]]=[WD+'\\ieee_tn\\37Bus_copy',WD+'\\ieee_tn\\37Bus_copy\\ieee37']
 ckts[fdrs[8]]=[WD+'\\ieee_tn\\123Bus_copy',WD+'\\ieee_tn\\123Bus_copy\\IEEE123Master_z']
 ckts[fdrs[9]]=[WD+'\\ieee_tn\\8500-Node_copy',WD+'\\ieee_tn\\8500-Node_copy\\Master-unbal_z']
@@ -102,13 +102,24 @@ for K in range(len(lin_points)):
     DSSText.command='Compile ('+fn+'.dss)'
     TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
     print('Load Ybus\n',time.process_time())
-    Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TC_No0 )
-
+    
+    # Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,fn_ckt,TC_No0 )
+    # Ybus0, YNodeOrder0 = create_tapped_ybus_slow( DSSObj,fn_y,TC_No0 )
+    Ybus, YNodeOrder = create_tapped_ybus_very_slow( DSSObj,fn_y,TC_No0 )
+    
+    # print('Calculate condition no.:\n',time.process_time())
+    # cndY = np.linalg.cond(Ybus.toarray())
+    # print(np.log10(cndY))
+    # cndY0 = np.linalg.cond(Ybus0)
+    # print(np.log10(cndY0))
+    # print("%.16f"%Ybus[0,0].imag)
+    # print('Complete.\n',time.process_time())
+    
     # Reproduce delta-y power flow eqns (1)
     DSSText.command='Compile ('+fn+'.dss)'
     fix_tap_pos(DSSCircuit, TC_No0)
     DSSText.command='Set Controlmode=off'
-    DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+    # DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
     DSSSolution.Solve()
     BB00,SS00 = cpf_get_loads(DSSCircuit)
 
@@ -146,7 +157,7 @@ for K in range(len(lin_points)):
     DSSText.command='Compile ('+fn+')'
     fix_tap_pos(DSSCircuit, TC_No0)
     DSSText.command='Set controlmode=off'
-    DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+    # DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
 
     # NB!!! -3 required for models which have the first three elements chopped off!
     v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]

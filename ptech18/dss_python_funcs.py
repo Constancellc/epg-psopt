@@ -6,6 +6,13 @@ def tp_2_ar(tuple_ex):
     ar = np.array(tuple_ex[0::2]) + 1j*np.array(tuple_ex[1::2])
     return ar
 
+def tp_2_spar(tuple_ex):
+    ar_re = sparse.csc_matrix(tuple_ex[0::2])
+    ar_im = sparse.csc_matrix(tuple_ex[1::2])
+    ar = ar_re + 1j*ar_im
+    # ar = np.array(tuple_ex[0::2]) + 1j*np.array(tuple_ex[1::2])
+    return ar
+    
 def s_2_x(s):
     return np.concatenate((s.real,s.imag))
     
@@ -173,7 +180,51 @@ def fix_tap_pos(DSSCircuit, TC_No):
         DSSCircuit.RegControls.TapNumber = TC_No[i-1]
         i = DSSCircuit.RegControls.Next
 
-def create_tapped_ybus( DSSObj,fn_y,fn_ckt,feeder,TC_No0 ):
+        
+def create_tapped_ybus_very_slow( DSSObj,fn_y,TC_No0 ):
+    DSSObj.Text.command='Compile ('+fn_y+')'
+    fix_tap_pos(DSSObj.ActiveCircuit, TC_No0)
+    DSSObj.Text.command='set controlmode=off'
+    DSSObj.ActiveCircuit.Solution.Solve()
+    
+    SysY = DSSObj.ActiveCircuit.SystemY
+    SysY_dct = {}
+    i = 0
+    for i in range(len(SysY)):
+        if i%2 == 0:
+            Yi = SysY[i] + 1j*SysY[i+1]
+            if abs(Yi)!=0.0:
+                j = i//2
+                SysY_dct[j] = Yi
+    del SysY
+    
+    SysYV = np.array(list(SysY_dct.values()))
+    SysYK = np.array(list(SysY_dct.keys()))
+    Ybus0 = sparse.coo_matrix((SysYV,(SysYK,np.zeros(len(SysY_dct),dtype=int))))
+    n = int(np.sqrt(Ybus0.shape[0]))
+    Ybus_ = Ybus0.reshape((n,n))
+    Ybus_ = Ybus_.tocsc()
+    
+    Ybus = Ybus_[3:,3:]
+    YNodeOrder_ = DSSObj.ActiveCircuit.YNodeOrder
+    YNodeOrder = YNodeOrder_[0:3]+YNodeOrder_[6:];
+    return Ybus, YNodeOrder
+        
+        
+def create_tapped_ybus_slow( DSSObj,fn_y,TC_No0 ):
+    DSSObj.Text.command='Compile ('+fn_y+')'
+    fix_tap_pos(DSSObj.ActiveCircuit, TC_No0)
+    DSSObj.Text.command='set controlmode=off'
+    DSSObj.ActiveCircuit.Solution.Solve()
+    Ybus0 = tp_2_ar(DSSObj.ActiveCircuit.SystemY)
+    n = int(np.sqrt(len(Ybus0)))
+    Ybus_ = Ybus0.reshape((n,n))
+    Ybus = Ybus_[3:,3:]
+    YNodeOrder_ = DSSObj.ActiveCircuit.YNodeOrder
+    YNodeOrder = YNodeOrder_[0:3]+YNodeOrder_[6:];
+    return Ybus, YNodeOrder
+
+def create_tapped_ybus( DSSObj,fn_y,fn_ckt,TC_No0 ):
     DSSObj.Text.command='Compile ('+fn_y+')'
     fix_tap_pos(DSSObj.ActiveCircuit, TC_No0)
     DSSObj.Text.command='set controlmode=off'
