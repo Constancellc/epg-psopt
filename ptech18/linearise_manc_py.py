@@ -144,8 +144,7 @@ for K in range(len(lin_points)):
     DSSSolution.Solve()
     BB00,SS00 = cpf_get_loads(DSSCircuit)
     
-    Yvbase = get_Yvbase(DSSCircuit,YNodeOrder)
-    Yvbase = Yvbase[3:]
+    Yvbase = get_Yvbase(DSSCircuit,YNodeOrder)[3:]
     
     cpf_set_loads(DSSCircuit,BB00,SS00,lin_point)
     DSSSolution.Solve()
