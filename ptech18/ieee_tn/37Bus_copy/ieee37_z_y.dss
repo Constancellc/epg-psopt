@@ -5,11 +5,15 @@ Clear
 ! Be careful if you put line-neutral connected loads or other devices on this circuit.
 
 New object=circuit.ieee37
-~ basekv=230 pu=1.00 MVAsc3=200000 MVAsc1=210000
+~ basekv=4.8 pu=1.00 MVAsc3=200000 MVAsc1=210000
+!~ basekv=230 pu=1.00 MVAsc3=200000 MVAsc1=210000
 
-! Substation Transformer
+! Substation Transformer ==========> REMOVE sourcebus for *_y.
+!New Transformer.SubXF Phases=3 Windings=2 Xhl=8
+!~ wdg=1 bus=sourcebus conn=Delta kv=230   kva=2500   %r=1
+!~ wdg=2 bus=799       conn=Delta kv=4.8   kva=2500   %r=1
 New Transformer.SubXF Phases=3 Windings=2 Xhl=8
-~ wdg=1 bus=sourcebus conn=Delta kv=230   kva=2500   %r=1
+~ wdg=1 bus=sourcebus_0 conn=Delta kv=4.8   kva=2500   %r=1
 ~ wdg=2 bus=799       conn=Delta kv=4.8   kva=2500   %r=1
 
 ! Load Transformer
@@ -80,7 +84,12 @@ New Load.S722c      Bus1=722.3.1 Phases=1 Conn=Delta Model=4 kV=  4.800 kW=  21.
 New Load.S724b      Bus1=724.2.3 Phases=1 Conn=Delta Model=2 kV=  4.800 kW=  42.0 kVAR=  21.0
 New Load.S725b      Bus1=725.2.3 Phases=1 Conn=Delta Model=1 kV=  4.800 kW=  42.0 kVAR=  21.0
 New Load.S727c      Bus1=727.3.1 Phases=1 Conn=Delta Model=1 kV=  4.800 kW=  42.0 kVAR=  21.0
-New Load.S728        Bus1=728   Phases=3 Conn=Delta Model=1 kV=  4.800 kW= 126.0 kVAR=  63.0
+
+!New Load.S728        Bus1=728   Phases=3 Conn=Delta Model=1 kV=  4.800 kW= 126.0 kVAR=  63.0
+New Load.S728a        Bus1=728.1.2   Phases=1 Conn=Delta Model=1 kV=  4.800 kW=42.0 kVAR=  21.0
+New Load.S728b        Bus1=728.2.3   Phases=1 Conn=Delta Model=1 kV=  4.800 kW=42.0 kVAR=  21.0
+New Load.S728c        Bus1=728.3.1   Phases=1 Conn=Delta Model=1 kV=  4.800 kW=42.0 kVAR=  21.0
+
 New Load.S729a      Bus1=729.1.2 Phases=1 Conn=Delta Model=4 kV=  4.800 kW=  42.0 kVAR=  21.0
 New Load.S730c      Bus1=730.3.1 Phases=1 Conn=Delta Model=2 kV=  4.800 kW=  85.0 kVAR=  40.0
 New Load.S731b      Bus1=731.2.3 Phases=1 Conn=Delta Model=2 kV=  4.800 kW=  85.0 kVAR=  40.0
@@ -102,8 +111,11 @@ Set VoltageBases = "230,4.8,0.48"
 CalcVoltageBases
 BusCoords IEEE37_BusXY.csv
 
+batchedit load..* model=1 vminpu = 0.33 vmaxpu=3.0
+
 ! solve mode=direct
 set maxiterations=100
+set controlmode=off
 solve
 
 ! show voltages LL Nodes

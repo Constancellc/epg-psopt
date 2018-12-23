@@ -6,13 +6,6 @@ def tp_2_ar(tuple_ex):
     ar = np.array(tuple_ex[0::2]) + 1j*np.array(tuple_ex[1::2])
     return ar
 
-def tp_2_spar(tuple_ex):
-    ar_re = sparse.csc_matrix(tuple_ex[0::2])
-    ar_im = sparse.csc_matrix(tuple_ex[1::2])
-    ar = ar_re + 1j*ar_im
-    # ar = np.array(tuple_ex[0::2]) + 1j*np.array(tuple_ex[1::2])
-    return ar
-    
 def s_2_x(s):
     return np.concatenate((s.real,s.imag))
     
@@ -296,6 +289,15 @@ def get_element_idxs(DSSCircuit,ele_types):
     for ELE in ele_types:
             e_idx = get_idxs(e_idx,DSSCircuit,ELE)
     return e_idx
+
+def get_Yvbase(DSSCircuit,YNodeOrder):
+    Yvbase = []
+    for yz in YNodeOrder:
+        bus_id = yz.split('.')
+        i = DSSCircuit.SetActiveBus(bus_id[0]) # return needed or this prints a number
+        Yvbase.append(1e3*DSSCircuit.ActiveBus.kvbase)
+    return np.array(Yvbase)
+    
 def feeder_to_fn(WD,feeder):
     paths = []
     paths.append(WD+'\\manchester_models\\network_'+feeder[3]+'\\Feeder_'+feeder[1])
