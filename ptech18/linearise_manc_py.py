@@ -5,7 +5,7 @@ from math import sqrt
 from scipy import sparse
 import scipy.sparse.linalg as spla
 import matplotlib.pyplot as plt
-import time 
+import time
 from dss_python_funcs import *
 
 print('Start...\n',time.process_time())
@@ -262,13 +262,28 @@ for K in range(len(lin_points)):
 print('Complete.\n',time.process_time())
 
 if test_model:
-    plt.plot(k,ve*ve), plt.title(feeder+', My error'), 
-    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
+    plt.figure()
+    plt.plot(k,ve), plt.title(feeder+', My error'), 
+    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    plt.savefig('figA')
+    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
+    plt.figure()
     plt.plot(k,vve), plt.title(feeder+', MyV error')
-    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
+    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    plt.savefig('figB')
+    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
+    plt.figure()
     plt.plot(k,vae), plt.title(feeder+', Ky error')
-    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
+    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    plt.savefig('figC')
+    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
+    plt.figure()
     plt.plot(k,vvae), plt.title(feeder+', KyV error')
-    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
+    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    plt.savefig('figD')
+    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
+    plt.figure()
     plt.plot(k,DVslv_e), plt.title(feeder+', DVslv error')
-    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
+    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    plt.savefig('figE')
+    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
