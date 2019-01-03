@@ -18,10 +18,10 @@ DSSSolution=DSSCircuit.Solution
 
 # Things to do: 
 # 1. load a circuit;
-# WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+# WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
-fdr_i = 4 # do NOT set equal to 2!
+fdr_i = 0
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4']
 ckts = {'feeder_name':['fn_ckt','fn']}
 ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']

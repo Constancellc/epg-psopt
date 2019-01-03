@@ -1,6 +1,7 @@
 import numpy as np
 import os
 from scipy import sparse
+from cvxopt import matrix
 
 def tp_2_ar(tuple_ex):
     ar = np.array(tuple_ex[0::2]) + 1j*np.array(tuple_ex[1::2])
@@ -307,3 +308,29 @@ def feeder_to_fn(WD,feeder):
 def print_node_array(YZ,thing):
     for i in range(len(YZ)):
         print(YZ[i]+': '+str(thing[i]))
+        
+def get_ckt(WD,feeder):
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod']
+    ckts = {'feeder_name':['fn_ckt','fn']}
+    ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
+    ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
+    ckts[fdrs[2]]=feeder_to_fn(WD,fdrs[2])
+    ckts[fdrs[3]]=feeder_to_fn(WD,fdrs[3])
+    ckts[fdrs[4]]=feeder_to_fn(WD,fdrs[4])
+    ckts[fdrs[5]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_z']
+    ckts[fdrs[6]]=[WD+'\\ieee_tn\\34Bus_copy',WD+'\\ieee_tn\\34Bus_copy\\ieee34Mod1_z_mod']
+    ckts[fdrs[7]]=[WD+'\\ieee_tn\\37Bus_copy',WD+'\\ieee_tn\\37Bus_copy\\ieee37_z']
+    ckts[fdrs[8]]=[WD+'\\ieee_tn\\123Bus_copy',WD+'\\ieee_tn\\123Bus_copy\\IEEE123Master_z']
+    ckts[fdrs[9]]=[WD+'\\ieee_tn\\8500-Node_copy',WD+'\\ieee_tn\\8500-Node_copy\\Master-unbal_z']
+    ckts[fdrs[10]]=[WD+'\\ieee_tn\\37Bus_copy',WD+'\\ieee_tn\\37Bus_copy\\ieee37_z_mod']
+    ckts[fdrs[11]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_regMod_z']
+    return ckts[feeder]
+
+def loadLinMagModel(feeder,lin_point,WD):
+    Ky = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Ky'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+    Kd = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Kd'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+    Kt = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Kt'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+    bV = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'bV'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+    xhy0 = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'xhy0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+    xhd0 = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'xhd0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+    return Ky, Kd, Kt, bV, xhy0, xhd0
