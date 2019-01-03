@@ -88,8 +88,8 @@ DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
 DSSSolution.tolerance=1e-7
 # ------------------------------------------------------------ circuit info
-fdr_i = 7
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node']
+fdr_i = 10
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod']
 ckts = {'feeder_name':['fn_ckt','fn']}
 ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
 ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
@@ -101,6 +101,7 @@ ckts[fdrs[6]]=[WD+'\\ieee_tn\\34Bus_copy',WD+'\\ieee_tn\\34Bus_copy\\ieee34Mod1_
 ckts[fdrs[7]]=[WD+'\\ieee_tn\\37Bus_copy',WD+'\\ieee_tn\\37Bus_copy\\ieee37_z']
 ckts[fdrs[8]]=[WD+'\\ieee_tn\\123Bus_copy',WD+'\\ieee_tn\\123Bus_copy\\IEEE123Master_z']
 ckts[fdrs[9]]=[WD+'\\ieee_tn\\8500-Node_copy',WD+'\\ieee_tn\\8500-Node_copy\\Master-unbal_z']
+ckts[fdrs[10]]=[WD+'\\ieee_tn\\37Bus_copy',WD+'\\ieee_tn\\37Bus_copy\\ieee37_z_mod']
 
 fn_ckt = ckts[fdrs[fdr_i]][0]
 fn = ckts[fdrs[fdr_i]][1]
@@ -110,7 +111,7 @@ fn_y = fn+'_y'
 sn0 = WD + '\\lin_models\\' + feeder
 
 lin_points=np.array([0.3,0.6,1.0])
-# lin_points=np.array([1.0])
+lin_points=np.array([1.0])
 k = np.arange(-1.5,1.6,0.1)
 # k = np.array([-0.5,0,0.5,1.0,1.5])
 test_model = True
@@ -150,7 +151,7 @@ for K in range(len(lin_points)):
     DSSSolution.Solve()
     YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
     sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
-    sY0,sD0,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
+    # sY0,sD0,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
     chkc = abs(iTot + Ybus.dot(YNodeV))/abs(iTot) # 1c needs checking outside
     chkc_n = np.linalg.norm(iTot + Ybus.dot(YNodeV))/np.linalg.norm(iTot) # 1c needs checking outside
     print_node_array(DSSCircuit.YNodeOrder,chkc)
@@ -265,25 +266,25 @@ if test_model:
     plt.figure()
     plt.plot(k,ve), plt.title(feeder+', My error'), 
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
-    plt.savefig('figA')
-    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
-    plt.figure()
-    plt.plot(k,vve), plt.title(feeder+', MyV error')
-    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
-    plt.savefig('figB')
-    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
-    plt.figure()
-    plt.plot(k,vae), plt.title(feeder+', Ky error')
-    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
-    plt.savefig('figC')
-    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
-    plt.figure()
-    plt.plot(k,vvae), plt.title(feeder+', KyV error')
-    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
-    plt.savefig('figD')
-    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
-    plt.figure()
-    plt.plot(k,DVslv_e), plt.title(feeder+', DVslv error')
-    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
-    plt.savefig('figE')
-    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||'), plt.show()
+    plt.show()
+    # plt.savefig('figA')
+    # plt.figure()
+    # plt.plot(k,vve), plt.title(feeder+', MyV error')
+    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    # plt.show()
+    # # plt.savefig('figB')
+    # plt.figure()
+    # plt.plot(k,vae), plt.title(feeder+', Ky error')
+    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    # plt.show()
+    # # plt.savefig('figC')
+    # plt.figure()
+    # plt.plot(k,vvae), plt.title(feeder+', KyV error')
+    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    # plt.show()
+    # # plt.savefig('figD')
+    # plt.figure()
+    # plt.plot(k,DVslv_e), plt.title(feeder+', DVslv error')
+    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    # plt.show()
+    # plt.savefig('figE')
