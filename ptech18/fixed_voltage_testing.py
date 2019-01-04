@@ -28,7 +28,7 @@ DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 
 DSSText = DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
-DSSSolutiobn = DSSCircuit.Solution
+DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 fdr_i = 11
@@ -44,61 +44,150 @@ def vecSlc(vec_like,new_idx):
     if type(vec_like)==tuple:
         vec_slc = tuple(np.array(vec_like)[new_idx].tolist())
     return vec_slc
+    
+def idx_shf(x_idx,regIdx):
+    x_idx_i = []
+    for idx in x_idx:
+        x_idx_i.append(regIdx.index(idx))
+    
+    x_idx_new = np.array([],dtype=int)
+    
+    x_idx_srt = x_idx_i.copy()
+    x_idx_srt.sort()
+    x_idx_shf = np.array([],dtype=int)
+    for i in x_idx_srt:
+        x_idx_shf=np.concatenate((x_idx_shf,[x_idx_i.index(i)]))
+        x_idx_new=np.concatenate((x_idx_new,[regIdx[i]]))
+    return x_idx_shf,x_idx_new
 
+def yzD2yzI(yzD,n2y):
+    yzI = []
+    for bus in yzD:
+        yzI = yzI+find_node_idx(n2y,bus,False)
+    return yzI
+    
 fn_y = fn+'_y'
 sn0 = WD + '\\lin_models\\' + feeder
 
 DSSText.command='Compile ('+fn+'.dss)'
-zoneNames, yzRegIdx = get_yzRegIdx(DSSCircuit)
+DSSText.command='set controlmode=off'
+DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+
+BB0,SS0 = cpf_get_loads(DSSCircuit)
+
+zoneNames, regIdx0, regSze0 = get_yzRegIdx(DSSCircuit)
+regIdx = (np.array(regIdx0[3:])-3).tolist()
+regSze = [regSze0[0]-3]
+for i in range(1,len(regSze0)):
+    regSze = regSze + [regSze0[i]]
+regCum = np.cumsum(regSze)-1
 
 YZ = DSSCircuit.YNodeOrder
-YZnew = vecSlc(YZ,yzRegIdx)
+YZnew = vecSlc(YZ,regIdx0)
 
 Ky,Kd,Kt,bV,xhy0,xhd0 = loadLinMagModel(feeder,lin_point,WD)
 
+# get index shifts
 v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
-v_idx = np.array(get_element_idxs(DSSCircuit,v_types)) - 3
+v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3
 v_idx = v_idx[v_idx>=0]
+v_idx_shf,v_idx_new = idx_shf(v_idx,regIdx)
 
 sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
+
+p_idx_yz = np.array(sY[3:].nonzero())
+p_idx_shf,p_idx_new = idx_shf(p_idx_yz[0],regIdx)
+s_idx_shf = np.concatenate((p_idx_shf,p_idx_shf+len(p_idx_shf)))
+
 p_idx = np.array(sY[3:].nonzero())
+s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)[0]
+s_idx_new = np.concatenate((p_idx_new,p_idx_new+len(sY)-3))
 
-# s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)[0]
+
+yzI = yzD2yzI(yzD,node_to_YZ(DSSCircuit))
+yzI_shf,yzI_new = idx_shf(yzI,regIdx)
+sD_idx_shf = np.concatenate((yzI_shf,yzI_shf+len(yzI_shf)))
+
+KyR = Ky[v_idx_shf,:][:,s_idx_shf]
+KdR = Kd[v_idx_shf,:][:,sD_idx_shf]
+bVR = bV[v_idx_shf]
+# KtR = Kt[v_idx_shf,:]
 
 
-# example from online.
-x0 = [2,-1,2,-2,1,4,3]
-I0 = [1,2,0,2,3,2,0]
-J0 = [0,0,1,1,2,3,4]
-A = sparse.coo_matrix(x0,(I0,J0))
-A0 = spmatrix(x0,I0,J0)
-print(A0.I) # these both work fine.
-print(A0.J) # these both work fine.
-print(A0) 
+# first validate that reindexing has gone ok.
 
-# new example.
-n = 4
-x = np.ones(n).tolist()
-I = list(range(n))
-J = random.permutation(range(n)).tolist()
-B0 = spmatrix(x,I,J)
-print(B0.I)
-print(B0.J)
+k = np.arange(-1.5,1.6,0.1)
+print('Start Testing.\n',time.process_time())
 
-# # final example
-# n = len(YZ)
-# x = np.ones(n).tolist()
-# I = list(range(n))
-# J = random.permutation(range(n)).tolist()
-# B = sparse.coo_matrix((x,(I,J)))
-# print(B)
-# B0 = spmatrix(x,I,J)
-# print(B0.I)
+# now, check these are working
+ve=np.zeros([k.size])
+veR=np.zeros([k.size])
+ve_ctl=np.zeros([k.size])
 
-# x = np.ones(len(YZ)).tolist()
-# I = list(range(len(YZ)))
-# J = random.permutation(range(len(YZ))).tolist()
-# B = sparse.coo_matrix((x,(I,J)))
-# print(B)
-# B0 = spmatrix(x,I,J)
-# print(B0.J)
+v_0 = np.zeros((len(k),len(YZ)))
+
+vv_0 = np.zeros((len(k),len(v_idx)))
+vv_0R = np.zeros((len(k),len(v_idx)))
+vv_l = np.zeros((len(k),len(v_idx)))
+vv_lR = np.zeros((len(k),len(v_idx)))
+
+
+Convrg = []
+TP = np.zeros(len(k),dtype=complex)
+TL = np.zeros(len(k),dtype=complex)
+
+for i in range(len(k)):
+    cpf_set_loads(DSSCircuit,BB0,SS0,k[i])
+    DSSSolution.Solve()
+    Convrg.append(DSSSolution.Converged)
+    TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
+    TL[i] = 1e-3*(DSSCircuit.Losses[0] + 1j*DSSCircuit.Losses[1])
+    
+    v_0[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray)) # for some reason complains about complex
+    vv_0[i,:] = v_0[i,3:][v_idx]
+    vv_0R[i,:] = vv_0[i,:][v_idx_shf]
+    
+    sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
+    xhy = -1e3*s_2_x(sY[3:])
+    
+    if len(H)==0:
+        vv_l[i,:] = Ky.dot(xhy[s_idx]) + bV
+    else:
+        xhd = -1e3*s_2_x(sD) # not [3:] like sY
+        vv_l[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
+        vv_lR[i,:] = KyR.dot(xhy[s_idx_new]) + KdR.dot(xhd[sD_idx_shf]) + bVR
+    
+    ve[i] = np.linalg.norm( vv_l[i,:] - vv_0[i,:] )/np.linalg.norm(vv_0[i,:])
+    veR[i] = np.linalg.norm( vv_lR[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
+
+
+# DSSText.command='set controlmode=static'
+# for i in range(len(k)):
+    # cpf_set_loads(DSSCircuit,BB0,SS0,k[i])
+    # DSSSolution.Solve()
+    # Convrg.append(DSSSolution.Converged)
+    # TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
+    # TL[i] = 1e-3*(DSSCircuit.Losses[0] + 1j*DSSCircuit.Losses[1])
+    
+    # v_0[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray)).real # for some reason complains about complex
+    # vv_0[i,:] = v_0[i,3:][v_idx]
+    
+    # sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
+    # xhy = -1e3*s_2_x(sY[3:])
+    
+    # if len(H)==0:
+        # vv_l[i,:] = Ky.dot(xhy[s_idx]) + bV
+    # else:
+        # xhd = -1e3*s_2_x(sD) # not [3:] like sY
+        # vv_l[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
+    
+    # ve_ctl[i] = np.linalg.norm( vv_l[i,:] - vv_0[i,:] )/np.linalg.norm(vv_0[i,:])
+
+plt.figure()
+plt.plot(k,ve), plt.plot(k,veR), plt.title(feeder+', K error')
+plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+plt.show()
+# plt.figure()
+# plt.plot(k,ve), plt.plot(k,ve_ctl), plt.title(feeder+', K error')
+# plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+# plt.show()

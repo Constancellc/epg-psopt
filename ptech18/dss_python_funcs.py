@@ -288,7 +288,7 @@ def get_idxs(e_idx,DSSCircuit,ELE):
 def get_element_idxs(DSSCircuit,ele_types):
     e_idx = []
     for ELE in ele_types:
-            e_idx = get_idxs(e_idx,DSSCircuit,ELE)
+        e_idx = get_idxs(e_idx,DSSCircuit,ELE)
     return e_idx
 
 def get_Yvbase(DSSCircuit,YNodeOrder):
@@ -327,10 +327,16 @@ def get_ckt(WD,feeder):
     return ckts[feeder]
 
 def loadLinMagModel(feeder,lin_point,WD):
-    Ky = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Ky'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
-    Kd = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Kd'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
-    Kt = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Kt'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
-    bV = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'bV'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
-    xhy0 = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'xhy0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
-    xhd0 = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'xhd0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+    # Ky = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Ky'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+    # Kd = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Kd'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+    # Kt = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Kt'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+    # bV = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'bV'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+    # xhy0 = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'xhy0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
+    # xhd0 = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'xhd0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))    
+    Ky = np.loadtxt(WD+'\\lin_models\\'+feeder+'Ky'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt')
+    Kd = np.loadtxt(WD+'\\lin_models\\'+feeder+'Kd'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt')
+    Kt = np.loadtxt(WD+'\\lin_models\\'+feeder+'Kt'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt')
+    bV = np.loadtxt(WD+'\\lin_models\\'+feeder+'bV'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt')
+    xhy0 = np.loadtxt(WD+'\\lin_models\\'+feeder+'xhy0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt')
+    xhd0 = np.loadtxt(WD+'\\lin_models\\'+feeder+'xhd0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt')
     return Ky, Kd, Kt, bV, xhy0, xhd0

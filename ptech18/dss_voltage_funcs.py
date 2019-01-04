@@ -23,6 +23,7 @@ def get_yzRegIdx(DSSCircuit):
     YZ = DSSCircuit.YNodeOrder
 
     zoneNames = []
+    regSze = []
     yzRegIdx = [] # for debugging
     zoneIdx = [] # for debugging
     zoneList = [] # for debugging
@@ -53,6 +54,7 @@ def get_yzRegIdx(DSSCircuit):
                                 if (no in yzRegIdx[i-1])==False:
                                     yzRegIdx[i-1].append(no)
         yzRegIdx[i-1].sort()
+        regSze.append(len(yzRegIdx[i-1]))
         i=DSSEM.Next
     print(zoneList)
     regIdx = []
@@ -60,4 +62,5 @@ def get_yzRegIdx(DSSCircuit):
         regIdx = regIdx+yzReg
     QWE = sum(np.concatenate(yzRegIdx))
     chk = len(YZ)*((len(YZ)-1)//2)
-    return zoneNames, regIdx
+    
+    return zoneNames, regIdx, regSze

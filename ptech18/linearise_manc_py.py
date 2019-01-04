@@ -89,7 +89,7 @@ DSSSolution=DSSCircuit.Solution
 DSSSolution.tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
-fdr_i = 10
+fdr_i = 11
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod']
 feeder=fdrs[fdr_i]
 
@@ -101,10 +101,10 @@ fn_y = fn+'_y'
 sn0 = WD + '\\lin_models\\' + feeder
 
 lin_points=np.array([0.3,0.6,1.0])
-# lin_points=np.array([1.0])
+lin_points=np.array([1.0])
 k = np.arange(-1.5,1.6,0.1)
 # k = np.array([-0.5,0,0.5,1.0,1.5])
-test_model = True
+test_model = False
 
 ve=np.zeros([k.size,lin_points.size])
 vve=np.zeros([k.size,lin_points.size])
@@ -172,7 +172,7 @@ for K in range(len(lin_points)):
 
     # NB!!! -3 required for models which have the first three elements chopped off!
     v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
-    v_idx = np.array(get_element_idxs(DSSCircuit,v_types)) - 3
+    v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3
     v_idx = v_idx[v_idx>=0]
     YvbaseV = Yvbase[v_idx]
     
