@@ -269,19 +269,21 @@ def build_y(DSSObj,fn_ckt):
     os.remove(fn_csv)
     return Ybus, YNodeOrder, n
 
+            # splt = DSSCircuit.ActiveElement.BusNames[0].upper().split('.')
 def get_idxs(e_idx,DSSCircuit,ELE):
     i = ELE.First
     while i:
-        splt = DSSCircuit.ActiveElement.BusNames[0].upper().split('.')
-        if len(splt) > 1:
-            for j in range(1,len(splt)):
-                e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]+'.'+splt[j]))
-        else:
-            try:
-                e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]))
-            except:
-                for ph in range(1,4):
-                    e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]+'.'+str(ph)))
+        for BN in DSSCircuit.ActiveElement.BusNames:
+            splt = BN.upper().split('.')
+            if len(splt) > 1:
+                for j in range(1,len(splt)):
+                    e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]+'.'+splt[j]))
+            else:
+                try:
+                    e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]))
+                except:
+                    for ph in range(1,4):
+                        e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]+'.'+str(ph)))
         i = ELE.next
     return e_idx
 

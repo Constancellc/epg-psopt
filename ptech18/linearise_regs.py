@@ -32,11 +32,12 @@ fn = ckt[1]
 sn0 = WD + '\\lin_models\\' + feeder
 test_model = False
 
-lin_points = np.array([0.3,0.6,1.])
+lin_points = np.array([1.])
 # lin_points = np.array([1.])
 
 for i in range(len(lin_points)):
     print('Creating model, linpoint=',lin_points[i])
+    
     # 2. Solve at the right linearization point
     DSSText.command='Compile ('+fn+'.dss)'
     lin_point = lin_points[i]
@@ -45,14 +46,14 @@ for i in range(len(lin_points)):
     DSSSolution.Solve()
     DSSText.command='set controlmode=off'
     v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
-    v_idx = np.array(get_element_idxs(DSSCircuit,v_types)) - 3
+    v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3
     v_idx = v_idx[v_idx>=0]
     dt = 2*0.00625
     Yvbase = get_Yvbase(DSSCircuit,DSSCircuit.YNodeOrder)[3:][v_idx]
     
     # 3. increment tap changers; find new voltages
     j = DSSCircuit.RegControls.First
-    dVdt = np.zeros((DSSCircuit.RegControls.Count,len(v_idx)))
+    dVdt = np.zeros((len(v_idx),DSSCircuit.RegControls.Count))
     while j!=0:
         tap0 = DSSCircuit.RegControls.TapNumber
         DSSCircuit.RegControls.Tapnumber = tap0+1
@@ -61,7 +62,7 @@ for i in range(len(lin_points)):
         DSSCircuit.RegControls.Tapnumber = tap0-1
         DSSSolution.Solve()
         V0 = np.array(DSSCircuit.AllBusVmag[3:])[v_idx]
-        dVdt[j-1] = (V1 - V0)/(dt*Yvbase)
+        dVdt[:,j-1] = (V1 - V0)/(dt*Yvbase)
         
         DSSCircuit.RegControls.Tapnumber = tap0
         j = DSSCircuit.RegControls.Next
