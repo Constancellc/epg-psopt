@@ -21,7 +21,7 @@ def nrel_linearization(Ybus,Vh,V0,H):
     
     Ylli = spla.inv(Yll)
     
-    Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) )
+    Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) ).tocsc()
     Vh_diagi = spla.inv(Vh_diag)
 
     HVh_diag = sparse.dia_matrix( (H0.dot(Vh.conj()),0) ,shape=(H0.shape[0],H0.shape[0]) ).tocsc()
@@ -89,22 +89,25 @@ DSSSolution=DSSCircuit.Solution
 DSSSolution.tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
+test_model = False
+
 fdr_i = 11
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod']
-feeder=fdrs[fdr_i]
+lp_taps='Nmt'
+lp_taps='Lpt'
 
+lin_points=np.array([0.3,0.6,1.0])
+# lin_points=np.array([0.6])
+k = np.arange(-1.5,1.6,0.1)
+# k = np.array([-0.5,0,0.5,1.0,1.5])
+
+feeder=fdrs[fdr_i]
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
 fn = ckt[1]
 
 fn_y = fn+'_y'
-sn0 = WD + '\\lin_models\\' + feeder
-
-lin_points=np.array([0.3,0.6,1.0])
-lin_points=np.array([1.0])
-k = np.arange(-1.5,1.6,0.1)
-# k = np.array([-0.5,0,0.5,1.0,1.5])
-test_model = False
+sn0 = WD + '\\lin_models\\' + feeder + lp_taps
 
 ve=np.zeros([k.size,lin_points.size])
 vve=np.zeros([k.size,lin_points.size])
@@ -116,35 +119,41 @@ for K in range(len(lin_points)):
     lin_point = lin_points[K]
     # run the dss
     DSSText.command='Compile ('+fn+'.dss)'
-    
-    TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
+    DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+    BB00,SS00 = cpf_get_loads(DSSCircuit)
+    if lp_taps=='Nmt':
+        TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
+    elif lp_taps=='Lpt':
+        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point)
+        DSSSolution.Solve()
+        TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
     print('Load Ybus\n',time.process_time())
     
     # Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,fn_ckt,TC_No0 ) # for LV networks
     Ybus, YNodeOrder = create_tapped_ybus_very_slow( DSSObj,fn_y,TC_No0 )
     
-    print('Calculate condition no.:\n',time.process_time())
-    cndY = np.linalg.cond(Ybus.toarray())
-    print(np.log10(cndY))
+    # print('Calculate condition no.:\n',time.process_time()) # for debugging
+    # cndY = np.linalg.cond(Ybus.toarray())
+    # print(np.log10(cndY))
     
     # Reproduce delta-y power flow eqns (1)
     DSSText.command='Compile ('+fn+'.dss)'
     fix_tap_pos(DSSCircuit, TC_No0)
     DSSText.command='Set Controlmode=off'
-    # DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+    DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
     DSSSolution.Solve()
-    BB00,SS00 = cpf_get_loads(DSSCircuit)
+    # BB00,SS00 = cpf_get_loads(DSSCircuit)
     
-    Yvbase = get_Yvbase(DSSCircuit,YNodeOrder)[3:]
+    Yvbase = get_Yvbase(DSSCircuit)[3:]
     
     cpf_set_loads(DSSCircuit,BB00,SS00,lin_point)
     DSSSolution.Solve()
     YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
     sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
     # sY0,sD0,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
-    chkc = abs(iTot + Ybus.dot(YNodeV))/abs(iTot) # 1c needs checking outside
-    chkc_n = np.linalg.norm(iTot + Ybus.dot(YNodeV))/np.linalg.norm(iTot) # 1c needs checking outside
-    print_node_array(DSSCircuit.YNodeOrder,chkc)
+    # chkc = abs(iTot + Ybus.dot(YNodeV))/abs(iTot) # 1c needs checking outside
+    # chkc_n = np.linalg.norm(iTot + Ybus.dot(YNodeV))/np.linalg.norm(iTot) # 1c needs checking outside
+    # print_node_array(DSSCircuit.YNodeOrder,chkc)
     # plt.plot( chkc_nom[np.isinf(chkc)==False] ), plt.show()
     BB0,SS0 = cpf_get_loads(DSSCircuit)
     # --------------------
@@ -253,26 +262,26 @@ for K in range(len(lin_points)):
 print('Complete.\n',time.process_time())
 
 if test_model:
-    # plt.figure()
-    # plt.plot(k,ve), plt.title(feeder+', My error'), 
-    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
-    # plt.show()
+    plt.figure()
+    plt.plot(k,ve), plt.title(feeder+', My error'), 
+    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    plt.show()
     # # plt.savefig('figA')
-    plt.figure()
-    plt.plot(k,vve), plt.title(feeder+', MyV error')
-    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
-    plt.show()
-    # # plt.savefig('figB')
     # plt.figure()
-    # plt.plot(k,vae), plt.title(feeder+', Ky error')
+    # plt.plot(k,vve), plt.title(feeder+', MyV error')
     # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     # plt.show()
-    # # plt.savefig('figC')
+    # # # plt.savefig('figB')
     plt.figure()
-    plt.plot(k,vvae), plt.title(feeder+', KyV error')
+    plt.plot(k,vae), plt.title(feeder+', Ky error')
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     plt.show()
-    # plt.savefig('figD')
+    # # plt.savefig('figC')
+    # plt.figure()
+    # plt.plot(k,vvae), plt.title(feeder+', KyV error')
+    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    # plt.show()
+    # # plt.savefig('figD')
     plt.figure()
     plt.plot(k,DVslv_e), plt.title(feeder+', DVslv error')
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')

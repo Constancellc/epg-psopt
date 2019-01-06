@@ -2,6 +2,7 @@ import win32com.client
 import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
+from dss_voltage_funcs import *
 
 # NB at the moment on considers the case where there is a single transformer tap to play with.
 
@@ -28,12 +29,12 @@ ckt=get_ckt(WD,feeder)
 
 fn_ckt = ckt[0]
 fn = ckt[1]
+lp_taps='Lpt'
 
-sn0 = WD + '\\lin_models\\' + feeder
+sn0 = WD + '\\lin_models\\' + feeder + lp_taps
 test_model = False
 
-lin_points = np.array([1.])
-# lin_points = np.array([1.])
+lin_points = np.array([0.3, 0.6, 1.0])
 
 for i in range(len(lin_points)):
     print('Creating model, linpoint=',lin_points[i])
@@ -49,19 +50,29 @@ for i in range(len(lin_points)):
     v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3
     v_idx = v_idx[v_idx>=0]
     dt = 2*0.00625
-    Yvbase = get_Yvbase(DSSCircuit,DSSCircuit.YNodeOrder)[3:][v_idx]
+    Yvbase = get_Yvbase(DSSCircuit)[3:][v_idx]
     
     # 3. increment tap changers; find new voltages
     j = DSSCircuit.RegControls.First
     dVdt = np.zeros((len(v_idx),DSSCircuit.RegControls.Count))
+    
     while j!=0:
         tap0 = DSSCircuit.RegControls.TapNumber
-        DSSCircuit.RegControls.Tapnumber = tap0+1
+        if abs(tap0)<16:
+            tap_hi = tap0+1; tap_lo=tap0-1
+            dt = 2*0.00625
+        elif tap0==16:
+            tap_hi = tap0; tap_lo=tap0-1
+            dt = 0.00625
+        else:
+            tap_hi = tap0+1; tap_lo=tap0
+            dt = 0.00625
+        DSSCircuit.RegControls.Tapnumber = tap_hi
         DSSSolution.Solve()
-        V1 = np.array(DSSCircuit.AllBusVmag[3:])[v_idx]
-        DSSCircuit.RegControls.Tapnumber = tap0-1
+        V1 = abs(tp_2_ar(DSSCircuit.YNodeVarray)[3:])[v_idx] # NOT the same order as AllBusVmag!
+        DSSCircuit.RegControls.Tapnumber = tap_lo
         DSSSolution.Solve()
-        V0 = np.array(DSSCircuit.AllBusVmag[3:])[v_idx]
+        V0 = abs(tp_2_ar(DSSCircuit.YNodeVarray)[3:])[v_idx]
         dVdt[:,j-1] = (V1 - V0)/(dt*Yvbase)
         
         DSSCircuit.RegControls.Tapnumber = tap0
@@ -73,5 +84,13 @@ for i in range(len(lin_points)):
     if test_model:
         print(lin_point)
         plt.xlabel('Bus id'), plt.ylabel('dVdt'), plt.grid(True)
-        plt.plot(dVdt), plt.show()
+        plt.plot(dVdt), plt.grid(True), plt.show()
+
+
+# # for debugging
+# YZ = DSSCircuit.YNodeOrder
+# YZidx = vecSlc(DSSCircuit.YNodeOrder[3:],v_idx)
+# YZregs0 = vecSlc(YZidx,dVdt[:,0]>0.5)
+# YZregs1 = vecSlc(YZidx,dVdt[:,1]>0.5)
+# YZregs2 = vecSlc(YZidx,dVdt[:,2]>0.5)
 print('Complete.')

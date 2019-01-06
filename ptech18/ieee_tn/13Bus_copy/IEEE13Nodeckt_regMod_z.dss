@@ -201,31 +201,29 @@ calcv
 Solve
 BusCoords IEEE13Node_BusXY.csv
 
-new energymeter.m1 element=transformer.sub
-new energymeter.mregx1 element=line.regX
+!new energymeter.m1 element=transformer.sub
+!new energymeter.mregx1 element=line.regX
 new energymeter.mregy1 element=line.regY
 
 !Set Controlmode=off
 Batchedit load..* vminpu=0.33 vmaxpu=3 model=1
 solve
 solve
-!plot profile phases=all
-!show voltages LN Nodes
 
 !edit transformer.regX1 enabled=false !for some reason, .* doesn't work here to disable all three?
 !edit transformer.regX2 enabled=false
 !edit transformer.regX3 enabled=false
 !edit line.regY enabled=false
 
+!set loadmult=1.5
 solve
-!show isolated
-!show voltages LN
+!show taps
 
 !---------------------------------------------------------------------------------------------------------------------------------------------------
 !----------------Show some Results -----------------------------------------------------------------------------------------------------------------
 !---------------------------------------------------------------------------------------------------------------------------------------------------
 
-
+// plot profile phases=all
 // Show Voltages LN Nodes
 // Show Currents Elem
 // Show Powers kVA Elem

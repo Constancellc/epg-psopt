@@ -9,7 +9,14 @@ def tp_2_ar(tuple_ex):
 
 def s_2_x(s):
     return np.concatenate((s.real,s.imag))
-    
+
+def vecSlc(vec_like,new_idx):
+    if type(vec_like)==tuple:
+        vec_slc = tuple(np.array(vec_like)[new_idx].tolist())
+    elif type(vec_like)==list:
+        vec_slc = np.array(vec_like)[new_idx].tolist()
+    return vec_slc
+
 def ld_vals( DSSCircuit ):
     ii = DSSCircuit.FirstPCElement()
     S=[]; V=[]; I=[]; B=[]; D=[]; N=[]
@@ -105,9 +112,9 @@ def get_sYsD(DSSCircuit):
     yzD = [YZ[i] for i in iD.nonzero()[0]]
     iD = iD[iD.nonzero()]
     iTot = iY + (H.T).dot(iD)
-    chka = abs((H.T).dot(iD.conj())*V0 + sY - V0*(iTot.conj()))/abs(sY) # 1a error, kW
-    sD0 = ((H.dot(V0))*(iD.conj()))
-    chkb = abs(sD - sD0)/abs(sD) # 1b error, kW
+    # chka = abs((H.T).dot(iD.conj())*V0 + sY - V0*(iTot.conj()))/abs(sY) # 1a error, kW
+    # sD0 = ((H.dot(V0))*(iD.conj()))
+    # chkb = abs(sD - sD0)/abs(sD) # 1b error, kW
     # print('Y- error:')
     # print_node_array(YZ,abs(chka))
     # print('D- error:')
@@ -293,9 +300,9 @@ def get_element_idxs(DSSCircuit,ele_types):
         e_idx = get_idxs(e_idx,DSSCircuit,ELE)
     return e_idx
 
-def get_Yvbase(DSSCircuit,YNodeOrder):
+def get_Yvbase(DSSCircuit):
     Yvbase = []
-    for yz in YNodeOrder:
+    for yz in DSSCircuit.YNodeOrder:
         bus_id = yz.split('.')
         i = DSSCircuit.SetActiveBus(bus_id[0]) # return needed or this prints a number
         Yvbase.append(1e3*DSSCircuit.ActiveBus.kvbase)
@@ -328,17 +335,15 @@ def get_ckt(WD,feeder):
     ckts[fdrs[11]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_regMod_z']
     return ckts[feeder]
 
-def loadLinMagModel(feeder,lin_point,WD):
-    # Ky = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Ky'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
-    # Kd = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Kd'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
-    # Kt = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'Kt'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
-    # bV = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'bV'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
-    # xhy0 = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'xhy0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))
-    # xhd0 = matrix(np.loadtxt(WD+'\\lin_models\\'+feeder+'xhd0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'))    
-    Ky = np.loadtxt(WD+'\\lin_models\\'+feeder+'Ky'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt')
-    Kd = np.loadtxt(WD+'\\lin_models\\'+feeder+'Kd'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt')
-    Kt = np.loadtxt(WD+'\\lin_models\\'+feeder+'Kt'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt')
-    bV = np.loadtxt(WD+'\\lin_models\\'+feeder+'bV'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt')
-    xhy0 = np.loadtxt(WD+'\\lin_models\\'+feeder+'xhy0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt')
-    xhd0 = np.loadtxt(WD+'\\lin_models\\'+feeder+'xhd0'+str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt')
+def loadLinMagModel(feeder,lin_point,WD,lp_taps):
+    # lp_taps either 'Nmt' or 'Lpt'.
+    stt = WD+'\\lin_models\\'+feeder+lp_taps
+    end = str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'
+    Ky = np.loadtxt(stt+'Ky'+end)
+    Kd = np.loadtxt(stt+'Kd'+end)
+    Kt = np.loadtxt(stt+'Kt'+end)
+    bV = np.loadtxt(stt+'bV'+end)
+    xhy0 = np.loadtxt(stt+'xhy0'+end)
+    xhd0 = np.loadtxt(stt+'xhd0'+end)
     return Ky, Kd, Kt, bV, xhy0, xhd0
+

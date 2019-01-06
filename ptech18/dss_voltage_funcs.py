@@ -14,6 +14,17 @@ def in_regs(DSSCircuit,regXfmr):
     type,name = DSSCircuit.ActiveElement.name.split('.')
     in_regs = (type=='Transformer' and (name in regXfmr))
     return in_regs
+
+def getRegSat(DSSCircuit):
+    i = DSSCircuit.RegControls.First
+    regSat = []
+    while i:
+        if (DSSCircuit.RegControls.TapNumber)==16:
+            regSat = regSat+[0]
+        else:
+            regSat = regSat+[1]
+        i = DSSCircuit.RegControls.Next
+    return regSat
     
 def get_regIdx(DSSCircuit):
     regXfmr=get_regXfmr(DSSCircuit)
@@ -57,6 +68,12 @@ def kron_red(Ky,Kd,Kt,bV,Vreg):
     bVr = bV[-n:]
     Anew = Abl - Abt.dot(spla.solve(Art,Arl))
     Bnew = bVb + Abt.dot(spla.solve(Art,(Vreg - bVr)))
+    # for debugging:
+    # YvbaseReg = get_Yvbase(DSSCircuit)[3:][v_idx_new][-n:]
+    # dt = 0.1/16
+    # YZreg=YZnew[-n:]
+    # xt = spla.solve(Art,regVreg - Arl.dot(xh) - bVr)/(YvbaseReg*dt)
+    
     return Anew, Bnew
     
     
