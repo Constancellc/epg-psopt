@@ -17,6 +17,29 @@ def vecSlc(vec_like,new_idx):
         vec_slc = np.array(vec_like)[new_idx].tolist()
     return vec_slc
 
+def yzD2yzI(yzD,n2y):
+    yzI = []
+    for bus in yzD:
+        yzI = yzI+find_node_idx(n2y,bus,False)
+    return yzI
+
+def idx_shf(x_idx,reIdx):
+    x_idx_i = []
+    for idx in x_idx:
+        x_idx_i.append(reIdx.index(idx))
+    
+    x_idx_new = np.array([],dtype=int)
+    
+    x_idx_srt = x_idx_i.copy()
+    x_idx_srt.sort()
+    x_idx_shf = np.array([],dtype=int)
+    for i in x_idx_srt:
+        x_idx_shf=np.concatenate((x_idx_shf,[x_idx_i.index(i)]))
+        x_idx_new=np.concatenate((x_idx_new,[reIdx[i]]))
+    
+    return x_idx_shf,x_idx_new
+
+    
 def ld_vals( DSSCircuit ):
     ii = DSSCircuit.FirstPCElement()
     S=[]; V=[]; I=[]; B=[]; D=[]; N=[]
@@ -106,7 +129,7 @@ def get_sYsD(DSSCircuit):
     V0 = tp_2_ar(DSSCircuit.YNodeVarray)*1e-3
     YZ = DSSCircuit.YNodeOrder
     iY, sY, iD, sD = calc_sYsD( YZ,B,I,V,S,D,n2y )
-    H = create_Hmat(DSSCircuit,n2y)
+    H = create_Hmat(DSSCircuit)
     H = H[iD.nonzero()]
     sD = sD[iD.nonzero()]
     yzD = [YZ[i] for i in iD.nonzero()[0]]
@@ -121,7 +144,8 @@ def get_sYsD(DSSCircuit):
     # print_node_array(yzD,abs(chkb))
     return sY,sD,iY,iD,yzD,iTot,H
     
-def create_Hmat(DSSCircuit,n2y):
+def create_Hmat(DSSCircuit):
+    n2y = node_to_YZ(DSSCircuit)
     Hmat = np.zeros((DSSCircuit.NumNodes,DSSCircuit.NumNodes))
     for bus in DSSCircuit.AllBusNames:
         idx = find_node_idx(n2y,bus,False)

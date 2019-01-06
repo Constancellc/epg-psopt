@@ -12,7 +12,7 @@ def get_regXfmr(DSSCircuit):
     
 def in_regs(DSSCircuit,regXfmr):
     type,name = DSSCircuit.ActiveElement.name.split('.')
-    in_regs = (type=='Transformer' and (name in regXfmr))
+    in_regs = (type.lower()=='transformer' and (name.lower() in regXfmr))
     return in_regs
 
 def getRegSat(DSSCircuit):
@@ -76,7 +76,27 @@ def kron_red(Ky,Kd,Kt,bV,Vreg):
     
     return Anew, Bnew
     
-    
+def zB2zBs(DSSCircuit,zoneBus):
+    YZ = DSSCircuit.YNodeOrder
+    YZclr = {}
+    for yz in YZ:
+        node,ph = yz.split('.')
+        if node in YZclr.keys():
+            YZclr[node]=YZclr[node]+[ph]
+        else:
+            YZclr[node]=[ph]
+    nodeIn = []
+    zoneBuses = []
+    for bus in zoneBus:
+        node = bus.upper().split('.',1)[0]
+        if node not in nodeIn:
+            nodeIn = nodeIn+[node]
+            for ph in YZclr[node]:
+                zoneBuses = zoneBuses+[node+'.'+ph]
+    return zoneBuses
+        
+        
+
 def get_regZneIdx(DSSCircuit):
     DSSEM = DSSCircuit.Meters
     # get transformers with regulators, YZ, n2y
@@ -88,18 +108,21 @@ def get_regZneIdx(DSSCircuit):
     regSze = []
     yzRegIdx = [] # for debugging
     zoneIdx = [] # for debugging
-    zoneList = [] # for debugging
+    zoneBus = [] # for debugging
+    zoneRegId = []
     i = DSSEM.First
     while i:
         zoneNames.append(DSSEM.name)
-        zoneList.append([])
+        zoneBus.append([])
         zoneIdx.append([])
         yzRegIdx.append([])
         for branch in DSSEM.AllBranchesInZone:
             DSSCircuit.SetActiveElement(branch)
-            if in_regs(DSSCircuit,regXfmr)==False:
+            if in_regs(DSSCircuit,regXfmr):
+                zoneRegId = zoneRegId + [DSSEM.name]
+            else:
                 for bus in DSSCircuit.ActiveElement.BusNames:
-                    zoneList[i-1].append(bus)
+                    zoneBus[i-1].append(bus)
                     if bus.count('.')==0:
                         idx = find_node_idx(n2y,bus,False)
                         zoneIdx[i-1].append(idx)
@@ -115,14 +138,29 @@ def get_regZneIdx(DSSCircuit):
                             for no in idx:
                                 if (no in yzRegIdx[i-1])==False:
                                     yzRegIdx[i-1].append(no)
+                
         yzRegIdx[i-1].sort()
         regSze.append(len(yzRegIdx[i-1]))
         i=DSSEM.Next
-    print(zoneList)
+        
+    zoneBuses = []
+    for zb in zoneBus:
+        zoneBuses.append(zB2zBs(DSSCircuit,zb))
+    
+    regUnq = []; zoneTree = {}; zoneList = {}; i=1
+    for name in zoneNames:
+        regUnq = []; j=0
+        for reg in regXfmr:
+            if reg[:-1] not in regUnq and name==zoneRegId[j]:
+                regUnq = regUnq + [reg[:-1]]
+            j+=1
+        zoneTree[name] = regUnq
+        zoneList[name] = zoneBuses[i-1]
+        i+=1;
     regIdx = []
     for yzReg in yzRegIdx:
         regIdx = regIdx+yzReg
     QWE = sum(np.concatenate(yzRegIdx))
     chk = len(YZ)*((len(YZ)-1)//2)
     
-    return zoneNames, regIdx, regSze
+    return zoneList, regIdx, zoneTree

@@ -30,21 +30,21 @@ New Transformer.Sub Phases=3 Windings=2   XHL=(8 1000 /)
 ! Define low-impedance 2-wdg transformer
 
 New Transformer.Reg1 phases=1 XHL=0.01 kVAs=[1666 1666]
-~ Buses=[650.1 RG60.1] kVs=[2.4  2.4] %LoadLoss=0.01
+~ Buses=[650.1 RG60r.1] kVs=[2.4  2.4] %LoadLoss=0.01
 !new regcontrol.Reg1  transformer=Reg1 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=3   X=9 ! changed to flat V 
 new regcontrol.Reg1  transformer=Reg1 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=0   X=0
 
 New Transformer.Reg2 phases=1 XHL=0.01 kVAs=[1666 1666]
-~ Buses=[650.2 RG60.2] kVs=[2.4  2.4] %LoadLoss=0.01
+~ Buses=[650.2 RG60r.2] kVs=[2.4  2.4] %LoadLoss=0.01
 !new regcontrol.Reg2  transformer=Reg2 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=3   X=9 ! changed to flat V 
 new regcontrol.Reg2  transformer=Reg2 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=0  X=0
 
 New Transformer.Reg3 phases=1 XHL=0.01 kVAs=[1666 1666]
-~ Buses=[650.3 RG60.3] kVs=[2.4  2.4] %LoadLoss=0.01
+~ Buses=[650.3 RG60r.3] kVs=[2.4  2.4] %LoadLoss=0.01
 !new regcontrol.Reg3  transformer=Reg3 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=3   X=9 ! changed to flat V
 new regcontrol.Reg3  transformer=Reg3 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=0  X=0
 
-
+new line.reg bus1=RG60r bus2=RG60 phases=3 switch=true
 !TRANSFORMER DEFINITION 
 New Transformer.XFM1  Phases=3   Windings=2  XHL=2
 ~ wdg=1 bus=633       conn=Wye kv=4.16    kva=500    %r=.55     XHT=1
@@ -201,9 +201,10 @@ calcv
 Solve
 BusCoords IEEE13Node_BusXY.csv
 
-!new energymeter.m1 element=transformer.sub
-!new energymeter.mregx1 element=line.regX
-new energymeter.mregy1 element=line.regY
+new energymeter.msub element=transformer.sub
+new energymeter.mreg element=line.reg
+new energymeter.mregx element=line.regX
+new energymeter.mregy element=line.regY
 
 !Set Controlmode=off
 Batchedit load..* vminpu=0.33 vmaxpu=3 model=1
@@ -215,15 +216,14 @@ solve
 !edit transformer.regX3 enabled=false
 !edit line.regY enabled=false
 
-!set loadmult=1.5
 solve
-!show taps
+!plot
 
 !---------------------------------------------------------------------------------------------------------------------------------------------------
 !----------------Show some Results -----------------------------------------------------------------------------------------------------------------
 !---------------------------------------------------------------------------------------------------------------------------------------------------
 
-// plot profile phases=all
+
 // Show Voltages LN Nodes
 // Show Currents Elem
 // Show Powers kVA Elem
