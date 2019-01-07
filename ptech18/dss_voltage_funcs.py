@@ -168,11 +168,11 @@ def get_regZneIdx(DSSCircuit):
     
     
     
-def get_regIdxMatS(YZx,zoneList,Kp,Kq,nreg):
+def get_regIdxMatS(YZx,zoneList,zoneSet,Kp,Kq,nreg):
     zoneX = []
     for yz in YZx:
         ph = int(yz[-1])
-        for key in zoneList.keys():
+        for key in zoneList:
             if yz in zoneList[key]:
                 zoneX.append([key,ph])
     
@@ -180,35 +180,13 @@ def get_regIdxMatS(YZx,zoneList,Kp,Kq,nreg):
     regIdxQx = np.zeros((nreg,len(YZx)))
     i=0
     for zone in zoneX:
-        if zone[0]=='msub':
-            qwe = 0
-        elif zone[0]=='mreg':
-            regIdxPx[zone[1]-1,i]=Kp[i]
-            regIdxPx[(zone[1]%3),i]=1-Kp[i]
-            regIdxQx[zone[1]-1,i]=Kq[i]
-            regIdxQx[(zone[1]%3),i]=1-Kq[i]
-            
-        elif zone[0]=='mregx':
-            regIdxPx[zone[1]-1,i]=Kp[i]
-            regIdxPx[(zone[1]%3),i]=1-Kp[i]
-            regIdxPx[zone[1]-1+3,i]=Kp[i]
-            regIdxPx[(zone[1]%3)+3,i]=1-Kp[i]
-            regIdxQx[zone[1]-1,i]=Kq[i]
-            regIdxQx[(zone[1]%3),i]=1-Kq[i]
-            regIdxQx[zone[1]-1+3,i]=Kq[i]
-            regIdxQx[(zone[1]%3)+3,i]=1-Kq[i]
-            
-        elif zone[0]=='mregy':
-            regIdxPx[zone[1]-1,i]=Kp[i]
-            regIdxPx[zone[1]%3,i]=1-Kp[i]
-            regIdxPx[zone[1]-1+6,i]=Kp[i]
-            regIdxPx[(zone[1]%3)+6,i]=1-Kp[i]
-            
-            regIdxQx[zone[1]-1,i]=Kq[i]
-            regIdxQx[zone[1]%3,i]=1-Kq[i]
-            regIdxQx[zone[1]-1+6,i]=Kq[i]
-            regIdxQx[(zone[1]%3)+6,i]=1-Kq[i]
+        for key in zoneSet:
+            if zone[0]==key:
+                for idx in zoneSet[key]:
+                    regIdxPx[idx + zone[1]-1  ,i] = Kp[i] # NB this won't work if the regs are not 3ph
+                    regIdxPx[idx + (zone[1]%3),i] = 1-Kp[i]
+                    regIdxQx[idx + zone[1]-1  ,i] = Kq[i]
+                    regIdxQx[idx + (zone[1]%3),i] = 1-Kq[i]
         i+=1
-        
     regIdxMatS = np.concatenate((regIdxPx,1j*regIdxQx),axis=1)
     return regIdxMatS
