@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
 from dss_voltage_funcs import *
+import getpass
+
 
 # NB at the moment on considers the case where there is a single transformer tap to play with.
 
@@ -18,8 +20,10 @@ DSSSolution=DSSCircuit.Solution
 
 # Things to do: 
 # 1. load a circuit;
-# WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+if getpass.getuser()=='Matt':
+    WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+elif getpass.getuser()=='chri3793':
+    WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 # circuit details copied from linearise_manc_py.
 fdr_i = 11
@@ -35,6 +39,7 @@ sn0 = WD + '\\lin_models\\' + feeder + lp_taps
 test_model = False
 
 lin_points = np.array([0.3, 0.6, 1.0])
+# lin_points = np.array([0.6])
 
 for i in range(len(lin_points)):
     print('Creating model, linpoint=',lin_points[i])
@@ -73,7 +78,8 @@ for i in range(len(lin_points)):
         DSSCircuit.RegControls.Tapnumber = tap_lo
         DSSSolution.Solve()
         V0 = abs(tp_2_ar(DSSCircuit.YNodeVarray)[3:])[v_idx]
-        dVdt[:,j-1] = (V1 - V0)/(dt*Yvbase)
+        # dVdt[:,j-1] = (V1 - V0)/(dt*Yvbase)
+        dVdt[:,j-1] = (V1 - V0)/(dt)
         
         DSSCircuit.RegControls.Tapnumber = tap0
         j = DSSCircuit.RegControls.Next

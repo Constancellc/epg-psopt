@@ -7,12 +7,15 @@ import scipy.sparse.linalg as spla
 import matplotlib.pyplot as plt
 import time
 from dss_python_funcs import *
+import getpass
 
 print('Start...\n',time.process_time())
 
 # ======== specify working directories
-# WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+if getpass.getuser()=='Matt':
+    WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+elif getpass.getuser()=='chri3793':
+    WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 def nrel_linearization(Ybus,Vh,V0,H):
     Yll = Ybus[3:,3:].tocsc()

@@ -40,7 +40,8 @@ fdr_i = 11
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod']
 feeder=fdrs[fdr_i]
 
-k = np.arange(-1.5,1.6,0.1)
+k = np.around(np.arange(-1.5,1.6,0.1),5)
+k = np.around(np.arange(-1.5,1.6,0.025),5)
 # k = np.arange(0,1.0,1.0)
 
 ckt = get_ckt(WD,feeder)
@@ -142,6 +143,8 @@ vv_0R_ctl = np.zeros((len(k),len(v_idx)))
 
 vv_l = np.zeros((len(k),len(v_idx)))
 vv_lN = np.zeros((len(k),len(v_idx)))
+vv_l_ctr = np.zeros((len(k),len(v_idx)))
+vv_lN_ctr = np.zeros((len(k),len(v_idx)))
 
 
 
@@ -185,25 +188,25 @@ for i in range(len(k)):
     Convrg.append(DSSSolution.Converged)
     TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
     TL[i] = 1e-3*(DSSCircuit.Losses[0] + 1j*DSSCircuit.Losses[1])
-    
+
     v_0[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray)).real # for some reason complains about complex
     vv_0_ctl[i,:] = v_0[i,3:][v_idx]
     vv_0R_ctl[i,:] = vv_0_ctl[i,:][v_idx_shf]
-    
+
     sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
     xhy = -1e3*s_2_x(sY[3:])
-    
+
     RegSat[i] = getRegSat(DSSCircuit)
-    
+
     if len(H)==0:
-        vv_l[i,:] = Ky.dot(xhy[s_idx]) + bV
+        vv_l_ctr[i,:] = Ky.dot(xhy[s_idx]) + bV
     else:
         xhd = -1e3*s_2_x(sD) # not [3:] like sY
-        vv_l[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
+        vv_l_ctr[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
         xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
-        vv_lN[i,:] = np.concatenate((Anew.dot(xnew) + Bnew,np.array(regVreg)))
-    ve_ctl[i] = np.linalg.norm( vv_l[i,:] - vv_0_ctl[i,:] )/np.linalg.norm(vv_0_ctl[i,:])
-    veN_ctl[i] = np.linalg.norm( vv_lN[i,:] - vv_0R_ctl[i,:] )/np.linalg.norm(vv_0R_ctl[i,:])
+        vv_lN_ctr[i,:] = np.concatenate((Anew.dot(xnew) + Bnew,np.array(regVreg)))
+    ve_ctl[i] = np.linalg.norm( vv_l_ctr[i,:] - vv_0_ctl[i,:] )/np.linalg.norm(vv_0_ctl[i,:])
+    veN_ctl[i] = np.linalg.norm( vv_lN_ctr[i,:] - vv_0R_ctl[i,:] )/np.linalg.norm(vv_0R_ctl[i,:])
 print('Testing Complete.\n',time.process_time())
 
 unSat = RegSat.min(axis=1)==1
@@ -216,6 +219,7 @@ if test_model_plt:
     # plt.plot(k,ve), plt.plot(k,veN), plt.title(feeder+', K error')
     # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     # plt.show()
+    
     # plt.figure()
     # plt.plot(k,ve,':')
     # plt.plot(k[unSat],ve_ctl[unSat],'x-') 
@@ -226,53 +230,31 @@ if test_model_plt:
     # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     # plt.show()
     
-    idxs = [0,15,25]
+    idxs = np.concatenate( ( (k==-1.5).nonzero()[0],(k==0.1).nonzero()[0],(k==lin_point).nonzero()[0],(k==1.0).nonzero()[0] ) )
     
-    # plt.figure(figsize=(9.5,4))
+    plt.figure(figsize=(12,4))
+    for i in range(len(idxs)):
+        plt.subplot(1,len(idxs),i+1)
+        plt.plot(vv_0[idxs[i]]/Yvbase,'o')
+        plt.plot(vv_l[idxs[i]]/Yvbase,'x')
+        plt.plot(vv_lN[idxs[i]]/Yvbase,'+')
+        plt.xlabel('Bus index'); 
+        plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
+        if i==0:
+            plt.ylabel('Voltage Magnitude (pu)')
+            plt.legend(('DSS, fxd regs,','Lin fxd','Lin not fxd'))
+    plt.show()
     
-    # plt.subplot(1,3,1)
-    # plt.plot(vv_0[idxs[0]]/Yvbase,'o'); plt.plot(vv_l[idxs[0]]/Yvbase,'x')
-    # plt.xlabel('Bus index'); plt.ylabel('Voltage Magnitude (pu)')
-    # plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
-    # plt.subplot(1,3,2)
-    # plt.plot(vv_0[idxs[1]]/Yvbase,'o'); plt.plot(vv_l[idxs[1]]/Yvbase,'x')
-    # plt.xlabel('Bus index')
-    # plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
-    # plt.subplot(1,3,3)
-    # plt.plot(vv_0[idxs[2]]/Yvbase,'o'); plt.plot(vv_l[idxs[2]]/Yvbase,'x')
-    # plt.xlabel('Bus index')
-    # plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
-    # plt.show()
-    
-    # plt.figure(figsize=(9.5,4))
-    
-    # plt.subplot(1,3,1)
-    # plt.plot(vv_0R_ctl[idxs[0]]/Yvbase_new,'o'); plt.plot(vv_lN[idxs[0]]/Yvbase_new,'x')
-    # plt.xlabel('Bus index'); plt.ylabel('Voltage Magnitude (pu)')
-    # plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
-    # plt.subplot(1,3,2)
-    # plt.plot(vv_0R_ctl[idxs[1]]/Yvbase_new,'o'); plt.plot(vv_lN[idxs[1]]/Yvbase_new,'x')
-    # plt.xlabel('Bus index');
-    # plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
-    # plt.subplot(1,3,3)
-    # plt.plot(vv_0R_ctl[idxs[2]]/Yvbase_new,'o'); plt.plot(vv_lN[idxs[2]]/Yvbase_new,'x')
-    # plt.xlabel('Bus index');
-    # plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
-    # plt.show()
-    
-    # plt.figure(figsize=(9.5,4))
-    
-    # plt.subplot(1,3,1)
-    # plt.plot(vv_0R_ctl[idxs[0]],'o'); plt.plot(vv_lN[idxs[0]],'x')
-    # plt.xlabel('Bus index'); plt.ylabel('Voltage Magnitude (pu)')
-    # # plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
-    # plt.subplot(1,3,2)
-    # plt.plot(vv_0R_ctl[idxs[1]],'o'); plt.plot(vv_lN[idxs[1]],'x')
-    # plt.xlabel('Bus index'); plt.ylabel('Voltage Magnitude (pu)')
-    # # plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
-    # plt.subplot(1,3,3)
-    # plt.plot(vv_0R_ctl[idxs[2]],'o'); plt.plot(vv_lN[idxs[2]],'x')
-    # plt.xlabel('Bus index'); plt.ylabel('Voltage Magnitude (pu)')
-    # # plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
-    # plt.show()
+    plt.figure(figsize=(12,4))
+    for i in range(len(idxs)):
+        plt.subplot(1,len(idxs),i+1)
+        plt.plot(vv_0R_ctl[idxs[i]]/Yvbase_new,'o')
+        plt.plot(vv_l_ctr[idxs[i]]/Yvbase,'x')
+        plt.plot(vv_lN_ctr[idxs[i]]/Yvbase_new,'+')
+        plt.xlabel('Bus index'); 
+        plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
+        if i==0:
+            plt.ylabel('Voltage Magnitude (pu)')
+            plt.legend(('DSS, not fxd regs,','Lin fxd','Lin not fxd'))
+    plt.show()
     
