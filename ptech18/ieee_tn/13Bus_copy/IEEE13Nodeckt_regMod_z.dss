@@ -166,7 +166,10 @@ New Line.671692    Phases=3 Bus1=671r   Bus2=692  Switch=y  r1=1e-1 r0=1e-1 x1=0
 
 
 !LOAD DEFINITIONS
-New Load.671 Bus1=671.1.2.3  Phases=3 Conn=Delta Model=1 kV=4.16   kW=1155 kvar=660 
+!New Load.671 Bus1=671.1.2.3  Phases=3 Conn=Delta Model=1 kV=4.16   kW=1155 kvar=660 ! split to 3x single phase loads
+!New Load.671a Bus1=671.1.2  Phases=1 Conn=Delta Model=1 kV=4.16   kW=385 kvar=220 
+!New Load.671b Bus1=671.2.3  Phases=1 Conn=Delta Model=1 kV=4.16   kW=385 kvar=220 
+!New Load.671c Bus1=671.3.1  Phases=1 Conn=Delta Model=1 kV=4.16   kW=385 kvar=220 
 
 !New Load.634a Bus1=634.1     Phases=1 Conn=Wye  Model=1 kV=0.277  kW=160   kvar=110 
 !New Load.634b Bus1=634.2     Phases=1 Conn=Wye  Model=1 kV=0.277  kW=120   kvar=90 
@@ -176,8 +179,8 @@ New Load.634b Bus1=634r.2     Phases=1 Conn=Wye  Model=1 kV=0.277  kW=120   kvar
 New Load.634c Bus1=634r.3     Phases=1 Conn=Wye  Model=1 kV=0.277  kW=120   kvar=90 
 
 New Load.645 Bus1=645.2       Phases=1 Conn=Wye  Model=1 kV=2.4      kW=170   kvar=125 
-New Load.646 Bus1=646.2.3    Phases=1 Conn=Delta Model=2 kV=4.16    kW=230   kvar=132 
-New Load.692 Bus1=692.3.1    Phases=1 Conn=Delta Model=5 kV=4.16    kW=170   kvar=151 
+!New Load.646 Bus1=646.2.3    Phases=1 Conn=Delta Model=2 kV=4.16    kW=230   kvar=132 
+!New Load.692 Bus1=692.3.1    Phases=1 Conn=Delta Model=5 kV=4.16    kW=170   kvar=151 
 New Load.675a Bus1=675.1    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=485   kvar=190 
 New Load.675b Bus1=675.2    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=68   kvar=60 
 New Load.675c Bus1=675.3    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=290   kvar=212 
@@ -216,8 +219,11 @@ solve
 !edit transformer.regX3 enabled=false
 !edit line.regY enabled=false
 
+!edit Capacitor.Cap1 kVAR=360 !for set loadmult=0.6
+!edit Capacitor.Cap2 kVAR=60 !for set loadmult=0.6
+!set loadmult=0.6
 solve
-!plot
+!show power kvar elem
 
 !---------------------------------------------------------------------------------------------------------------------------------------------------
 !----------------Show some Results -----------------------------------------------------------------------------------------------------------------

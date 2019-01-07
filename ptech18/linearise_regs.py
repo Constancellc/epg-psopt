@@ -18,8 +18,8 @@ DSSSolution=DSSCircuit.Solution
 
 # Things to do: 
 # 1. load a circuit;
-WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-# WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+# WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 # circuit details copied from linearise_manc_py.
 fdr_i = 11

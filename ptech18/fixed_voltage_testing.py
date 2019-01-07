@@ -6,6 +6,7 @@
 # 3. reorder & remove elements as appropriate
 # 4. run continuation analysis.
 
+import getpass
 import numpy as np
 import win32com.client
 import matplotlib.pyplot as plt
@@ -20,9 +21,11 @@ import scipy.linalg as spla
 # based on monte_carlo.py
 print('Start.\n',time.process_time())
 
-FD = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc181217\\"
-WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-# WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+FD = r"C:\Users\\"+getpass.getuser()+"\Documents\DPhil\malcolm_updates\wc181217\\"
+if getpass.getuser()=='Matt':
+    WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+elif getpass.getuser()=='chri3793':
+    WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 
 DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
@@ -58,6 +61,7 @@ DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
 if lp_taps=='Lpt':
     cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
     DSSSolution.Solve()
+YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 
 DSSText.command='set controlmode=off'
 YZ = DSSCircuit.YNodeOrder
@@ -91,27 +95,30 @@ s_idx_new = np.concatenate((p_idx_new,p_idx_new+len(sY)-3))
 
 yzI = yzD2yzI(yzD,node_to_YZ(DSSCircuit))
 yzI_shf,yzI_new = idx_shf(yzI,reIdx)
+sD_idx_shf = np.concatenate((yzI_shf,yzI_shf+len(yzI_shf)))
+
+Sd = YNodeVnom[yzI]*(iD.conj())/1e3
+
+Kp = Sd[yzI_shf].real/sD[yzI_shf].real
+Kq = Sd[yzI_shf].imag/sD[yzI_shf].imag
+
+xhR = np.concatenate((xhy0[s_idx_shf],xhd0[sD_idx_shf]))
 
 YZp = vecSlc(YZ[3:],p_idx_new) # verified
-YZd = vecSlc(YZ,yzI_new) 
+YZd = vecSlc(YZ,yzI_new)
 
-regIdxPy = np.zeros((len(regIdx),len(YZp)))
+regIdxMatY = get_regIdxMatS(YZp,zoneList,np.ones(len(YZp)),np.ones(len(YZp)),len(regIdx))
+regIdxMatD = get_regIdxMatS(YZd,zoneList,Kp,Kq,len(regIdx))
 
-zoneY = []
-for yz in YZp:
-    ph = int(yz[-1])
-    for key in zoneList.keys():
-        if yz in zoneList[key]:
-            zoneY = zoneY+[key]
-zoneD = []
-for yz in YZd:
-    ph = int(yz[-1])
-    for key in zoneList.keys():
-        if yz in zoneList[key]:
-            zoneD = zoneD+[key]
-print(zoneY+zoneD)
+SregsY = regIdxMatY.dot(xhy0[s_idx_shf])/1000.
+SregsD = regIdxMatD.dot(xhd0[sD_idx_shf])/1000.
+print('Imag:',SregsY.imag)
 
-# sD_idx_shf = np.concatenate((yzI_shf,yzI_shf+len(yzI_shf)))
+Sreg = SregsY + SregsD
+print('Real:',Sreg.real)
+print('Imag:',Sreg.imag)
+print('Abs:',abs(Sreg))
+
 
 # YZv_idx = vecSlc(vecSlc(YZ[3:],v_idx),v_idx_shf)
 # KyR = Ky[v_idx_shf,:][:,s_idx_shf]
