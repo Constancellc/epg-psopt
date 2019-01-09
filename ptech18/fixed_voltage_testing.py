@@ -27,7 +27,6 @@ if getpass.getuser()=='Matt':
 elif getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
-
 DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 
 DSSText = DSSObj.Text
@@ -40,14 +39,15 @@ fdr_i = 11
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod']
 feeder=fdrs[fdr_i]
 
-k = np.around(np.arange(-1.5,1.6,0.1),5)
-k = np.around(np.arange(-1.5,1.6,0.025),5)
+k = np.arange(-1.5,1.6,0.025)
 # k = np.arange(0,1.0,1.0)
+
+fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
 fn = ckt[1]
-lin_point=0.3
+lin_point=0.6
 lp_taps='Lpt'
    
 fn_y = fn+'_y'
@@ -215,46 +215,53 @@ Yvbase = get_Yvbase(DSSCircuit)[3:][v_idx]
 Yvbase_new = get_Yvbase(DSSCircuit)[3:][v_idx_new]
 
 if test_model_plt:
-    # plt.figure()
-    # plt.plot(k,ve), plt.plot(k,veN), plt.title(feeder+', K error')
-    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    plt.figure()
+    pltA, = plt.plot(k,ve,'b')
+    pltB, = plt.plot(k,veN,'r') # plt.plot(k,veN)
+    plt.title(feeder+', K error')
+    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    plt.legend([pltA,pltB],['Lin fixed','Lin not fixed'])
+    plt.show()
+    # plt.savefig(fig_loc+'reg_off_err.png')
+    
+    plt.figure()
+    plt.plot(k,ve,'k:')
+    plt.plot(k[unSat],ve_ctl[unSat],'b') 
+    plt.plot(k[unSat],veN_ctl[unSat],'r')
+    plt.plot(k[sat],ve_ctl[sat],'b-.')
+    plt.plot(k[sat],veN_ctl[sat],'r-.')
+    plt.title(feeder+', K error')
+    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    plt.show()
+    # plt.savefig(fig_loc+'reg_on_err.png')
+    
+    krnd = np.around(k,5) # this breaks at 0.000 for the error!
+    idxs = np.concatenate( ( (krnd==-1.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.0).nonzero()[0] ) )
+    
+    # plt.figure(figsize=(12,4))
+    # for i in range(len(idxs)):
+        # plt.subplot(1,len(idxs),i+1)
+        # plt.plot(vv_0[idxs[i]]/Yvbase,'o')
+        # plt.plot(vv_l[idxs[i]]/Yvbase,'x')
+        # plt.plot(vv_lN[idxs[i]]/Yvbase,'+')
+        # plt.xlabel('Bus index'); 
+        # plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
+        # if i==0:
+            # plt.ylabel('Voltage Magnitude (pu)')
+            # plt.legend(('DSS, fxd regs,','Lin fxd','Lin not fxd'))
     # plt.show()
     
-    # plt.figure()
-    # plt.plot(k,ve,':')
-    # plt.plot(k[unSat],ve_ctl[unSat],'x-') 
-    # plt.plot(k[unSat],veN_ctl[unSat],'x-')
-    # plt.plot(k[sat],ve_ctl[sat],'x-')
-    # plt.plot(k[sat],veN_ctl[sat],'x-')
-    # plt.title(feeder+', K error')
-    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    # plt.figure(figsize=(12,4))
+    # for i in range(len(idxs)):
+        # plt.subplot(1,len(idxs),i+1)
+        # plt.title('K = '+str(krnd[idxs[i]]))
+        # plt.plot(vv_0R_ctl[idxs[i]]/Yvbase_new,'o')
+        # plt.plot(vv_lN_ctr[idxs[i]]/Yvbase_new,'*')
+        # plt.plot(vv_l_ctr[idxs[i]]/Yvbase,'x')
+        # plt.xlabel('Bus index'); 
+        # plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
+        # if i==0:
+            # plt.ylabel('Voltage Magnitude (pu)')
+            # plt.legend(('DSS, not fxd regs','Lin not fxd','Lin fxd'))
     # plt.show()
-    
-    idxs = np.concatenate( ( (k==-1.5).nonzero()[0],(k==0.1).nonzero()[0],(k==lin_point).nonzero()[0],(k==1.0).nonzero()[0] ) )
-    
-    plt.figure(figsize=(12,4))
-    for i in range(len(idxs)):
-        plt.subplot(1,len(idxs),i+1)
-        plt.plot(vv_0[idxs[i]]/Yvbase,'o')
-        plt.plot(vv_l[idxs[i]]/Yvbase,'x')
-        plt.plot(vv_lN[idxs[i]]/Yvbase,'+')
-        plt.xlabel('Bus index'); 
-        plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
-        if i==0:
-            plt.ylabel('Voltage Magnitude (pu)')
-            plt.legend(('DSS, fxd regs,','Lin fxd','Lin not fxd'))
-    plt.show()
-    
-    plt.figure(figsize=(12,4))
-    for i in range(len(idxs)):
-        plt.subplot(1,len(idxs),i+1)
-        plt.plot(vv_0R_ctl[idxs[i]]/Yvbase_new,'o')
-        plt.plot(vv_l_ctr[idxs[i]]/Yvbase,'x')
-        plt.plot(vv_lN_ctr[idxs[i]]/Yvbase_new,'+')
-        plt.xlabel('Bus index'); 
-        plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
-        if i==0:
-            plt.ylabel('Voltage Magnitude (pu)')
-            plt.legend(('DSS, not fxd regs,','Lin fxd','Lin not fxd'))
-    plt.show()
-    
+    # # plt.savefig(fig_loc+'err_exmpl.png')

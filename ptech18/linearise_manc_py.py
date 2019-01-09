@@ -9,8 +9,6 @@ import time
 from dss_python_funcs import *
 import getpass
 
-print('Start...\n',time.process_time())
-
 # ======== specify working directories
 if getpass.getuser()=='Matt':
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
@@ -92,9 +90,10 @@ DSSSolution=DSSCircuit.Solution
 DSSSolution.tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
-test_model = False
+test_model = True
 
 fdr_i = 11
+fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod']
 lp_taps='Nmt'
 lp_taps='Lpt'
@@ -111,6 +110,8 @@ fn = ckt[1]
 
 fn_y = fn+'_y'
 sn0 = WD + '\\lin_models\\' + feeder + lp_taps
+
+print('Start, feeder:',feeder,'\n',time.process_time())
 
 ve=np.zeros([k.size,lin_points.size])
 vve=np.zeros([k.size,lin_points.size])
@@ -268,8 +269,8 @@ if test_model:
     plt.figure()
     plt.plot(k,ve), plt.title(feeder+', My error'), 
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
-    plt.show()
-    # # plt.savefig('figA')
+    # plt.show()
+    plt.savefig(fig_loc+'figA')
     # plt.figure()
     # plt.plot(k,vve), plt.title(feeder+', MyV error')
     # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
