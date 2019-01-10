@@ -11,8 +11,13 @@ import scipy.ndimage
 
 step = 0.001 #
 Pmax = 1.0 # max individual charging power
-
 base = 0.0 # kW load of all unused houses
+
+
+if step == 0.01:
+    dec = 2
+elif step == 0.001:
+    dec = 3
 
 hh_A = 1 # test households
 hh_B = 54
@@ -24,7 +29,7 @@ data = '../../../Documents/simulation_results/LV/loss_model_test_map.csv'
 
 losses = {}
 for i in np.arange(0.0,Pmax+step,step):
-    losses[round(i,3)] = {}
+    losses[round(i,dec)] = {}
 
     
 with open(data,'rU') as csvfile:
@@ -34,8 +39,8 @@ with open(data,'rU') as csvfile:
         if row == []:
             continue
 
-        i = round(float(row[0]),3)
-        j = round(float(row[1]),3)
+        i = round(float(row[0]),dec)
+        j = round(float(row[1]),dec)
 
         if i > 1 or j > 1:
             continue
@@ -59,8 +64,8 @@ for i in range(len(heatmap)):
         p11 = step*i
         p12 = step*j
 
-        p21 = round(Pmax-p11,3)
-        p22 = round(Pmax-p12,3)
+        p21 = round(Pmax-p11,dec)
+        p22 = round(Pmax-p12,dec)
         try:
             heatmap[i][j] = losses[p11][p12]+losses[p21][p22]
 
@@ -215,7 +220,7 @@ plt.rcParams["font.family"] = 'serif'
 plt.rcParams['font.size'] = 8
 
 plt.subplot(1,2,1)
-x_int = len(heatmap2)/5
+x_int = len(heatmap4)/5
 ax = [0,1*x_int,2*x_int,3*x_int,4*x_int,5*x_int-1]
 
 manual_locations = [(72,393),(148,343),(218,258),(349,205)]
@@ -269,6 +274,6 @@ plt.ylim(1,len(heatmap3)-2)
 #plt.clabel(CS, inline=1, fontsize=10, manual=manual_locations)
 '''
 plt.tight_layout()
-#plt.savefig('../../../Dropbox/papers/losses/2bus.eps', format='eps', dpi=1000)
+plt.savefig('../../../Dropbox/papers/losses/img/2bus.eps', format='eps', dpi=1000)
 
 plt.show()
