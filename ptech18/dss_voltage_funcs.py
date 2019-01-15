@@ -19,13 +19,42 @@ def getRegSat(DSSCircuit):
     i = DSSCircuit.RegControls.First
     regSat = []
     while i:
-        if (DSSCircuit.RegControls.TapNumber)==16:
+        if (abs(DSSCircuit.RegControls.TapNumber))==16:
             regSat = regSat+[0]
         else:
             regSat = regSat+[1]
         i = DSSCircuit.RegControls.Next
     return regSat
+
+def getRx(DSSCircuit): # see WB 15-01-19
+    i = DSSCircuit.RegControls.First
+    R = []
+    X = []
+    while i:
+        R = R + [DSSCircuit.RegControls.ForwardR] # assume that all are just forward
+        X = X + [DSSCircuit.RegControls.ForwardX]
+        i = DSSCircuit.RegControls.Next
+    return R,X
+
+def getRegIcVr(DSSCircuit): # see WB 15-01-19
+    i = DSSCircuit.RegControls.First
+    Ic = []
+    Vr = []
+    while i:
+        Ic = Ic + [DSSCircuit.RegControls.CTPrimary]
+        Vr = Vr + [DSSCircuit.RegControls.ForwardVreg]
+        i = DSSCircuit.RegControls.Next
+    return Ic,Vr
+
+def getRxVltsMat(DSSCircuit): # see WB 15-01-19
+    i = DSSCircuit.RegControls.First
+    R,X = getRx(DSSCircuit)
+    Ic,Vr = getRegIcVr(DSSCircuit)
+    rVltsMat = np.array(R)/(np.array(Ic)*np.array(Vr))
+    xVltsMat = np.array(X)/(np.array(Ic)*np.array(Vr))
     
+    return rVltsMat,xVltsMat
+
 def get_regIdx(DSSCircuit):
     regXfmr=get_regXfmr(DSSCircuit)
     regBus = []
@@ -62,6 +91,25 @@ def kron_red(Ky,Kd,Kt,bV,Vreg):
     Kb = np.concatenate((Ky,Kd),axis=1)
     Abl = Kb[:-n]
     Arl = Kb[-n:]
+    Abt = Kt[:-n]
+    Art = Kt[-n:]
+    bVb = bV[:-n]
+    bVr = bV[-n:]
+    Anew = Abl - Abt.dot(spla.solve(Art,Arl))
+    Bnew = bVb + Abt.dot(spla.solve(Art,(Vreg - bVr)))
+    # for debugging:
+    # YvbaseReg = get_Yvbase(DSSCircuit)[3:][v_idx_new][-n:]
+    # dt = 0.1/16
+    # YZreg=YZnew[-n:]
+    # xt = spla.solve(Art,regVreg - Arl.dot(xh) - bVr)/(YvbaseReg*dt)
+    
+    return Anew, Bnew
+    
+def kron_red_ltc(Ky,Kd,Kt,bV,Vreg,KvReg):
+    n = len(Vreg)
+    Kb = np.concatenate((Ky,Kd),axis=1)
+    Abl = Kb[:-n]
+    Arl = Kb[-n:] - KvReg
     Abt = Kt[:-n]
     Art = Kt[-n:]
     bVb = bV[:-n]

@@ -126,7 +126,7 @@ def node_to_YZ(DSSCircuit):
 def get_sYsD(DSSCircuit):
     S,V,I,B,D,N = ld_vals( DSSCircuit )
     n2y = node_to_YZ(DSSCircuit)
-    V0 = tp_2_ar(DSSCircuit.YNodeVarray)*1e-3
+    V0 = tp_2_ar(DSSCircuit.YNodeVarray)*1e-3 # kV
     YZ = DSSCircuit.YNodeOrder
     iY, sY, iD, sD = calc_sYsD( YZ,B,I,V,S,D,n2y )
     H = create_Hmat(DSSCircuit)
@@ -343,7 +343,7 @@ def print_node_array(YZ,thing):
         print(YZ[i]+': '+str(thing[i]))
         
 def get_ckt(WD,feeder):
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod']
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx']
     ckts = {'feeder_name':['fn_ckt','fn']}
     ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
     ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
@@ -357,6 +357,7 @@ def get_ckt(WD,feeder):
     ckts[fdrs[9]]=[WD+'\\ieee_tn\\8500-Node_copy',WD+'\\ieee_tn\\8500-Node_copy\\Master-unbal_z']
     ckts[fdrs[10]]=[WD+'\\ieee_tn\\37Bus_copy',WD+'\\ieee_tn\\37Bus_copy\\ieee37_z_mod']
     ckts[fdrs[11]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_regMod_z']
+    ckts[fdrs[12]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_regModRx_z']
     return ckts[feeder]
 
 def loadLinMagModel(feeder,lin_point,WD,lp_taps):
