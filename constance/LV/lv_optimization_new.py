@@ -26,49 +26,29 @@ _ I also want to delete the code that I think is unnecessary.
 
 class LVTestFeeder:
 
-    def __init__(self):
-        self.hh = None
-        
-        profiles = []
-        for i in range(55):
-            profiles.append([0.0]*1440)
-        self.ev = profiles
+    def __init__(self,folderPath):
 
-        # might as well get the loss model coefficients now
-        self.P0 = matrix(0.0,(55,55))
-        with open('P.csv','rU') as csvfile:
+        with open(folderPath+'/c.csv','rU') as csvfile:
+            reader = csv.reader(csvfile)
+            for row in reader:
+                self.c = float(row[0])
+
+        self.q0 = []
+        with open(folderPath+'/q.csv','rU') as csvfile:
+            reader = csv.reader(csvfile)
+            for row in reader:
+                self.q0.append(float(row[0]))
+
+        self.hh = len(self.q0)
+        
+        self.P0 = matrix(0.0,(self.hh,self.hh))
+        with open(folderPath'/P.csv','rU') as csvfile:
             reader = csv.reader(csvfile)
             i = 0
             for row in reader:
                 for j in range(len(row)):
                     self.P0[i,j] += float(row[j])
-                i += 1
-
-        self.q0 = []
-        with open('q.csv','rU') as csvfile:
-            reader = csv.reader(csvfile)
-            for row in reader:
-                self.q0.append(float(row[0]))
-
-        with open('c.csv','rU') as csvfile:
-            reader = csv.reader(csvfile)
-            for row in reader:
-                self.c = float(row[0])
-
-        self.M0 = matrix(0.0,(55,55))
-        with open('M_.csv','rU') as csvfile:
-            reader = csv.reader(csvfile)
-            i = 0
-            for row in reader:
-                for j in range(len(row)):
-                    self.M0[i,j] += float(row[j])
-                i += 1
-
-        self.a0 = []
-        with open('a_.csv','rU') as csvfile:
-            reader = csv.reader(csvfile)
-            for row in reader:
-                self.a0.append(float(row[0]))      
+                i += 1    
 
     def set_households(self,profiles):
         self.hh = profiles
@@ -79,7 +59,7 @@ class LVTestFeeder:
             for i in range(55):
                 self.x_h.append(-profiles[i][t]*1000)
                 self.base[t] += profiles[i][t]
-
+                
     def set_evs(self,vehicles):
         # n foorm [kWh,departure,arrival]
         self.nV = len(vehicles)
@@ -102,6 +82,73 @@ class LVTestFeeder:
                 self.times[-1][0] = self.times[-1][1]-60
             
         self.n = len(self.b)
+
+    def set_MEA(self,folderPath,weekday=True,weekend=False):
+        # day 4 is a Monday
+        # day 7 and 0 are Thursdays
+        # max day is 253
+
+        # ok, if we are concerned with weekends
+        days = []
+        for day in range(253):
+            if day%7 not in [2,3] and weekday == True:
+                days.append(day)
+            elif day%7 in [2,3] and weekend == True:
+                days.append(day)
+
+        vehicles = ['000','001','002','003','004','005','006','007','009',
+                    '010','011','012','013','014','018','019','020','021',
+                    '022','023','027','028','029','030','031','032','034',
+                    '035','036','037','038','039','041','042','043','044',
+                    '045','046','047','048','049','050','052','053','054',
+                    '055','056','057','058','059','060','061','062','063',
+                    '064','065','066','067','068','069','070','071','072',
+                    '073','074','075','076','077','078','079','080','081',
+                    '082','083','084','085','086','087','090','091','092',
+                    '093'.'094','096','097','098','099','100','101','102',
+                    '103','104','105','106','107','108','110','111','112',
+                    '113','114']
+
+        chosen = []
+        while len(chosen) < self.hh:
+            ran = int(random.random()*len(vehicles))
+            if vehicles[ran] not in chosen:
+                chosen.append(vehicles[ran])
+
+        # when it comes to variation I need to think about both variation
+        # between vehicles and variation over time. For now I don't care
+        chosenDay = days[int(random.random()*len(days))]
+
+        empty = True
+
+        # I GOT TO HERE!!!
+
+        # Hit a problem: what to do with multiple charges?
+
+        v_req = []
+        for v in chosenV:
+            charges = []
+            kWh = 0
+            start = 0
+            end = 1
+            with open(folderPath+v+'.csv','rU') as csvfile:
+                reader = csv.reader(csvfile)
+                next(reader)
+                for row in reader:
+                    if int(row[0]) == day:
+                        charges.append(row[1:4])
+            for c in charges:
+                kWh += 
+            if len(charges) == 1:
+                kWh = charges[0][3]
+                start = charges[0][1]
+                needed = charges[0][2]
+            elif len(charges) > 1:
+                for c in charges:
+                    kWh += cahrg
+                
+
+        
 
     def uncontrolled(self,power):
         profiles = []
