@@ -364,12 +364,12 @@ def get_ckt(WD,feeder):
 def loadLinMagModel(feeder,lin_point,WD,lp_taps):
     # lp_taps either 'Nmt' or 'Lpt'.
     stt = WD+'\\lin_models\\'+feeder+lp_taps
-    end = str(np.round(lin_point*100).astype(int)).zfill(3)+'.txt'
-    Ky = np.loadtxt(stt+'Ky'+end)
-    Kd = np.loadtxt(stt+'Kd'+end)
-    Kt = np.loadtxt(stt+'Kt'+end)
-    bV = np.loadtxt(stt+'bV'+end)
-    xhy0 = np.loadtxt(stt+'xhy0'+end)
-    xhd0 = np.loadtxt(stt+'xhd0'+end)
+    end = str(np.round(lin_point*100).astype(int)).zfill(3)+'.npy'
+    Ky = np.load(stt+'Ky'+end)
+    Kd = np.load(stt+'Kd'+end)
+    Kt = np.load(stt+'Kt'+end)
+    bV = np.load(stt+'bV'+end)
+    xhy0 = np.load(stt+'xhy0'+end)
+    xhd0 = np.load(stt+'xhd0'+end)
     return Ky, Kd, Kt, bV, xhy0, xhd0
 

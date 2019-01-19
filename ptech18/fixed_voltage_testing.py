@@ -34,13 +34,13 @@ DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
-test_model_plt = False
-fdr_i = 12
+test_model_plt = True
+fdr_i = 11
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx']
 feeder=fdrs[fdr_i]
 
 k = np.arange(-1.5,1.6,0.025)
-k = np.arange(0,1.0,1.0)
+# k = np.arange(0,1.0,1.0)
 
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 
@@ -243,8 +243,8 @@ if test_model_plt:
     plt.plot(k,ve,'k:')
     plt.plot(k[unSat],ve_ctl[unSat],'b') 
     plt.plot(k[unSat],veN_ctl[unSat],'r')
-    plt.plot(k[sat],ve_ctl[sat],'b-.')
-    plt.plot(k[sat],veN_ctl[sat],'r-.')
+    plt.plot(k[sat],ve_ctl[sat],'b.')
+    plt.plot(k[sat],veN_ctl[sat],'r.')
     plt.title(feeder+', K error')
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     plt.show()
