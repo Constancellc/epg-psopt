@@ -33,3 +33,4 @@ ptech18/datasets/california_residential_pv.xlsx
 ptech18/datasets/california_residential_pv.csv
 ptech18/lin_models/eulvKy100.npy
 ptech18/lin_models/
+ptech18/manchester_models/batch_manc_ntwx/

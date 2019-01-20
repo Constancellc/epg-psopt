@@ -35,7 +35,8 @@ fn_ckt = ckt[0]
 fn = ckt[1]
 lp_taps='Lpt'
 
-sn0 = WD + '\\lin_models\\' + feeder + lp_taps
+dir0 = WD + '\\lin_models\\' + feeder
+sn0 = dir0 + '\\' + feeder + lp_taps
 test_model = False
 
 lin_points = np.array([0.3, 0.6, 1.0])
@@ -86,6 +87,8 @@ for i in range(len(lin_points)):
         
     lp_str = str(round(lin_point*100).astype(int)).zfill(3)
     header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
+    if not os.path.exists(dir0):
+        os.makedirs(dir0)
     np.savetxt(sn0+'header'+lp_str+'.txt',[0],header=header_str)
     np.save(sn0+'Kt'+lp_str+'.npy',dVdt)
     if test_model:

@@ -24,24 +24,27 @@ DSSSolution=DSSCircuit.Solution
 DSSSolution.tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
-test_model = False
+test_model = True
 fdr_i = 11
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','usLv']; lp_taps='Nmt'
+feeder=fdrs[fdr_i]
+feeder='151'
 lp_taps='Lpt'
 
 lin_points=np.array([0.3,0.6,1.0])
-# lin_points=np.array([0.6])
+lin_points=np.array([0.6])
 k = np.arange(-1.5,1.6,0.1)
 # k = np.array([-0.5,0,0.5,1.0,1.5])
 
-feeder=fdrs[fdr_i]
+
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
 fn = ckt[1]
 
 fn_y = fn+'_y'
-sn0 = WD + '\\lin_models\\' + feeder + lp_taps
+dir0 = WD + '\\lin_models\\' + feeder
+sn0 = dir0 + '\\' + feeder + lp_taps
 
 print('Start, feeder:',feeder,'\n',time.process_time())
 
@@ -166,12 +169,12 @@ for K in range(len(lin_points)):
             sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
             xhy = -1e3*s_2_x(sY[3:])
             
-            Vslv[i,:] = fixed_point_solve(Ybus,v_0[i,:],-1e3*sY[3:],-1e3*sD,H)
+            # Vslv[i,:] = fixed_point_solve(Ybus,v_0[i,:],-1e3*sY[3:],-1e3*sD,H)
             
             if len(H)==0:
-                v_l[i,:] = My.dot(xhy) + a
+                # v_l[i,:] = My.dot(xhy) + a
                 vv_l[i,:] = MyV.dot(xhy[s_idx]) + aV
-                va_l[i,:] = Ky.dot(xhy) + b
+                # va_l[i,:] = Ky.dot(xhy) + b
                 vva_l[i,:] = KyV.dot(xhy[s_idx]) + bV
             else:
                 xhd = -1e3*s_2_x(sD) # not [3:] like sY
@@ -180,16 +183,18 @@ for K in range(len(lin_points)):
                 va_l[i,:] = Ky.dot(xhy) + Kd.dot(xhd) + b
                 vva_l[i,:] = KyV.dot(xhy[s_idx]) + KdV.dot(xhd) + bV
 
-            ve[i,K] = np.linalg.norm( (v_l[i,:] - v_0[i,3:])/Yvbase )/np.linalg.norm(v_0[i,3:]/Yvbase)
+            # ve[i,K] = np.linalg.norm( (v_l[i,:] - v_0[i,3:])/Yvbase )/np.linalg.norm(v_0[i,3:]/Yvbase)
             vve[i,K] = np.linalg.norm( (vv_l[i,:] - vv_0[i,:])/YvbaseV )/np.linalg.norm(vv_0[i,:]/YvbaseV)
-            vae[i,K] = np.linalg.norm( (va_l[i,:] - va_0[i,3:])/Yvbase )/np.linalg.norm(va_0[i,3:]/Yvbase)
+            # vae[i,K] = np.linalg.norm( (va_l[i,:] - va_0[i,3:])/Yvbase )/np.linalg.norm(va_0[i,3:]/Yvbase)
             vvae[i,K] = np.linalg.norm( (vva_l[i,:] - vva_0[i,:])/YvbaseV )/np.linalg.norm(vva_0[i,:]/YvbaseV)
-            DVslv_e[i,K] = np.linalg.norm( (Vslv[i,:] - v_0[i,3:]) )/np.linalg.norm(v_0[i,3:])
+            # DVslv_e[i,K] = np.linalg.norm( (Vslv[i,:] - v_0[i,3:]) )/np.linalg.norm(v_0[i,3:])
             
             # plt.plot(abs(v_l[i]/Yvbase),'rx-')
             # plt.plot(abs(v_0[i,3:]/Yvbase),'ko-')
     header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
     lp_str = str(round(lin_point*100).astype(int)).zfill(3)
+    if not os.path.exists(dir0):
+        os.makedirs(dir0)
     np.savetxt(sn0+'header'+lp_str+'.txt',[0],header=header_str)
     np.save(sn0+'Ky'+lp_str+'.npy',KyV)
     np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx])
@@ -200,28 +205,28 @@ for K in range(len(lin_points)):
 print('Complete.\n',time.process_time())
 
 if test_model:
-    plt.figure()
-    plt.plot(k,ve), plt.title(feeder+', My error'), 
-    plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
-    plt.show()
-    # plt.savefig(fig_loc+'figA')
     # plt.figure()
-    # plt.plot(k,vve), plt.title(feeder+', MyV error')
+    # plt.plot(k,ve), plt.title(feeder+', My error'), 
     # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     # plt.show()
-    # # # plt.savefig('figB')
+    # # plt.savefig(fig_loc+'figA')
     plt.figure()
-    plt.plot(k,vae), plt.title(feeder+', Ky error')
+    plt.plot(k,vve), plt.title(feeder+', MyV error')
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     plt.show()
-    # # plt.savefig('figC')
+    # plt.savefig('figB')
     # plt.figure()
-    # plt.plot(k,vvae), plt.title(feeder+', KyV error')
+    # plt.plot(k,vae), plt.title(feeder+', Ky error')
     # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     # plt.show()
-    # # plt.savefig('figD')
+    # # # plt.savefig('figC')
     plt.figure()
-    plt.plot(k,DVslv_e), plt.title(feeder+', DVslv error')
+    plt.plot(k,vvae), plt.title(feeder+', KyV error')
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     plt.show()
-    # plt.savefig('figE')
+    # plt.savefig('figD')
+    # plt.figure()
+    # plt.plot(k,DVslv_e), plt.title(feeder+', DVslv error')
+    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    # plt.show()
+    # # plt.savefig('figE')

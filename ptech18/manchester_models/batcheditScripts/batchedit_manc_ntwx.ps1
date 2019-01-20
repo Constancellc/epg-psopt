@@ -25,6 +25,10 @@ $load_str_copy = $load_str -replace ' Daily=Shape_\d*', ''
 # ASCII seems to encode as utf8 rather than ascii ['utf8' argument encodes as utf8 BOM]:
 $load_str_copy | out-file "Loads - Copy.txt" -encoding ASCII 
 
+$xfmr_str = Get-Content .\Transformers.txt
+$xfmr_str_copy = $xfmr_str -replace 'SourceBus', 'SourceBus_y'
+$xfmr_str_copy | out-file "Transformers_y.txt" -encoding ASCII 
+
 cd ..
 }
 

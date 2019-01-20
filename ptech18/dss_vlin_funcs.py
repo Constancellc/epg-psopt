@@ -31,7 +31,7 @@ def nrel_linearization(Ybus,Vh,V0,H):
 def nrel_linearization_My(Ybus,Vh,V0):
     Yll = Ybus[3:,3:].tocsc()
     Yl0 = Ybus[3:,0:3].tocsc()
-    a = spla.spsolve(Yll,Yl0.dot(-V0)).toarray()
+    a = spla.spsolve(Yll,Yl0.dot(-V0))
     Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) )
     My_i = Vh_diag.dot(Yll)
     My_0 = spla.inv(My_i.tocsc())
@@ -41,7 +41,7 @@ def nrel_linearization_My(Ybus,Vh,V0):
 def nrel_linearization_Ky(My,Vh,sY):
     Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) )
     Vhai_diag = sparse.dia_matrix( (np.ones(len(Vh))/abs(Vh),0),shape=(len(Vh),len(Vh)) )
-    Ky = Vhai_diag.dot( Vh_diag.dot(My).real ).toarray()
+    Ky = Vhai_diag.dot( Vh_diag.dot(My).real )
     b = abs(Vh) - Ky.dot(-1e3*s_2_x(sY[3:]))
     return Ky, b
 

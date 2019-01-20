@@ -1,11 +1,12 @@
 clear
 new circuit.network1
 
-Edit Vsource.Source BasekV=11 pu=1.00  ISC3=3000  ISC1=2500 bus1=sourcebus_0
+!Edit Vsource.Source BasekV=11 pu=1.00  ISC3=3000  ISC1=2500
+Edit Vsource.Source BasekV=11 pu=1.00  ISC3=3000000  ISC1=2500000
 Redirect LineCode.txt
+Redirect Transformers_y.txt
 !Redirect LoadShapes.txt
 Redirect Lines.txt
-Redirect Transformers.txt
 !Redirect "Loads - Copy.txt"
 Redirect Monitors.txt
 

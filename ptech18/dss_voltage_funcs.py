@@ -208,7 +208,7 @@ def get_regZneIdx(DSSCircuit):
     regIdx = []
     for yzReg in yzRegIdx:
         regIdx = regIdx+yzReg
-    QWE = sum(np.concatenate(yzRegIdx))
+    # QWE = sum(np.concatenate(yzRegIdx))
     chk = len(YZ)*((len(YZ)-1)//2)
     
     return zoneList, regIdx, zoneTree
