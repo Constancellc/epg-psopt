@@ -121,6 +121,3 @@ plot(t,abs(cf2));
 subplot(122);
 plot(t,angle(cf1)); hold on;
 plot(t,angle(cf2));
-
-
-

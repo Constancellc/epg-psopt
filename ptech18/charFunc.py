@@ -25,8 +25,6 @@ g3 = rnd.gamma(k[3],th[3],Nmc)*(rnd.randint(1,intmax+1,Nmc)>intgt)
 
 gD = mults[0]*g0 + mults[1]*g1 + mults[2]*g2 + mults[3]*g3
 
-plt.hist(gD,bins=1000,density=True,histtype='step',stacked=True); plt.show()
-
 t = np.linspace(-100,100,int(1e3 + 1),dtype=complex)
 
 cf0 = cf(k[0],th[0],t,mults[0],dgnW);
@@ -36,20 +34,24 @@ cf3 = cf(k[3],th[3],t,mults[3],dgnW);
 cf_tot = cf0*cf1*cf2*cf3
 
 dt = np.diff(t)[0]
-dx = 1/(max(t) - min(t))
+dx = np.real(1/(max(t) - min(t)))
 N = len(t)
 
-gDnew = np.fft.fftshift(np.fft.ifft(cf_tot))/(2*np.pi*dx)
-
+gDnew = abs(np.fft.fftshift(np.fft.ifft(cf_tot)))/(2*np.pi*dx)
 
 x = -dx*np.arange(-N/2,N/2)*(2*np.pi)
 
-plt.plot(x,abs(gDnew)/dx)
-plt.hist(x,gD,bins=1000,density=True,stacked=True)
-plt.plot(x,abs(gDnew)/dx)
+hist = plt.hist(gD,bins=1000,density=True)
+histx = hist[1][:-1]
+histy = hist[0]
+
+dnx = x[0] - x[1]
+dhx = histx[1] - histx[0]
+
+plt.close()
+plt.figure
+plt.plot(histx,histy)
+plt.plot(x,gDnew)
+plt.xlim([-10,10])
 plt.show()
-
-
-# plt.plot(t,abs(cf0)); plt.show()
-
 
