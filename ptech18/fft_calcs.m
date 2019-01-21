@@ -68,7 +68,8 @@ plot(t,angle([CFGa(N+1:end),CFGa(1:N)]))
 % plot(t,abs(CFGa))
 % subplot(122)
 % plot(t,angle(CFGa))
-%% Difference of two gamma distributions with different parameters.
+
+%% Difference of four gamma distributions with different parameters.
 % gamma distrbution: https://en.wikipedia.org/wiki/Gamma_distribution
 mults = [1,-1,2.5,-0.5];
 k = [2,2,0.9,1.5]; % shape parameter
@@ -89,14 +90,13 @@ g4 = gamrnd(k(4),th(4),Nmc,1).*(randi([1,intmax],Nmc,1)>intgt);
 gD = mults(1)*g1 + mults(2)*g2 + mults(3)*g3 + mults(4)*g4;
 
 figure;
-% subplot(121);
 histogram(gD,3000,'Normalization','pdf'); hold on;
 xlabel('x'); ylabel('p(x)');
 xlim([-20,20]); grid on;
 
 t= linspace(-100,100,1e3 + 1);
 N = length(t);
-cf = @(k,th,t,a,dgn) ((1 - th*1i*t*a).^(-k))*dgn + (1-dgn); % dx required to scale correctly
+cf = @(k,th,t,a,dgn) ((1 - th*1i*t*a).^(-k))*dgn + (1-dgn);
 
 cf1 = cf(k(1),th(1),t,mults(1),dgnW);
 cf2 = cf(k(2),th(2),t,mults(2),dgnW);
