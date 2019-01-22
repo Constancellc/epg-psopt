@@ -11,20 +11,33 @@ if getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 def cf(k,th,t,a,dgn):
-    charFunc = ((1 - th*1j*t*a)**(-k))*dgn + (1-dgn);
-    return charFunc
+    charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn) # negation of t: see 'definition' in CF wiki
+    return charFuncNeg
 
-# mults = [1,-1,2.5,-0.5]
-# k = [2,2,0.9,1.5] # shape
-# th = [0.15,0.65,1,0.8]
-
-intgt = 5
+intgt = 9
 intmax = 10
 dgn = 1 - (intgt/intmax) # only this percentage of loads are installed.
 Nmc = int(3e5)
-iKtot = 12
+iKtot = 25
 dVpu = 1e-4;
 DVpu = 0.3;
+
+# Nmc = int(1e6)
+# mults = [1,-1,2.5,-0.5]
+# # mults = [-1.5,-1,-0.5,-0.25]
+# # mults = [1.5,1,0.5,0.25]
+# k = [2,2,0.9,1.5] # shape
+# th = [0.15,0.65,1,0.8]
+# dx = 1e-1;
+# Dx = 50.0;
+
+# # # to verify with WFA:
+# # cf0 = cf(1.,1.,t,1.,1.)
+# # plt.subplot(121)
+# # plt.plot(t,cf0.real)
+# # plt.subplot(122)
+# # plt.plot(t,cf0.imag)
+# # plt.show()
 
 # g0 = rnd.gamma(k[0],th[0],Nmc)*(rnd.randint(1,intmax+1,Nmc)>intgt)
 # g1 = rnd.gamma(k[1],th[1],Nmc)*(rnd.randint(1,intmax+1,Nmc)>intgt)
@@ -33,7 +46,10 @@ DVpu = 0.3;
 
 # gD = mults[0]*g0 + mults[1]*g1 + mults[2]*g2 + mults[3]*g3
 
-# t = np.linspace(-100,100,int(1e3 + 1),dtype=complex)
+# tmax = np.pi/dx # see WB 22-1-19
+# Nt = int(Dx/dx)
+
+# t = np.linspace(-tmax,tmax,int(Nt + 1))
 
 # cf0 = cf(k[0],th[0],t,mults[0],dgn);
 # cf1 = cf(k[1],th[1],t,mults[1],dgn);
@@ -41,20 +57,13 @@ DVpu = 0.3;
 # cf3 = cf(k[3],th[3],t,mults[3],dgn);
 # cf_tot = cf0*cf1*cf2*cf3
 
-# dt = np.diff(t)[0]
-# dx = np.real(1/(max(t) - min(t)))
-# N = len(t)
+# gDnew = abs(np.fft.fftshift(np.fft.ifft(cf_tot)))/dx
 
-# gDnew = abs(np.fft.fftshift(np.fft.ifft(cf_tot)))/(2*np.pi*dx)
-
-# x = -dx*np.arange(-N/2,N/2)*(2*np.pi)
+# x = dx*np.arange(-Nt/2,Nt/2 + 1)
 
 # hist = plt.hist(gD,bins=1000,density=True)
 # histx = hist[1][:-1]
 # histy = hist[0]
-
-# dnx = x[0] - x[1]
-# dhx = histx[1] - histx[0]
 
 # plt.close()
 # plt.figure
@@ -68,7 +77,6 @@ DVpu = 0.3;
 # 2. Choose bus; distribution
 # 3. Calculate distribution
 # 4. Run MC analysis
-
 
 # 1. 
 fdr_i = 5
@@ -95,7 +103,7 @@ xhy0rnd = ld2mean*rndI*np.round(xhy0[:xhy0.shape[0]//2]/rndI)
 xhd0rnd = ld2mean*rndI*np.round(xhd0[:xhd0.shape[0]//2]/rndI)
 k = 2.0;  # choose the same for all
 
-Th = -np.concatenate((xhy0rnd,xhd0rnd))/k # negative so that the pds are positive.
+Th = -np.concatenate((xhy0rnd,xhd0rnd))/k # negative, so that the pds are positive (generation)
 
 x = np.linspace(0,max(Th)*5,int(1e4))
 # t = np.linspace(-1e5,1e5,int(1e4 + 1))
@@ -106,11 +114,7 @@ Nt = DVpu/dVpu
 t = np.linspace(-tmax,tmax,int(Nt + 1))
 
 i = 0
-
 cfI = np.zeros((len(Th),len(t)),dtype='complex')
-
-# ax0=plt.subplot(121)
-# ax1 = plt.subplot(122)
 
 cfTot = np.ones((len(t)),dtype='complex')
 gD = np.ones((Nmc))*b0[iKtot]
@@ -119,13 +123,13 @@ t0=time.process_time()
 print('Start MC:',t0)
 for th in Th:
     gI = rnd.gamma(k,th,Nmc)*(rnd.randint(1,intmax+1,Nmc)>intgt)
-    gD = gD - Ktot[iKtot,i]*gI
+    gD = gD + Ktot[iKtot,i]*gI
     i+=1
 
 print('Complete; run DFT:',time.process_time())
 i=0
 for th in Th:
-    cfI[i,:] = cf(k,th,t,-Ktot[iKtot,i],dgn);
+    cfI[i,:] = cf(k,th,t,Ktot[iKtot,i],dgn);
     # ax0.plot(t,abs(cfI[i,:]))
     # ax1.plot(t,np.angle(cfI[i,:])*180/np.pi)
     cfTot = cfTot*cfI[i,:]
@@ -142,10 +146,12 @@ for th in Th:
 # plt.plot(t,np.angle(cfTot)*180/np.pi)
 # plt.show()
 
-dV = np.real(1/(max(t) - min(t)))
-vDnew = abs(np.fft.fftshift(np.fft.ifft(cfTot)))/(2*np.pi*dV)
+dV = np.pi/tmax
+vDnew = abs(np.fft.fftshift(np.fft.ifft(cfTot)))*vBase[iKtot]/dV
 N = len(t)
-V = -dV*np.arange(-N/2,N/2)*(2*np.pi)
+V = dV*np.arange(-N/2,N/2)
+Vpu = (b0[iKtot]+V)/vBase[iKtot]
+
 v0 = b0[iKtot]/vBase[iKtot]
 print('Complete.',time.process_time())
 
@@ -155,7 +161,7 @@ histy = hist[0]
 plt.close()
 plt.plot(histx,histy)
 
-plt.plot((b0[iKtot]+V)/vBase[iKtot],vDnew*vBase[iKtot])
+plt.plot(Vpu,vDnew)
 
 plt.xlim((0.90,1.1))
 ylm = plt.ylim()

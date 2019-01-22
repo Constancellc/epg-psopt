@@ -27,8 +27,8 @@ if getpass.getuser()=='Matt':
 elif getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
-DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 
+DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText = DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution = DSSCircuit.Solution

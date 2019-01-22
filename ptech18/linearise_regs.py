@@ -26,7 +26,7 @@ elif getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 # circuit details copied from linearise_manc_py.
-fdr_i = 5
+fdr_i = 12
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx']
 feeder=fdrs[fdr_i]
 ckt=get_ckt(WD,feeder)
@@ -95,7 +95,7 @@ for i in range(len(lin_points)):
         print(lin_point)
         plt.xlabel('Bus id'), plt.ylabel('dVdt'), plt.grid(True)
         plt.plot(dVdt), plt.grid(True), plt.show()
-
+    
 
 # # for debugging
 # YZ = DSSCircuit.YNodeOrder

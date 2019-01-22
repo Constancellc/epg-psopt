@@ -25,18 +25,17 @@ DSSSolution.tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
 test_model = False
-fdr_i = 5
+fdr_i = 12
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','usLv']; lp_taps='Nmt'
-feeder='151'
+feeder='041'
 feeder=fdrs[fdr_i]
 lp_taps='Lpt'
 
 lin_points=np.array([0.3,0.6,1.0])
-# lin_points=np.array([0.6])
+lin_points=np.array([0.6])
 k = np.arange(-1.5,1.6,0.1)
 # k = np.array([-0.5,0,0.5,1.0,1.5])
-
 
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
@@ -127,6 +126,7 @@ for K in range(len(lin_points)):
     p_idx = np.array(sY[3:].nonzero())
     s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)[0]
 
+    
     MyV = My[v_idx,:][:,s_idx]
     aV = a[v_idx]
     KyV = Ky[v_idx,:][:,s_idx]
@@ -236,3 +236,23 @@ if test_model:
     # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     # plt.show()
     # # plt.savefig('figE')
+
+saveCc = False
+if saveCc:
+    MyCC = My[:,s_idx]
+    xhyCC = xhy0[s_idx]
+    aCC = a
+    V0CC = V0
+    YbusCC = Ybus
+
+    dirCC = WD + '\\lin_models\\ccModels\\' + feeder
+    snCC = dirCC + '\\' + feeder + lp_taps
+
+    if not os.path.exists(dirCC):
+        os.makedirs(dirCC)
+
+    np.save(snCC+'MyCc'+lp_str+'.npy',MyCC)
+    np.save(snCC+'xhyCc'+lp_str+'.npy',xhyCC)
+    np.save(snCC+'aCc'+lp_str+'.npy',aCC)
+    np.save(snCC+'V0Cc'+lp_str+'.npy',V0CC)
+    np.save(snCC+'YbusCc'+lp_str+'.npy',YbusCC)

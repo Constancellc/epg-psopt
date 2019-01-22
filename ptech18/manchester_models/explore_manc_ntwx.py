@@ -17,6 +17,8 @@ DSSC = DSSObj.ActiveCircuit
 
 if getpass.getuser()=='Matt':
     WD=r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18\manchester_models\batch_manc_ntwx"
+elif getpass.getuser()=='chri3793':
+    WD=r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18\manchester_models\batch_manc_ntwx"
 
 TP = []; TL = []; MxV = []; MnV = []; NL = []; Ntwk = []; Fdr = []
 
@@ -53,10 +55,14 @@ for ntwk in np.unique(Ntwk):
 
 plt.show()
     
+    
+
 # plt.plot(NL[Ntwk=='network_5']); plt.show()
 
-
-
-
-
-
+plt.plot(TL.real/abs(TP)); plt.show()
+# For conversion:
+iVals = [63,116,57,36,72,97]
+print(Ntwk[iVals])
+print(Fdr[iVals])
+# Therefore, from hi(ish) to low:
+feeders=['024','074','193','162','213','041']
