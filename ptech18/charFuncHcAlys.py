@@ -9,17 +9,18 @@ import time
 
 if getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
-
+elif getpass.getuser()=='Matt':
+    WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
 def cf(k,th,t,a,dgn):
     charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
     return charFuncNeg
 
-intgt = 5
+intgt = 9
 intmax = 10
 dgn = 1 - (intgt/intmax) # only this percentage of loads are installed.
-dVpu = 1e-3; # This has to be quite big (over 1e-6) to get reasonable answers for i = 0:5.
-# DVpu = 0.26;
-DVpu = 0.1;
+dVpu = 1e-5; # Tmax prop. 1/dVpu. This has to be quite big (over 1e-6) to get reasonable answers for i = 0:5.
+dVpu = 1.0*1e-5; # Tmax prop. 1/dVpu. This has to be quite big (over 1e-6) to get reasonable answers for i = 0:5.
+DVpu = 0.15; # Nt = DVpu/dVpu.
 fdr_i = 5
 iKtot = 12
 
@@ -44,6 +45,7 @@ b0 = Ky.dot(xhy0) + Kd.dot(xhd0) + bV
 KyP = Ky[:,:Ky.shape[1]//2]
 KdP = Kd[:,:Kd.shape[1]//2]
 Ktot = np.concatenate((KyP,KdP),axis=1)
+Ktot[abs(Ktot)<1e-9]=0
 
 # NB: mean of gamma distribution is k*th.
 rndI = 1e4
@@ -56,26 +58,24 @@ Nt = int(DVpu/dVpu)
 vDnew = np.zeros((len(Ktot),int(Nt+1)))
 Vpu = np.zeros((len(Ktot),int(Nt+1)))
 
+cfTot = np.ones((len(Ktot),Nt+1),dtype='complex')
+
+Tscale = 2e4*np.linalg.norm(Ktot,axis=1)
+
+Tmax = np.pi/(Tscale*vBase*dVpu) # see WB 22-1-19
+dV = np.pi/Tmax
 for i in range(len(Ktot)):
-    tmax = np.pi/(vBase[i]*dVpu) # see WB 22-1-19
-    t = np.linspace(-tmax,tmax,int(Nt + 1))
-
-    cfI = np.zeros((len(Th),len(t)),dtype='complex')
-
-    cfTot = np.ones((len(t)),dtype='complex')
-
-    print('Run DFT:',time.process_time())
+    t = np.linspace(-Tmax[i],Tmax[i],int(Nt + 1))
     j=0
     for th in Th:
-        cfI[j,:] = cf(k,th,t,Ktot[i,j],dgn);
-        cfTot = cfTot*cfI[j,:]
+        cfJ = cf(k,th,t,Ktot[i,j],dgn);
+        cfTot[i,:] = cfTot[i,:]*cfJ
         j+=1
-
-    dV = np.pi/tmax
-    vDnew[i,:] = abs(np.fft.fftshift(np.fft.ifft(cfTot)))*vBase[i]/dV
+    print('Calc DFT:',time.process_time())
+    vDnew[i,:] = abs(np.fft.fftshift(np.fft.ifft(cfTot[i,:])))*vBase[i]/dV[i]
     
     v0 = b0[i]/vBase[i]
-    Vpu[i,:] = (dV*np.arange(-Nt//2,Nt//2 + 1) + b0[i])/vBase[i]
+    Vpu[i,:] = (dV[i]*np.arange(-Nt//2,Nt//2 + 1) + b0[i])/vBase[i]
     # plt.plot((b0[i]+V)/vBase[i],vDnew[i,:])
     
 print('Complete.',time.process_time())
@@ -91,10 +91,9 @@ print('Complete.',time.process_time())
 
 iPlt = 0
 
-# vDnewSum = sum(vDnew.T)/(vBase[i]/dV)
+vDnewSumEr = ((sum(vDnew.T)/(vBase/dV)) - 1)*100 # normalised (%)
 vDnewSum = sum(vDnew.T)
-print(vDnewSum)
-vDnewCs = np.cumsum(vDnew,axis=1)/(vBase[0]/(dV))
+print('Checksum: sum of PDFs:',vDnewSumEr)
 # plt.plot(vDnewSum); plt.show()
 vDnewCdf = np.cumsum(vDnew,axis=1).T/vDnewSum.T
 # plt.plot(Vpu.T,vDnewCdf); plt.show()
@@ -132,8 +131,11 @@ plt.plot(xlm,[0.95,0.95],'r--')
 plt.xlim(xlm)
 plt.show()
 
+plt.subplot(121)
+t = np.linspace(-Tmax[0],Tmax[0],Nt+1)
+plt.plot(t,abs(cfTot[0,:]))
+plt.subplot(122)
+t = np.linspace(-Tmax[20],Tmax[20],Nt+1)
+plt.plot(t,abs(cfTot[20,:])); plt.show()
 
-# vDnewCs = np.cumsum(vDnew,axis=1)/(vBase[0]/(dV))
-# plt.plot((b0[0]-V)/vBase[0],vDnewCs[0,:]); plt.show() # note -ve on V
 
-# plt.boxplot(vDnew.T); plt.show()

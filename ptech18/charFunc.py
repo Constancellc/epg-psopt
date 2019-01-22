@@ -9,12 +9,13 @@ import time
 
 if getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
-
+elif getpass.getuser()=='Matt':
+    WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
 def cf(k,th,t,a,dgn):
     charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn) # negation of t: see 'definition' in CF wiki
     return charFuncNeg
 
-intgt = 9
+intgt = 4
 intmax = 10
 dgn = 1 - (intgt/intmax) # only this percentage of loads are installed.
 Nmc = int(3e5)
