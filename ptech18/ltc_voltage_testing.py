@@ -69,7 +69,8 @@ YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 DSSText.command='set controlmode=off'
 YZ = DSSCircuit.YNodeOrder
 
-Ky,Kd,Kt,bV,xhy0,xhd0 = loadLinMagModel(feeder,lin_point,WD,lp_taps)
+LM = loadLinMagModel(feeder,lin_point,WD,lp_taps)
+Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
 
 # 2. Split the model into upstream/downstream.
 zoneList, regZonIdx0, zoneTree = get_regZneIdx(DSSCircuit)

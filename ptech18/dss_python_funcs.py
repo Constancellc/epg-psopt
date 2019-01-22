@@ -368,11 +368,16 @@ def loadLinMagModel(feeder,lin_point,WD,lp_taps):
     # lp_taps either 'Nmt' or 'Lpt'.
     stt = WD+'\\lin_models\\'+feeder+'\\'+feeder+lp_taps
     end = str(np.round(lin_point*100).astype(int)).zfill(3)+'.npy'
-    Ky = np.load(stt+'Ky'+end)
-    Kd = np.load(stt+'Kd'+end)
-    Kt = np.load(stt+'Kt'+end)
-    bV = np.load(stt+'bV'+end)
-    xhy0 = np.load(stt+'xhy0'+end)
-    xhd0 = np.load(stt+'xhd0'+end)
-    return Ky, Kd, Kt, bV, xhy0, xhd0
-
+    LM = {}
+    LM['Ky'] = np.load(stt+'Ky'+end)
+    LM['Kd'] = np.load(stt+'Kd'+end)
+    LM['Kt'] = np.load(stt+'Kt'+end)
+    LM['bV'] = np.load(stt+'bV'+end)
+    LM['xhy0'] = np.load(stt+'xhy0'+end)
+    LM['xhd0'] = np.load(stt+'xhd0'+end)
+    LM['vKvbase'] = np.load(stt+'vKvbase'+end)
+    LM['vYNodeOrder'] = np.load(stt+'vYNodeOrder'+end)
+    LM['SyYNodeOrder'] = np.load(stt+'SyYNodeOrder'+end)
+    LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)
+    # Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
+    return LM

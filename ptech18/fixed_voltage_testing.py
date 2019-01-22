@@ -75,7 +75,8 @@ reIdx = (np.array(get_reIdx(regIdx,len(YZ))[3:])-3).tolist()
 
 YZnew = vecSlc(YZ[3:],reIdx) # checksum
 
-Ky,Kd,Kt,bV,xhy0,xhd0 = loadLinMagModel(feeder,lin_point,WD,lp_taps)
+LM = loadLinMagModel(feeder,lin_point,WD,lp_taps)
+Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
 
 # get index shifts
 v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
