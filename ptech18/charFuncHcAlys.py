@@ -15,7 +15,7 @@ def cf(k,th,t,a,dgn):
     charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
     return charFuncNeg
 
-intgt = 9
+intgt = 0
 intmax = 10
 dgn = 1 - (intgt/intmax) # only this percentage of loads are installed.
 dVpu = 1e-5; # Tmax prop. 1/dVpu. This has to be quite big (over 1e-6) to get reasonable answers for i = 0:5.
@@ -24,7 +24,12 @@ DVpu = 0.15; # Nt = DVpu/dVpu.
 fdr_i = 5
 iKtot = 12
 
+dP = 10*1e3 # W
+DP = 100000*1e3 # W
+
 ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
+ld2mean = 2.0 # ie the mean of those generators which install is 1/2 of their load
+ld2mean = 8.0 # ie the mean of those generators which install is 1/2 of their load
 
 # STEPS:
 # 1. Load linear model.
@@ -55,15 +60,23 @@ k = 2.0;  # choose the same for all
 Th = -np.concatenate((xhy0rnd,xhd0rnd))/k # negative so that the pds are positive.
 
 Nt = int(DVpu/dVpu)
-vDnew = np.zeros((len(Ktot),int(Nt+1)))
-Vpu = np.zeros((len(Ktot),int(Nt+1)))
-
-cfTot = np.ones((len(Ktot),Nt+1),dtype='complex')
 
 Tscale = 2e4*np.linalg.norm(Ktot,axis=1)
+Tpscale = 2e6
 
 Tmax = np.pi/(Tscale*vBase*dVpu) # see WB 22-1-19
 dV = np.pi/Tmax
+
+Tpmax = np.pi/(dP) # see WB 22-1-19
+Np = int(DP/dP)
+tp = np.linspace(-Tpmax,Tpmax,int(Np + 1))
+P = dP*np.arange(-Np//2,Np//2 + 1)
+
+cfTot = np.ones((len(Ktot),Nt+1),dtype='complex')
+
+vDnew = np.zeros((len(Ktot),int(Nt+1)))
+Vpu = np.zeros((len(Ktot),int(Nt+1)))
+
 for i in range(len(Ktot)):
     t = np.linspace(-Tmax[i],Tmax[i],int(Nt + 1))
     j=0
@@ -73,10 +86,21 @@ for i in range(len(Ktot)):
         j+=1
     print('Calc DFT:',time.process_time())
     vDnew[i,:] = abs(np.fft.fftshift(np.fft.ifft(cfTot[i,:])))*vBase[i]/dV[i]
+    # vDnew[i,:] = abs(np.fft.fftshift(np.fft.irfft(cfTot[i,:])))*vBase[i]/dV[i]
     
     v0 = b0[i]/vBase[i]
     Vpu[i,:] = (dV[i]*np.arange(-Nt//2,Nt//2 + 1) + b0[i])/vBase[i]
     # plt.plot((b0[i]+V)/vBase[i],vDnew[i,:])
+
+pDnew = np.zeros((Np+1))
+pgTot = np.ones((Np+1),dtype='complex')
+j=0
+for th in Th:
+    pgJ = cf(k,th,tp,1,dgn);
+    pgTot = pgTot*pgJ
+    j+=1
+pDnew = abs(np.fft.fftshift(np.fft.ifft(pgTot)))/dP
+
     
 print('Complete.',time.process_time())
 
@@ -89,7 +113,6 @@ print('Complete.',time.process_time())
 # plt.grid(True)
 # plt.show()
 
-iPlt = 0
 
 vDnewSumEr = ((sum(vDnew.T)/(vBase/dV)) - 1)*100 # normalised (%)
 vDnewSum = sum(vDnew.T)
@@ -103,7 +126,6 @@ Vlo = np.zeros(len(Ktot))
 Vmd = np.zeros(len(Ktot))
 Vhi = np.zeros(len(Ktot))
 Vmx = np.zeros(len(Ktot))
-
 
 emn = 0.01
 elo = 0.25
@@ -131,11 +153,13 @@ plt.plot(xlm,[0.95,0.95],'r--')
 plt.xlim(xlm)
 plt.show()
 
-plt.subplot(121)
-t = np.linspace(-Tmax[0],Tmax[0],Nt+1)
-plt.plot(t,abs(cfTot[0,:]))
-plt.subplot(122)
-t = np.linspace(-Tmax[20],Tmax[20],Nt+1)
-plt.plot(t,abs(cfTot[20,:])); plt.show()
+# P[np.argmax(pDnew)]
 
+# plt.subplot(121)
+# plt.plot(tp,pgTot.real)
+# plt.plot(tp,pgTot.imag)
+# plt.grid(True)
 
+# plt.subplot(122)
+# plt.plot(P,pDnew)
+# plt.show()
