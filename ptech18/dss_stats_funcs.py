@@ -60,18 +60,18 @@ Dx = 500
 x,t = dy2YzR(dx,Dx)
 x = x+(Dx/2)
 xC = 4
-pdf = pdf_gm(k,th,x*(x>=0))
-# pdfN = pdf_gm_Xc(k,th,x*(x>=0),xC)
+pdf = pdf_gm(k,th,x)
+pdfN = pdf_gm_Xc(k,th,x,xC)
 
 ft_gm = np.fft.rfft(pdf)*dx # calculated version    
 ft_cf = cf_gm(k,th,t)
 
 
-plt.plot(t,ft_gm.real)
-plt.plot(t,ft_gm.imag)
-plt.plot(-t,ft_gm.real)
-plt.plot(-t,-ft_gm.imag)
-plt.show()
+# plt.plot(t,ft_gm.real)
+# plt.plot(t,ft_gm.imag)
+# plt.plot(-t,ft_gm.real)
+# plt.plot(-t,-ft_gm.imag)
+# plt.show()
 
 x0 = 10.
 p = 1/2
@@ -85,6 +85,12 @@ ftB = np.fft.rfft(pdfB)*dx
 cfB = cf_bn1(x0,p,t)
 
 cfN = cfB*cfB
+
+ftN = np.fft.rfft(pdfN)
+
+# plt.plot(t,ftN.real)
+# plt.plot(t,ftN.imag)
+# plt.show()
 
 # pdfBn = np.fft.irfft(cfN)
 # plt.plot(x[:-1],pdfBn)
