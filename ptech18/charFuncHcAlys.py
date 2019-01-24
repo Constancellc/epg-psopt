@@ -6,16 +6,23 @@ import getpass
 from dss_python_funcs import loadLinMagModel
 from math import gamma
 import time
+import 
+
 
 if getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 elif getpass.getuser()=='Matt':
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-def cf(k,th,t,a,dgn):
-    charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
-    return charFuncNeg
 
-intgt = 0
+# def cf(k,th,t,a,dgn):
+    # charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
+    # return charFuncNeg
+
+def cf(x0,k,t):
+    charFunc = k + (1-k)*np.exp(-1j*x0*t)
+    return charFunc
+
+intgt = 5
 intmax = 10
 dgn = 1 - (intgt/intmax) # only this percentage of loads are installed.
 dVpu = 1e-5; # Tmax prop. 1/dVpu. This has to be quite big (over 1e-6) to get reasonable answers for i = 0:5.
@@ -28,8 +35,8 @@ dP = 10*1e3 # W
 DP = 100000*1e3 # W
 
 ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
-ld2mean = 2.0 # ie the mean of those generators which install is 1/2 of their load
-ld2mean = 8.0 # ie the mean of those generators which install is 1/2 of their load
+# ld2mean = 2.0 # ie the mean of those generators which install is 1/2 of their load
+# ld2mean = 8.0 # ie the mean of those generators which install is 1/2 of their load
 
 # STEPS:
 # 1. Load linear model.
