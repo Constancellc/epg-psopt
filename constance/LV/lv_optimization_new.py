@@ -22,6 +22,9 @@ framework.
 - It might be good to split this model over several files
 _ I also want to delete the code that I think is unnecessary.
 - I would like to implicitly consider variability, or the MC into the code.
+
+Thoughts:
+- American network - could I use the same script?
 '''
 
 class LVTestFeeder:
@@ -50,7 +53,7 @@ class LVTestFeeder:
                     self.P0[i,j] += float(row[j])
                 i += 1    
 
-    def set_households(self,profiles):
+    def set_households(self,profiles): # UPDATED
         self.hh = profiles
         self.x_h = []
         self.base = [0.0]*1440
@@ -59,9 +62,38 @@ class LVTestFeeder:
             for i in range(55):
                 self.x_h.append(-profiles[i][t]*1000)
                 self.base[t] += profiles[i][t]
-                
-    def set_evs(self,vehicles):
-        # n foorm [kWh,departure,arrival]
+
+    def set_households_NR(self,filePath): # UPDATED
+
+        # first get all
+        all_profiles = {}
+        with open(filePath,'rU') as csvfile:
+            reader = csv.reader(csvfile)
+            next(reader)
+            for row in reader:
+                for j in range(len(row)-1):
+                    if j not in all_profiles:
+                        all_profiles[j] = []
+                    all_profiles[j].append(float(row[j+1]))
+
+        if len(all_profiles) < self.hh:
+            print('Not enough profiles')
+            return None
+
+        # now chose some
+        chosen_ = [] # for indexes
+        chosen = [] # for profiles
+
+        while len(chosen_) < self.hh:
+            ran = int(random.random()*len(all_profiles))
+            if ran not in chosen_:
+                chosen_.append(ran)
+                chosen.append(all_profiles[ran])
+
+        self.set_households(chosen)
+
+    def set_evs(self,vehicles): # UPDATED
+        # n foorm [kWh,arrival,needed]
         self.nV = len(vehicles)
         self.b = []
         self.map = {} # maps the hh number to the vehicle number
@@ -83,7 +115,7 @@ class LVTestFeeder:
             
         self.n = len(self.b)
 
-    def set_MEA(self,folderPath,weekday=True,weekend=False):
+    def set_evs_MEA(self,folderPath,weekday=True,weekend=False): #UPDATED
         # day 4 is a Monday
         # day 7 and 0 are Thursdays
         # max day is 253
@@ -119,57 +151,47 @@ class LVTestFeeder:
         # between vehicles and variation over time. For now I don't care
         chosenDay = days[int(random.random()*len(days))]
 
-        empty = True
+        self.loc_map = {}
+        # this wil map the position that each vehicle i assigned to
 
-        # I GOT TO HERE!!!
-
-        # Hit a problem: what to do with multiple charges?
-
-        v_req = []
-        for v in chosenV:
-            charges = []
-            kWh = 0
-            start = 0
-            end = 1
+        vehicles = []
+        rn = 0 # requirement number 
+        for hh in range(self.hh):
+            v = chosenV[hh]
             with open(folderPath+v+'.csv','rU') as csvfile:
                 reader = csv.reader(csvfile)
                 next(reader)
                 for row in reader:
-                    if int(row[0]) == day:
-                        charges.append(row[1:4])
-            for c in charges:
-                kWh += 
-            if len(charges) == 1:
-                kWh = charges[0][3]
-                start = charges[0][1]
-                needed = charges[0][2]
-            elif len(charges) > 1:
-                for c in charges:
-                    kWh += cahrg
-                
+                    if int(row) != day:
+                        continue
+                    kWh = int(row[3])
+                    start = int(row[1])
+                    needed = int(row[2])
 
-        
+                    vehicles.append([kWh,start,needed])
+                    self.loc_map[rn] = hh
+                    rn += 1
 
-    def uncontrolled(self,power):
+        self.set_vehicles(vehicles)
+
+    def uncontrolled(self,power): # UPDATED
         profiles = []
-        for i in range(55):
+        for i in range(self.hh):
             profiles.append([0.0]*1440)
-
-        for i in range(self.n):
-            e = self.b[i]
-
+        for j in range(self.n):
+            e = self.b[j]
             if e < power/60:
                 continue
             
-            a = self.times[i][1]
+            a = self.times[i][0]
 
             chargeTime = int(e*60/power)+1
 
             for t in range(a,a+chargeTime):
                 if t < 1440:
-                    profiles[self.map[i]][t] = power
+                    profiles[self.loc_map[self.map[i]]][t] = power
                 else:
-                    profiles[self.map[i]][t-1440] = power
+                    profiles[self.loc_map[self.map[i]]] = power
             
         self.ev = profiles
 
