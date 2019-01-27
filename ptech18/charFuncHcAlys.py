@@ -6,22 +6,35 @@ import getpass
 from dss_python_funcs import loadLinMagModel
 from math import gamma
 import time
-import 
+import dss_stats_funcs as dsf
 
 
 if getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 elif getpass.getuser()=='Matt':
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+    sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190128\\charFuncHcAlys_"
 
-# def cf(k,th,t,a,dgn):
-    # charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
-    # return charFuncNeg
+def cf(k,th,t,a,dgn):
+    charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
+    return charFuncNeg
 
-def cf(x0,k,t):
-    charFunc = k + (1-k)*np.exp(-1j*x0*t)
-    return charFunc
+# def cf(x0,k,t):
+    # charFunc = k + (1-k)*np.exp(-1j*x0*t)
+    # return charFunc
 
+pltGen = True
+pltGen = False
+pltPdfs = True
+pltPdfs = False
+pltCdfs = True
+# pltCdfs = False
+pltBox = True
+pltBox = False
+
+pltSave = True
+# pltSave = False
+    
 intgt = 5
 intmax = 10
 dgn = 1 - (intgt/intmax) # only this percentage of loads are installed.
@@ -30,6 +43,9 @@ dVpu = 1.0*1e-5; # Tmax prop. 1/dVpu. This has to be quite big (over 1e-6) to ge
 DVpu = 0.15; # Nt = DVpu/dVpu.
 fdr_i = 5
 iKtot = 12
+
+Vmax = 1.075
+Vmin  = 0.95
 
 dP = 10*1e3 # W
 DP = 100000*1e3 # W
@@ -93,80 +109,116 @@ for i in range(len(Ktot)):
         j+=1
     print('Calc DFT:',time.process_time())
     vDnew[i,:] = abs(np.fft.fftshift(np.fft.ifft(cfTot[i,:])))*vBase[i]/dV[i]
-    # vDnew[i,:] = abs(np.fft.fftshift(np.fft.irfft(cfTot[i,:])))*vBase[i]/dV[i]
     
     v0 = b0[i]/vBase[i]
     Vpu[i,:] = (dV[i]*np.arange(-Nt//2,Nt//2 + 1) + b0[i])/vBase[i]
-    # plt.plot((b0[i]+V)/vBase[i],vDnew[i,:])
-
-pDnew = np.zeros((Np+1))
-pgTot = np.ones((Np+1),dtype='complex')
-j=0
-for th in Th:
-    pgJ = cf(k,th,tp,1,dgn);
-    pgTot = pgTot*pgJ
-    j+=1
-pDnew = abs(np.fft.fftshift(np.fft.ifft(pgTot)))/dP
-
-    
-print('Complete.',time.process_time())
-
-# plt.xlim((0.90,1.1))
-# ylm = plt.ylim()
-# # plt.plot(v0*np.ones(2),ylm,'--')
-# plt.plot(0.95*np.ones(2),ylm,'r:')
-# plt.plot(1.05*np.ones(2),ylm,'r:')
-# plt.ylim(ylm)
-# plt.grid(True)
-# plt.show()
 
 
 vDnewSumEr = ((sum(vDnew.T)/(vBase/dV)) - 1)*100 # normalised (%)
-vDnewSum = sum(vDnew.T)
 print('Checksum: sum of PDFs:',vDnewSumEr)
-# plt.plot(vDnewSum); plt.show()
+
+vDnewSum = sum(vDnew.T)
 vDnewCdf = np.cumsum(vDnew,axis=1).T/vDnewSum.T
-# plt.plot(Vpu.T,vDnewCdf); plt.show()
 
-Vmn = np.zeros(len(Ktot))
-Vlo = np.zeros(len(Ktot))
-Vmd = np.zeros(len(Ktot))
-Vhi = np.zeros(len(Ktot))
-Vmx = np.zeros(len(Ktot))
+vAll = np.linspace(0.85,1.15,1e3)
+minV = []
+maxV = []
+for v in vAll:
+    cdfSet = []
+    for i in range(len(Vpu)):
+        cdfSet = cdfSet + [vDnewCdf[ np.argmin(abs(Vpu[i] - v)),i]]
+    minV = minV + [min(cdfSet)]
+    maxV = maxV + [max(cdfSet)]
+    
+print('Complete.',time.process_time())    
 
-emn = 0.01
-elo = 0.25
-emd = 0.50
-ehi = 0.75
-emx = 0.99
+if pltGen:
+    pDnew = np.zeros((Np+1))
+    pgTot = np.ones((Np+1),dtype='complex')
+    j=0
+    for th in Th:
+        pgJ = cf(k,th,tp,1,dgn);
+        pgTot = pgTot*pgJ
+        j+=1
+    pDnew = abs(np.fft.fftshift(np.fft.ifft(pgTot)))/dP
 
-for i in range(len(Ktot)):
-    Vmn[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - emn))]
-    Vlo[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - elo))]
-    Vmd[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - emd))]
-    Vhi[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - ehi))]
-    Vmx[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - emx))]
-    plt.plot(i,Vmn[i],'k^'); 
-    plt.plot(i,Vlo[i],'g_'); plt.plot(i,Vmd[i],'b_'); plt.plot(i,Vhi[i],'g_');
-    plt.plot(i,Vmx[i],'kv'); 
-    plt.plot([i,i],[Vmn[i],Vmx[i]],'k:')
-    plt.plot(i,b0[i]/vBase[i],'rx')
+    plt.plot(P/1e6,pDnew*1e6)
+    plt.xlabel('x (Power, MW)')
+    plt.ylabel('p(x)')
+    plt.xlim((0,5))
+    plt.grid(True)
+    if pltSave:
+        plt.savefig(sn+'pltGen.png')
+    else:
+        plt.show()
 
-plt.xlabel('Bus No.')
-plt.ylabel('Voltage (pu)')
-xlm = plt.xlim()
-plt.plot(xlm,[1.05,1.05],'r--')
-plt.plot(xlm,[0.95,0.95],'r--')
-plt.xlim(xlm)
-plt.show()
 
-# P[np.argmax(pDnew)]
+if pltPdfs:
+    for i in range(len(Ktot)):
+        plt.plot(Vpu[i,:],vDnew[i,:])
+    plt.xlim((0.90,1.1))
+    
+    plt.ylim((-5,90))
+    ylm = plt.ylim()
+    plt.plot(Vmin*np.ones(2),ylm,'r:')
+    plt.plot(Vmax*np.ones(2),ylm,'r:')
+    plt.ylim(ylm)
+    plt.grid(True)
+    if pltSave:
+        plt.savefig(sn+'pltPdfs.png')
+    else:
+        plt.show()
 
-# plt.subplot(121)
-# plt.plot(tp,pgTot.real)
-# plt.plot(tp,pgTot.imag)
-# plt.grid(True)
+if pltCdfs:
+    plt.plot(Vpu.T,vDnewCdf)
+    plt.plot(vAll,minV,'k--',linewidth=2.0)
+    plt.plot(vAll,maxV,'k--',linewidth=2.0)
+    plt.xlim((0.925,1.125))
+    ylm = plt.ylim()
+    plt.plot([Vmax,Vmax],ylm,'r:')
+    plt.plot([Vmin,Vmin],ylm,'r:')
+    plt.ylim(ylm)
+    plt.xlabel('x (Voltage, pu)')
+    plt.ylabel('p(X <= x)')
+    plt.grid(True)
+    if pltSave:
+        plt.savefig(sn+'pltCdfs'+str(int(ld2mean*100))+'.png')
+    else:
+        plt.show()
 
-# plt.subplot(122)
-# plt.plot(P,pDnew)
-# plt.show()
+
+if pltBox:
+    Vmn = np.zeros(len(Ktot))
+    Vlo = np.zeros(len(Ktot))
+    Vmd = np.zeros(len(Ktot))
+    Vhi = np.zeros(len(Ktot))
+    Vmx = np.zeros(len(Ktot))
+
+    emn = 0.01
+    elo = 0.25
+    emd = 0.50
+    ehi = 0.75
+    emx = 0.99
+
+    for i in range(len(Ktot)):
+        Vmn[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - emn))]
+        Vlo[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - elo))]
+        Vmd[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - emd))]
+        Vhi[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - ehi))]
+        Vmx[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - emx))]
+        plt.plot(i,Vmn[i],'k^'); 
+        plt.plot(i,Vlo[i],'g_'); plt.plot(i,Vmd[i],'b_'); plt.plot(i,Vhi[i],'g_');
+        plt.plot(i,Vmx[i],'kv'); 
+        plt.plot([i,i],[Vmn[i],Vmx[i]],'k:')
+        plt.plot(i,b0[i]/vBase[i],'rx')
+
+    plt.xlabel('Bus No.')
+    plt.ylabel('Voltage (pu)')
+    xlm = plt.xlim()
+    plt.plot(xlm,[Vmax,Vmax],'r--')
+    plt.plot(xlm,[Vmin,Vmin],'r--')
+    plt.xlim(xlm)
+    if pltSave:
+        plt.savefig(sn+'pltBox.png')
+    else:
+        plt.show()

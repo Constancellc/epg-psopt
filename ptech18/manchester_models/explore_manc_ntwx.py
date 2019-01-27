@@ -55,7 +55,7 @@ for ntwk in np.unique(Ntwk):
 
 plt.show()
     
-    
+
 
 # plt.plot(NL[Ntwk=='network_5']); plt.show()
 
@@ -66,3 +66,5 @@ print(Ntwk[iVals])
 print(Fdr[iVals])
 # Therefore, from hi(ish) to low:
 feeders=['024','074','193','162','213','041']
+
+# np.savetxt(WD+'\loss_vals.txt',TL[iVals])

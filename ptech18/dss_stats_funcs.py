@@ -27,6 +27,11 @@ def cdf_gm(k,th,x):
         cdf[i] = mpmath.gammainc(k,a=0,b=x[i]/th,regularized=True)
     return cdf
 
+def cf_uni(a,b,t):
+    # following convention from wiki, with negated t:
+    charFuncNeg = (np.exp(-1j*b*t) - np.exp(-1j*a*t))/(-1j*t*(b - a))
+    return charFuncNeg
+
 def pdf_bn1(x0,p,x):
     dx = x[1]-x[0]
     pdf = np.zeros(x.shape)
@@ -99,4 +104,9 @@ ftN = np.fft.rfft(pdfN)
 # plt.plot(t,ftB.imag)
 # plt.plot(t,cfB.real)
 # plt.plot(t,cfB.imag)
+# plt.show()
+
+# cfU = cf_uni(0,10.,t)
+# plt.plot(t,cfU.real)
+# plt.plot(t,cfU.imag)
 # plt.show()

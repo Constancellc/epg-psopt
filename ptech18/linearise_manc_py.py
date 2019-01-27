@@ -237,7 +237,7 @@ if test_model:
     # plt.show()
     # # plt.savefig('figE')
 
-saveCc = False
+saveCc = True
 if saveCc:
     MyCC = My[:,s_idx]
     xhyCC = xhy0[s_idx]
