@@ -24,9 +24,10 @@ print('Start.\n',time.process_time())
 FD = r"C:\Users\\"+getpass.getuser()+"\Documents\DPhil\malcolm_updates\wc181217\\"
 if getpass.getuser()=='Matt':
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
+    fig_loc = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190128\\ltcVoltageTesting_"
 elif getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
-
+    fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\ltcVoltageTesting_"
 
 DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText = DSSObj.Text
@@ -42,8 +43,6 @@ feeder=fdrs[fdr_i]
 
 k = np.arange(-1.5,1.6,0.025)
 # k = np.arange(0,1.0,1.0)
-
-fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
@@ -211,8 +210,9 @@ if test_model_plt:
     plt.plot(k[sat],veL[sat],'g.')
     plt.title(feeder+', K error')
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
-    plt.show()
-    # plt.savefig(fig_loc+'reg_on_err.png')
+    plt.legend(('Fixed taps','Control, R, X = 0','Control, actual R, X'))
+    # plt.show()
+    plt.savefig(fig_loc+'reg_on_err.png')
     
     krnd = np.around(k,5) # this breaks at 0.000 for the error!
     idxs = np.concatenate( ( (krnd==-1.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.0).nonzero()[0] ) )
