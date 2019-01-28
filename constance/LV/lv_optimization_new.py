@@ -7,26 +7,6 @@ from cvxopt import matrix, spdiag, sparse, solvers
 
 solvers.options['maxiters'] = 30
 
-'''
-OK, I'm going for a restructure.
-
-Changes that I need to make:
-- In the initiation point to location of the linearization parameters
-- The EV data will now be MEA, however I would like to also have the possibility
-to overwrite the constraints and the energy requirments. When I am using the MEA
-vehicles though I need to use the same ones
-- The household data will now be from Network revolution, although I would like
-option to overright maybe
-- It would be good if the sensitivity analysis could also be wrapped in the
-framework.
-- It might be good to split this model over several files
-_ I also want to delete the code that I think is unnecessary.
-- I would like to implicitly consider variability, or the MC into the code.
-
-Thoughts:
-- American network - could I use the same script?
-'''
-
 class LVTestFeeder:
 
     def __init__(self,folderPath):
@@ -42,7 +22,7 @@ class LVTestFeeder:
             for row in reader:
                 self.q0.append(float(row[0]))
 
-        self.hh = len(self.q0)
+        self.nH = len(self.q0)
         
         self.P0 = matrix(0.0,(self.hh,self.hh))
         with open(folderPath'/P.csv','rU') as csvfile:
@@ -54,12 +34,12 @@ class LVTestFeeder:
                 i += 1    
 
     def set_households(self,profiles): # UPDATED
-        self.hh = profiles
+        self.hh_profiles = profiles
         self.x_h = []
         self.base = [0.0]*1440
         
         for t in range(1440):
-            for i in range(55):
+            for i in range(self.nH):
                 self.x_h.append(-profiles[i][t]*1000)
                 self.base[t] += profiles[i][t]
 
@@ -84,7 +64,7 @@ class LVTestFeeder:
         chosen_ = [] # for indexes
         chosen = [] # for profiles
 
-        while len(chosen_) < self.hh:
+        while len(chosen_) < self.nH:
             ran = int(random.random()*len(all_profiles))
             if ran not in chosen_:
                 chosen_.append(ran)
@@ -155,8 +135,10 @@ class LVTestFeeder:
         # this wil map the position that each vehicle i assigned to
 
         vehicles = []
+        evs = []
         rn = 0 # requirement number 
-        for hh in range(self.hh):
+        for hh in range(self.nH):
+            evs.append([0.0]*1440)
             v = chosenV[hh]
             with open(folderPath+v+'.csv','rU') as csvfile:
                 reader = csv.reader(csvfile)
@@ -173,10 +155,11 @@ class LVTestFeeder:
                     rn += 1
 
         self.set_vehicles(vehicles)
+        self.evs = evs
 
-    def uncontrolled(self,power): # UPDATED
+    def uncontrolled(self,power=3.5): # UPDATED
         profiles = []
-        for i in range(self.hh):
+        for i in range(self.nH):
             profiles.append([0.0]*1440)
         for j in range(self.n):
             e = self.b[j]
@@ -195,9 +178,9 @@ class LVTestFeeder:
             
         self.ev = profiles
 
-    def loss_minimise(self,Pmax,constrain=False):
+    def loss_minimise(self,Pmax=3.5,constrain=True):
         profiles = []
-        for i in range(55):
+        for i in range(self.nH):
             profiles.append([0.0]*1440)
 
         Pr = matrix(0.0,(self.n,self.n))
@@ -210,7 +193,7 @@ class LVTestFeeder:
         x_h = []
         for t in range(1440):
             for v in range(self.n):
-                x_h.append(self.x_h[t*55+self.map[v]])
+                x_h.append(self.x_h[t*self.n+self.map[v]])
         
         P = spdiag([Pr]*1440)
         x_h = matrix(x_h)
@@ -264,12 +247,11 @@ class LVTestFeeder:
 
         self.ev = profiles
 
-    def load_flatten(self,Pmax,constrain=False):
+    def load_flatten(self,Pmax=3.5,constrain=True):
         profiles = []
-        for i in range(55):
+        for i in range(self.hh):
             profiles.append([0.0]*1440)
 
-        
         q = copy.copy(self.base)*self.n
         q = matrix(q)
 
@@ -317,9 +299,9 @@ class LVTestFeeder:
         losses = []
 
         for t in range(1440):
-            y = [0.0]*55
-            for i in range(55):
-                y[i] -= self.hh[i][t]*1000
+            y = [0.0]*self.nH
+            for i in range(self.nH):
+                y[i] -= self.hh_profiles[i][t]*1000
             for v in range(self.n):
                 i = self.map[v]
                 y[i] -= self.ev[v][t]*1000
@@ -331,6 +313,7 @@ class LVTestFeeder:
         return losses
     
     def predict_voltage(self):
+        # THIS FUNCTION DOES NOT WORK IN THIS VERSION
         v_ = []
         for i in range(55):
             v_.append([])
@@ -359,6 +342,7 @@ class LVTestFeeder:
         return v_av
     
     def predict_lowest_voltage(self):
+        # THIS FUNCTION DOES NOT WORK IN THIS VERSION
         v_ = []
         for i in range(55):
             v_.append([])
@@ -387,8 +371,8 @@ class LVTestFeeder:
 
         return v_l
     
-
     def getLineCurrents(self):
+        # THIS FUNCTION DOES NOT WORK IN THIS VERSION
         current110 = []
         current296 = []
 
@@ -453,14 +437,13 @@ class LVTestFeeder:
             current296.append(10*np.sqrt(np.power(ir[3,0]+ii[3,0],2)))
 
         return [current110,current296]
-                
 
     def get_feeder_load(self):
         total_load = [0.0]*1440
 
         for t in range(1440):
-            for i in range(55):
-                total_load[t] += self.hh[i][t] + self.ev[i][t]
+            for i in range(self.nH):
+                total_load[t] += self.hh_profiles[i][t] + self.ev[i][t]
 
         return total_load
 
@@ -472,3 +455,58 @@ class LVTestFeeder:
             combined.append(self.hh[node][t]+self.ev[node][t])
 
         return base, combined
+
+    def montecarlo_simulation_losses(self,nRuns,hh,evs,outfile):
+        losses = {'b':[],'u':[],'lf':[],'lm':[]}
+
+        for mc in range(nRuns):
+            self.set_households_NR('')
+            network.set_evs_MEA('')
+
+            l = self.predict_losses()
+            losses['b'].append(l)
+
+            self.uncontrolled()
+            l = self.predict_losses()
+            losses['u'].append(l)
+
+            self.load_flatten()
+            l = self.predict_losses()
+            losses['lf'].append(l)
+
+            self.loss_minimise()
+            l = self.predict_losses()
+            losses['lm'].append(l)
+
+        with open(outfile,'w') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['sim','base','unc','load flat','min loss'])
+            for mc in range(nRuns):
+                writer.writerow([mc,losses['b'][mc],losses['u'][mc],
+                                 losses['lf'][mc],losses['lm'][mc]])
+
+    def compare_loading(self,power=3.5):
+        # This function will return the loading under the different regimes
+        # potentially a stupid idea - may scrap!
+
+        base = self.base
+        un = [0]*1440
+        lf = [0]*1440
+        lm = [0]*1440
+
+        self.uncontrolled(power=power)
+        for t in range(1440):
+            for j in range(self.nH):
+                un[t] += self.ev[j][t]
+
+        self.load_flatten(Pmax=power)
+        for t in range(1440):
+            for j in range(self.nH):
+                lf[t] += self.ev[j][t]
+
+        self.loss_minimise(Pmax=power)
+        for t in range(1440):
+            for j in range(self.nH):
+                lm[t] += self.ev[j][t]
+
+        return [base,un,lf,lm]
