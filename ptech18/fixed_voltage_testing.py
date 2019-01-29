@@ -36,10 +36,11 @@ DSSSolution = DSSCircuit.Solution
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
 fdr_i = 11
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx']
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','uslv']
 feeder=fdrs[fdr_i]
 
-k = np.arange(-1.5,1.6,0.025)
+# k = np.arange(-1.5,1.6,0.025)
+k = np.arange(-1.5,1.6,0.1)
 # k = np.arange(0,1.0,1.0)
 
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -55,9 +56,9 @@ sn0 = WD + '\\lin_models\\' + feeder
 
 # get_sYsD(DSSCircuit)
 
+# 1. Load files' find nominal voltages, node orders, linear model
 DSSText.command='Compile ('+fn+'.dss)'
 BB0,SS0 = cpf_get_loads(DSSCircuit)
-# BB00,SS00 = cpf_get_loads(DSSCircuit)
 DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
 if lp_taps=='Lpt':
     cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
@@ -67,37 +68,38 @@ YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 DSSText.command='set controlmode=off'
 YZ = DSSCircuit.YNodeOrder
 
+LM = loadLinMagModel(feeder,lin_point,WD,lp_taps)
+Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
+
+sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
+
+# 2. get the regulator zones for each regulator. (I think this still needs work?)
 zoneList, regZonIdx0, zoneTree = get_regZneIdx(DSSCircuit)
 regZonIdx = (np.array(regZonIdx0[3:])-3).tolist()
 
 regIdx = get_regIdx(DSSCircuit)
 reIdx = (np.array(get_reIdx(regIdx,len(YZ))[3:])-3).tolist()
+# YZnew = vecSlc(YZ[3:],reIdx) # checksum
+zoneSet = {'msub':[],'mreg':[0],'mregx':[0,3],'mregy':[0,6]} # this will need automating...!
 
-YZnew = vecSlc(YZ[3:],reIdx) # checksum
-
-LM = loadLinMagModel(feeder,lin_point,WD,lp_taps)
-Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
-
-# get index shifts
+# 3. get index shifts using zone info
 v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
 v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3
 v_idx = v_idx[v_idx>=0]
 
 v_idx_shf,v_idx_new = idx_shf(v_idx,reIdx)
 
-sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
-
-p_idx_yz = np.array(sY[3:].nonzero())
-p_idx_shf,p_idx_new = idx_shf(p_idx_yz[0],reIdx)
-s_idx_shf = np.concatenate((p_idx_shf,p_idx_shf+len(p_idx_shf)))
-
 p_idx = np.array(sY[3:].nonzero())
+p_idx_shf,p_idx_new = idx_shf(p_idx[0],reIdx)
+s_idx_shf = np.concatenate((p_idx_shf,p_idx_shf+len(p_idx_shf)))
 s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)[0]
 s_idx_new = np.concatenate((p_idx_new,p_idx_new+len(sY)-3))
 
 yzI = yzD2yzI(yzD,node_to_YZ(DSSCircuit))
-yzI_shf,yzI_new = idx_shf(yzI,reIdx)
-sD_idx_shf = np.concatenate((yzI_shf,yzI_shf+len(yzI_shf)))
+yzI = (np.array(yzI) - 3).tolist() # convert to the correct index numbers.
+yzI_shf,yzI_new = idx_shf(yzI,reIdx) # something going wrong here
+
+sD_idx_shf = np.concatenate((yzI_shf,yzI_shf+len(yzI_shf))) # follow this through...
 
 Sd = YNodeVnom[yzI]*(iD.conj())/1e3
 
@@ -107,41 +109,26 @@ Kq = Sd[yzI_shf].imag/sD[yzI_shf].imag
 xhR = np.concatenate((xhy0[s_idx_shf],xhd0[sD_idx_shf]))
 
 YZp = vecSlc(YZ[3:],p_idx_new) # verified
-YZd = vecSlc(YZ,yzI_new)
+YZd = vecSlc(YZ[3:],yzI_new)
 
-
-# R,X = getRx(DSSCircuit)
-rReg,xReg = getRxVltsMat(DSSCircuit)
-Rreg = np.diag(rReg)
-Xreg = np.diag(xReg)
-
-zoneSet = {'msub':[],'mreg':[0],'mregx':[0,3],'mregy':[0,6]} # this will need automating...!
 regIdxMatY = get_regIdxMatS(YZp,zoneList,zoneSet,np.ones(len(YZp)),np.ones(len(YZp)),len(regIdx))
 regIdxMatD = get_regIdxMatS(YZd,zoneList,zoneSet,Kp,Kq,len(regIdx))
 xhR = np.concatenate((xhy0[s_idx_shf],xhd0[sD_idx_shf]))
 regIdxMat = np.concatenate((regIdxMatY,regIdxMatD),axis=1)
-
-regIdxMatYs = regIdxMatY[:,0:len(xhy0)//2].real
-regIdxMatDs = regIdxMatD[:,0:len(xhd0)//2].real
-regIdxMatVlts = -np.concatenate( (Rreg.dot(regIdxMatYs),Xreg.dot(regIdxMatYs),Rreg.dot(regIdxMatDs),Xreg.dot(regIdxMatDs)),axis=1 )
-
-Sreg = regIdxMat.dot(xhR)/1e3 # for debugging.
-
-dVregRx = regIdxMatVlts.dot(xhR) # not /1e3
 regVreg = get_regVreg(DSSCircuit)
-newRegVreg = dVregRx + regVreg
+# Sreg = regIdxMat.dot(xhR)/1e3 # for debugging
+# YZv_idx = vecSlc(vecSlc(YZ[3:],v_idx),v_idx_shf) # for debugging
 
-
-YZv_idx = vecSlc(vecSlc(YZ[3:],v_idx),v_idx_shf)
-KyR = Ky[v_idx_shf,:][:,s_idx_shf]
-KdR = Kd[v_idx_shf,:][:,sD_idx_shf]
+# 4. Perform Kron reduction.
+KyR = Ky[v_idx_shf,:][:,s_idx_shf] # not completely clear if s_idx_shf required?
+KdR = Kd[v_idx_shf,:][:,sD_idx_shf] # not completely clear if sD_idx_shf required?
 bVR = bV[v_idx_shf]
 KtR = Kt[v_idx_shf,:]
 
 get_regVreg(DSSCircuit)
 Anew,Bnew = kron_red(KyR,KdR,KtR,bVR,regVreg)
 
-# now, check these are working
+# 5. Test if these are working
 print('Start Testing.\n',time.process_time())
 
 ve=np.zeros([k.size])
@@ -161,8 +148,6 @@ vv_l = np.zeros((len(k),len(v_idx)))
 vv_lN = np.zeros((len(k),len(v_idx)))
 vv_l_ctr = np.zeros((len(k),len(v_idx)))
 vv_lN_ctr = np.zeros((len(k),len(v_idx)))
-
-
 
 RegSat = np.zeros((len(k),len(regIdx)),dtype=int)
 

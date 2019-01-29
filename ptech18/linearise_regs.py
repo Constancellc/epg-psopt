@@ -26,8 +26,8 @@ elif getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 # circuit details copied from linearise_manc_py.
-fdr_i = 12
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx']
+fdr_i = 8
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','usLv']
 feeder=fdrs[fdr_i]
 ckt=get_ckt(WD,feeder)
 
@@ -43,7 +43,7 @@ lin_points = np.array([0.3, 0.6, 1.0])
 # lin_points = np.array([0.6])
 
 for i in range(len(lin_points)):
-    print('Creating model, linpoint=',lin_points[i])
+    print('Creating model', feeder,', linpoint=',lin_points[i])
     
     # 2. Solve at the right linearization point
     DSSText.command='Compile ('+fn+'.dss)'
@@ -97,10 +97,19 @@ for i in range(len(lin_points)):
         plt.plot(dVdt), plt.grid(True), plt.show()
     
 
+
 # # for debugging
 # YZ = DSSCircuit.YNodeOrder
 # YZidx = vecSlc(DSSCircuit.YNodeOrder[3:],v_idx)
 # YZregs0 = vecSlc(YZidx,dVdt[:,0]>0.5)
 # YZregs1 = vecSlc(YZidx,dVdt[:,1]>0.5)
 # YZregs2 = vecSlc(YZidx,dVdt[:,2]>0.5)
+
+# # for visualizing the matrices
+# ax1 = plt.subplot(121)
+# ax2 = plt.subplot(122)
+# for i in range(dVdt.shape[1]):
+    # ax1.plot(dVdt[:,i]/Yvbase,'x')
+    # ax2.plot(dVdt[:,i]/Yvbase - np.round(dVdt[:,i]/Yvbase),'x')
+# plt.show()
 print('Complete.')

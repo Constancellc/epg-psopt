@@ -37,8 +37,9 @@ DSSSolution = DSSCircuit.Solution
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
 # test_model_plt = False
-fdr_i = 12
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx']
+fdr_i = 6
+# fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx']
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','usLv']
 feeder=fdrs[fdr_i]
 
 k = np.arange(-1.5,1.6,0.025)
@@ -99,6 +100,7 @@ s_idx_new = np.concatenate((p_idx_new,p_idx_new+len(sY)-3))
 
 yzI = yzD2yzI(yzD,node_to_YZ(DSSCircuit))
 yzI_shf,yzI_new = idx_shf(yzI,reIdx)
+
 sD_idx_shf = np.concatenate((yzI_shf,yzI_shf+len(yzI_shf)))
 
 Sd = YNodeVnom[yzI]*(iD.conj())/1e3
@@ -109,16 +111,17 @@ Kq = Sd[yzI_shf].imag/sD[yzI_shf].imag # not sure here?
 xhR = np.concatenate((xhy0[s_idx_shf],xhd0[sD_idx_shf]))
 
 YZp = vecSlc(YZ[3:],p_idx_new) # verified
-YZd = vecSlc(YZ,yzI_new)
+YZd = vecSlc(YZ,yzI_new) 
 
-# 3. FIND LTC MATRICES ==== 
+# 3. FIND LTC MATRICES ====
 rReg,xReg = getRxVltsMat(DSSCircuit)
 Rreg = np.diag(rReg)
 Xreg = np.diag(xReg)
 
-zoneSet = {'msub':[],'mreg':[0],'mregx':[0,3],'mregy':[0,6]} # this will need automating...!
+zoneSet = {'msub':[],'mreg':[0],'mregx':[0,3],'mregy':[0,6]} # this will need automating...
 regIdxMatY = get_regIdxMatS(YZp,zoneList,zoneSet,np.ones(len(YZp)),np.ones(len(YZp)),len(regIdx))
 regIdxMatD = get_regIdxMatS(YZd,zoneList,zoneSet,Kp,Kq,len(regIdx))
+
 xhR = np.concatenate((xhy0[s_idx_shf],xhd0[sD_idx_shf]))
 regIdxMat = np.concatenate((regIdxMatY,regIdxMatD),axis=1) # matrix used for finding power through regulators
 # Sreg = regIdxMat.dot(xhR)/1e3 # for debugging.
@@ -211,8 +214,8 @@ if test_model_plt:
     plt.title(feeder+', K error')
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     plt.legend(('Fixed taps','Control, R, X = 0','Control, actual R, X'))
-    # plt.show()
-    plt.savefig(fig_loc+'reg_on_err.png')
+    plt.show()
+    # plt.savefig(fig_loc+'reg_on_err.png')
     
     krnd = np.around(k,5) # this breaks at 0.000 for the error!
     idxs = np.concatenate( ( (krnd==-1.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.0).nonzero()[0] ) )
