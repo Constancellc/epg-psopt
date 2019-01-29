@@ -1,0 +1,37 @@
+Things to get the networks into a form for voltage linearization.
+
+First: copy a version of the script, rename as *_z.dss.
+
+
+======
+I: linearize_manc_py.py
+Here we mostly need to reorder so that the _y version 
+
+1. reorder things (next to sourcebus first; loads/caps to end)
+2. Change 3ph delta loads to 3x1ph loads
+3. Change loads to constant power (if wanted) and fix voltages
+
+If regulators, go to II.
+--------
+Ia: create the *_y_z file:
+
+4. make sourcebus -> sourcebus_y in downstream element to remove
+5. remove all loads/caps as required
+
+If there are no regulators, this is then complete.
+
+======
+II: fixed_voltage_testing
+We need to insert an additional line to connect the meter to to get the elements downstream, ie
+
+b0--Reg--b0r 
+to
+b0--Reg--b0r0--Line+meter--b0r.
+
+For each regulator X,
+6. Change regulator secondary bus to *r0
+7. Add a switch (line) from *r0 to *r, called line.X (e.g. new line.X bus1=634r0 bus2=634r phases=3 switch=true)
+8. Before Add a new meter at the substation: new energymeter.msub element=transformer.sub
+9. Add a new meter for each regulator: new energymeter.mX element=line.X
+
+Return to Ia.
