@@ -142,8 +142,6 @@ def zB2zBs(DSSCircuit,zoneBus):
             for ph in YZclr[node]:
                 zoneBuses = zoneBuses+[node+'.'+ph]
     return zoneBuses
-        
-        
 
 def get_regZneIdx(DSSCircuit):
     DSSEM = DSSCircuit.Meters

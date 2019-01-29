@@ -22,8 +22,12 @@ New object=circuit.ieee123
 ! the first line defines the 3-phase transformer to be controlled by the regulator control.
 ! The 2nd line defines the properties of the regulator control according to the test case
 
-new transformer.reg1a phases=3 windings=2 buses=[150 150r] conns=[wye wye] kvs=[4.16 4.16] kvas=[5000 5000] XHL=.001 %LoadLoss=0.00001 ppm=0.0
+new transformer.sub phases=3 windings=2 buses=[150 150sub] conns=[wye wye] kvs=[4.16 4.16] kvas=[5000 5000] XHL=.001 %LoadLoss=0.00001 ppm=0.0 ! added for creating the correct 'tree' using meters.
+
+new transformer.reg1a phases=3 windings=2 buses=[150 150r0] conns=[wye wye] kvs=[4.16 4.16] kvas=[5000 5000] XHL=.001 %LoadLoss=0.00001 ppm=0.0
 new regcontrol.creg1a transformer=reg1a winding=2 vreg=120 band=2 ptratio=20 ctprim=700 R=3 X=7.5
+
+new line.reg1a phases=3 bus1=150r0 bus2=150r switch=True
 
 ! REDIRECT INPUT STREAM TO FILE CONTAINING DEFINITIONS OF LINECODES
 ! This file defines the line impedances is a similar manner to the description in the test case.
@@ -193,8 +197,8 @@ New Transformer.XFM1  Phases=3   Windings=2 Xhl=2.72
 !REGULATORS - REDIRECT TO DEFINITIONS FILE
 ! This file contains definitions for the remainder of regulators on the feeder:
 
-Redirect IEEE123Regulators.DSS
-
+!Redirect IEEE123Regulators.DSS
+Redirect IEEE123Regulators_z.DSS
 
 ! CAPACITORS
 ! Capacitors are 2-terminal devices. The 2nd terminal (Bus2=...) defaults to all phases
@@ -219,6 +223,12 @@ Redirect IEEE123Loads.DSS
 
 Set VoltageBases = [4.16, 0.48]    ! ARRAY OF VOLTAGES IN KV
 CalcVoltageBases  ! PERFORMS ZERO LOAD POWER FLOW TO ESTIMATE VOLTAGE BASES
+
+new energymeter.msub element=transformer.sub
+new energymeter.mreg1a element=line.reg1a
+new energymeter.mreg2a element=line.reg2a
+new energymeter.mreg3 element=line.reg3
+new energymeter.mreg4 element=line.reg4
 
 !New EnergyMeter.Feeder Line.L115 1
 solve
