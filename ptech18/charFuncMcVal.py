@@ -5,7 +5,7 @@ import numpy as np
 import numpy.random as rnd
 import matplotlib.pyplot as plt
 import getpass
-from dss_python_funcs import loadLinMagModel
+from dss_python_funcs import loadLinMagModel, loadLtcModel
 from math import gamma
 import time
 import dss_stats_funcs as dsf
@@ -35,7 +35,10 @@ pltBox = True
 
 pltSave = True
 pltSave = False
-    
+
+ltcModel=True
+# ltcModel=False
+
 intgt = 5
 intmax = 10
 dgn = 1 - (intgt/intmax) # only this percentage of loads are installed.
@@ -46,10 +49,9 @@ DVpu = 0.15; # Nt = DVpu/dVpu.
 iKtot = 12
 
 fdr_i = 5
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod']
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod']
 feeder = fdrs[fdr_i]
 lin_point=0.6
-
 
 Vmax = 1.075
 Vmin  = 0.95
@@ -73,21 +75,33 @@ ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their lo
 # 2. sample distibution appropriately and run load flow
 # 3. Compare results.
 
-
-
-
 # PART A ===========================
+if not ltcModel:
+    # IF using the FIXED model:
+    LM = loadLinMagModel(feeder,lin_point,WD,'Lpt')
+    Ky=LM['Ky'];Kd=LM['Kd'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
+    vBase = LM['vKvbase']
 
-LM = loadLinMagModel(feeder,lin_point,WD,'Lpt')
-Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
-vBase = LM['vKvbase']
+    b0 = Ky.dot(xhy0) + Kd.dot(xhd0) + bV
 
-b0 = Ky.dot(xhy0) + Kd.dot(xhd0) + bV
-
-KyP = Ky[:,:Ky.shape[1]//2]
-KdP = Kd[:,:Kd.shape[1]//2]
-Ktot = np.concatenate((KyP,KdP),axis=1)
-Ktot[abs(Ktot)<1e-9]=0
+    KyP = Ky[:,:Ky.shape[1]//2]
+    KdP = Kd[:,:Kd.shape[1]//2]
+    Ktot = np.concatenate((KyP,KdP),axis=1)
+    Ktot[abs(Ktot)<1e-9]=0
+elif ltcModel:
+    # IF using the LTC model:
+    LM = loadLtcModel(feeder,lin_point,WD,'Lpt')
+    A=LM['A'];bV=LM['B'];xhy0=LM['xhy0'];xhd0=LM['xhd0']; vBase = LM['Vbase']
+    
+    x0 = np.concatenate((xhy0,xhd0))
+    b0 = A.dot(x0) + bV
+    
+    KyP = A[:,0:len(xhy0)//2]
+    KdP = A[:,len(xhy0):len(xhd0)//2]
+    
+    Ktot = np.concatenate((KyP,KdP),axis=1)
+    Ktot[abs(Ktot)<1e-9]=0    
+    
 
 # NB: mean of gamma distribution is k*th.
 rndI = 1e4
@@ -145,6 +159,10 @@ for v in vAll:
     maxV = maxV + [max(cdfSet)]
     
 print('Complete.',time.process_time())    
+
+# PART B FROM HERE ==============
+
+
 
 
 

@@ -344,7 +344,6 @@ def print_node_array(YZ,thing):
 
 def get_ckt(WD,feeder):
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod',feeder]
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod']
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod']
     ckts = {'feeder_name':['fn_ckt','fn']}
     ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
@@ -363,6 +362,7 @@ def get_ckt(WD,feeder):
     ckts[fdrs[13]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_regModSng_z']
     ckts[fdrs[14]]=[WD+'\\ieee_tn\\usLv',WD+'\\ieee_tn\\usLv\\master_z']
     ckts[fdrs[15]]=[WD+'\\ieee_tn\\123Bus_copy',WD+'\\ieee_tn\\123Bus_copy\\IEEE123MasterMod_z']
+    ckts[fdrs[16]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13NodecktMod_z']
     
     if not feeder in ckts.keys() and len(feeder)==3:
         dir0 = WD+'\\manchester_models\\batch_manc_ntwx\\network_'+str(int(feeder[0:2]))+'\\Feeder_'+feeder[-1]
@@ -386,3 +386,19 @@ def loadLinMagModel(feeder,lin_point,WD,lp_taps):
     LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)
     # Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
     return LM
+    
+def loadLtcModel(feeder,lin_point,WD,lp_taps):
+    # lp_taps either 'Nmt' or 'Lpt'.
+    stt = WD+'\\lin_models\\'+feeder+'\\ltc_model\\'+feeder+lp_taps+'Ltc'
+    end = str(np.round(lin_point*100).astype(int)).zfill(3)+'.npy'
+    LM = {}
+    LM['A'] = np.load(stt+'A'+end)
+    LM['B'] = np.load(stt+'B'+end)
+    LM['s_idx'] = np.load(stt+'s_idx'+end)
+    LM['v_idx'] = np.load(stt+'v_idx'+end)
+    LM['Vbase'] = np.load(stt+'Vbase'+end)
+    LM['xhy0'] = np.load(stt+'xhy0'+end)
+    LM['xhd0'] = np.load(stt+'xhd0'+end)
+    LM['YZ'] = np.load(stt+'YZ'+end)
+    return LM
+    

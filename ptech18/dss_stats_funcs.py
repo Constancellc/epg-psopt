@@ -135,33 +135,33 @@ ftN = np.fft.rfft(pdfN)
 
 
 
-# Looking at cf as gamma k grows, constant k*th
-K = np.linspace(0.1,20)
-mu = 1
+# # Looking at cf as gamma k grows, constant k*th =====
+# K = np.linspace(0.1,20)
+# mu = 1
 
-dt = 1e-2
-Dt = 100
-t = np.arange(-Dt,Dt,dt)
+# dt = 1e-2
+# Dt = 100
+# t = np.arange(-Dt,Dt,dt)
 
-dx = 1e-3
-Dx = 3
-x = np.arange(0,Dx,dx)
+# dx = 1e-3
+# Dx = 3
+# x = np.arange(0,Dx,dx)
 
-k = 50
+# k = 50
 
-# for k in K:
-th = mu/k
-sg2 = k*(th**2)
-cfGm = cf_gm(k,th,t)
-cfNml = cf_nml(mu,sg2,t)
-pdfGm = pdf_gm(k,th,x)
-pdfNml = pdf_nml(mu,sg2,x)
+# # for k in K:
+# th = mu/k
+# sg2 = k*(th**2)
+# cfGm = cf_gm(k,th,t)
+# cfNml = cf_nml(mu,sg2,t)
+# pdfGm = pdf_gm(k,th,x)
+# pdfNml = pdf_nml(mu,sg2,x)
 
-plt.plot(t,cfGm.real,'r')
-plt.plot(t,cfGm.imag,'b')
-plt.plot(t,cfNml.real,'r--')
-plt.plot(t,cfNml.imag,'b--')
-plt.show()
+# plt.plot(t,cfGm.real,'r')
+# plt.plot(t,cfGm.imag,'b')
+# plt.plot(t,cfNml.real,'r--')
+# plt.plot(t,cfNml.imag,'b--')
+# plt.show()
 
 # plt.plot(x,pdfGm,'r')
 # plt.plot(x,pdfNml,'r--')

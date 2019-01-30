@@ -2,14 +2,14 @@ Things to get the networks into a form for voltage linearization.
 
 First: copy a version of the script, rename as *_z.dss.
 
-
+Note: it is usually useful to run each step in OpenDSS.
 ======
 I: linearize_manc_py.py
 Here we mostly need to reorder so that the _y version 
 
 1. reorder things (next to sourcebus first; loads/caps to end)
 2. Change 3ph delta loads to 3x1ph loads
-3. Change loads to constant power (if wanted) and fix voltages
+3. Change loads to constant power and fix load min/max voltages (if wanted)
 
 If regulators, go to II.
 --------
@@ -38,8 +38,10 @@ For each regulator X,
 If no LTC, Return to Ia.
 
 Otherwise:
-10a. Copy to a new script with *Mod_z; then, go to Ia and repeat for both *Mod_z and *_z files.
+10a. Copy to a new script with *Mod_z
+10b. Change all LTC parameters (R/X) to zero for all regulators
 
+Go to Ia and repeat for both *Mod_z and *_z files.
 ======
 III: ltc_voltage_testing
 We need to get the 'tree' of regulators to work out which injections go through which regulators

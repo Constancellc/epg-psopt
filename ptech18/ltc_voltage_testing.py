@@ -41,12 +41,12 @@ test_model_plt = True
 # test_model_plt = False
 test_model_bus = True
 # test_model_bus = False
-fdr_i = 6
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod']
+fdr_i = 5
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod']
 feeder=fdrs[fdr_i]
 
 k = np.arange(-1.5,1.6,0.025)
-# k = np.arange(-1.5,1.6,0.1)
+k = np.arange(-1.5,1.6,0.1)
 # k = np.arange(0,1.0,1.0)
 
 ckt = get_ckt(WD,feeder)
@@ -117,6 +117,7 @@ xhR = np.concatenate((xhy0[s_idx_shf],xhd0[sD_idx_shf]))
 YZp = vecSlc(YZ[3:],p_idx_new) # verified
 YZd = vecSlc(YZ,yzI_new) 
 
+Yvbase_new = get_Yvbase(DSSCircuit)[3:][v_idx_new]
 # 3. FIND LTC MATRICES ====
 rReg,xReg = getRxVltsMat(DSSCircuit)
 Rreg = np.diag(rReg)
@@ -145,8 +146,8 @@ bVR = bV[v_idx_shf]
 KtR = Kt[v_idx_shf,:]
 
 get_regVreg(DSSCircuit)
-Anew,Bnew = kron_red(KyR,KdR,KtR,bVR,regVreg) # 
-Altc,Bltc = kron_red_ltc(KyR,KdR,KtR,bVR,regVreg,regIdxMatVlts) # 
+Anew,Bnew = kron_red(KyR,KdR,KtR,bVR,regVreg)
+Altc,Bltc = kron_red_ltc(KyR,KdR,KtR,bVR,regVreg,regIdxMatVlts)
 
 # 5. VALIDATION ==============
 v_0 = np.zeros((len(k),len(YZ)))
@@ -171,44 +172,62 @@ TL = np.zeros(len(k),dtype=complex)
 
 DSSText.command='set controlmode=static'
 
-# print('--- Start Testing, 1/2 --- \n',time.process_time())
-print('--- Start Testing --- \n',time.process_time())
-for i in range(len(k)):
-    print(i,'/',len(k)-1)
-    cpf_set_loads(DSSCircuit,BB0,SS0,k[i])
-    DSSSolution.Solve()
-    Convrg.append(DSSSolution.Converged)
-    TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
-    TL[i] = 1e-3*(DSSCircuit.Losses[0] + 1j*DSSCircuit.Losses[1])
+if test_model_plt or test_model_bus:
+    print('--- Start Testing --- \n',time.process_time())
+    for i in range(len(k)):
+        print(i,'/',len(k)-1)
+        cpf_set_loads(DSSCircuit,BB0,SS0,k[i])
+        DSSSolution.Solve()
+        Convrg.append(DSSSolution.Converged)
+        TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
+        TL[i] = 1e-3*(DSSCircuit.Losses[0] + 1j*DSSCircuit.Losses[1])
 
-    v_0[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray)).real # for some reason complains about complex
-    vv_0[i,:] = v_0[i,3:][v_idx]
-    vv_0R[i,:] = vv_0[i,:][v_idx_shf]
+        v_0[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray)).real # for some reason complains about complex
+        vv_0R[i,:] = v_0[i,3:][v_idx_new]
 
-    sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
-    xhy = -1e3*s_2_x(sY[3:]) # in W
+        sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
+        xhy = -1e3*s_2_x(sY[3:]) # in W
 
-    RegSat[i] = getRegSat(DSSCircuit)
+        RegSat[i] = getRegSat(DSSCircuit)
 
-    if len(H)==0:
-        vv_l[i,:] = Ky.dot(xhy[s_idx]) + bV
-    else:
-        xhd = -1e3*s_2_x(sD) # not [3:] like sY
-        vv_l[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
-        vv_lR[i,:] = vv_l[i,:][v_idx_shf]
-        xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
-        vv_lN[i,:] = np.concatenate((Anew.dot(xnew) + Bnew,np.array(regVreg)))
-        vv_lL[i,:] = np.concatenate((Altc.dot(xnew) + Bltc,np.array(regVreg) + regIdxMatVlts.dot(xnew) ))
-    veR[i] = np.linalg.norm( vv_lR[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
-    veN[i] = np.linalg.norm( vv_lN[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
-    veL[i] = np.linalg.norm( vv_lL[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
-print('Testing Complete.\n',time.process_time())
+        if len(H)==0:
+            vv_l[i,:] = Ky.dot(xhy[s_idx]) + bV
+        else:
+            xhd = -1e3*s_2_x(sD) # not [3:] like sY
+            vv_l[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
+            vv_lR[i,:] = vv_l[i,:][v_idx_shf]
+            xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
+            vv_lN[i,:] = np.concatenate((Anew.dot(xnew) + Bnew,np.array(regVreg)))
+            # vv_lL[i,:] = np.concatenate((Altc.dot(xnew) + Bltc,np.array(regVreg) + regIdxMatVlts.dot(xnew) ))
+            vv_lL[i,:] = Altc.dot(xnew) + Bltc # NB note no need to append regVreg
+        veR[i] = np.linalg.norm( vv_lR[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
+        veN[i] = np.linalg.norm( vv_lN[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
+        veL[i] = np.linalg.norm( vv_lL[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
+    print('Testing Complete.\n',time.process_time())
+    unSat = RegSat.min(axis=1)==1
+    sat = RegSat.min(axis=1)==0
 
-unSat = RegSat.min(axis=1)==1
-sat = RegSat.min(axis=1)==0
-Yvbase = get_Yvbase(DSSCircuit)[3:][v_idx]
-Yvbase_new = get_Yvbase(DSSCircuit)[3:][v_idx_new]
+# SAVE MODEL ============
+dir0 = WD + '\\lin_models\\' + feeder + '\\ltc_model'
+sn0 = dir0 + '\\' + feeder + lp_taps + 'Ltc'
+lp_str = str(round(lin_point*100)).zfill(3)
 
+if not os.path.exists(dir0):
+        os.makedirs(dir0)
+
+np.save(sn0+'A'+lp_str+'.npy',Altc)
+np.save(sn0+'B'+lp_str+'.npy',Bltc)
+np.save(sn0+'s_idx'+lp_str+'.npy',s_idx_new)
+np.save(sn0+'v_idx'+lp_str+'.npy',v_idx_new)
+np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx_shf])
+np.save(sn0+'xhd0'+lp_str+'.npy',xhd0[sD_idx_shf])
+np.save(sn0+'YZ'+lp_str+'.npy',YZnew)
+np.save(sn0+'Vbase'+lp_str+'.npy',Yvbase_new)
+
+# np.save(sn0+'Avreg'+lp_str+'.npy',regIdxMatVlts)
+# np.save(sn0+'Bvreg'+lp_str+'.npy',regVreg)
+
+# PLOTTING ============
 if test_model_plt:
     plt.figure()
     plt.plot(k[unSat],veR[unSat],'b') 

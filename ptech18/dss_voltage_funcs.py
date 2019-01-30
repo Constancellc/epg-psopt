@@ -141,6 +141,8 @@ def kron_red_ltc(Ky,Kd,Kt,bV,Vreg,KvReg):
     # dt = 0.1/16
     # YZreg=YZnew[-n:]
     # xt = spla.solve(Art,regVreg - Arl.dot(xh) - bVr)/(YvbaseReg*dt)
+    Anew = np.concatenate((Anew,KvReg),axis=0)
+    Bnew = np.concatenate((Bnew,Vreg),axis=0)
     
     return Anew, Bnew
     
@@ -251,7 +253,7 @@ def getZoneSet(feeder,DSSCircuit,zoneTree):
     regNms =  getRegNms(DSSCircuit) # number of phases in each regulator connected to, in the right order
     regTrn = getRegTrn(DSSCircuit,zoneTree) # number of individually controlled taps
     
-    if feeder=='13busRegModRx' or feeder=='13busRegMod':
+    if feeder=='13busRegModRx' or feeder=='13busReg3rg':
         zoneSet = {'msub':[],'mreg':[0],'mregx':[0,3],'mregy':[0,6]} # this will need automating...
     elif feeder=='123busMod' or feeder=='123bus':
         zoneSet = {'msub':[],'mreg1a':[0],'mreg2a':[0,1],'mreg3':[0,2],'mreg4':[0,4]} # this will need automating...
@@ -259,16 +261,16 @@ def getZoneSet(feeder,DSSCircuit,zoneTree):
         zoneSet = {'msub':[],'mreg0':[0],'mregx':[0,1]} # this will need automating...
     elif feeder=='34bus':
         zoneSet = {'msub':[],'mreg1':[0],'mreg2':[0,3]} # this will need automating...
+    elif feeder=='13busMod' or feeder=='13bus':
+        zoneSet = {'msub':[],'mregs':[0]} # this will need automating...
     else:
+        print(feeder)
         print(regNms)
         print(regTrn)
         print(zoneTree,'\n\n')
     return zoneSet
 
-
-    
 def get_regIdxMatS(YZx,zoneList,zoneSet,Kp,Kq,nreg):
-    
     # Find all zones and phases of nodes to which regs are attached
     zoneX = []
     for yz in YZx: # for each node
@@ -277,7 +279,7 @@ def get_regIdxMatS(YZx,zoneList,zoneSet,Kp,Kq,nreg):
             if yz in zoneList[key]: # if the node is in that zoneList then
                 zoneX.append([key,ph]) # add to this list for that regulator
     
-    # With this, 
+    # With this,  ... 
     regIdxPx = np.zeros((nreg,len(YZx)))
     regIdxQx = np.zeros((nreg,len(YZx)))
     i=0
