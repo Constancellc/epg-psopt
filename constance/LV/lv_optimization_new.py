@@ -7,6 +7,17 @@ from cvxopt import matrix, spdiag, sparse, solvers
 
 solvers.options['maxiters'] = 30
 
+'''
+
+I think there is a problem with the way location is mapped
+
+there are currently two maps as sometimes there are two requirements for one
+vehicle, but i don't think this is necessary....
+
+Something is also wrong with the predict losses function
+
+'''
+
 class LVTestFeeder:
 
     def __init__(self,folderPath):
@@ -24,8 +35,8 @@ class LVTestFeeder:
 
         self.nH = len(self.q0)
         
-        self.P0 = matrix(0.0,(self.hh,self.hh))
-        with open(folderPath'/P.csv','rU') as csvfile:
+        self.P0 = matrix(0.0,(self.nH,self.nH))
+        with open(folderPath+'/P.csv','rU') as csvfile:
             reader = csv.reader(csvfile)
             i = 0
             for row in reader:
@@ -56,7 +67,7 @@ class LVTestFeeder:
                         all_profiles[j] = []
                     all_profiles[j].append(float(row[j+1]))
 
-        if len(all_profiles) < self.hh:
+        if len(all_profiles) < self.nH:
             print('Not enough profiles')
             return None
 
@@ -74,7 +85,7 @@ class LVTestFeeder:
 
     def set_evs(self,vehicles): # UPDATED
         # n foorm [kWh,arrival,needed]
-        self.nV = len(vehicles)
+        self.nV = len(vehicles) # nV > nH if there are multiple charges
         self.b = []
         self.map = {} # maps the hh number to the vehicle number
         self.times = []
@@ -117,12 +128,12 @@ class LVTestFeeder:
                     '064','065','066','067','068','069','070','071','072',
                     '073','074','075','076','077','078','079','080','081',
                     '082','083','084','085','086','087','090','091','092',
-                    '093'.'094','096','097','098','099','100','101','102',
+                    '093','094','096','097','098','099','100','101','102',
                     '103','104','105','106','107','108','110','111','112',
                     '113','114']
 
         chosen = []
-        while len(chosen) < self.hh:
+        while len(chosen) < self.nH:
             ran = int(random.random()*len(vehicles))
             if vehicles[ran] not in chosen:
                 chosen.append(vehicles[ran])
@@ -139,14 +150,14 @@ class LVTestFeeder:
         rn = 0 # requirement number 
         for hh in range(self.nH):
             evs.append([0.0]*1440)
-            v = chosenV[hh]
+            v = chosen[hh]
             with open(folderPath+v+'.csv','rU') as csvfile:
                 reader = csv.reader(csvfile)
                 next(reader)
                 for row in reader:
-                    if int(row) != day:
+                    if int(row[0]) != chosenDay:
                         continue
-                    kWh = int(row[3])
+                    kWh = float(row[3])
                     start = int(row[1])
                     needed = int(row[2])
 
@@ -154,7 +165,7 @@ class LVTestFeeder:
                     self.loc_map[rn] = hh
                     rn += 1
 
-        self.set_vehicles(vehicles)
+        self.set_evs(vehicles)
         self.evs = evs
 
     def uncontrolled(self,power=3.5): # UPDATED
@@ -166,17 +177,17 @@ class LVTestFeeder:
             if e < power/60:
                 continue
             
-            a = self.times[i][0]
+            a = self.times[j][0]
 
             chargeTime = int(e*60/power)+1
 
             for t in range(a,a+chargeTime):
                 if t < 1440:
-                    profiles[self.loc_map[self.map[i]]][t] = power
+                    profiles[self.loc_map[self.map[j]]][t] = power
                 else:
-                    profiles[self.loc_map[self.map[i]]] = power
+                    profiles[self.loc_map[self.map[j]]][t-1440] = power
             
-        self.ev = profiles
+        self.evs = profiles
 
     def loss_minimise(self,Pmax=3.5,constrain=True):
         profiles = []
@@ -217,18 +228,8 @@ class LVTestFeeder:
                         
             b[v] = -self.b[v]*1000
 
-        M1 = matrix(0.0,(self.n,self.n))
-        a1 = []
-
-        for i in range(self.n):
-            a1.append(self.a0[self.map[i]]-240)
-            for j in range(self.n):
-                M1[i,j] = -1*self.M0[self.map[i],self.map[j]]
-
-        G = spdiag([M1]*1440)
-
-        G = sparse([G,spdiag([-1.0]*(self.n*1440)),spdiag([1.0]*(self.n*1440))])
-        h = matrix(a1*1440+[Pmax*1000]*(self.n*1440)+[0.0]*(self.n*1440))
+        G = sparse([spdiag([-1.0]*(self.n*1440)),spdiag([1.0]*(self.n*1440))])
+        h = matrix([Pmax*1000]*(self.n*1440)+[0.0]*(self.n*1440))
 
         sol=solvers.qp(P*2,q,G,h,A,b)
         x = sol['x']
@@ -243,13 +244,13 @@ class LVTestFeeder:
 
         for v in range(self.n):
             for t in range(1440):
-                profiles[self.map[v]][t] -= x[self.n*t+v]/1000
+                profiles[self.loc_map[self.map[v]]][t] -= x[self.n*t+v]/1000
 
-        self.ev = profiles
+        self.evs = profiles
 
     def load_flatten(self,Pmax=3.5,constrain=True):
         profiles = []
-        for i in range(self.hh):
+        for i in range(self.nH):
             profiles.append([0.0]*1440)
 
         q = copy.copy(self.base)*self.n
@@ -291,26 +292,30 @@ class LVTestFeeder:
 
         for v in range(self.n):
             for t in range(1440):
-                profiles[self.map[v]][t] = x[1440*v+t]
+                profiles[self.loc_map[self.map[v]]][t] = x[1440*v+t]
         
-        self.ev = profiles
+        self.evs = profiles
 
     def predict_losses(self):
         losses = []
 
         for t in range(1440):
             y = [0.0]*self.nH
+            print('hi')
             for i in range(self.nH):
                 y[i] -= self.hh_profiles[i][t]*1000
             for v in range(self.n):
-                i = self.map[v]
-                y[i] -= self.ev[v][t]*1000
+                i = self.loc_map[self.map[v]]
+                y[i] -= self.evs[v][t]*1000
+
+            print(y)
 
             y = matrix(y)
 
             losses.append((y.T*self.P0*y+matrix(self.q0).T*y)[0]+self.c)
+            print(losses)
 
-        return losses
+        return sum(losses)
     
     def predict_voltage(self):
         # THIS FUNCTION DOES NOT WORK IN THIS VERSION
@@ -324,7 +329,7 @@ class LVTestFeeder:
                 y[i] -= self.hh[i][t]*1000
             for v in range(self.n):
                 i = self.map[v]
-                y[i] -= self.ev[v][t]*1000
+                y[i] -= self.evs[v][t]*1000
 
             y = matrix(y)
 
@@ -353,7 +358,7 @@ class LVTestFeeder:
                 y[i] -= self.hh[i][t]*1000
             for v in range(self.n):
                 i = self.map[v]
-                y[i] -= self.ev[v][t]*1000
+                y[i] -= self.evs[v][t]*1000
 
             y = matrix(y)
 
@@ -418,7 +423,7 @@ class LVTestFeeder:
                 y[i] -= self.hh[i][t]*1000
             for v in range(self.n):
                 i = self.map[v]
-                y[i] -= self.ev[v][t]*1000
+                y[i] -= self.evs[v][t]*1000
             y = matrix(y)
 
             ir = (Ar*y+br)
@@ -443,7 +448,7 @@ class LVTestFeeder:
 
         for t in range(1440):
             for i in range(self.nH):
-                total_load[t] += self.hh_profiles[i][t] + self.ev[i][t]
+                total_load[t] += self.hh_profiles[i][t] + self.evs[i][t]
 
         return total_load
 
@@ -452,7 +457,7 @@ class LVTestFeeder:
         base = self.hh[node]
         combined = []
         for t in range(1440):
-            combined.append(self.hh[node][t]+self.ev[node][t])
+            combined.append(self.hh[node][t]+self.evs[node][t])
 
         return base, combined
 
@@ -497,16 +502,16 @@ class LVTestFeeder:
         self.uncontrolled(power=power)
         for t in range(1440):
             for j in range(self.nH):
-                un[t] += self.ev[j][t]
+                un[t] += self.evs[j][t]
 
         self.load_flatten(Pmax=power)
         for t in range(1440):
             for j in range(self.nH):
-                lf[t] += self.ev[j][t]
+                lf[t] += self.evs[j][t]
 
         self.loss_minimise(Pmax=power)
         for t in range(1440):
             for j in range(self.nH):
-                lm[t] += self.ev[j][t]
+                lm[t] += self.evs[j][t]
 
         return [base,un,lf,lm]
