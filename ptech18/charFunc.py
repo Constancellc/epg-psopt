@@ -10,6 +10,7 @@ import dss_stats_funcs as dsf
 
 if getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+    sn = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190128\\"
 elif getpass.getuser()=='Matt':
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
     sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190128\\"
@@ -36,6 +37,8 @@ pdfPlotB = True
 pdfPlotB = False
 pdfPlotC = True
 # pdfPlotC = False
+pdfPlotD = True
+pdfPlotD = False
 
 
 Nmc = int(1e6)
@@ -91,7 +94,7 @@ if mcHist:
 
     # 1. 
     fdr_i = 5
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','usLv']
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod']
     feeder = fdrs[fdr_i]
     lin_point=1.0
 
@@ -242,5 +245,31 @@ if pdfPlotC:
     plt.xlim((-0.5,x[-1]))
     plt.grid(True,zorder=-10.)
     plt.ylim((-0.05,1.1))
-    # plt.show()
-    plt.savefig(sn+'charFunc_pdfPlotC.png')
+    plt.show()
+    # plt.savefig(sn+'charFunc_pdfPlotC.png')
+
+
+
+if pdfPlotD:
+    x0 = 2.0
+    k = 4.2
+    th = 0.6
+    
+    aHght = 0.33
+
+    x = np.linspace(-0.5,4.5,int(1e3))
+    y = (1-aHght)*dsf.pdf_gm(k,th,x)
+
+    pltXy=plt.plot(x,y)[0]
+    plt.arrow(0.0,0.,0.,aHght,width=wdth,head_width=wdth*5,head_length=wdth*2.5,color=pltXy.get_color(),zorder=10.)
+    
+    plt.ylim((-0.05,1.1))
+    plt.xlabel('x (Power per house, kW)')
+    plt.ylabel('p(x)')
+    plt.xlim((-0.5,x[-1]))
+    plt.grid(True,zorder=-10.)
+    plt.ylim((-0.05,1.1))
+    plt.show()
+    # plt.savefig(sn+'charFunc_pdfPlotD.png')
+
+

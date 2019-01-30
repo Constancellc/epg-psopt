@@ -27,7 +27,7 @@ elif getpass.getuser()=='chri3793':
 
 # circuit details copied from linearise_manc_py.
 fdr_i = 13
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','13busModSng','usLv','123busMod']
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod']
 feeder=fdrs[fdr_i]
 ckt=get_ckt(WD,feeder)
 

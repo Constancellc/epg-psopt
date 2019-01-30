@@ -169,7 +169,7 @@ New Line.671692    Phases=3 Bus1=671r   Bus2=692  Switch=y  r1=1e-1 r0=1e-1 x1=0
 !New Load.671 Bus1=671.1.2.3  Phases=3 Conn=Delta Model=1 kV=4.16   kW=1155 kvar=660 ! split to 3x single phase loads
 New Load.671a Bus1=671.1.2  Phases=1 Conn=Delta Model=1 kV=4.16   kW=385 kvar=220 
 New Load.671b Bus1=671.2.3  Phases=1 Conn=Delta Model=1 kV=4.16   kW=385 kvar=220 
-New Load.671c Bus1=671.3.1  Phases=1 Conn=Delta Model=1 kV=4.16   kW=385 kvar=220 
+New Load.671c Bus1=671.3.1  Phases=1 Conn=Delta Model=1 kV=4.16   kW=385 kvar=220
 
 !New Load.634a Bus1=634.1     Phases=1 Conn=Wye  Model=1 kV=0.277  kW=160   kvar=110 
 !New Load.634b Bus1=634.2     Phases=1 Conn=Wye  Model=1 kV=0.277  kW=120   kvar=90 

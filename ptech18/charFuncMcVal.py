@@ -1,4 +1,6 @@
 # based on the script from 21/1, 'fft_calcs' in matlab.
+# Based on script charFuncHcAlys, deleted 30/01
+
 import numpy as np
 import numpy.random as rnd
 import matplotlib.pyplot as plt
@@ -8,16 +10,15 @@ from math import gamma
 import time
 import dss_stats_funcs as dsf
 
-
 if getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 elif getpass.getuser()=='Matt':
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
     sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190128\\charFuncHcAlys_"
 
-def cf(k,th,t,a,dgn):
-    charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
-    return charFuncNeg
+# def cf(k,th,t,a,dgn):
+    # charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
+    # return charFuncNeg
 
 # def cf(x0,k,t):
     # charFunc = k + (1-k)*np.exp(-1j*x0*t)
@@ -28,21 +29,27 @@ pltGen = False
 pltPdfs = True
 pltPdfs = False
 pltCdfs = True
-# pltCdfs = False
+pltCdfs = False
 pltBox = True
-pltBox = False
+# pltBox = False
 
 pltSave = True
-# pltSave = False
+pltSave = False
     
 intgt = 5
 intmax = 10
 dgn = 1 - (intgt/intmax) # only this percentage of loads are installed.
+
 dVpu = 1e-5; # Tmax prop. 1/dVpu. This has to be quite big (over 1e-6) to get reasonable answers for i = 0:5.
 dVpu = 1.0*1e-5; # Tmax prop. 1/dVpu. This has to be quite big (over 1e-6) to get reasonable answers for i = 0:5.
 DVpu = 0.15; # Nt = DVpu/dVpu.
-fdr_i = 5
 iKtot = 12
+
+fdr_i = 5
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod']
+feeder = fdrs[fdr_i]
+lin_point=0.6
+
 
 Vmax = 1.075
 Vmin  = 0.95
@@ -55,14 +62,21 @@ ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their lo
 # ld2mean = 8.0 # ie the mean of those generators which install is 1/2 of their load
 
 # STEPS:
+# Part A: analytic solution
 # 1. Load linear model.
 # 2. Choose bus; distribution
 # 3. Calculate distribution
-# 4. Run MC analysis
+# 4. Run MC analysis using linear model
+#
+# Part B: Run MC analysis using OpenDSS
+# 1. load appropriate model
+# 2. sample distibution appropriately and run load flow
+# 3. Compare results.
 
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','usLv']
-feeder = fdrs[fdr_i]
-lin_point=1.0
+
+
+
+# PART A ===========================
 
 LM = loadLinMagModel(feeder,lin_point,WD,'Lpt')
 Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
@@ -104,7 +118,7 @@ for i in range(len(Ktot)):
     t = np.linspace(-Tmax[i],Tmax[i],int(Nt + 1))
     j=0
     for th in Th:
-        cfJ = cf(k,th,t,Ktot[i,j],dgn);
+        cfJ = dsf.cf_gm_dgn(k,th,t,Ktot[i,j],dgn);
         cfTot[i,:] = cfTot[i,:]*cfJ
         j+=1
     print('Calc DFT:',time.process_time())
@@ -120,7 +134,7 @@ print('Checksum: sum of PDFs:',vDnewSumEr)
 vDnewSum = sum(vDnew.T)
 vDnewCdf = np.cumsum(vDnew,axis=1).T/vDnewSum.T
 
-vAll = np.linspace(0.85,1.15,1e3)
+vAll = np.linspace(0.85,1.15,int(1e3))
 minV = []
 maxV = []
 for v in vAll:
@@ -132,6 +146,14 @@ for v in vAll:
     
 print('Complete.',time.process_time())    
 
+
+
+
+
+
+
+
+# ================ PLOTTING FUNCTIONS FROM HERE
 if pltGen:
     pDnew = np.zeros((Np+1))
     pgTot = np.ones((Np+1),dtype='complex')

@@ -37,6 +37,9 @@ For each regulator X,
 
 If no LTC, Return to Ia.
 
+Otherwise:
+10a. Copy to a new script with *Mod_z; then, go to Ia and repeat for both *Mod_z and *_z files.
+
 ======
 III: ltc_voltage_testing
 We need to get the 'tree' of regulators to work out which injections go through which regulators
