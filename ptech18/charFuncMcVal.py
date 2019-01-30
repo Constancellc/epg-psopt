@@ -5,24 +5,18 @@ import numpy as np
 import numpy.random as rnd
 import matplotlib.pyplot as plt
 import getpass
-from dss_python_funcs import loadLinMagModel, loadLtcModel
+# from dss_python_funcs import loadLinMagModel, loadLtcModel, get_ckt, vecSlc, tp_2_ar
+from dss_python_funcs import *
 from math import gamma
 import time
 import dss_stats_funcs as dsf
+import win32com.client
 
 if getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 elif getpass.getuser()=='Matt':
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
     sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190128\\charFuncHcAlys_"
-
-# def cf(k,th,t,a,dgn):
-    # charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
-    # return charFuncNeg
-
-# def cf(x0,k,t):
-    # charFunc = k + (1-k)*np.exp(-1j*x0*t)
-    # return charFunc
 
 pltGen = True
 pltGen = False
@@ -31,7 +25,7 @@ pltPdfs = False
 pltCdfs = True
 pltCdfs = False
 pltBox = True
-# pltBox = False
+pltBox = False
 
 pltSave = True
 pltSave = False
@@ -39,7 +33,7 @@ pltSave = False
 ltcModel=True
 # ltcModel=False
 
-intgt = 5
+intgt = 00
 intmax = 10
 dgn = 1 - (intgt/intmax) # only this percentage of loads are installed.
 
@@ -52,8 +46,13 @@ fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod']
 feeder = fdrs[fdr_i]
 lin_point=0.6
+lp_taps='Lpt'
 
-Vmax = 1.075
+ckt = get_ckt(WD,feeder)
+fn_ckt = ckt[0]
+fn = ckt[1]
+
+Vmax = 1.05
 Vmin  = 0.95
 
 dP = 10*1e3 # W
@@ -92,12 +91,13 @@ elif ltcModel:
     # IF using the LTC model:
     LM = loadLtcModel(feeder,lin_point,WD,'Lpt')
     A=LM['A'];bV=LM['B'];xhy0=LM['xhy0'];xhd0=LM['xhd0']; vBase = LM['Vbase']
+    v_idx=LM['v_idx']
     
     x0 = np.concatenate((xhy0,xhd0))
     b0 = A.dot(x0) + bV
     
     KyP = A[:,0:len(xhy0)//2]
-    KdP = A[:,len(xhy0):len(xhd0)//2]
+    KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
     
     Ktot = np.concatenate((KyP,KdP),axis=1)
     Ktot[abs(Ktot)<1e-9]=0    
@@ -162,12 +162,21 @@ print('Complete.',time.process_time())
 
 # PART B FROM HERE ==============
 
+# 1. load the appropriate model/DSS
+DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
+DSSText = DSSObj.Text
+DSSCircuit = DSSObj.ActiveCircuit
+DSSSolution = DSSCircuit.Solution
 
+DSSText.command='Compile ('+fn+'.dss)'
+BB0,SS0 = cpf_get_loads(DSSCircuit)
+if lp_taps=='Lpt':
+    cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
+    DSSSolution.Solve()
 
-
-
-
-
+YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
+YZ = DSSCircuit.YNodeOrder
+YZ = vecSlc(YZ[3:],v_idx)
 
 
 

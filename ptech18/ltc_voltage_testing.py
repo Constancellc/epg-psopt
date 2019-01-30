@@ -54,8 +54,6 @@ fn_ckt = ckt[0]
 fn = ckt[1]
 lin_point=0.6
 lp_taps='Lpt'
-
-fn_y = fn+'_y'
 sn0 = WD + '\\lin_models\\' + feeder
 
 # get_sYsD(DSSCircuit)
@@ -63,8 +61,6 @@ sn0 = WD + '\\lin_models\\' + feeder
 # 1. Nominal Voltage Solution at Linearization point. Load Linear models.
 DSSText.command='Compile ('+fn+'.dss)'
 BB0,SS0 = cpf_get_loads(DSSCircuit)
-# BB00,SS00 = cpf_get_loads(DSSCircuit)
-DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
 if lp_taps=='Lpt':
     cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
     DSSSolution.Solve()
