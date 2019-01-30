@@ -28,7 +28,11 @@ New Transformer.Sub Phases=3 Windings=2   XHL=(8 1000 /)
 
 ! FEEDER 1-PHASE VOLTAGE REGULATORS
 ! Define low-impedance 2-wdg transformer
+New Transformer.Reg phases=3 XHL=0.01 kVAs=[1666 1666]
+~ Buses=[650 RG60r] kVs=[4.16  4.16] %LoadLoss=0.01
+new regcontrol.Reg  transformer=Reg winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=0   X=0 band=1
 
+/*
 New Transformer.Reg1 phases=1 XHL=0.01 kVAs=[1666 1666]
 ~ Buses=[650.1 RG60r.1] kVs=[2.4  2.4] %LoadLoss=0.01
 !new regcontrol.Reg1  transformer=Reg1 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=3   X=9 ! changed to flat V 
@@ -43,7 +47,7 @@ New Transformer.Reg3 phases=1 XHL=0.01 kVAs=[1666 1666]
 ~ Buses=[650.3 RG60r.3] kVs=[2.4  2.4] %LoadLoss=0.01
 !new regcontrol.Reg3  transformer=Reg3 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=3   X=9 ! changed to flat V
 new regcontrol.Reg3  transformer=Reg3 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=0  X=0 band=1
-
+*/
 new line.reg bus1=RG60r bus2=RG60 phases=3 switch=true
 !TRANSFORMER DEFINITION 
 New Transformer.XFM1  Phases=3   Windings=2  XHL=2
@@ -52,6 +56,9 @@ New Transformer.XFM1  Phases=3   Windings=2  XHL=2
 
 
 ! ===================== ADDITIONAL VOLTAGE REGULATOR 1
+!new transformer.regX phases=3 xhl=0.01 kvas=[1666 1666]
+!~ Buses=[634 634r0] kvs=[0.480 0.480] %loadloss=0.01
+!new regcontrol.regX transformer=regX winding=2 vreg=120 ptratio=2.30940 band=1 !R=0 X=0
 new transformer.regX1 phases=1 xhl=0.01 kvas=[1666 1666]
 ~ Buses=[634.1 634r0.1] kvs=[0.2771 0.2771] %loadloss=0.01
 new regcontrol.regX1 transformer=regX1 winding=2 vreg=120 ptratio=2.30940 band=1 !R=0 X=0
@@ -68,15 +75,15 @@ new line.regX bus1=634r0 bus2=634r phases=3 switch=true
 ! ===================== ADDITIONAL VOLTAGE REGULATOR 2
 new transformer.regY1 phases=1 xhl=0.01 kvas=[1666 1666]
 ~ Buses=[671.1 671r0.1] kvs=[2.4 2.4] %loadloss=0.01
-new regcontrol.regY1 transformer=regY1 winding=2 vreg=120 ptratio=20.0148 band=1 !R=0 X=0
+!new regcontrol.regY1 transformer=regY1 winding=2 vreg=120 ptratio=20.0148 band=1 !R=0 X=0
 
 new transformer.regY2 phases=1 xhl=0.01 kvas=[1666 1666]
 ~ Buses=[671.2 671r0.2] kvs=[2.4 2.4] %loadloss=0.01
-new regcontrol.regY2 transformer=regY2 winding=2 vreg=120 ptratio=20.0148 band=1 !R=0 X=0
+!new regcontrol.regY2 transformer=regY2 winding=2 vreg=120 ptratio=20.0148 band=1 !R=0 X=0
 
 new transformer.regY3 phases=1 xhl=0.01 kvas=[1666 1666]
 ~ Buses=[671.3 671r0.3] kvs=[2.4 2.4] %loadloss=0.01
-new regcontrol.regY3 transformer=regY3 winding=2 vreg=120 ptratio=20.0148 band=1 !R=0 X=0
+!new regcontrol.regY3 transformer=regY3 winding=2 vreg=120 ptratio=20.0148 band=1 !R=0 X=0
 
 new line.regY bus1=671r0 bus2=671r phases=3 switch=true
 !LINE CODES
@@ -207,7 +214,7 @@ BusCoords IEEE13Node_BusXY.csv
 new energymeter.msub element=transformer.sub
 new energymeter.mreg element=line.reg
 new energymeter.mregx element=line.regX
-new energymeter.mregy element=line.regY
+!new energymeter.mregy element=line.regY
 
 !Set Controlmode=off
 Batchedit load..* vminpu=0.33 vmaxpu=3 model=1
@@ -225,7 +232,9 @@ solve
 solve
 !show power kvar elem
 !plot
-
+!plot profile phases=all
+!show voltages LN nodes
+!show taps
 !show isolated
 !---------------------------------------------------------------------------------------------------------------------------------------------------
 !----------------Show some Results -----------------------------------------------------------------------------------------------------------------

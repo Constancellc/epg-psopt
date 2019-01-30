@@ -22,10 +22,11 @@ New object=circuit.ieee123
 ! the first line defines the 3-phase transformer to be controlled by the regulator control.
 ! The 2nd line defines the properties of the regulator control according to the test case
 
-new transformer.sub phases=3 windings=2 buses=[150 150sub] conns=[wye wye] kvs=[4.16 4.16] kvas=[5000 5000] XHL=.001 %LoadLoss=0.00001 ppm=0.0 ! added for creating the correct 'tree' using meters.
+new transformer.sub phases=3 windings=2 buses=[150_0 150sub] conns=[wye wye] kvs=[4.16 4.16] kvas=[5000 5000] XHL=.001 %LoadLoss=0.00001 ppm=0.0 ! added for creating the correct 'tree' using meters.
 
 new transformer.reg1a phases=3 windings=2 buses=[150sub 150r0] conns=[wye wye] kvs=[4.16 4.16] kvas=[5000 5000] XHL=.001 %LoadLoss=0.00001 ppm=0.0
-new regcontrol.creg1a transformer=reg1a winding=2 vreg=120 band=2 ptratio=20 ctprim=700 R=3 X=7.5
+!new regcontrol.creg1a transformer=reg1a winding=2 vreg=120 band=2 ptratio=20 ctprim=700 R=3 X=7.5
+new regcontrol.creg1a transformer=reg1a winding=2 vreg=120 band=2 ptratio=20 ctprim=700 R=0 X=0
 
 new line.reg1a phases=3 bus1=150r0 bus2=150r switch=True
 
@@ -198,8 +199,10 @@ New Transformer.XFM1  Phases=3   Windings=2 Xhl=2.72
 ! This file contains definitions for the remainder of regulators on the feeder:
 
 !Redirect IEEE123Regulators.DSS
-Redirect IEEE123Regulators_z.DSS
+!Redirect IEEE123Regulators_z.DSS
+Redirect IEEE123RegulatorsMod_z.DSS
 
+/*
 ! CAPACITORS
 ! Capacitors are 2-terminal devices. The 2nd terminal (Bus2=...) defaults to all phases
 ! connected to ground (Node 0). Thus, it need not be specified if a Y-connected or L-N connected
@@ -213,7 +216,8 @@ New Capacitor.C92c      Bus1=92.3    Phases=1     kVAR=50      kV=2.402
 
 ! SPOT LOADS -- REDIRECT INPUT STREAM TO LOAD DEFINITIONS FILE
 Redirect IEEE123Loads.DSS
-
+batchedit load..* vminpu=0.33 vmaxpu=3.0
+*/
 ! All devices in the test feeder are now defined.
 !
 ! Many of the voltages are reported in per unit, so it is important to establish the base voltages at each bus so
@@ -234,4 +238,3 @@ new energymeter.mreg4 element=line.reg4
 solve
 !Buscoords Buscoords.dat   ! load in bus coordinates
 !plot profile
-show taps

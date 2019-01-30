@@ -25,15 +25,15 @@ DSSSolution.tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
 test_model = True
-fdr_i = 8
+fdr_i = 13
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','usLv']; lp_taps='Nmt'
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','13busModSng','usLv','123busMod']; lp_taps='Nmt'
 feeder='041'
 feeder=fdrs[fdr_i]
 lp_taps='Lpt'
 
 lin_points=np.array([0.3,0.6,1.0])
-lin_points=np.array([0.6])
+# lin_points=np.array([0.6])
 k = np.arange(-1.5,1.6,0.1)
 # k = np.array([-0.5,0,0.5,1.0,1.5])
 

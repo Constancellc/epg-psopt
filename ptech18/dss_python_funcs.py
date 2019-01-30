@@ -343,7 +343,7 @@ def print_node_array(YZ,thing):
         print(YZ[i]+': '+str(thing[i]))
 
 def get_ckt(WD,feeder):
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','usLv',feeder]
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','13busModSng','usLv','123busMod',feeder]
     ckts = {'feeder_name':['fn_ckt','fn']}
     ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
     ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
@@ -351,7 +351,6 @@ def get_ckt(WD,feeder):
     ckts[fdrs[3]]=feeder_to_fn(WD,fdrs[3])
     ckts[fdrs[4]]=feeder_to_fn(WD,fdrs[4])
     ckts[fdrs[5]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_z']
-    # ckts[fdrs[6]]=[WD+'\\ieee_tn\\34Bus_copy',WD+'\\ieee_tn\\34Bus_copy\\ieee34Mod1_z_mod']
     ckts[fdrs[6]]=[WD+'\\ieee_tn\\34Bus_copy',WD+'\\ieee_tn\\34Bus_copy\\ieee34Mod1_z']
     ckts[fdrs[7]]=[WD+'\\ieee_tn\\37Bus_copy',WD+'\\ieee_tn\\37Bus_copy\\ieee37_z']
     ckts[fdrs[8]]=[WD+'\\ieee_tn\\123Bus_copy',WD+'\\ieee_tn\\123Bus_copy\\IEEE123Master_z']
@@ -359,7 +358,10 @@ def get_ckt(WD,feeder):
     ckts[fdrs[10]]=[WD+'\\ieee_tn\\37Bus_copy',WD+'\\ieee_tn\\37Bus_copy\\ieee37_z_mod']
     ckts[fdrs[11]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_regMod_z']
     ckts[fdrs[12]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_regModRx_z']
-    ckts[fdrs[13]]=[WD+'\\ieee_tn\\usLv',WD+'\\ieee_tn\\usLv\\master_z']
+    ckts[fdrs[13]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13Nodeckt_regModSng_z']
+    ckts[fdrs[14]]=[WD+'\\ieee_tn\\usLv',WD+'\\ieee_tn\\usLv\\master_z']
+    ckts[fdrs[15]]=[WD+'\\ieee_tn\\123Bus_copy',WD+'\\ieee_tn\\123Bus_copy\\IEEE123MasterMod_z']
+    
     if not feeder in ckts.keys() and len(feeder)==3:
         dir0 = WD+'\\manchester_models\\batch_manc_ntwx\\network_'+str(int(feeder[0:2]))+'\\Feeder_'+feeder[-1]
         ckts[fdrs[-1]]=[dir0,dir0+'\\Master']

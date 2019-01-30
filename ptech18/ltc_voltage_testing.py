@@ -37,9 +37,9 @@ DSSSolution = DSSCircuit.Solution
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
 # test_model_plt = False
-fdr_i = 12
+fdr_i = 6
 # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx']
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','usLv']
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','13busModSng','usLv','123busMod']
 feeder=fdrs[fdr_i]
 
 k = np.arange(-1.5,1.6,0.025)
@@ -119,6 +119,7 @@ Rreg = np.diag(rReg)
 Xreg = np.diag(xReg)
 
 zoneSet = {'msub':[],'mreg':[0],'mregx':[0,3],'mregy':[0,6]} # this will need automating...
+# zoneSet = getZoneSet(feeder)
 regIdxMatY = get_regIdxMatS(YZp,zoneList,zoneSet,np.ones(len(YZp)),np.ones(len(YZp)),len(regIdx))
 regIdxMatD = get_regIdxMatS(YZd,zoneList,zoneSet,Kp,Kq,len(regIdx))
 

@@ -54,6 +54,15 @@ def getRxVltsMat(DSSCircuit): # see WB 15-01-19
     xVltsMat = np.array(X)/(np.array(Ic)*np.array(Vr))
     
     return rVltsMat,xVltsMat
+def setRx(DSSCircuit,R,X):
+    i = DSSCircuit.RegControls.First
+    while i:
+        DSSCircuit.RegControls.ForwardR = R[i]
+        DSSCircuit.RegControls.ReverseR = R[i]
+        DSSCircuit.RegControls.ForwardX = X[i]
+        DSSCircuit.RegControls.ReverseX = X[i]
+        i = DSSCircuit.RegControls.Next
+    return
 
 def get_regIdx(DSSCircuit):
     regXfmr=get_regXfmr(DSSCircuit)
@@ -62,7 +71,10 @@ def get_regIdx(DSSCircuit):
     i = DSSCircuit.Transformers.First
     while i:
         if in_regs(DSSCircuit,regXfmr):
-            bus = DSSCircuit.ActiveElement.BusNames[1]
+            if DSSCircuit.ActiveElement.NumPhases==1:
+                bus = DSSCircuit.ActiveElement.BusNames[1]
+            elif DSSCircuit.ActiveElement.NumPhases==3: # WARNING: assume connected to .1 (true is bus='')
+                bus = DSSCircuit.ActiveElement.BusNames[1]+'.1'
             regBus.append(bus)
             node = bus.split('.')[0]
             regIdx = regIdx + find_node_idx(node_to_YZ(DSSCircuit),bus,False)
@@ -211,17 +223,17 @@ def get_regZneIdx(DSSCircuit):
     
     return zoneList, regIdx, zoneTree
     
-    
-    
-    
 def get_regIdxMatS(YZx,zoneList,zoneSet,Kp,Kq,nreg):
-    zoneX = []
-    for yz in YZx:
-        ph = int(yz[-1])
-        for key in zoneList:
-            if yz in zoneList[key]:
-                zoneX.append([key,ph])
     
+    # Find all zones and phases of nodes to which regs are attached
+    zoneX = []
+    for yz in YZx: # for each node
+        ph = int(yz[-1]) # get the phase
+        for key in zoneList: # for each key in the list of zones
+            if yz in zoneList[key]: # if the node is in that zoneList then
+                zoneX.append([key,ph]) # add to this list for that regulator
+    
+    # With this, 
     regIdxPx = np.zeros((nreg,len(YZx)))
     regIdxQx = np.zeros((nreg,len(YZx)))
     i=0
@@ -229,7 +241,7 @@ def get_regIdxMatS(YZx,zoneList,zoneSet,Kp,Kq,nreg):
         for key in zoneSet:
             if zone[0]==key:
                 for idx in zoneSet[key]:
-                    regIdxPx[idx + zone[1]-1  ,i] = Kp[i] # NB this won't work if the regs are not 3ph
+                    regIdxPx[idx + zone[1]-1  ,i] = Kp[i] # NB this won't work if the regs are not 3ph!!!!
                     regIdxPx[idx + (zone[1]%3),i] = 1-Kp[i]
                     regIdxQx[idx + zone[1]-1  ,i] = Kq[i]
                     regIdxQx[idx + (zone[1]%3),i] = 1-Kq[i]
