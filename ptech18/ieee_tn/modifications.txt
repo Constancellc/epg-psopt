@@ -33,5 +33,21 @@ For each regulator X,
 7. Add a switch (line) from *r0 to *r, called line.X (e.g. new line.X bus1=634r0 bus2=634r phases=3 switch=true)
 8. Before Add a new meter at the substation: new energymeter.msub element=transformer.sub
 9. Add a new meter for each regulator: new energymeter.mX element=line.X
+10. Naming convention: Try to call all regulators reg\s\i e.g. regD2 (not cregX); call gang operated regulators *G (like regxG)
 
-Return to Ia.
+If no LTC, Return to Ia.
+
+======
+III: ltc_voltage_testing
+We need to get the 'tree' of regulators to work out which injections go through which regulators
+as we have a tree network.
+
+Each 'regulator' can be 3ph-gang; 3x1ph; 1ph; 2ph.
+
+zoneSet then needs to be chosen according to the splitting up of these regulators
+
+Note: setting band=1 on regulators tends to lead to a tighter response for LTC solutions.
+
+
+
+

@@ -28,9 +28,9 @@ New Transformer.Sub Phases=3 Windings=2   XHL=(8 1000 /)
 
 ! FEEDER 1-PHASE VOLTAGE REGULATORS
 ! Define low-impedance 2-wdg transformer
-New Transformer.Reg phases=3 XHL=0.01 kVAs=[1666 1666]
+New Transformer.Reg0G phases=3 XHL=0.01 kVAs=[1666 1666]
 ~ Buses=[650 RG60r] kVs=[4.16  4.16] %LoadLoss=0.01
-new regcontrol.Reg  transformer=Reg winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=0   X=0 band=1
+new regcontrol.Reg0G  transformer=Reg0G winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=0   X=0 band=1
 
 /*
 New Transformer.Reg1 phases=1 XHL=0.01 kVAs=[1666 1666]
@@ -212,7 +212,7 @@ Solve
 BusCoords IEEE13Node_BusXY.csv
 
 new energymeter.msub element=transformer.sub
-new energymeter.mreg element=line.reg
+new energymeter.mreg0 element=line.reg
 new energymeter.mregx element=line.regX
 !new energymeter.mregy element=line.regY
 

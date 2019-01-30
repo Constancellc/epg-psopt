@@ -35,7 +35,7 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-# test_model_plt = False
+test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 test_model_dff = True
@@ -47,7 +47,7 @@ feeder=fdrs[fdr_i]
 
 k = np.arange(-1.5,1.6,0.025)
 # k = np.arange(1.6,-1.5,-0.025)
-# k = np.arange(-1.5,1.6,0.1)
+k = np.arange(-1.5,1.6,0.1)
 # k = np.arange(0,1.0,1.0)
 
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -143,8 +143,10 @@ Convrg = []
 TP = np.zeros(len(k),dtype=complex)
 TL = np.zeros(len(k),dtype=complex)
 
-print('Start Testing, 1/2.\n',time.process_time())
+print('--- Start Testing, 1/2 --- \n',time.process_time())
+
 for i in range(len(k)):
+    print(i,'/',len(k)-1)
     cpf_set_loads(DSSCircuit,BB0,SS0,k[i])
     DSSSolution.Solve()
     Convrg.append(DSSSolution.Converged)
@@ -171,9 +173,10 @@ for i in range(len(k)):
     veN[i] = np.linalg.norm( vv_lN[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
 
 
-print('Start Testing, 2/2.\n',time.process_time())
+print('--- Start Testing, 1/2 --- \n',time.process_time())
 DSSText.command='set controlmode=static'
 for i in range(len(k)):
+    print(i,'/',len(k)-1)
     cpf_set_loads(DSSCircuit,BB0,SS0,k[i])
     DSSSolution.Solve()
     Convrg.append(DSSSolution.Converged)
@@ -236,6 +239,7 @@ if test_model_bus:
     plt.figure(figsize=(12,4))
     for i in range(len(idxs)):
         plt.subplot(1,len(idxs),i+1)
+        plt.title('K = '+str(krnd[idxs[i]]))
         plt.plot(vv_0R[idxs[i]]/Yvbase_new,'o')
         plt.plot(vv_l[idxs[i]][v_idx_shf]/Yvbase_new,'x')
         plt.plot(vv_lN[idxs[i]]/Yvbase_new,'+')

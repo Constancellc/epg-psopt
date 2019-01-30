@@ -13,11 +13,11 @@ new line.reg3 phases=2 bus1=25r0.1.3 bus2=25r.1.3 switch=True
 new line.reg4 phases=3 bus1=160r0 bus2=160r switch=True
 
 ! POINT REGULATOR CONTROLS TO REGULATOR TRANSFORMER AND SET PARAMETERS
-new regcontrol.creg2a               transformer=reg2a winding=2         vreg=120     band=2  ptratio=20 ctprim=50  R=0.4   X=0.4  
-new regcontrol.creg3a               transformer=reg3a winding=2         vreg=120     band=1  ptratio=20 ctprim=50  R=0.4   X=0.4  
-new regcontrol.creg3c like=creg3a   transformer=reg3c 
-new regcontrol.creg4a               transformer=reg4a winding=2         vreg=124     band=2  ptratio=20 ctprim=300 R=0.6   X=1.3  
-new regcontrol.creg4b like=creg4a   transformer=reg4b                                                              R=1.4   X=2.6   
-new regcontrol.creg4c like=creg4a   transformer=reg4c                                                              R=0.2   X=1.4   
+new regcontrol.reg2a               transformer=reg2a winding=2         vreg=120     band=2  ptratio=20 ctprim=50  R=0.4   X=0.4  
+new regcontrol.reg3a               transformer=reg3a winding=2         vreg=120     band=1  ptratio=20 ctprim=50  R=0.4   X=0.4  
+new regcontrol.reg3c like=reg3a   transformer=reg3c 
+new regcontrol.reg4a               transformer=reg4a winding=2         vreg=124     band=2  ptratio=20 ctprim=300 R=0.6   X=1.3  
+new regcontrol.reg4b like=reg4a   transformer=reg4b                                                              R=1.4   X=2.6   
+new regcontrol.reg4c like=reg4a   transformer=reg4c                                                              R=0.2   X=1.4   
 
 ! NOTE: WHEN LIKE= IS USED, IT IS NECESSARY TO SPECIFY ONLY THOSE PROPERTIES THAT ARE DIFFERENT

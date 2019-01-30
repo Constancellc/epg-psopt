@@ -15,6 +15,16 @@ def in_regs(DSSCircuit,regXfmr):
     in_regs = (type.lower()=='transformer' and (name.lower() in regXfmr))
     return in_regs
 
+def getRegNms(DSSCircuit):
+    regNms = {}
+    i = DSSCircuit.RegControls.First
+    while i:
+        name = DSSCircuit.RegControls.Name
+        DSSCircuit.SetActiveElement('Transformer.'+DSSCircuit.RegControls.Transformer)
+        regNms[name]=DSSCircuit.ActiveElement.NumPhases
+        i = DSSCircuit.RegControls.Next
+    return regNms
+
 def getRegSat(DSSCircuit):
     i = DSSCircuit.RegControls.First
     regSat = []
@@ -198,7 +208,7 @@ def get_regZneIdx(DSSCircuit):
         yzRegIdx[i-1].sort()
         regSze.append(len(yzRegIdx[i-1]))
         i=DSSEM.Next
-        
+
     zoneBuses = []
     for zb in zoneBus:
         zoneBuses.append(zB2zBs(DSSCircuit,zb))
@@ -220,6 +230,42 @@ def get_regZneIdx(DSSCircuit):
     chk = len(YZ)*((len(YZ)-1)//2)
     
     return zoneList, regIdx, zoneTree
+
+def getRegTrn(DSSCircuit,zoneTree):
+    # find the number of transformers per regulator
+    regNms = getRegNms(DSSCircuit)
+    regTrn = {} 
+    for branch in zoneTree.values():
+        for reg in branch:
+            nPh = 0
+            for regPh in regNms.keys():
+                if reg in regPh:
+                    nPh = nPh+1
+            regTrn[reg] = nPh
+    return regTrn
+    
+def getZoneSet(feeder,DSSCircuit,zoneTree):
+    # It would be nice to automate this at some point
+    
+    # to help create the right sets:
+    regNms =  getRegNms(DSSCircuit) # number of phases in each regulator connected to, in the right order
+    regTrn = getRegTrn(DSSCircuit,zoneTree) # number of individually controlled taps
+    
+    if feeder=='13busRegModRx' or feeder=='13busRegMod':
+        zoneSet = {'msub':[],'mreg':[0],'mregx':[0,3],'mregy':[0,6]} # this will need automating...
+    elif feeder=='123busMod' or feeder=='123bus':
+        zoneSet = {'msub':[],'mreg1a':[0],'mreg2a':[0,1],'mreg3':[0,2],'mreg4':[0,4]} # this will need automating...
+    elif feeder=='13busModSng':
+        zoneSet = {'msub':[],'mreg0':[0],'mregx':[0,1]} # this will need automating...
+    elif feeder=='34bus':
+        zoneSet = {'msub':[],'mreg1':[0],'mreg2':[0,3]} # this will need automating...
+    else:
+        print(regNms)
+        print(regTrn)
+        print(zoneTree,'\n\n')
+    return zoneSet
+
+
     
 def get_regIdxMatS(YZx,zoneList,zoneSet,Kp,Kq,nreg):
     

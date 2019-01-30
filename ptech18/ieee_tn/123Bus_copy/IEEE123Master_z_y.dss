@@ -25,7 +25,7 @@ New object=circuit.ieee123
 new transformer.sub phases=3 windings=2 buses=[150_0 150sub] conns=[wye wye] kvs=[4.16 4.16] kvas=[5000 5000] XHL=.001 %LoadLoss=0.00001 ppm=0.0 ! added for creating the correct 'tree' using meters.
 
 new transformer.reg1a phases=3 windings=2 buses=[150sub 150r0] conns=[wye wye] kvs=[4.16 4.16] kvas=[5000 5000] XHL=.001 %LoadLoss=0.00001 ppm=0.0
-new regcontrol.creg1a transformer=reg1a winding=2 vreg=120 band=2 ptratio=20 ctprim=700 R=3 X=7.5
+new regcontrol.reg1G transformer=reg1a winding=2 vreg=120 band=2 ptratio=20 ctprim=700 R=3 X=7.5
 
 new line.reg1a phases=3 bus1=150r0 bus2=150r switch=True
 
