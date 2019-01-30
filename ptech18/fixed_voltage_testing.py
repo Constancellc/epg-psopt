@@ -35,20 +35,19 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-test_model_plt = False
+# test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 test_model_dff = True
-# test_model_dff = False
+test_model_dff = False
 
-fdr_i = 13
-fdr_i = 11
+fdr_i = 15
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod','13busRegModRx','13busModSng','usLv','123busMod']
 feeder=fdrs[fdr_i]
 
 k = np.arange(-1.5,1.6,0.025)
 # k = np.arange(1.6,-1.5,-0.025)
-k = np.arange(-1.5,1.6,0.1)
+# k = np.arange(-1.5,1.6,0.1)
 # k = np.arange(0,1.0,1.0)
 
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -119,7 +118,6 @@ regVreg = get_regVreg(DSSCircuit)
 Anew,Bnew = kron_red(KyR,KdR,KtR,bVR,regVreg)
 Anew,Bnew = kron_red(KyR,KdR,KtR,bVR,regVreg)
 # 5. Test if these are working
-print('Start Testing.\n',time.process_time())
 
 ve=np.zeros([k.size])
 veN=np.zeros([k.size])
@@ -145,6 +143,7 @@ Convrg = []
 TP = np.zeros(len(k),dtype=complex)
 TL = np.zeros(len(k),dtype=complex)
 
+print('Start Testing, 1/2.\n',time.process_time())
 for i in range(len(k)):
     cpf_set_loads(DSSCircuit,BB0,SS0,k[i])
     DSSSolution.Solve()
@@ -172,6 +171,7 @@ for i in range(len(k)):
     veN[i] = np.linalg.norm( vv_lN[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
 
 
+print('Start Testing, 2/2.\n',time.process_time())
 DSSText.command='set controlmode=static'
 for i in range(len(k)):
     cpf_set_loads(DSSCircuit,BB0,SS0,k[i])

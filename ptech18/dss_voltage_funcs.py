@@ -65,20 +65,18 @@ def setRx(DSSCircuit,R,X):
     return
 
 def get_regIdx(DSSCircuit):
-    regXfmr=get_regXfmr(DSSCircuit)
+    regXfmrs=get_regXfmr(DSSCircuit) # needs to be in this order to match the index order of other fncs
     regBus = []
     regIdx = []
-    i = DSSCircuit.Transformers.First
-    while i:
-        if in_regs(DSSCircuit,regXfmr):
-            if DSSCircuit.ActiveElement.NumPhases==1:
-                bus = DSSCircuit.ActiveElement.BusNames[1]
-            elif DSSCircuit.ActiveElement.NumPhases==3: # WARNING: assume connected to .1 (true is bus='')
-                bus = DSSCircuit.ActiveElement.BusNames[1]+'.1'
-            regBus.append(bus)
-            node = bus.split('.')[0]
-            regIdx = regIdx + find_node_idx(node_to_YZ(DSSCircuit),bus,False)
-        i = DSSCircuit.Transformers.Next
+    for regXfmr in regXfmrs:
+        DSSCircuit.SetActiveElement('Transformer.'+regXfmr)
+        if DSSCircuit.ActiveElement.NumPhases==1:
+            bus = DSSCircuit.ActiveElement.BusNames[1]
+        elif DSSCircuit.ActiveElement.NumPhases==3: # WARNING: assume connected to .1 (true is bus='')
+            bus = DSSCircuit.ActiveElement.BusNames[1]+'.1'
+        regBus.append(bus)
+        node = bus.split('.')[0]
+        regIdx = regIdx + find_node_idx(node_to_YZ(DSSCircuit),bus,False)
     return regIdx
 
 def get_reIdx(regIdx,n):

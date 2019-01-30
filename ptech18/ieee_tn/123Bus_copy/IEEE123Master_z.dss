@@ -234,4 +234,4 @@ new energymeter.mreg4 element=line.reg4
 solve
 !Buscoords Buscoords.dat   ! load in bus coordinates
 !plot profile
-show taps
+!show taps
