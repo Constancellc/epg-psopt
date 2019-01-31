@@ -39,7 +39,37 @@ def idx_shf(x_idx,reIdx):
     
     return x_idx_shf,x_idx_new
 
-    
+def add_generators(DSSObj,genBuses,delta):
+    # NB: nominal power is 10 kW.
+    genNames = []
+    for genBus in genBuses:
+        DSSObj.ActiveCircuit.SetActiveBus(genBus)
+        if not delta: # ie wye
+            genName = genBus.replace('.','_')
+            genKV = str(DSSObj.ActiveCircuit.ActiveBus.kVbase)
+            DSSObj.Text.command='new generator.'+genName+' phases=1 bus1='+genBus+' kV='+genKV+' kW=10.0 pf=1.0 model=1 vminpu=0.33 vmaxpu=3.0 conn=wye'
+        elif delta:
+            genKV = str(DSSObj.ActiveCircuit.ActiveBus.kVbase*np.sqrt(3))
+            if genBus[-1]=='1':
+                genBuses = genBus+'.2'
+            if genBus[-1]=='2':
+                genBuses = genBus+'.3'
+            if genBus[-1]=='3':
+                genBuses = genBus+'.1'
+            genName = genBuses.replace('.','_')
+            DSSObj.Text.command='new generator.'+genName+' phases=1 bus1='+genBuses+' kV='+genKV+' kW=10.0 pf=1.0 model=1 vminpu=0.33 vmaxpu=3.0 conn=wye'
+        genNames = genNames+[genName]
+    return genNames
+
+def set_generators(DSSCircuit,genNames,S):
+    i = 0
+    for genName in genNames:
+        DSSCircuit.Generators.Name=genName
+        DSSCircuit.Generators.kW = S[i]
+        i+=1
+    return
+
+
 def ld_vals( DSSCircuit ):
     ii = DSSCircuit.FirstPCElement()
     S=[]; V=[]; I=[]; B=[]; D=[]; N=[]
@@ -384,7 +414,7 @@ def loadLinMagModel(feeder,lin_point,WD,lp_taps):
     LM['vYNodeOrder'] = np.load(stt+'vYNodeOrder'+end)
     LM['SyYNodeOrder'] = np.load(stt+'SyYNodeOrder'+end)
     LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)
-    # Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
+    LM['v_idx'] = np.load(stt+'v_idx'+end)
     return LM
     
 def loadLtcModel(feeder,lin_point,WD,lp_taps):
@@ -400,5 +430,7 @@ def loadLtcModel(feeder,lin_point,WD,lp_taps):
     LM['xhy0'] = np.load(stt+'xhy0'+end)
     LM['xhd0'] = np.load(stt+'xhd0'+end)
     LM['YZ'] = np.load(stt+'YZ'+end)
+    LM['SyYNodeOrder'] = np.load(stt+'SyYNodeOrder'+end)
+    LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)
     return LM
     

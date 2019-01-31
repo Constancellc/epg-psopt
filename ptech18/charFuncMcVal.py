@@ -5,7 +5,6 @@ import numpy as np
 import numpy.random as rnd
 import matplotlib.pyplot as plt
 import getpass
-# from dss_python_funcs import loadLinMagModel, loadLtcModel, get_ckt, vecSlc, tp_2_ar
 from dss_python_funcs import *
 from math import gamma
 import time
@@ -14,6 +13,7 @@ import win32com.client
 
 if getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
+    sn = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190204\\charFuncHcAlys_"
 elif getpass.getuser()=='Matt':
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
     sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190128\\charFuncHcAlys_"
@@ -26,12 +26,17 @@ pltCdfs = True
 pltCdfs = False
 pltBox = True
 pltBox = False
+pltBoxDss = True
+pltBoxDss = False
+pltBoxBoth = True
+# pltBoxBoth = False
+
 
 pltSave = True
 pltSave = False
 
 ltcModel=True
-# ltcModel=False
+ltcModel=False
 
 intgt = 00
 intmax = 10
@@ -47,6 +52,8 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 feeder = fdrs[fdr_i]
 lin_point=0.6
 lp_taps='Lpt'
+
+nMc = int(1e3)
 
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
@@ -80,6 +87,7 @@ if not ltcModel:
     LM = loadLinMagModel(feeder,lin_point,WD,'Lpt')
     Ky=LM['Ky'];Kd=LM['Kd'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
     vBase = LM['vKvbase']
+    
 
     b0 = Ky.dot(xhy0) + Kd.dot(xhd0) + bV
 
@@ -90,8 +98,8 @@ if not ltcModel:
 elif ltcModel:
     # IF using the LTC model:
     LM = loadLtcModel(feeder,lin_point,WD,'Lpt')
-    A=LM['A'];bV=LM['B'];xhy0=LM['xhy0'];xhd0=LM['xhd0']; vBase = LM['Vbase']
-    v_idx=LM['v_idx']
+    A=LM['A'];bV=LM['B'];xhy0=LM['xhy0'];xhd0=LM['xhd0']; 
+    vBase = LM['Vbase']
     
     x0 = np.concatenate((xhy0,xhd0))
     b0 = A.dot(x0) + bV
@@ -101,7 +109,11 @@ elif ltcModel:
     
     Ktot = np.concatenate((KyP,KdP),axis=1)
     Ktot[abs(Ktot)<1e-9]=0    
-    
+v_idx=LM['v_idx']; 
+YZp = LM['SyYNodeOrder']
+YZd = LM['SdYNodeOrder']
+
+
 
 # NB: mean of gamma distribution is k*th.
 rndI = 1e4
@@ -160,7 +172,7 @@ for v in vAll:
     
 print('Complete.',time.process_time())    
 
-# PART B FROM HERE ==============
+# PART B FROM HERE ==============================
 
 # 1. load the appropriate model/DSS
 DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
@@ -174,11 +186,58 @@ if lp_taps=='Lpt':
     cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
     DSSSolution.Solve()
 
+if not ltcModel:
+    DSSText.command='set controlmode=off'
+elif ltcModel:
+    DSSText.command='set maxcontroliter=30'
+    DSSText.command='set maxiterations=100'
+
+print('hi')
 YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 YZ = DSSCircuit.YNodeOrder
 YZ = vecSlc(YZ[3:],v_idx)
 
+# 2. run MC analysis, going through each generator and setting to a power.
+genNamesY = add_generators(DSSObj,YZp,False)
+genNamesD = add_generators(DSSObj,YZd,True)
+DSSSolution.Solve()
 
+genNames = genNamesY+genNamesD
+
+# 2a. now draw from the correct distributions
+pdfGen = np.zeros((nMc,len(genNames)))
+for i in range(len(genNames)):
+    pdfGen[:,i] = np.random.gamma(k,1e-3*Th[i],nMc)
+
+vOut = np.zeros((nMc,len(v_idx)))
+conv = []
+for i in range(nMc):
+    if i%100==0:
+        print(i,'/',nMc)
+    set_generators( DSSCircuit,genNames,pdfGen[i] )
+    DSSSolution.Solve()
+    conv = conv+[DSSSolution.Converged]
+    v00 = abs(tp_2_ar(DSSCircuit.YNodeVarray))
+    vOut[i,:] = v00[3:][v_idx]/vBase
+
+print('No. Converged:',sum(conv),'/',nMc)
+
+# COMPARE RESULTS ==========
+if pltBoxDss:
+    plt.boxplot(vOut,whis=[1,99])
+    plt.plot(range(1,len(vBase)+1),abs(YNodeVnom[3:])[v_idx]/vBase,'rx')
+    plt.xlabel('Bus no.')
+    plt.ylabel('Voltage (pu)')
+    xlm = plt.xlim()
+    plt.plot(xlm,[Vmax,Vmax],'r--')
+    plt.plot(xlm,[Vmin,Vmin],'r--')
+    plt.xlim(xlm)
+    plt.grid(True)
+    if pltSave:
+        plt.savefig(sn+'pltBoxDss.png')
+        plt.close()
+    else:
+        plt.show()
 
 # ================ PLOTTING FUNCTIONS FROM HERE
 if pltGen:
@@ -267,6 +326,72 @@ if pltBox:
     plt.plot(xlm,[Vmax,Vmax],'r--')
     plt.plot(xlm,[Vmin,Vmin],'r--')
     plt.xlim(xlm)
+    plt.grid(True)
+    if pltSave:
+        plt.savefig(sn+'pltBox.png')
+    else:
+        plt.show()
+if pltBoxBoth:
+    Vmn = np.zeros(len(Ktot))
+    Vlo = np.zeros(len(Ktot))
+    Vmd = np.zeros(len(Ktot))
+    Vhi = np.zeros(len(Ktot))
+    Vmx = np.zeros(len(Ktot))
+
+    emn = 0.01
+    elo = 0.25
+    emd = 0.50
+    ehi = 0.75
+    emx = 0.99
+    
+    plt.figure(figsize=(9,4))
+
+    plt.subplot(122)
+    for i in range(len(Ktot)):
+        Vmn[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - emn))]
+        Vlo[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - elo))]
+        Vmd[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - emd))]
+        Vhi[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - ehi))]
+        Vmx[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - emx))]
+        plt.plot(i,Vmn[i],'k^'); 
+        plt.plot(i,Vlo[i],'g_'); plt.plot(i,Vmd[i],'b_'); plt.plot(i,Vhi[i],'g_');
+        plt.plot(i,Vmx[i],'kv'); 
+        plt.plot([i,i],[Vmn[i],Vmx[i]],'k:')
+        plt.plot(i,b0[i]/vBase[i],'rx')
+
+    plt.xlabel('Bus No.')
+    plt.ylabel('Voltage (pu)')
+    xlm = plt.xlim()
+    plt.plot(xlm,[Vmax,Vmax],'r--')
+    plt.plot(xlm,[Vmin,Vmin],'r--')
+    plt.xlim(xlm)
+    plt.grid(True)
+    
+    plt.title('Linear Model')
+    plt.subplot(121)
+    
+    Vmn = np.percentile(vOut,1,axis=0)
+    Vlo = np.percentile(vOut,25,axis=0)
+    Vmd = np.percentile(vOut,50,axis=0)
+    Vhi = np.percentile(vOut,25,axis=0)
+    Vmx = np.percentile(vOut,99,axis=0)
+    
+    plt.plot(Vmn,'k^')
+    plt.plot(Vlo,'g_'); plt.plot(Vmd,'b_'); plt.plot(Vhi,'g_');
+    plt.plot(Vmx,'kv'); 
+    plt.plot([range(len(v_idx)),range(len(v_idx))],[Vmn,Vmx],'k:')
+    plt.plot(b0/vBase,'rx')
+
+    xlm = plt.xlim()
+    plt.plot(xlm,[Vmax,Vmax],'r--')
+    plt.plot(xlm,[Vmin,Vmin],'r--')
+    plt.xlim(xlm)
+    plt.grid(True)
+    
+    plt.title('OpenDSS Solutions')
+
+    plt.show()
+    
     if pltSave:
         plt.savefig(sn+'pltBox.png')
     else:

@@ -26,7 +26,7 @@ DSSSolution.tolerance=1e-7
 # ------------------------------------------------------------ circuit info
 test_model = True
 # test_model = False
-fdr_i = 16
+fdr_i = 5
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod']; lp_taps='Nmt'
 feeder='041'
@@ -201,9 +201,11 @@ for K in range(len(lin_points)):
     np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx])
     np.save(sn0+'bV'+lp_str+'.npy',bV)
     
+    np.save(sn0+'v_idx'+lp_str+'.npy',v_idx)
+    
     np.save(sn0+'vKvbase'+lp_str+'.npy',YvbaseV)
     np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vecSlc(YNodeOrder[3:],v_idx))
-    np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',vecSlc(YNodeOrder[3:],p_idx))
+    np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',vecSlc(YNodeOrder[3:],p_idx)[0])
     np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',yzD)
     
     if len(H)!=0:

@@ -40,7 +40,7 @@ DSSSolution = DSSCircuit.Solution
 test_model_plt = True
 # test_model_plt = False
 test_model_bus = True
-# test_model_bus = False
+test_model_bus = False
 fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod']
 feeder=fdrs[fdr_i]
@@ -178,7 +178,7 @@ if test_model_plt or test_model_bus:
         TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
         TL[i] = 1e-3*(DSSCircuit.Losses[0] + 1j*DSSCircuit.Losses[1])
 
-        v_0[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray)).real # for some reason complains about complex
+        v_0[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray))
         vv_0R[i,:] = v_0[i,3:][v_idx_new]
 
         sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
@@ -219,6 +219,9 @@ np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx_shf])
 np.save(sn0+'xhd0'+lp_str+'.npy',xhd0[sD_idx_shf])
 np.save(sn0+'YZ'+lp_str+'.npy',YZnew)
 np.save(sn0+'Vbase'+lp_str+'.npy',Yvbase_new)
+
+np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',YZp)
+np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',YZd)
 
 # np.save(sn0+'Avreg'+lp_str+'.npy',regIdxMatVlts)
 # np.save(sn0+'Bvreg'+lp_str+'.npy',regVreg)
