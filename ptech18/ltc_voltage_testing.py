@@ -121,12 +121,13 @@ Xreg = np.diag(xReg)
 
 zoneSet = getZoneSet(feeder,DSSCircuit,zoneTree) # NB this is not yet automated
 
-regIdxMatY = get_regIdxMatS(YZp,zoneList,zoneSet,np.ones(len(YZp)),np.ones(len(YZp)),len(regIdx))
-regIdxMatD = get_regIdxMatS(YZd,zoneList,zoneSet,Kp,Kq,len(regIdx))
+regIdxMatY = get_regIdxMatS(YZp,zoneList,zoneSet,np.ones(len(YZp)),np.ones(len(YZp)),len(regIdx),False)
+regIdxMatD = get_regIdxMatS(YZd,zoneList,zoneSet,Kp,Kq,len(regIdx),True)
 
 xhR = np.concatenate((xhy0[s_idx_shf],xhd0[sD_idx_shf]))
 regIdxMat = np.concatenate((regIdxMatY,regIdxMatD),axis=1) # matrix used for finding power through regulators
-# Sreg = regIdxMat.dot(xhR)/1e3 # for debugging.
+Sreg = regIdxMat.dot(xhR)/1e3; print(Sreg) # for debugging.
+
 
 regIdxMatYs = regIdxMatY[:,0:len(xhy0)//2].real
 regIdxMatDs = regIdxMatD[:,0:len(xhd0)//2].real

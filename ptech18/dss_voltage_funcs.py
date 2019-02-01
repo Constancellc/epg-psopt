@@ -233,36 +233,43 @@ def get_regZneIdx(DSSCircuit):
     
     return zoneList, regIdx, zoneTree
 
-def getRegTrn(DSSCircuit,zoneTree):
-    # find the number of transformers per regulator
+def getRegTrn(DSSCircuit,zoneTree):    # find the number of transformers per regulator
     regNms = getRegNms(DSSCircuit)
     regTrn = {} 
     for branch in zoneTree.values():
         for reg in branch:
             nPh = 0
+            phs = []
             for regPh in regNms.keys():
                 if reg in regPh:
                     nPh = nPh+1
-            regTrn[reg] = nPh
+                    if regPh[-1]=='a':
+                        phs = phs+[1]
+                    if regPh[-1]=='b':
+                        phs = phs+[2]
+                    if regPh[-1]=='c':
+                        phs = phs+[3]
+                    if regPh[-1]=='g':
+                        phs = [1,2,3]
+            regTrn[reg] = [nPh,phs]
     return regTrn
     
 def getZoneSet(feeder,DSSCircuit,zoneTree):
-    # It would be nice to automate this at some point
-    
     # to help create the right sets:
     regNms =  getRegNms(DSSCircuit) # number of phases in each regulator connected to, in the right order
     regTrn = getRegTrn(DSSCircuit,zoneTree) # number of individually controlled taps
     
-    if feeder=='13busRegModRx' or feeder=='13busReg3rg':
-        zoneSet = {'msub':[],'mreg':[0],'mregx':[0,3],'mregy':[0,6]} # this will need automating...
+    # It would be good to automate this at some point!
+    if feeder=='13busRegModRx' or feeder=='13busRegMod3rg':
+        zoneSet = {'msub':{},'mreg':{1:[0],2:[1],3:[2]},'mregx':{1:[0,3],2:[1,4],3:[2,5]},'mregy':{1:[0,6],2:[1,7],3:[2,8]}}
     elif feeder=='123busMod' or feeder=='123bus':
-        zoneSet = {'msub':[],'mreg1a':[0],'mreg2a':[0,1],'mreg3':[0,2],'mreg4':[0,4]} # this will need automating...
+        zoneSet = {'msub':{},'mreg1g':{1:[0],2:[],3:[]},'mreg2a':{1:[0,1]},'mreg3':{1:[0,2],3:[3]},'mreg4':{1:[0,4],2:[5],3:[6]}}
     elif feeder=='13busModSng':
-        zoneSet = {'msub':[],'mreg0':[0],'mregx':[0,1]} # this will need automating...
+        zoneSet = {'msub':{},'mreg0':{1:[0],2:[0],3:[0]},'mregx':{1:[0,1],2:[0,2],3:[0,3]}}
     elif feeder=='34bus':
-        zoneSet = {'msub':[],'mreg1':[0],'mreg2':[0,3]} # this will need automating...
+        zoneSet = {'msub':{1:[],2:[],3:[]},'mreg1':{1:[0],2:[0],3:[0]},'mreg2':{1:[0,3],2:[1,4],3:[2,5]}}
     elif feeder=='13busMod' or feeder=='13bus':
-        zoneSet = {'msub':[],'mregs':[0]} # this will need automating...
+        zoneSet = {'msub':[],'mregs':{1:[0],2:[1],3:[2]}}
     else:
         print(feeder)
         print(regNms)
@@ -270,27 +277,32 @@ def getZoneSet(feeder,DSSCircuit,zoneTree):
         print(zoneTree,'\n\n')
     return zoneSet
 
-def get_regIdxMatS(YZx,zoneList,zoneSet,Kp,Kq,nreg):
-    # Find all zones and phases of nodes to which regs are attached
+def getZoneX(YZx,zoneList): # goes through each node and adds to the regulator list if it connected to that reg.
     zoneX = []
     for yz in YZx: # for each node
         ph = int(yz[-1]) # get the phase
         for key in zoneList: # for each key in the list of zones
             if yz in zoneList[key]: # if the node is in that zoneList then
                 zoneX.append([key,ph]) # add to this list for that regulator
+    return zoneX
+
+def get_regIdxMatS(YZx,zoneList,zoneSet,Kp,Kq,nreg,delta):
+    # Find all zones and phases of nodes to which regs are attached
+    zoneX = getZoneX(YZx,zoneList)
     
-    # With this,  ... 
     regIdxPx = np.zeros((nreg,len(YZx)))
     regIdxQx = np.zeros((nreg,len(YZx)))
     i=0
     for zone in zoneX:
         for key in zoneSet:
             if zone[0]==key:
-                for idx in zoneSet[key]:
-                    regIdxPx[idx + zone[1]-1  ,i] = Kp[i] # NB this won't work if the regs are not 3ph!!!!
-                    regIdxPx[idx + (zone[1]%3),i] = 1-Kp[i]
-                    regIdxQx[idx + zone[1]-1  ,i] = Kq[i]
-                    regIdxQx[idx + (zone[1]%3),i] = 1-Kq[i]
+                for regIdx in zoneSet[key][zone[1]]: 
+                    regIdxPx[regIdx,i] = Kp[i]
+                    regIdxQx[regIdx,i] = Kq[i]
+                if delta:
+                    for regIdx in zoneSet[key][zone[1]%3 + 1]:
+                        regIdxPx[regIdx,i] = 1 - Kp[i]
+                        regIdxQx[regIdx,i] = 1 - Kq[i]
         i+=1
     regIdxMatS = np.concatenate((regIdxPx,1j*regIdxQx),axis=1)
     return regIdxMatS
