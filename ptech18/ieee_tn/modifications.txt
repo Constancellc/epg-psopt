@@ -11,6 +11,8 @@ Here we mostly need to reorder so that the _y version
 2. Change 3ph delta loads to 3x1ph loads
 3. Change loads to constant power and fix load min/max voltages (if wanted)
 
+TO DO: 3a: calculate source impedance; remove source impedance from Vsource; add source impedance line.
+
 If regulators, go to II.
 --------
 Ia: create the *_y_z file:

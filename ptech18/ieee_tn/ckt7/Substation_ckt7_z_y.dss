@@ -1,0 +1,15 @@
+!New Circuit.ckt7  pu=1.05 r1=2.314 x1=28.52 r0=0.0001 x0=0.0001 bus1=SourceBus basekv=115
+New Circuit.ckt7  pu=1.05 r1=0.0001 x1=0.0001 r0=0.0001 x0=0.0001 bus1=SourceBus basekv=115
+ 
+New Transformer.Sub1 phases=3 windings=2 buses=(SourceBus_y,ckt7.1.2.3.0) conns=(delta,wye) kvs=(115, 12.47) kvas=(41700, 41700)
+~ xhl=0.635 wdg=1 %r=0.0056 wdg=2 %r=0.0008 
+New Transformer.Sub2 phases=3 windings=2 buses=(SourceBus_y,ckt7.1.2.3.0) conns=(delta,wye) kvs=(115, 12.47) kvas=(41700, 41700)
+~ xhl=0.635 wdg=1 %r=0.0056 wdg=2 %r=0.0008 
+New Transformer.Sub3 phases=3 windings=2 buses=(SourceBus_y,ckt7.1.2.3.0) conns=(delta,wye) kvs=(115, 12.47) kvas=(41700, 41700)
+~ xhl=0.635 wdg=1 %r=0.0056 wdg=2 %r=0.0008 
+
+
+ !Bridge lines to the feeder
+New line.326 bus1=ckt7 Bus2 = 318405 length=0.0001 units=m r1=0.0 r0=0.0 x1=0.0001 x0=0.0001 normamps=600 emergamps=600
+New line.333 bus1=ckt7 Bus2 = 318412 length=0.0001 units=m r1=0.0 r0=0.0 x1=0.0001 x0=0.0001 normamps=600 emergamps=600
+New line.335 bus1=ckt7 Bus2 = 318414 length=0.0001 units=m r1=0.0 r0=0.0 x1=0.0001 x0=0.0001 normamps=600 emergamps=600

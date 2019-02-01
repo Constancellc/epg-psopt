@@ -338,7 +338,8 @@ def get_idxs(e_idx,DSSCircuit,ELE):
             splt = BN.upper().split('.')
             if len(splt) > 1:
                 for j in range(1,len(splt)):
-                    e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]+'.'+splt[j]))
+                    if splt[j]!='0': # ignore ground
+                        e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]+'.'+splt[j]))
             else:
                 try:
                     e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]))
@@ -373,8 +374,8 @@ def print_node_array(YZ,thing):
         print(YZ[i]+': '+str(thing[i]))
 
 def get_ckt(WD,feeder):
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod',feeder]
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod']
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5',feeder]
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7']
     ckts = {'feeder_name':['fn_ckt','fn']}
     ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
     ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
@@ -393,6 +394,8 @@ def get_ckt(WD,feeder):
     ckts[fdrs[14]]=[WD+'\\ieee_tn\\usLv',WD+'\\ieee_tn\\usLv\\master_z']
     ckts[fdrs[15]]=[WD+'\\ieee_tn\\123Bus_copy',WD+'\\ieee_tn\\123Bus_copy\\IEEE123MasterMod_z']
     ckts[fdrs[16]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13NodecktMod_z']
+    ckts[fdrs[17]]=[WD+'\\ieee_tn\\ckt5',WD+'\\ieee_tn\\ckt5\\Master_ckt5_z']
+    ckts[fdrs[18]]=[WD+'\\ieee_tn\\ckt7',WD+'\\ieee_tn\\ckt7\\Master_ckt7_z']
     
     if not feeder in ckts.keys() and len(feeder)==3:
         dir0 = WD+'\\manchester_models\\batch_manc_ntwx\\network_'+str(int(feeder[0:2]))+'\\Feeder_'+feeder[-1]

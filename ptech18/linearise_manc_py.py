@@ -26,9 +26,9 @@ DSSSolution.tolerance=1e-7
 # ------------------------------------------------------------ circuit info
 test_model = True
 # test_model = False
-fdr_i = 5
+fdr_i = 18
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod']; lp_taps='Nmt'
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7']; lp_taps='Nmt'
 feeder='041'
 feeder=fdrs[fdr_i]
 lp_taps='Lpt'
@@ -141,15 +141,15 @@ for K in range(len(lin_points)):
     vv_0 = np.zeros((len(k),len(v_idx)),dtype=complex)
     va_0 = np.zeros((len(k),len(YNodeOrder)))
     vva_0 = np.zeros((len(k),len(v_idx)))
-    
+
     Vslv = np.zeros((len(k),len(YNodeOrder)-3),dtype=complex)
-    
+
     v_l = np.zeros((len(k),len(YNodeOrder)-3),dtype=complex)
     vv_l = np.zeros((len(k),len(v_idx)),dtype=complex)
     va_l = np.zeros((len(k),len(YNodeOrder)-3))
     vva_l = np.zeros((len(k),len(v_idx)))
-    
-    
+
+
     Convrg = []
     TP = np.zeros((len(lin_points),len(k)),dtype=complex)
     TL = np.zeros((len(lin_points),len(k)),dtype=complex)
