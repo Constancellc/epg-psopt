@@ -1,6 +1,5 @@
 # based on the script from 21/1, 'fft_calcs' in matlab.
 # Based on script charFuncHcAlys, deleted 30/01
-
 import numpy as np
 import numpy.random as rnd
 import matplotlib.pyplot as plt
@@ -18,6 +17,7 @@ elif getpass.getuser()=='Matt':
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
     sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190128\\charFuncHcAlys_"
 
+# Plotting options:
 pltGen = True
 pltGen = False
 pltPdfs = True
@@ -29,14 +29,13 @@ pltBox = False
 pltBoxDss = True
 pltBoxDss = False
 pltBoxBoth = True
-# pltBoxBoth = False
-
+pltBoxBoth = False
 
 pltSave = True
 pltSave = False
 
 ltcModel=True
-# ltcModel=False
+ltcModel=False
 
 intgt = 00
 intmax = 10
@@ -113,8 +112,6 @@ v_idx=LM['v_idx'];
 YZp = LM['SyYNodeOrder']
 YZd = LM['SdYNodeOrder']
 
-
-
 # NB: mean of gamma distribution is k*th.
 rndI = 1e4
 xhy0rnd = ld2mean*rndI*np.round(xhy0[:xhy0.shape[0]//2]/rndI  - np.finfo(np.float64).eps) # latter required to make sure that this is negative
@@ -122,7 +119,7 @@ xhd0rnd = ld2mean*rndI*np.round(xhd0[:xhd0.shape[0]//2]/rndI - np.finfo(np.float
 k = 2.0;  # choose the same for all
 Th = -np.concatenate((xhy0rnd,xhd0rnd))/k # negative so that the pds are positive.
 
-Nt = int(DVpu/dVpu)
+Nt = round(DVpu/dVpu)
 
 Tscale = 2e4*np.linalg.norm(Ktot,axis=1)
 Tpscale = 2e6
@@ -133,9 +130,11 @@ dV = np.pi/Tmax
 Tpmax = np.pi/(dP) # see WB 22-1-19
 Np = int(DP/dP)
 tp = np.linspace(-Tpmax,Tpmax,int(Np + 1))
+
 P = dP*np.arange(-Np//2,Np//2 + 1)
 
 cfTot = np.ones((len(Ktot),Nt+1),dtype='complex')
+# cfTot = np.ones((len(Ktot),Nt//2+1),dtype='complex')
 
 vDnew = np.zeros((len(Ktot),int(Nt+1)))
 Vpu = np.zeros((len(Ktot),int(Nt+1)))
@@ -143,14 +142,15 @@ Vpu = np.zeros((len(Ktot),int(Nt+1)))
 for i in range(len(Ktot)):
     if i%(len(Ktot)//10)==0:
         print(i,'/',len(Ktot))
-    
     t = np.linspace(-Tmax[i],Tmax[i],int(Nt + 1))
+    # t = np.linspace(0,Tmax[i],int(Nt//2 + 1))
     j=0
     for th in Th:
         cfJ = dsf.cf_gm_dgn(k,th,t,Ktot[i,j],dgn);
         cfTot[i,:] = cfTot[i,:]*cfJ
         j+=1
     vDnew[i,:] = abs(np.fft.fftshift(np.fft.ifft(cfTot[i,:])))*vBase[i]/dV[i]
+    # vDnew[i,:] = abs(np.fft.irfft(cfTot[i,:]))*vBase[i]/dV[i]
     
     v0 = b0[i]/vBase[i]
     Vpu[i,:] = (dV[i]*np.arange(-Nt//2,Nt//2 + 1) + b0[i])/vBase[i]

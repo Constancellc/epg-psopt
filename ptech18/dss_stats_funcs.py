@@ -107,12 +107,12 @@ pdfB = pdf_bn1(x0,p,x)
 # plt.plot(x,pdfB)
 # plt.show()
 
-ftB = np.fft.rfft(pdfB)*dx
-cfB = cf_bn1(x0,p,t)
+# ftB = np.fft.rfft(pdfB)*dx
+# cfB = cf_bn1(x0,p,t)
 
-cfN = cfB*cfB
+# cfN = cfB*cfB
 
-ftN = np.fft.rfft(pdfN)
+# ftN = np.fft.rfft(pdfN)
 
 # plt.plot(t,ftN.real)
 # plt.plot(t,ftN.imag)
