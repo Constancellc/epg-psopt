@@ -26,7 +26,7 @@ elif getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 # circuit details copied from linearise_manc_py.
-fdr_i = 16
+fdr_i = 8
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7']
 feeder=fdrs[fdr_i]
 ckt=get_ckt(WD,feeder)

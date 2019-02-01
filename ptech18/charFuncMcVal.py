@@ -36,7 +36,7 @@ pltSave = True
 pltSave = False
 
 ltcModel=True
-ltcModel=False
+# ltcModel=False
 
 intgt = 00
 intmax = 10
@@ -47,7 +47,7 @@ dVpu = 1.0*1e-5; # Tmax prop. 1/dVpu. This has to be quite big (over 1e-6) to ge
 DVpu = 0.15; # Nt = DVpu/dVpu.
 iKtot = 12
 
-fdr_i = 5
+fdr_i = 8
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7']
 feeder = fdrs[fdr_i]
 lin_point=0.6
@@ -117,8 +117,8 @@ YZd = LM['SdYNodeOrder']
 
 # NB: mean of gamma distribution is k*th.
 rndI = 1e4
-xhy0rnd = ld2mean*rndI*np.round(xhy0[:xhy0.shape[0]//2]/rndI)
-xhd0rnd = ld2mean*rndI*np.round(xhd0[:xhd0.shape[0]//2]/rndI)
+xhy0rnd = ld2mean*rndI*np.round(xhy0[:xhy0.shape[0]//2]/rndI  - np.finfo(np.float64).eps) # latter required to make sure that this is negative
+xhd0rnd = ld2mean*rndI*np.round(xhd0[:xhd0.shape[0]//2]/rndI - np.finfo(np.float64).eps)
 k = 2.0;  # choose the same for all
 Th = -np.concatenate((xhy0rnd,xhd0rnd))/k # negative so that the pds are positive.
 
@@ -141,13 +141,15 @@ vDnew = np.zeros((len(Ktot),int(Nt+1)))
 Vpu = np.zeros((len(Ktot),int(Nt+1)))
 
 for i in range(len(Ktot)):
+    if i%(len(Ktot)//10)==0:
+        print(i,'/',len(Ktot))
+    
     t = np.linspace(-Tmax[i],Tmax[i],int(Nt + 1))
     j=0
     for th in Th:
         cfJ = dsf.cf_gm_dgn(k,th,t,Ktot[i,j],dgn);
         cfTot[i,:] = cfTot[i,:]*cfJ
         j+=1
-    print('Calc DFT:',time.process_time())
     vDnew[i,:] = abs(np.fft.fftshift(np.fft.ifft(cfTot[i,:])))*vBase[i]/dV[i]
     
     v0 = b0[i]/vBase[i]
@@ -155,7 +157,10 @@ for i in range(len(Ktot)):
 
 
 vDnewSumEr = ((sum(vDnew.T)/(vBase/dV)) - 1)*100 # normalised (%)
-print('Checksum: sum of PDFs:',vDnewSumEr)
+print('DFT Calc complete.',time.process_time())
+
+print('Checksum: max PDFs error',max(vDnewSumEr))
+print('Checksum: mean PDFs error',np.mean(vDnewSumEr))
 
 vDnewSum = sum(vDnew.T)
 vDnewCdf = np.cumsum(vDnew,axis=1).T/vDnewSum.T
@@ -192,7 +197,7 @@ elif ltcModel:
     DSSText.command='set maxcontroliter=30'
     DSSText.command='set maxiterations=100'
 
-print('hi')
+
 YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 YZ = DSSCircuit.YNodeOrder
 YZ = vecSlc(YZ[3:],v_idx)
@@ -211,8 +216,9 @@ for i in range(len(genNames)):
 
 vOut = np.zeros((nMc,len(v_idx)))
 conv = []
+print('---- Start MC ----',time.process_time())
 for i in range(nMc):
-    if i%100==0:
+    if i%(nMc//10)==0:
         print(i,'/',nMc)
     set_generators( DSSCircuit,genNames,pdfGen[i] )
     DSSSolution.Solve()
@@ -220,6 +226,7 @@ for i in range(nMc):
     v00 = abs(tp_2_ar(DSSCircuit.YNodeVarray))
     vOut[i,:] = v00[3:][v_idx]/vBase
 
+print('MC complete.',time.process_time())
 print('No. Converged:',sum(conv),'/',nMc)
 
 # COMPARE RESULTS ==========
