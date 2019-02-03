@@ -29,7 +29,7 @@ pltBox = False
 pltBoxDss = True
 pltBoxDss = False
 pltBoxBoth = True
-pltBoxBoth = False
+# pltBoxBoth = False
 
 pltSave = True
 pltSave = False
@@ -46,7 +46,7 @@ dVpu = 1.0*1e-5; # Tmax prop. 1/dVpu. This has to be quite big (over 1e-6) to ge
 DVpu = 0.15; # Nt = DVpu/dVpu.
 iKtot = 12
 
-fdr_i = 8
+fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7']
 feeder = fdrs[fdr_i]
 lin_point=0.6
@@ -124,6 +124,9 @@ Nt = round(DVpu/dVpu)
 Tscale = 2e4*np.linalg.norm(Ktot,axis=1)
 Tpscale = 2e6
 
+DVpu0 = DVpu*Tscale*vBase
+dVpu0 = dVpu*Tscale*vBase
+
 Tmax = np.pi/(Tscale*vBase*dVpu) # see WB 22-1-19
 dV = np.pi/Tmax
 
@@ -133,28 +136,25 @@ tp = np.linspace(-Tpmax,Tpmax,int(Np + 1))
 
 P = dP*np.arange(-Np//2,Np//2 + 1)
 
-cfTot = np.ones((len(Ktot),Nt+1),dtype='complex')
-# cfTot = np.ones((len(Ktot),Nt//2+1),dtype='complex')
+cfTot = np.ones((len(Ktot),Nt//2 + 1),dtype='complex')
 
 vDnew = np.zeros((len(Ktot),int(Nt+1)))
 Vpu = np.zeros((len(Ktot),int(Nt+1)))
-
+t0=[];t1=[]
+print('--- Start DFT Calc ---\n',time.process_time())
 for i in range(len(Ktot)):
     if i%(len(Ktot)//10)==0:
         print(i,'/',len(Ktot))
-    t = np.linspace(-Tmax[i],Tmax[i],int(Nt + 1))
-    # t = np.linspace(0,Tmax[i],int(Nt//2 + 1))
+    t = dsf.dy2YzR(dVpu0[i],DVpu0[i])[1]
     j=0
     for th in Th:
         cfJ = dsf.cf_gm_dgn(k,th,t,Ktot[i,j],dgn);
         cfTot[i,:] = cfTot[i,:]*cfJ
         j+=1
-    vDnew[i,:] = abs(np.fft.fftshift(np.fft.ifft(cfTot[i,:])))*vBase[i]/dV[i]
-    # vDnew[i,:] = abs(np.fft.irfft(cfTot[i,:]))*vBase[i]/dV[i]
+    vDnew[i,:] = np.fft.fftshift(np.fft.irfft(cfTot[i,:],n=Nt+1))*vBase[i]/dV[i]
     
     v0 = b0[i]/vBase[i]
     Vpu[i,:] = (dV[i]*np.arange(-Nt//2,Nt//2 + 1) + b0[i])/vBase[i]
-
 
 vDnewSumEr = ((sum(vDnew.T)/(vBase/dV)) - 1)*100 # normalised (%)
 print('DFT Calc complete.',time.process_time())

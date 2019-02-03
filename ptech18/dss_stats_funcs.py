@@ -61,81 +61,79 @@ def cf_bn1(x0,p,t):
 # CREATING x,t FROM dx, Dx/dt, Dt:
 
 def dy2Yz(dy,Dy): # see WB 24-1-19
-    Nt = int(Dy/dy)
+    Nt = int(Dy/dy) + 1
     dz = 2*np.pi/Dy
-    Y = dy*np.arange(-Nt/2,Nt/2 + 1)
-    Z = dz*np.arange(-Nt/2,Nt/2 + 1)
+    Y = dy*np.arange(-(Nt//2),(Nt//2) + 1)
+    Z = dz*(Nt - 1)*np.fft.fftfreq(Nt)
     return Y,Z
 
 def dy2YzR(dy,Dy): # Real version (positive t)
-    Nt = int(Dy/dy)
+    Nt = int(Dy/dy) + 1 # assume symmetric around zero.
     dz = 2*np.pi/Dy
-    Y = dy*np.arange(-Nt/2,Nt/2 + 1)
-    Z = dz*np.arange(0,Nt/2 + 1)
+    Y = dy*np.arange(-(Nt//2),Nt//2 + 1)
+    Z = dz*(Nt-1)*np.fft.rfftfreq(Nt) # note different freqs if odd/even.
     return Y,Z
 
-
-
-
 # VVVVVVVVVVVVVVVVV TESTING VVVVVVVVVVVVVVVVV
-k = 4.214235442805903
-th = 1.260966500373797
-dx = 1e-1
-Dx = 500
+# # GETTING the RFFT working for faster processing: =============
+# dx = 1e-1
+# # dx = 5.0 # for easier visualization of correct results.
+# Dx = 50.0
 
-x,t = dy2YzR(dx,Dx)
-x = x+(Dx/2)
-xC = 4
-pdf = pdf_gm(k,th,x)
-pdfN = pdf_gm_Xc(k,th,x,xC)
+# x,t = dy2YzR(dx,Dx)
+# x = x+(Dx/2)
 
-ft_gm = np.fft.rfft(pdf)*dx # calculated version    
-ft_cf = cf_gm(k,th,t)
-
-
-# plt.plot(t,ft_gm.real)
-# plt.plot(t,ft_gm.imag)
-# plt.plot(-t,ft_gm.real)
-# plt.plot(-t,-ft_gm.imag)
-# plt.show()
-
-x0 = 10.
-p = 1/2
-pdfB = pdf_bn1(x0,p,x)
-# pdfB[x==0] = p*1/dx
-
-# plt.plot(x,pdfB)
-# plt.show()
+# # testing binomial pdf/cdf and real ffts
+# x0 = 10.
+# p = 1/2
+# pdfB = pdf_bn1(x0,p,x)
 
 # ftB = np.fft.rfft(pdfB)*dx
+# ftBN = ftB*ftB
 # cfB = cf_bn1(x0,p,t)
-
 # cfN = cfB*cfB
 
-# ftN = np.fft.rfft(pdfN)
+# pdfBn = np.fft.irfft(cfN,n=len(x)) # len needed as odd 'time domain' signal (see below)
+# pdfBn_ift = np.fft.irfft(ftBN,n=len(x))
 
-# plt.plot(t,ftN.real)
-# plt.plot(t,ftN.imag)
-# plt.show()
-
-# pdfBn = np.fft.irfft(cfN)
-# plt.plot(x[:-1],pdfBn)
-# plt.show()
-
+# # check the cf and ft are the same --- 
+# plt.plot(t,ftB.real)
 # plt.plot(t,ftB.imag)
 # plt.plot(t,cfB.real)
 # plt.plot(t,cfB.imag)
 # plt.show()
 
-# cfU = cf_uni(0,10.,t)
-# plt.plot(t,cfU.real)
-# plt.plot(t,cfU.imag)
+# plt.subplot(121)
+# plt.semilogy(t,abs(ftB+ np.finfo(np.float64).eps)/abs(cfB+ np.finfo(np.float64).eps))
+# plt.subplot(122)
+# plt.plot(t,np.angle(ftB+ np.finfo(np.float64).eps) - np.angle(cfB+ np.finfo(np.float64).eps))
+# plt.show()
+
+# # Finally, demonstrate that the final result is as expected.
+# plt.subplot(221)
+# plt.plot(x,pdfBn_ift + np.finfo(np.float64).eps)
+# plt.subplot(222)
+# plt.semilogy(x,pdfBn_ift + np.finfo(np.float64).eps)
+# plt.subplot(223)
+# plt.plot(x,pdfBn)
+# plt.subplot(224)
+# plt.semilogy(x,pdfBn  + np.finfo(np.float64).eps)
 # plt.show()
 
 
+# # REAL FFT with ODD POINTS =============
+# # here we need to use n=N option to return the correct output.
+# x = np.arange(-5,6,1)
+# fx = np.zeros(len(x))
+# fx[0]=.333; fx[5]=.333; fx[-1]=.333
 
+# ft = np.fft.rfft(fx)
+# fft = np.fft.fftshift(np.fft.fft(fx))
 
-# # Looking at cf as gamma k grows, constant k*th =====
+# fx_t0 = np.fft.irfft(ft)
+# fx_t = np.fft.irfft(ft,n=11) # this returns the correct ifft.
+
+# # Looking at cf as gamma k grows, constant k*th =============
 # K = np.linspace(0.1,20)
 # mu = 1
 
