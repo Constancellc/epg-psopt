@@ -23,19 +23,19 @@ pltGen = False
 pltPdfs = True
 pltPdfs = False
 pltCdfs = True
-pltCdfs = False
+# pltCdfs = False
 pltBox = True
 pltBox = False
 pltBoxDss = True
 pltBoxDss = False
 pltBoxBoth = True
-# pltBoxBoth = False
+pltBoxBoth = False
 
 pltSave = True
 pltSave = False
 
 ltcModel=True
-ltcModel=False
+# ltcModel=False
 
 intgt = 00
 intmax = 10
@@ -53,16 +53,15 @@ lin_point=0.6
 lp_taps='Lpt'
 
 nMc = int(1e3)
+# nMc = int(1e2)
 
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
 fn = ckt[1]
 
-Vmax = 1.05
+# Vmax = 1.05
+Vmax = 1.055
 Vmin  = 0.95
-
-dP = 10*1e3 # W
-DP = 100000*1e3 # W
 
 ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
 # ld2mean = 2.0 # ie the mean of those generators which install is 1/2 of their load
@@ -86,7 +85,6 @@ if not ltcModel:
     LM = loadLinMagModel(feeder,lin_point,WD,'Lpt')
     Ky=LM['Ky'];Kd=LM['Kd'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
     vBase = LM['vKvbase']
-    
 
     b0 = Ky.dot(xhy0) + Kd.dot(xhd0) + bV
 
@@ -122,19 +120,10 @@ Th = -np.concatenate((xhy0rnd,xhd0rnd))/k # negative so that the pds are positiv
 Nt = round(DVpu/dVpu)
 
 Tscale = 2e4*np.linalg.norm(Ktot,axis=1)
-Tpscale = 2e6
 
 DVpu0 = DVpu*Tscale*vBase
 dVpu0 = dVpu*Tscale*vBase
-
-Tmax = np.pi/(Tscale*vBase*dVpu) # see WB 22-1-19
-dV = np.pi/Tmax
-
-Tpmax = np.pi/(dP) # see WB 22-1-19
-Np = int(DP/dP)
-tp = np.linspace(-Tpmax,Tpmax,int(Np + 1))
-
-P = dP*np.arange(-Np//2,Np//2 + 1)
+dV = Tscale*vBase*dVpu # see WB 22-1-19
 
 cfTot = np.ones((len(Ktot),Nt//2 + 1),dtype='complex')
 
@@ -178,7 +167,6 @@ for v in vAll:
 print('Complete.',time.process_time())    
 
 # PART B FROM HERE ==============================
-
 # 1. load the appropriate model/DSS
 DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText = DSSObj.Text
@@ -226,8 +214,43 @@ for i in range(nMc):
     v00 = abs(tp_2_ar(DSSCircuit.YNodeVarray))
     vOut[i,:] = v00[3:][v_idx]/vBase
 
+
 print('MC complete.',time.process_time())
-print('No. Converged:',sum(conv),'/',nMc)
+print('\nNo. Converged:',sum(conv),'/',nMc)
+
+# MC Error analysis:
+vOutH0 = vOut[0:nMc//2]
+vOutH1 = vOut[nMc//2:]
+vOutH0.sort(axis=0)
+vOutH1.sort(axis=0)
+
+minVdssH0 = np.min(vOutH0,axis=1)
+maxVdssH0 = np.max(vOutH0,axis=1)
+minVdssH1 = np.min(vOutH1,axis=1)
+maxVdssH1 = np.max(vOutH1,axis=1)
+
+yscale01 = np.linspace(0.0,1.0,nMc//2)
+
+Vp_pct_dss_H0 = 100.0*(1 - yscale01[np.argmin(abs(maxVdssH0 - Vmax))])
+Vp_pct_dss_H1 = 100.0*(1 - yscale01[np.argmin(abs(maxVdssH1 - Vmax))])
+errH = 100.0*(Vp_pct_dss_H0-Vp_pct_dss_H1)/Vp_pct_dss_H0
+
+print('\n==> HC Ests:',Vp_pct_dss_H0,'%, ',Vp_pct_dss_H1,'%')
+print('==> HC Relative Error:',errH,'%')
+
+# NOW: calculate the HC value:
+vOut.sort(axis=0)
+minVdss = np.min(vOut,axis=1)
+maxVdss = np.max(vOut,axis=1)
+
+yscale = np.linspace(0.,1.,len(vOut))
+
+Vp_pct_aly = 100.0*(1 - minV[np.argmin(abs(vAll - Vmax))] )
+Vp_pct_dss = 100.0*(1 - yscale[np.argmin(abs(maxVdss - Vmax))])
+
+print('\n==> HC Analytic value:',Vp_pct_aly,'%')
+print('==> HC OpenDSS value:',Vp_pct_dss,'%\n')
+
 
 # COMPARE RESULTS ==========
 if pltBoxDss:
@@ -248,11 +271,18 @@ if pltBoxDss:
 
 # ================ PLOTTING FUNCTIONS FROM HERE
 if pltGen:
+    dP = 10*1e3 # W
+    DP = 100000*1e3 # W
+    Tpmax = np.pi/(dP) # see WB 22-1-19
+    Np = int(DP/dP)
+    tp = np.linspace(-Tpmax,Tpmax,int(Np + 1))
+    P = dP*np.arange(-Np//2,Np//2 + 1)
+
     pDnew = np.zeros((Np+1))
     pgTot = np.ones((Np+1),dtype='complex')
     j=0
     for th in Th:
-        pgJ = cf(k,th,tp,1,dgn);
+        pgJ = dsf.cf_gm_dgn(k,th,tp,1,dgn);
         pgTot = pgTot*pgJ
         j+=1
     pDnew = abs(np.fft.fftshift(np.fft.ifft(pgTot)))/dP
@@ -285,6 +315,9 @@ if pltPdfs:
         plt.show()
 
 if pltCdfs:
+    # Analytic
+    plt.subplot(122)
+    plt.title('Linear Model')
     plt.plot(Vpu.T,vDnewCdf)
     plt.plot(vAll,minV,'k--',linewidth=2.0)
     plt.plot(vAll,maxV,'k--',linewidth=2.0)
@@ -296,12 +329,31 @@ if pltCdfs:
     plt.xlabel('x (Voltage, pu)')
     plt.ylabel('p(X <= x)')
     plt.grid(True)
+    
+    plt.subplot(121)
+    plt.title('OpenDSS')
+    vOutS = vOut.T
+    for vout in vOutS:
+        plt.plot(vout,yscale)
+    plt.plot(minVdss,yscale,'k--',linewidth=2.0)
+    plt.plot(maxVdss,yscale,'k--',linewidth=2.0)
+    plt.xlim((0.925,1.125))
+    ylm = plt.ylim()
+    plt.plot([Vmax,Vmax],ylm,'r:')
+    plt.plot([Vmin,Vmin],ylm,'r:')
+    plt.ylim(ylm)
+    plt.xlabel('x (Voltage, pu)')
+    plt.ylabel('p(X <= x)')
+    plt.grid(True)
+    
     if pltSave:
         plt.savefig(sn+'pltCdfs'+str(int(ld2mean*100))+'.png')
     else:
         plt.show()
-
-
+    
+    
+        
+        
 if pltBox:
     Vmn = np.zeros(len(Ktot))
     Vlo = np.zeros(len(Ktot))
