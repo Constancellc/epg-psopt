@@ -3,6 +3,11 @@ from math import gamma
 import mpmath
 import matplotlib.pyplot as plt
 
+def get_dx(x):
+    return x[1] - x[0]
+def get_Dx(x):
+    return max(x) - min(x)
+
 # NORMAL
 def pdf_nml(mu,sg2,x): # sg2 as sigma**2
     pdf = np.exp(-( ((x-mu)**2)/(2*sg2) ) )/np.sqrt(2*np.pi*sg2)
@@ -12,7 +17,15 @@ def cf_nml(mu,sg2,t):
     charFunc = np.exp(-1j*mu*t - (sg2*(t**2)/2)) # negation of t: see 'definition' in CF wiki
     return charFunc
 
-
+def cf_freqs(k,dx): # NB assumes x is positive only. 
+    N = []
+    w = []
+    N = N + [int(np.floor(abs(k/dx)))]
+    N = N + [int(np.ceil(abs(k/dx)))]
+    w = w + [abs(k/dx) - np.floor(abs(k/dx))]
+    w = w + [np.ceil(abs(k/dx)) - abs(k/dx)]
+    return N,w
+    
 # GAMMA
 def cf_gm(k,th,t):
     charFunc = ((1 + th*1j*t)**(-k)) # negation of t: see 'definition' in CF wiki
@@ -36,28 +49,56 @@ def pdf_gm_Xc(k,th,x,xC):
     pdf = pdf0*(x<xC) + ((x==xC)*(1 - cdfXc))/dx
     return pdf
 
+# DEGENERATE
+def pdf_dgn(x):
+    dx = x[1]-x[0]
+    pdf = np.zeros(len(x))
+    pdf[x==0.0]=1/dx
+    return pdf
+
 # GAMMA DEGENERATE
 def cf_gm_dgn(k,th,t,a,dgn):
-    charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
-    return charFuncNeg
+    cf = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
+    return cf
+
+# GAMMA CUTOFF DEGENERATE
+def pdf_gm_XD(k,th,x,a,dgn,Xc):
+    dx = get_dx(x)
+    pdfD = pdf_dgn(x)
+    pdfX = pdf_gm_Xc(k,th*a,x,Xc*a) # <=== HERE
+    pdf = (pdfD*(1-dgn)) + (pdfX*dgn)
+    return pdf
+
+def cf_gm_XD(k,th,t,a,dgn,Xc):
+    cfD = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
+    cfX = cf_uni(0,Xc,t)
+    cf = cfD
+
+
 
 # UNIFORM
 def cf_uni(a,b,t):
     # following convention from wiki, with negated t:
-    charFuncNeg = (np.exp(-1j*b*t) - np.exp(-1j*a*t))/(-1j*t*(b - a))
-    return charFuncNeg
+    cf = (np.exp(-1j*b*t) - np.exp(-1j*a*t))/(-1j*t*(b - a))
+    return cf
 
 # BINOMIAL-1
 def pdf_bn1(x0,p,x):
-    dx = x[1]-x[0]
+    dx = get_dx(x)
     pdf = np.zeros(x.shape)
     pdf[x==0.] = (1-p)/dx
     pdf[x==x0] = p/dx
     return pdf
-def cf_bn1(x0,p,t):
-    charFunc = (1-p) + p*np.exp(-1j*x0*t) # as in a 1x binomial trial
-    return charFunc
 
+def cf_bn1(x0,p,t):
+    cf = (1-p) + p*np.exp(-1j*x0*t) # as in a 1x binomial trial
+    return cf
+
+def cf_bn1_apx(x0,fr,p,t):
+    # This version of the function checks for the applicability of the model.
+    cf = (1-p) + p*(fr[0]*np.exp(-1j*x0[0]*t) + fr[1]*np.exp(-1j*x0[1]*t))
+    return cf
+    
 # CREATING x,t FROM dx, Dx/dt, Dt:
 
 def dy2Yz(dy,Dy): # see WB 24-1-19
@@ -166,3 +207,140 @@ def dy2YzR(dy,Dy): # Real version (positive t)
 # # plt.semilogy(x,pdfGm,'r')
 # # plt.semilogy(x,pdfNml,'r--')
 # plt.show()
+
+
+
+# # Looking at how to add a bunch of PDFs together with a wide range of constant values. ==========
+# th = 4.5 # scale
+# k = 2.0 # shape
+
+# mu = k*th
+# sgm2 = k*(th**2)
+
+# K = np.random.triangular(-1.0,0.0,1.0,size=int(1e2)) # Modelling the Ktot matrix.
+
+# muAll = sum(K)*mu
+# sgm2all = (sum(K**2))*sgm2
+
+# nMc = int(1e5)
+
+# xOut0 = np.zeros((nMc))
+# xOut1 = np.zeros((nMc))
+# for km in K:
+    # xOut0 = xOut0 + km*np.random.normal(mu,sgm2**0.5,size=nMc)
+    # xOut1 = xOut1 + np.random.normal(km*mu,abs(km)*(sgm2**0.5),size=nMc)
+
+# plt.hist(xOut0,bins=int(1e2))
+# plt.hist(xOut1,bins=int(1e2)); plt.show()
+
+# print('Sampled mean:')
+# print(np.mean(xOut0))
+# print(np.mean(xOut1))
+# print('Sampled var:')
+# print(np.var(xOut0))
+# print(np.var(xOut1))
+# print('Calc mean/var:')
+# print(muAll)
+# print(sgm2all)
+
+
+# ===== Finally, experiment with the sum of messy distributions
+K = np.random.triangular(-1.0,0.0,1.0,size=int(1e2)) # Modelling the Ktot matrix.
+k = 2.5
+th = 4.0
+dgn = 0.1
+dgn = 1.0
+Xc = 10.0
+nMc = int(1e4)
+
+Dx = 20.0
+x = np.linspace(0.0,Dx,int(3e3)+1)
+
+dx = get_dx(x)
+
+t = dy2YzR(dx,Dx)[1]
+pdfXD = pdf_gm_XD(k,th,x,1.0,dgn,Xc)
+pdfsmErr = 100.*(1-sum(pdfXD)*dx)
+print(pdfsmErr)
+
+pdfXDa = pdf_gm_XD(k,th,x,0.5,dgn,Xc)
+pdfsmErrA = 100.*(1-sum(pdfXDa)*dx)
+print(pdfsmErrA)
+
+# plt.plot(x,pdfXD)
+# plt.plot(x,pdfXDa)
+# plt.show()
+
+cfXD = np.fft.rfft(pdfXD)*dx
+cfXDa = np.fft.rfft(pdfXDa)*dx
+
+# cfXDs = np.interp(t,t[::2],cfXD[:len(t)//2+1])
+
+cfXDs = np.interp(t,t[::2],cfXD[:len(t)//2+1])
+
+# cfXDs = cfXD[::2]
+# cfXDs = np.interp(t,t[::2],cfXDs)
+
+# plt.plot(t,cfXD.real,'r.')
+# plt.plot(t,cfXD.imag,'b--')
+# plt.plot(t,cfXDa.real,'r:')
+# plt.plot(t,cfXDa.imag,'b:')
+# plt.plot(t[0:len(t)//2+1],cfXDa[0::2].real,'g:')
+# plt.plot(t[0:len(t)//2+1],cfXDa[0::2].imag,'g:')
+
+# plt.plot(t,cfXDs.real,'b.')
+# plt.plot(t,cfXDa.real,'r.')
+# plt.show()
+
+plt.plot(x,np.fft.irfft(cfXD,n=len(x)))
+plt.plot(x,np.fft.irfft(cfXDa,n=len(x)))
+plt.plot(x,np.fft.irfft(cfXDs,n=len(x)))
+plt.show()
+
+xOut = np.zeros((nMc))
+for km in K:
+    randD = np.random.randint(1,11,size=nMc)
+    randG = np.random.gamma(k,th,size=nMc)
+    randX = np.min(np.array([randG,Xc*np.ones(len(randG))]),axis=0)
+    rand = (randD>9)*randX
+    xOut = xOut + km*rand
+
+# plt.hist(rand,bins=int(1e2),density=True)
+# plt.plot(x,pdfXD)
+# plt.show()
+
+# plt.hist(xOut,bins=int(1e2),density=True)
+# plt.show()
+
+
+
+
+
+# # ===== STUDYING the impact of x0 on reproducibility of signals.
+# dx = 2.0
+# Dx = 20.0
+# x,t = dy2YzR(dx,Dx)
+# x= x+(Dx/2)
+# x0 = 2.0
+# x0 = 2.01
+# p = 0.40
+
+# absxp = abs(x - x0)
+# dxpArg = np.argsort(absxp)[0:2]
+# frxp = 1.0 - absxp[dxpArg]/dx
+
+# cf = cf_bn1(x0,p,t)
+# cfa = cf_bn1_apx(x[dxpArg],frxp,p,t)
+
+# pdf = np.fft.irfft(cf,n=len(x))
+# pdfApx = np.fft.irfft(cfa,n=len(x))
+# plt.subplot(121)
+# plt.plot(x,pdf,'o-')
+# plt.plot(x,pdfApx,'.-')
+# plt.grid(True)
+# plt.subplot(122)
+# plt.semilogy(x,abs(pdf)+np.finfo(float).eps,'o-')
+# plt.semilogy(x,abs(pdfApx)+np.finfo(float).eps,'.-')
+# plt.grid(True)
+# plt.show()
+
