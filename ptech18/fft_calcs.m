@@ -127,22 +127,17 @@ Nt = 2e4;
 Nt = 8e3;
 % Nt = 4e3;
 Nt = 2e3;
-Nt = 2e2;
+Nt = 2e2; % must be even, so that
 
 th_k = 0.1;
 % th_k = 0.3;
 % th_k = 1.0;
 th_k = 3.0;
 % th_k = 10.0;
-th_k = 30.0;
+% th_k = 30.0;
 
 Dt = 2;
 dt = Dt/Nt;
-% dt = 1e-4;
-% dt = 3e-4;
-% dt = 6e-4;
-% dt = 1e-3;
-% dt = 1e-2;
 
 x0f = 0.5; % 0.5 is the whole window.
 
@@ -194,15 +189,9 @@ Ht = fftshift(fft(pdfH(x)))*dx;
 % plot(x,pdfG(x)); hold on;
 % plot(x,Gx,'x');
 
-%
 % CFs for the functions.
-fr = @(t) sinc(x0*t/pi).*cos(t*x0);
-fi = @(t) sinc(x0*t/pi).*sin(-t*x0);
-f = @(t) fr(t) + 1i*fi(t);
-
-gr = @(t) real((1 + 1i.*th.*t).^-k);
-gi = @(t) imag((1 + 1i.*th.*t).^-k);
-g = @(t) gr(t) + 1i*gi(t);
+f = @(t) sinc(x0*t/pi).*exp(-1i*t*x0);
+g = @(t) (1 + 1i.*th.*t).^-k;
 
 % CHECK THE FUNCTION matches the FT of the function we are looking at.
 % subplot(121) % NB! ONLY Seems to approximate well for reasonable dt.
@@ -253,12 +242,9 @@ Ggm = merge(Gg); % This seems to be the best version (most likely to go through)
 F = chebfun(f);
 % G = chebfun(g,'splitting','on');
 % G0 = chebfun(g,[-1,-0.010,0.010,1]);
-G0 = chebfun(g,[-1,-0.10,0.10,1]);
-
-% G0l = chebfun(g,[-1,-0.04]);
-% G0mid = chebfun(g,[-0.04,0.04]);
-% G0r = chebfun(g,[0.04,1]);
-% G0 = [G0l,G0mid,G0r];
+% G0 = chebfun(g,[-1,-0.010,0.010,1]);
+% G0 = chebfun(g,[-1,-0.10,0.10,1]);
+G0 = chebfun(g,[-1,1]);
 toc
 fprintf('\nStart convolution: \n')
 tic
@@ -329,17 +315,6 @@ for i = 1:numel(Tkk)
     plot(x,Tkk(i)*real(Hxcr*x0/pi)); hold on;
 %     sum(real(Hxcr))*dx/dt
 end
-%%
-t2 = t*2;
-t05 = t*0.25;
-
-Hxcr = ifft(ifftshift(Hc(t/kt)))/pi;
-Hxcr2 = ifft(ifftshift(Hc(t2/kt)))/pi;
-Hxcr05 = ifft(ifftshift(Hc(t05/kt)))/pi;
-plot(x,real(Hxcr*x0/pi)); hold on; % seems to work a bit better than using ifft symmetric
-plot(x,real(Hxcr2*x0/pi)); % seems to work a bit better than using ifft symmetric
-plot(x,real(Hxcr05*x0/pi)); % seems to work a bit better than using ifft symmetric
-
 
 
 
