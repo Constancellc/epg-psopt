@@ -23,13 +23,13 @@ pltGen = False
 pltPdfs = True
 pltPdfs = False
 pltCdfs = True
-# pltCdfs = False
+pltCdfs = False
 pltBox = True
 pltBox = False
 pltBoxDss = True
 pltBoxDss = False
 pltBoxBoth = True
-pltBoxBoth = False
+# pltBoxBoth = False
 
 pltSave = True
 pltSave = False
@@ -46,7 +46,7 @@ dVpu = 1.0*1e-5; # Tmax prop. 1/dVpu. This has to be quite big (over 1e-6) to ge
 DVpu = 0.15; # Nt = DVpu/dVpu.
 iKtot = 12
 
-fdr_i = 5
+fdr_i = 6
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7']
 feeder = fdrs[fdr_i]
 lin_point=0.6

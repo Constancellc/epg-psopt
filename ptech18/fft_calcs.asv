@@ -124,17 +124,15 @@ plot(t,angle(cf2));
 
 %% 05/02/19: Using Chebfun for CF calcs
 Nt = 2e4;
-Nt = 8e3;
-% Nt = 4e3;
-Nt = 2e3;
-Nt = 2e2;
+Nt = 4e3;
+% Nt = 2e3;
+% Nt = 2e2;
 
-th_k = 0.1;
-% th_k = 0.3;
-% th_k = 1.0;
-th_k = 3.0;
+th_k = 0.3;
+% th_k = 3.0;
+% th_k = 3.0;
 % th_k = 10.0;
-th_k = 30.0;
+% th_k = 30.0;
 
 Dt = 2;
 dt = Dt/Nt;
@@ -224,9 +222,9 @@ kt = (length(t) + 1)/length(t);
 %
 
 % qwe = chebfunpref();
-% wer = qwe;
-% wer.splitPrefs.splitLength=2000;
-% chebfunpref(wer);
+wer = qwe;
+wer.splitPrefs.splitLength=2000;
+chebfunpref(wer);
 % chebfunpref(qwe); % reset
 
 
@@ -251,21 +249,12 @@ Ggm = merge(Gg); % This seems to be the best version (most likely to go through)
 % Hc = conv(F,Ggm);
 
 F = chebfun(f);
-% G = chebfun(g,'splitting','on');
-% G0 = chebfun(g,[-1,-0.010,0.010,1]);
-G0 = chebfun(g,[-1,-0.10,0.10,1]);
-
-% G0l = chebfun(g,[-1,-0.04]);
-% G0mid = chebfun(g,[-0.04,0.04]);
-% G0r = chebfun(g,[0.04,1]);
-% G0 = [G0l,G0mid,G0r];
+% G = chebfun(g);
 toc
 fprintf('\nStart convolution: \n')
 tic
-% Hc = conv(F,Ggm,'same');
+Hc = conv(F,Ggm,'same');
 % Hc2 = conv(F,G,'same');
-% Hc2 = conv(F,Gm,'same');
-Hc = conv(F,G0,'same');
 toc
 Hc = merge(Hc); % tidy up
 
@@ -320,12 +309,8 @@ Hc = merge(Hc); % tidy up
 Tkk = [1.0 0.33 0.10 0.033 0.01 0.0033 0.001]; % seems to work well to ~1%
 % Tkk = [1.0 0.33 0.10];
 
-figure;
 for i = 1:numel(Tkk)
     Hxcr = ifft(ifftshift(Hc(t*Tkk(i)/kt)))/pi;
-    subplot(121)
-    semilogx(x,Tkk(i)*real(Hxcr*x0/pi)); hold on;
-    subplot(122)
     plot(x,Tkk(i)*real(Hxcr*x0/pi)); hold on;
 %     sum(real(Hxcr))*dx/dt
 end
