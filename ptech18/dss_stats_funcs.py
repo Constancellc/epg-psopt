@@ -2,7 +2,8 @@ import numpy as np
 from math import gamma
 import mpmath
 import matplotlib.pyplot as plt
-
+import scipy.special # for the beta function
+import time
 def get_dx(x):
     return x[1] - x[0]
 def get_Dx(x):
@@ -98,7 +99,12 @@ def cf_bn1_apx(x0,fr,p,t):
     # This version of the function checks for the applicability of the model.
     cf = (1-p) + p*(fr[0]*np.exp(-1j*x0[0]*t) + fr[1]*np.exp(-1j*x0[1]*t))
     return cf
-    
+
+# BETA (used for sampling over a range of values)    
+def pdf_beta(a,b,x):
+    pdf = (x**(a-1))*((1-x)**(b-1))/scipy.special.beta(a,b)
+    return pdf
+
 # CREATING x,t FROM dx, Dx/dt, Dt:
 
 def dy2Yz(dy,Dy): # see WB 24-1-19
@@ -275,7 +281,6 @@ cfXD = np.fft.rfft(pdfXD)*dx
 cfXDa = np.fft.rfft(pdfXDa)*dx
 
 # cfXDs = np.interp(t,t[::2],cfXD[:len(t)//2+1])
-
 cfXDs = np.interp(t,t[::2],cfXD[:len(t)//2+1])
 
 # cfXDs = cfXD[::2]
@@ -292,18 +297,18 @@ cfXDs = np.interp(t,t[::2],cfXD[:len(t)//2+1])
 # plt.plot(t,cfXDa.real,'r.')
 # plt.show()
 
-plt.plot(x,np.fft.irfft(cfXD,n=len(x)))
-plt.plot(x,np.fft.irfft(cfXDa,n=len(x)))
-plt.plot(x,np.fft.irfft(cfXDs,n=len(x)))
-plt.show()
+# plt.plot(x,np.fft.irfft(cfXD,n=len(x)))
+# plt.plot(x,np.fft.irfft(cfXDa,n=len(x)))
+# plt.plot(x,np.fft.irfft(cfXDs,n=len(x)))
+# plt.show()
 
-xOut = np.zeros((nMc))
-for km in K:
-    randD = np.random.randint(1,11,size=nMc)
-    randG = np.random.gamma(k,th,size=nMc)
-    randX = np.min(np.array([randG,Xc*np.ones(len(randG))]),axis=0)
-    rand = (randD>9)*randX
-    xOut = xOut + km*rand
+# xOut = np.zeros((nMc))
+# for km in K:
+    # randD = np.random.randint(1,11,size=nMc)
+    # randG = np.random.gamma(k,th,size=nMc)
+    # randX = np.min(np.array([randG,Xc*np.ones(len(randG))]),axis=0)
+    # rand = (randD>9)*randX
+    # xOut = xOut + km*rand
 
 # plt.hist(rand,bins=int(1e2),density=True)
 # plt.plot(x,pdfXD)
@@ -344,3 +349,129 @@ for km in K:
 # plt.grid(True)
 # plt.show()
 
+
+# FROM HERE DOWNWARDS is work from 06/02 for multiplying lots of CFs together to create new pdfs
+
+# # ===== USE the beta-function for nice sampling for practise multiplying together.
+# def pdf_beta(a,b,x):
+    # pdf = (x**(a-1))*((1-x)**(b-1))/scipy.special.beta(a,b)
+    # return pdf
+
+# x = np.linspace(0.0,1.0)
+# x = np.linspace(-1.0,1.0)
+# a = 8.0
+# b = 8.0
+# pdfB = 0.5*pdf_beta(a,b,0.5*(x + 1))
+# plt.plot(x,pdfB); plt.show()
+
+# # ====== SAMPLE and adda bunch of pdfs together.
+# Nk = int(1e4)
+# Nk = int(1e1)
+# Nk = int(1e4)
+
+# aBeta = 8.0
+# bBeta = 8.0
+
+# fLo = -1.0
+# fLo = 0.0
+# fLo = 0.5
+# xMl = 1-fLo
+
+# Ktot = xMl*(np.random.beta(aBeta,bBeta,Nk)) + fLo
+
+# # # show that this has worked:
+# # xk = np.linspace(fLo,1.0)
+# # plt.hist(Ktot,bins=100,density=True)
+# # plt.plot(xk,pdf_beta(aBeta,bBeta,np.linspace(0.0,1.0))/xMl)
+# # plt.show()
+
+# nMc = int(3e4)
+# k = 2
+# th = 0.1
+
+# # Demonstrate that variance goes up but mean stays at zero:
+# std = []
+# mns = []
+# nkSet = np.logspace(1,4,10)
+# nkSet = np.logspace(1,3,10)
+# for nk in nkSet:
+    # print('Nk:',int(nk))
+    # Ktot = xMl*(np.random.beta(aBeta,bBeta,int(nk))) + fLo
+    # mcTot = np.zeros((nMc))
+    # for km in Ktot:
+        # mcTot = mcTot + ((np.random.gamma(k,th,size=nMc) - k*th)*km) # zero mean
+    # std = std + [np.std(mcTot)]
+    # mns = mns + [abs(np.mean(mcTot))]
+
+# plt.subplot(121)
+# plt.loglog(nkSet,std,'x')
+# plt.loglog(nkSet,(nkSet**0.5)*0.07)
+# plt.ylabel('Standard deviation')
+# plt.xlabel('Number of samples')
+# plt.subplot(122)
+# plt.loglog(nkSet,mns,'x')
+# plt.loglog(nkSet,nkSet*0.1)
+# plt.ylabel('Mean')
+# plt.xlabel('Number of samples')
+# plt.show()
+
+
+# # Estimate the size of dx, Dx required to model K even when it is reasonably small (dEps)
+# dEps = 1/1e2;
+# dx0 = 2e-4;
+# dx0 = 2e-3;
+# Dx0 = 1.0;
+# x0 = dy2YzR(dx0,Dx0)[0]
+# x0 = x0 + Dx0/2
+# pdfG = pdf_gm(k,th*dEps,x0)
+# print('PDF integral at dEps:',sum(pdfG*dx0))
+
+
+# # ======= SHIFTED MEAN charecteristic functions:
+# def cf_gm_sh(k,th,t):
+    # cf = cf_gm(k,th,t)*np.exp(1j*k*th*t)
+    # return cf
+
+# # # demonstrate this working for one function:
+# NkScale = 1.0 + np.sqrt(Nk)*0.5
+# Dx = np.round(NkScale*2*Dx0) # more variance for more PDFs.
+# dx = dx0
+# x,t = dy2YzR(dx,Dx)
+
+# K2a = -1.0
+
+# cfG = cf_gm(k,th,t)
+# cfGa = cf_gm(k,th*K2a,t)
+
+# cfGsh = cf_gm_sh(k,th,t)
+# cfGsha = cf_gm_sh(k,th*K2a,t)
+
+# cfG2 = cfG*cfGa
+# pdf2 = np.fft.fftshift(np.fft.irfft(cfG2,n=len(x)))
+# cfG2sh = cfGsh*cfGsha
+# pdf2sh = np.fft.fftshift(np.fft.irfft(cfG2sh,n=len(x)))
+# xsh = x + k*th*(1 + K2a)
+
+# plt.plot(x,pdf2); 
+# plt.plot(xsh,pdf2sh); 
+# plt.grid(True); plt.show()
+
+# # ==== DEMONSTRATE the summation working nicely.
+# cfTot = np.ones((len(t)))
+# mcTot = np.zeros((nMc))
+
+# print('--- Begin CF computations analysis ---\n',time.process_time())
+# Ktot = xMl*(np.random.beta(aBeta,bBeta,Nk)) + fLo
+
+# for km in Ktot:
+    # cfTot = cfTot*cf_gm_sh(k,th*km,t)
+# print('--- Begin MC analysis ---\n',time.process_time())
+
+# for km in Ktot:
+    # mcTot = mcTot + (np.random.gamma(k,th,size=nMc)*km)
+# print('End\n',time.process_time())
+
+# xsh = (k*th*sum(Ktot)) + x
+# pdfSum = np.fft.fftshift(np.fft.irfft(cfTot,n=len(x)))
+# hst = plt.hist(mcTot,bins=100,density=True)
+# plt.plot(xsh,pdfSum/dx ); plt.show()
