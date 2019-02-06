@@ -105,8 +105,12 @@ def pdf_beta(a,b,x):
     pdf = (x**(a-1))*((1-x)**(b-1))/scipy.special.beta(a,b)
     return pdf
 
+# SHIFTED MEAN charecteristic functions:
+def cf_gm_sh(k,th,t):
+    cf = cf_gm(k,th,t)*np.exp(1j*k*th*t)
+    return cf
+    
 # CREATING x,t FROM dx, Dx/dt, Dt:
-
 def dy2Yz(dy,Dy): # see WB 24-1-19
     Nt = int(Dy/dy) + 1
     dz = 2*np.pi/Dy
@@ -426,11 +430,6 @@ cfXDs = np.interp(t,t[::2],cfXD[:len(t)//2+1])
 # pdfG = pdf_gm(k,th*dEps,x0)
 # print('PDF integral at dEps:',sum(pdfG*dx0))
 
-
-# # ======= SHIFTED MEAN charecteristic functions:
-# def cf_gm_sh(k,th,t):
-    # cf = cf_gm(k,th,t)*np.exp(1j*k*th*t)
-    # return cf
 
 # # # demonstrate this working for one function:
 # NkScale = 1.0 + np.sqrt(Nk)*0.5

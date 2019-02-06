@@ -25,11 +25,11 @@ pltPdfs = False
 pltCdfs = True
 pltCdfs = False
 pltBox = True
-# pltBox = False
+pltBox = False
 pltBoxDss = True
 pltBoxDss = False
 pltBoxBoth = True
-pltBoxBoth = False
+# pltBoxBoth = False
 
 pltSave = True
 pltSave = False
@@ -46,7 +46,7 @@ dVpu = 1.0*1e-5; # Tmax prop. 1/dVpu
 DVpu = 0.15; # Nt = DVpu/dVpu
 iKtot = 12
 
-fdr_i = 5
+fdr_i = 6
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7']
 feeder = fdrs[fdr_i]
 lin_point=0.6
@@ -64,7 +64,7 @@ Vmax = 1.055
 Vmin  = 0.95
 
 ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
-# ld2mean = 2.0 # ie the mean of those generators which install is 1/2 of their load
+ld2mean = 1.25 # ie the mean of those generators which install is 1/2 of their load
 # ld2mean = 8.0 # ie the mean of those generators which install is 1/2 of their load
 
 # STEPS:
@@ -120,6 +120,7 @@ Th = -np.concatenate((xhy0rnd,xhd0rnd))/k # negative so that the pds are positiv
 
 th = 1.0
 
+# REDUCE THE LINEAR MODEL to a nice form for multiplication
 Ktot0 = np.zeros(Ktot.shape); i=0 # first, scale the matrices to the uncertainty in input:
 for th0 in Th0:
     Ktot0[:,i] = Ktot[:,i]*th0; i+=1
@@ -128,17 +129,14 @@ KtotPu = np.zeros(Ktot0.shape); i=0 # next, scale to be in pu:
 for vbase in vBase:
     KtotPu[i] = Ktot0[i]/vbase; i+=1
 
-# Kmax = np.max(abs(Ktot0),axis=1)
 Kmax = np.max(abs(KtotPu),axis=1)
 K1 = np.zeros(KtotPu.shape); i = 0
 for kmax in Kmax:
     K1[i] = KtotPu[i]/kmax; i+=1
 
-K1 = K1 + 1e-4; # get rid of pesky zeros
-
-Nmult = 3 + 
-Dx = k*th*30
-dx = 1e-2
+Nmult = np.ceil(10.0 + np.sqrt(Ktot.shape[0]))
+Dx = k*th*Nmult
+dx = 1e-1
 x,t = dsf.dy2YzR(dx,Dx)
 
 Nt = len(x)-1
@@ -152,10 +150,10 @@ for i in range(len(K1)):
         print(i,'/',len(K1))
     
     for j in range(K1.shape[1]):
-        cfJ = dsf.cf_gm(k,1.0*K1[i,j],t);
+        cfJ = dsf.cf_gm_sh(k,1.0*K1[i,j],t) # shifted mean
         cfTot[i,:] = cfTot[i,:]*cfJ
     vDnew[i,:] = np.fft.fftshift(np.fft.irfft(cfTot[i,:],n=Nt+1))*dsf.get_dx(x)
-    Vpu[i,:] = b0[i] + x*Kmax[i]
+    Vpu[i,:] = b0[i] + (x + k*th*sum(K1[i]))*Kmax[i]
 
 vDnewSumEr = ((sum(vDnew.T)/dsf.get_dx(x)) - 1)*100 # normalised (%)
 print('DFT Calc complete.',time.process_time())
@@ -178,90 +176,90 @@ for v in vAll:
     
 print('Complete.',time.process_time())    
 
-# # PART B FROM HERE ==============================
-# # 1. load the appropriate model/DSS
-# DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
-# DSSText = DSSObj.Text
-# DSSCircuit = DSSObj.ActiveCircuit
-# DSSSolution = DSSCircuit.Solution
+# PART B FROM HERE ==============================
+# 1. load the appropriate model/DSS
+DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
+DSSText = DSSObj.Text
+DSSCircuit = DSSObj.ActiveCircuit
+DSSSolution = DSSCircuit.Solution
 
-# DSSText.command='Compile ('+fn+'.dss)'
-# BB0,SS0 = cpf_get_loads(DSSCircuit)
-# if lp_taps=='Lpt':
-    # cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
-    # DSSSolution.Solve()
+DSSText.command='Compile ('+fn+'.dss)'
+BB0,SS0 = cpf_get_loads(DSSCircuit)
+if lp_taps=='Lpt':
+    cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
+    DSSSolution.Solve()
 
-# if not ltcModel:
-    # DSSText.command='set controlmode=off'
-# elif ltcModel:
-    # DSSText.command='set maxcontroliter=30'
-    # DSSText.command='set maxiterations=100'
-
-
-# YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
-# YZ = DSSCircuit.YNodeOrder
-# YZ = vecSlc(YZ[3:],v_idx)
-
-# # 2. run MC analysis, going through each generator and setting to a power.
-# genNamesY = add_generators(DSSObj,YZp,False)
-# genNamesD = add_generators(DSSObj,YZd,True)
-# DSSSolution.Solve()
-
-# genNames = genNamesY+genNamesD
-
-# # 2a. now draw from the correct distributions
-# pdfGen = np.zeros((nMc,len(genNames)))
-# for i in range(len(genNames)):
-    # pdfGen[:,i] = np.random.gamma(k,1e-3*Th[i],nMc)
-
-# vOut = np.zeros((nMc,len(v_idx)))
-# conv = []
-# print('---- Start MC ----',time.process_time())
-# for i in range(nMc):
-    # if i%(nMc//10)==0:
-        # print(i,'/',nMc)
-    # set_generators( DSSCircuit,genNames,pdfGen[i] )
-    # DSSSolution.Solve()
-    # conv = conv+[DSSSolution.Converged]
-    # v00 = abs(tp_2_ar(DSSCircuit.YNodeVarray))
-    # vOut[i,:] = v00[3:][v_idx]/vBase
+if not ltcModel:
+    DSSText.command='set controlmode=off'
+elif ltcModel:
+    DSSText.command='set maxcontroliter=30'
+    DSSText.command='set maxiterations=100'
 
 
-# print('MC complete.',time.process_time())
-# print('\nNo. Converged:',sum(conv),'/',nMc)
+YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
+YZ = DSSCircuit.YNodeOrder
+YZ = vecSlc(YZ[3:],v_idx)
 
-# # MC Error analysis:
-# vOutH0 = vOut[0:nMc//2]
-# vOutH1 = vOut[nMc//2:]
-# vOutH0.sort(axis=0)
-# vOutH1.sort(axis=0)
+# 2. run MC analysis, going through each generator and setting to a power.
+genNamesY = add_generators(DSSObj,YZp,False)
+genNamesD = add_generators(DSSObj,YZd,True)
+DSSSolution.Solve()
 
-# minVdssH0 = np.min(vOutH0,axis=1)
-# maxVdssH0 = np.max(vOutH0,axis=1)
-# minVdssH1 = np.min(vOutH1,axis=1)
-# maxVdssH1 = np.max(vOutH1,axis=1)
+genNames = genNamesY+genNamesD
 
-# yscale01 = np.linspace(0.0,1.0,nMc//2)
+# 2a. now draw from the correct distributions
+pdfGen = np.zeros((nMc,len(genNames)))
+for i in range(len(genNames)):
+    pdfGen[:,i] = np.random.gamma(k,1e-3*Th[i],nMc)
 
-# Vp_pct_dss_H0 = 100.0*(1 - yscale01[np.argmin(abs(maxVdssH0 - Vmax))])
-# Vp_pct_dss_H1 = 100.0*(1 - yscale01[np.argmin(abs(maxVdssH1 - Vmax))])
-# errH = 100.0*(Vp_pct_dss_H0-Vp_pct_dss_H1)/Vp_pct_dss_H0
+vOut = np.zeros((nMc,len(v_idx)))
+conv = []
+print('---- Start MC ----',time.process_time())
+for i in range(nMc):
+    if i%(nMc//10)==0:
+        print(i,'/',nMc)
+    set_generators( DSSCircuit,genNames,pdfGen[i] )
+    DSSSolution.Solve()
+    conv = conv+[DSSSolution.Converged]
+    v00 = abs(tp_2_ar(DSSCircuit.YNodeVarray))
+    vOut[i,:] = v00[3:][v_idx]/vBase
 
-# print('\n==> HC Ests:',Vp_pct_dss_H0,'%, ',Vp_pct_dss_H1,'%')
-# print('==> HC Relative Error:',errH,'%')
 
-# # NOW: calculate the HC value:
-# vOut.sort(axis=0)
-# minVdss = np.min(vOut,axis=1)
-# maxVdss = np.max(vOut,axis=1)
+print('MC complete.',time.process_time())
+print('\nNo. Converged:',sum(conv),'/',nMc)
 
-# yscale = np.linspace(0.,1.,len(vOut))
+# MC Error analysis:
+vOutH0 = vOut[0:nMc//2]
+vOutH1 = vOut[nMc//2:]
+vOutH0.sort(axis=0)
+vOutH1.sort(axis=0)
 
-# Vp_pct_aly = 100.0*(1 - minV[np.argmin(abs(vAll - Vmax))] )
-# Vp_pct_dss = 100.0*(1 - yscale[np.argmin(abs(maxVdss - Vmax))])
+minVdssH0 = np.min(vOutH0,axis=1)
+maxVdssH0 = np.max(vOutH0,axis=1)
+minVdssH1 = np.min(vOutH1,axis=1)
+maxVdssH1 = np.max(vOutH1,axis=1)
 
-# print('\n==> HC Analytic value:',Vp_pct_aly,'%')
-# print('==> HC OpenDSS value:',Vp_pct_dss,'%\n')
+yscale01 = np.linspace(0.0,1.0,nMc//2)
+
+Vp_pct_dss_H0 = 100.0*(1 - yscale01[np.argmin(abs(maxVdssH0 - Vmax))])
+Vp_pct_dss_H1 = 100.0*(1 - yscale01[np.argmin(abs(maxVdssH1 - Vmax))])
+errH = 100.0*(Vp_pct_dss_H0-Vp_pct_dss_H1)/Vp_pct_dss_H0
+
+print('\n==> HC Ests:',Vp_pct_dss_H0,'%, ',Vp_pct_dss_H1,'%')
+print('==> HC Relative Error:',errH,'%')
+
+# NOW: calculate the HC value:
+vOut.sort(axis=0)
+minVdss = np.min(vOut,axis=1)
+maxVdss = np.max(vOut,axis=1)
+
+yscale = np.linspace(0.,1.,len(vOut))
+
+Vp_pct_aly = 100.0*(1 - minV[np.argmin(abs(vAll - Vmax))] )
+Vp_pct_dss = 100.0*(1 - yscale[np.argmin(abs(maxVdss - Vmax))])
+
+print('\n==> HC Analytic value:',Vp_pct_aly,'%')
+print('==> HC OpenDSS value:',Vp_pct_dss,'%\n')
 
 
 # COMPARE RESULTS ==========
