@@ -3,6 +3,7 @@ from math import gamma
 import mpmath
 import matplotlib.pyplot as plt
 import scipy.special # for the beta function
+import scipy.stats
 import time
 def get_dx(x):
     return x[1] - x[0]
@@ -74,8 +75,6 @@ def cf_gm_XD(k,th,t,a,dgn,Xc):
     cfD = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn); # negation of t: see 'definition' in CF wiki
     cfX = cf_uni(0,Xc,t)
     cf = cfD
-
-
 
 # UNIFORM
 def cf_uni(a,b,t):
@@ -254,38 +253,38 @@ def dy2YzR(dy,Dy): # Real version (positive t)
 # print(sgm2all)
 
 
-# ===== Finally, experiment with the sum of messy distributions
-K = np.random.triangular(-1.0,0.0,1.0,size=int(1e2)) # Modelling the Ktot matrix.
-k = 2.5
-th = 4.0
-dgn = 0.1
-dgn = 1.0
-Xc = 10.0
-nMc = int(1e4)
+# # ===== Finally, experiment with the sum of messy distributions
+# K = np.random.triangular(-1.0,0.0,1.0,size=int(1e2)) # Modelling the Ktot matrix.
+# k = 2.5
+# th = 4.0
+# dgn = 0.1
+# dgn = 1.0
+# Xc = 10.0
+# nMc = int(1e4)
 
-Dx = 20.0
-x = np.linspace(0.0,Dx,int(3e3)+1)
+# Dx = 20.0
+# x = np.linspace(0.0,Dx,int(3e3)+1)
 
-dx = get_dx(x)
+# dx = get_dx(x)
 
-t = dy2YzR(dx,Dx)[1]
-pdfXD = pdf_gm_XD(k,th,x,1.0,dgn,Xc)
-pdfsmErr = 100.*(1-sum(pdfXD)*dx)
-print(pdfsmErr)
+# t = dy2YzR(dx,Dx)[1]
+# pdfXD = pdf_gm_XD(k,th,x,1.0,dgn,Xc)
+# pdfsmErr = 100.*(1-sum(pdfXD)*dx)
+# print(pdfsmErr)
 
-pdfXDa = pdf_gm_XD(k,th,x,0.5,dgn,Xc)
-pdfsmErrA = 100.*(1-sum(pdfXDa)*dx)
-print(pdfsmErrA)
+# pdfXDa = pdf_gm_XD(k,th,x,0.5,dgn,Xc)
+# pdfsmErrA = 100.*(1-sum(pdfXDa)*dx)
+# print(pdfsmErrA)
 
-# plt.plot(x,pdfXD)
-# plt.plot(x,pdfXDa)
-# plt.show()
+# # plt.plot(x,pdfXD)
+# # plt.plot(x,pdfXDa)
+# # plt.show()
 
-cfXD = np.fft.rfft(pdfXD)*dx
-cfXDa = np.fft.rfft(pdfXDa)*dx
+# cfXD = np.fft.rfft(pdfXD)*dx
+# cfXDa = np.fft.rfft(pdfXDa)*dx
 
+# # cfXDs = np.interp(t,t[::2],cfXD[:len(t)//2+1])
 # cfXDs = np.interp(t,t[::2],cfXD[:len(t)//2+1])
-cfXDs = np.interp(t,t[::2],cfXD[:len(t)//2+1])
 
 # cfXDs = cfXD[::2]
 # cfXDs = np.interp(t,t[::2],cfXDs)
@@ -474,3 +473,23 @@ cfXDs = np.interp(t,t[::2],cfXD[:len(t)//2+1])
 # pdfSum = np.fft.fftshift(np.fft.irfft(cfTot,n=len(x)))
 # hst = plt.hist(mcTot,bins=100,density=True)
 # plt.plot(xsh,pdfSum/dx ); plt.show()
+
+
+
+# # ===== PDF of a normal distribution using scipy.stats
+# import scipy.stats
+# x = np.linspace(-4,4)
+# pdfNorm = scipy.stats.norm.pdf(x,scale=2)
+# plt.plot(x,pdfNorm); plt.show()
+
+
+
+
+
+
+
+
+
+
+
+

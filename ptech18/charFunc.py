@@ -7,13 +7,14 @@ from dss_python_funcs import loadLinMagModel
 from math import gamma
 import time
 import dss_stats_funcs as dsf
+import scipy.stats
 
 if getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
     sn = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190128\\"
 elif getpass.getuser()=='Matt':
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-    sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190128\\"
+    sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190204\\"
 def cf(k,th,t,a,dgn):
     charFuncNeg = ((1 + th*1j*t*a)**(-k))*dgn + (1-dgn) # negation of t: see 'definition' in CF wiki
     return charFuncNeg
@@ -36,9 +37,11 @@ pdfPlotA = False
 pdfPlotB = True
 pdfPlotB = False
 pdfPlotC = True
-# pdfPlotC = False
+pdfPlotC = False
 pdfPlotD = True
 pdfPlotD = False
+pdfPlotE = True
+# pdfPlotE = False
 
 
 Nmc = int(1e6)
@@ -239,6 +242,8 @@ if pdfPlotC:
     # plt.arrow(2.0,0.,0.,aHght,width=wdth,head_width=wdth*5,head_length=wdth*2.5,color=pltXy.get_color(),zorder=10.)
     plt.plot(x[x>2],y0[x>2],'--')
     
+    plt.arrow(0.0,0.,0.,0.18,width=wdth,head_width=wdth*5,head_length=wdth*2.5,color=pltXy.get_color(),zorder=10.)
+    
     plt.ylim((-0.05,1.1))
     plt.xlabel('x (Power per house, kW)')
     plt.ylabel('p(x)')
@@ -273,3 +278,19 @@ if pdfPlotD:
     # plt.savefig(sn+'charFunc_pdfPlotD.png')
 
 
+if pdfPlotE:
+    x0 = 2.0
+    k = 1.8   
+    th = 0.6
+
+    x = np.linspace(-0.5,4.5,int(1e3))
+    y = scipy.stats.norm.pdf(x,loc=k,scale=th)
+    pltXy=plt.plot(x,y)
+    plt.ylim((-0.05,1.1))
+    plt.xlabel('x (Power per house, kW)')
+    plt.ylabel('p(x)')
+    plt.xlim((-0.5,x[-1]))
+    plt.grid(True,zorder=-10.)
+    plt.ylim((-0.05,1.1))
+    plt.show()
+    # plt.savefig(sn+'charFunc_pdfPlotE.png')

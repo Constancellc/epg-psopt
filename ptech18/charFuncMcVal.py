@@ -9,13 +9,14 @@ from math import gamma
 import time
 import dss_stats_funcs as dsf
 import win32com.client
+import scipy.stats
 
 if getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
-    sn = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190204\\charFuncHcAlys_"
+    sn = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190204\\charFuncMcVal_"
 elif getpass.getuser()=='Matt':
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-    sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190128\\charFuncHcAlys_"
+    sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190204\\charFuncMcVal_"
 
 # Plotting options:
 pltGen = True
@@ -30,42 +31,38 @@ pltBoxDss = True
 pltBoxDss = False
 pltBoxBoth = True
 # pltBoxBoth = False
+pltBoxNorm = True
+# pltBoxNorm = False
 
 pltSave = True
-pltSave = False
+# pltSave = False
 
 ltcModel=True
-# ltcModel=False
+ltcModel=False
 
 intgt = 00
 intmax = 10
 dgn = 1 - (intgt/intmax) # only this percentage of loads are installed.
 
-dVpu = 1e-5; # Tmax prop. 1/dVpu
-dVpu = 1.0*1e-5; # Tmax prop. 1/dVpu
-DVpu = 0.15; # Nt = DVpu/dVpu
-iKtot = 12
-
-fdr_i = 6
+fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7']
 feeder = fdrs[fdr_i]
 lin_point=0.6
 lp_taps='Lpt'
 
 nMc = int(1e3)
-# nMc = int(1e2)
 
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
 fn = ckt[1]
 
-# Vmax = 1.05
 Vmax = 1.055
 Vmin  = 0.95
 
 ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
-ld2mean = 1.25 # ie the mean of those generators which install is 1/2 of their load
-# ld2mean = 8.0 # ie the mean of those generators which install is 1/2 of their load
+# ld2mean = 1.25 # ie the mean of those generators which install is 1/2 of their load
+
+sn0 = sn +  feeder + str(int(lin_point*1e2)) + 'ltc' + str(int(ltcModel)) + 'ld' + str(int(ld2mean*1e2))
 
 # STEPS:
 # Part A: analytic solution
@@ -104,25 +101,21 @@ elif ltcModel:
     KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
     
     Ktot = np.concatenate((KyP,KdP),axis=1)
-
 v_idx=LM['v_idx'];
 YZp = LM['SyYNodeOrder']
 YZd = LM['SdYNodeOrder']
 
-# NB: mean of gamma distribution is k*th.
+# NB: mean of gamma distribution is k*th; variance is k*(th**2)
 rndI = 1e3
 xhy0rnd = ld2mean*rndI*np.round(xhy0[:xhy0.shape[0]//2]/rndI  - 1e6*np.finfo(np.float64).eps) # latter required to make sure that this is negative
 xhd0rnd = ld2mean*rndI*np.round(xhd0[:xhd0.shape[0]//2]/rndI - 1e6*np.finfo(np.float64).eps)
 k = 2.0;  # choose the same for all
-Th0 = -np.concatenate((xhy0rnd,xhd0rnd))/k # negative so that the pds are positive.
 Th = -np.concatenate((xhy0rnd,xhd0rnd))/k # negative so that the pds are positive.
-
-
 th = 1.0
 
 # REDUCE THE LINEAR MODEL to a nice form for multiplication
 Ktot0 = np.zeros(Ktot.shape); i=0 # first, scale the matrices to the uncertainty in input:
-for th0 in Th0:
+for th0 in Th:
     Ktot0[:,i] = Ktot[:,i]*th0; i+=1
 
 KtotPu = np.zeros(Ktot0.shape); i=0 # next, scale to be in pu:
@@ -136,13 +129,14 @@ for kmax in Kmax:
 
 Nmult = np.ceil(10.0 + np.sqrt(Ktot.shape[0]))
 Dx = k*th*Nmult
-dx = 1e-1
+dx = 3e-2
 x,t = dsf.dy2YzR(dx,Dx)
 
 Nt = len(x)-1
 
 cfTot = np.ones((len(Ktot),Nt//2 + 1),dtype='complex')
 vDnew = np.zeros((len(Ktot),int(Nt+1)))
+vDnewNorm = np.zeros((len(Ktot),int(Nt+1)))
 Vpu = np.zeros((len(Ktot),int(Nt+1)))
 print('--- Start DFT Calc ---\n',time.process_time())
 for i in range(len(K1)):
@@ -152,17 +146,17 @@ for i in range(len(K1)):
     for j in range(K1.shape[1]):
         cfJ = dsf.cf_gm_sh(k,1.0*K1[i,j],t) # shifted mean
         cfTot[i,:] = cfTot[i,:]*cfJ
-    vDnew[i,:] = np.fft.fftshift(np.fft.irfft(cfTot[i,:],n=Nt+1))*dsf.get_dx(x)
+    vDnew[i,:] = np.fft.fftshift(np.fft.irfft(cfTot[i,:],n=Nt+1))
+    vDnewNorm[i,:] = scipy.stats.norm.pdf(x,scale=np.sqrt(k*sum(abs(K1[i])))*th)*dx
     Vpu[i,:] = b0[i] + (x + k*th*sum(K1[i]))*Kmax[i]
 
-vDnewSumEr = ((sum(vDnew.T)/dsf.get_dx(x)) - 1)*100 # normalised (%)
 print('DFT Calc complete.',time.process_time())
 
+vDnewSumEr = (sum(vDnew.T) - 1)*100 # normalised (%)
 print('Checksum: max PDFs error',max(vDnewSumEr))
 print('Checksum: mean PDFs error',np.mean(vDnewSumEr))
-
-vDnewSum = sum(vDnew.T)
-vDnewCdf = np.cumsum(vDnew,axis=1).T/vDnewSum.T
+vDnewCdf = np.cumsum(vDnew,axis=1).T
+vDnormCdf = np.cumsum(vDnewNorm,axis=1).T
 
 vAll = np.linspace(0.85,1.15,int(1e3))
 minV = []
@@ -274,7 +268,7 @@ if pltBoxDss:
     plt.xlim(xlm)
     plt.grid(True)
     if pltSave:
-        plt.savefig(sn+'pltBoxDss.png')
+        plt.savefig(sn0+'pltBoxDss.png')
         plt.close()
     else:
         plt.show()
@@ -303,7 +297,7 @@ if pltGen:
     plt.xlim((0,5))
     plt.grid(True)
     if pltSave:
-        plt.savefig(sn+'pltGen.png')
+        plt.savefig(sn0+'pltGen.png')
     else:
         plt.show()
 
@@ -313,14 +307,14 @@ if pltPdfs:
         plt.plot(Vpu[i,:],vDnew[i,:])
     plt.xlim((0.90,1.1))
     
-    plt.ylim((-5,90))
+    # plt.ylim((-5,90))
     ylm = plt.ylim()
     plt.plot(Vmin*np.ones(2),ylm,'r:')
     plt.plot(Vmax*np.ones(2),ylm,'r:')
     plt.ylim(ylm)
     plt.grid(True)
     if pltSave:
-        plt.savefig(sn+'pltPdfs.png')
+        plt.savefig(sn0+'pltPdfs.png')
     else:
         plt.show()
 
@@ -357,7 +351,7 @@ if pltCdfs:
     plt.grid(True)
     
     if pltSave:
-        plt.savefig(sn+'pltCdfs'+str(int(ld2mean*100))+'.png')
+        plt.savefig(sn0+'pltCdfs'+str(int(ld2mean*100))+'.png')
     else:
         plt.show()
     
@@ -397,7 +391,7 @@ if pltBox:
     plt.xlim(xlm)
     plt.grid(True)
     if pltSave:
-        plt.savefig(sn+'pltBox.png')
+        plt.savefig(sn0+'pltBox.png')
     else:
         plt.show()
 if pltBoxBoth:
@@ -458,10 +452,74 @@ if pltBoxBoth:
     plt.grid(True)
     
     plt.title('OpenDSS Solutions')
-
-    plt.show()
     
     if pltSave:
-        plt.savefig(sn+'pltBox.png')
+        plt.savefig(sn0+'pltBoxBoth.png')
+    else:
+        plt.show()
+        
+if pltBoxNorm:
+    Vmn = np.zeros(len(Ktot))
+    Vlo = np.zeros(len(Ktot))
+    Vmd = np.zeros(len(Ktot))
+    Vhi = np.zeros(len(Ktot))
+    Vmx = np.zeros(len(Ktot))
+
+    emn = 0.01
+    elo = 0.25
+    emd = 0.50
+    ehi = 0.75
+    emx = 0.99
+    
+    plt.figure(figsize=(9,4))
+
+    plt.subplot(121)
+    for i in range(len(Ktot)):
+        Vmn[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - emn))]
+        Vlo[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - elo))]
+        Vmd[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - emd))]
+        Vhi[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - ehi))]
+        Vmx[i]=Vpu[i,np.argmin(abs(vDnewCdf[:,i] - emx))]
+        plt.plot(i,Vmn[i],'k^'); 
+        plt.plot(i,Vlo[i],'g_'); plt.plot(i,Vmd[i],'b_'); plt.plot(i,Vhi[i],'g_');
+        plt.plot(i,Vmx[i],'kv'); 
+        plt.plot([i,i],[Vmn[i],Vmx[i]],'k:')
+        plt.plot(i,b0[i],'rx')
+
+    plt.xlabel('Bus No.')
+    plt.ylabel('Voltage (pu)')
+    xlm = plt.xlim()
+    plt.plot(xlm,[Vmax,Vmax],'r--')
+    plt.plot(xlm,[Vmin,Vmin],'r--')
+    plt.xlim(xlm)
+    plt.grid(True)
+    
+    plt.title('Linear Model (full)')
+    
+    plt.subplot(122)
+    for i in range(len(Ktot)):
+        Vmn[i]=Vpu[i,np.argmin(abs(vDnormCdf[:,i] - emn))]
+        Vlo[i]=Vpu[i,np.argmin(abs(vDnormCdf[:,i] - elo))]
+        Vmd[i]=Vpu[i,np.argmin(abs(vDnormCdf[:,i] - emd))]
+        Vhi[i]=Vpu[i,np.argmin(abs(vDnormCdf[:,i] - ehi))]
+        Vmx[i]=Vpu[i,np.argmin(abs(vDnormCdf[:,i] - emx))]
+        plt.plot(i,Vmn[i],'k^'); 
+        plt.plot(i,Vlo[i],'g_'); plt.plot(i,Vmd[i],'b_'); plt.plot(i,Vhi[i],'g_');
+        plt.plot(i,Vmx[i],'kv'); 
+        plt.plot([i,i],[Vmn[i],Vmx[i]],'k:')
+        plt.plot(i,b0[i],'rx')
+
+    plt.xlabel('Bus No.')
+    plt.ylabel('Voltage (pu)')
+    xlm = plt.xlim()
+    plt.plot(xlm,[Vmax,Vmax],'r--')
+    plt.plot(xlm,[Vmin,Vmin],'r--')
+    plt.xlim(xlm)
+    plt.grid(True)
+    
+    plt.title('Linear Model (norm approx)')
+    
+    if pltSave:
+        plt.savefig(sn0+'pltBoxNorm.png')
     else:
         plt.show()
