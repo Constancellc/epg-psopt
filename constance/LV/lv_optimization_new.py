@@ -5,22 +5,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cvxopt import matrix, spdiag, sparse, solvers
 
-solvers.options['maxiters'] = 30
+solvers.options['maxiters'] = 40
+solvers.options['reltol'] = 1e-10
 
 '''
 
-I think there is a problem with the way location is mapped
+Currently working on the load flattening function
 
-there are currently two maps as sometimes there are two requirements for one
-vehicle, but i don't think this is necessary....
+It's not currently converging, I need to check how I got the MEA kWh because
+often it says that the vehicle is not there for very long, and the value of
+kWh exceeds what is possible on full charge
 
-Something is also wrong with the predict losses function
+Also, I should add the efficiency term.
 
 '''
 
 class LVTestFeeder:
 
-    def __init__(self,folderPath):
+    def __init__(self,folderPath,t_res):
+
+        self.t_res = t_res
+        self.T = int(1440/t_res)
 
         with open(folderPath+'/c.csv','rU') as csvfile:
             reader = csv.reader(csvfile)
@@ -45,14 +50,19 @@ class LVTestFeeder:
                 i += 1    
 
     def set_households(self,profiles): # UPDATED
-        self.hh_profiles = profiles
         self.x_h = []
-        self.base = [0.0]*1440
+        self.base = [0.0]*int(self.T)
+        hh_profiles = []
+        for i in range(self.nH):
+            hh_profiles.append([0.0]*self.T)
         
         for t in range(1440):
             for i in range(self.nH):
-                self.x_h.append(-profiles[i][t]*1000)
-                self.base[t] += profiles[i][t]
+                self.base[int(t/self.t_res)] += profiles[i][t]/self.t_res
+                hh_profiles[i][int(t/self.t_res)] += profiles[i][t]/self.t_res
+
+                
+        self.hh_profiles = hh_profiles
 
     def set_households_NR(self,filePath): # UPDATED
 
@@ -84,14 +94,43 @@ class LVTestFeeder:
         self.set_households(chosen)
 
     def set_evs(self,vehicles): # UPDATED
-        # n foorm [kWh,arrival,needed]
-        self.nV = len(vehicles) # nV > nH if there are multiple charges
+
+        # now input has form [[[kWh1,arrival1,needed1],[kWh2...]],..]
+        self.nV = len(vehicles) #
+        
         self.b = []
-        self.map = {} # maps the hh number to the vehicle number
+        self.v_map = {} # 
+        self.rn_map = {} # 
         self.times = []
         
-        i = 0
+        v = 0
+        r = 0
         for j in range(self.nV):
+            kWh = []
+            times = []
+            
+            for j2 in range(len(vehicles[j])):
+                if vehicles[j][j2][0] == 0:
+                    continue
+                kWh.append(vehicles[j][j2][0])
+
+                self.rn_map[r] = v
+                self.b.append(kWh[-1])
+                self.times.append(vehicles[j][j2][1:])
+                r += 1
+
+            if len(kWh) == 0:
+                continue
+
+            self.v_map[v] = j
+            v += 1
+        
+        self.rN = len(self.b)
+        self.n = v
+        
+        '''      
+        
+                
             if vehicles[j][0] == 0:
                 continue
             self.map[i] = j
@@ -105,6 +144,7 @@ class LVTestFeeder:
                 self.times[-1][0] = self.times[-1][1]-60
             
         self.n = len(self.b)
+        '''
 
     def set_evs_MEA(self,folderPath,weekday=True,weekend=False): #UPDATED
         # day 4 is a Monday
@@ -142,15 +182,18 @@ class LVTestFeeder:
         # between vehicles and variation over time. For now I don't care
         chosenDay = days[int(random.random()*len(days))]
 
-        self.loc_map = {}
+        #self.loc_map = {}
         # this wil map the position that each vehicle i assigned to
 
         vehicles = []
         evs = []
+        jtimes = {}
         rn = 0 # requirement number 
         for hh in range(self.nH):
-            evs.append([0.0]*1440)
+            vehicles.append([])
+            evs.append([0.0]*self.T)
             v = chosen[hh]
+            jtimes[hh] = []
             with open(folderPath+v+'.csv','rU') as csvfile:
                 reader = csv.reader(csvfile)
                 next(reader)
@@ -161,75 +204,116 @@ class LVTestFeeder:
                     start = int(row[1])
                     needed = int(row[2])
 
-                    vehicles.append([kWh,start,needed])
-                    self.loc_map[rn] = hh
-                    rn += 1
+                    min_time = int(60*kWh/(3.19))+1
+
+                    if needed > start:
+                        if (needed-start) < min_time:
+                            needed = start+min_time
+                            if needed >= 1440:
+                                needed -= 1440
+                    else:
+                        if (needed+1440-start) < min_time:
+                            needed = min_time+start-1440
+
+                    vehicles[hh].append([kWh,int(start/self.t_res),
+                                         int(needed/self.t_res)])
+
+            # maybe here I should do some processing to check no requirements
+            # are overlapping?
+            if len(vehicles[hh]) > 1:
+                if vehicles[hh][-1][2] < vehicles[hh][-1][1]:
+                    # check no overlap with first journey:
+                    if vehicles[hh][-1][2] > vehicles[hh][0][1]:
+                        vehicles[hh][-1][2] = vehicles[hh][0][1]
+                jtimes[hh].append([start-int(30/self.t_res),start])
+                for j2 in range(len(vehicles[hh])-1):
+                    jtimes[hh].append([vehicles[hh][j2][2],vehicles[hh][j2][1]])
+                        
+            elif len(vehicles[hh]) == 1:
+                jtimes[hh].append([start-int(30/self.t_res),start])
+                    
 
         self.set_evs(vehicles)
+        self.jtimes = jtimes
         self.evs = evs
 
-    def uncontrolled(self,power=3.5): # UPDATED
+    def uncontrolled(self,power=3.5,c_eff=0.9): # UPDATED
         profiles = []
         for i in range(self.nH):
-            profiles.append([0.0]*1440)
-        for j in range(self.n):
-            e = self.b[j]
-            if e < power/60:
-                continue
+            profiles.append([0.0]*self.T)
+        for j in range(self.rN):
+            e = copy.deepcopy(self.b[j])/c_eff
             
             a = self.times[j][0]
-
-            chargeTime = int(e*60/power)+1
+            
+            if e < power*self.t_res/60:
+                profiles[self.v_map[self.rn_map[j]]][a] = e*60/self.t_res
+                continue
+            
+            chargeTime = int(e*60/(self.t_res*power))+1
 
             for t in range(a,a+chargeTime):
-                if t < 1440:
-                    profiles[self.loc_map[self.map[j]]][t] = power
+                if t < self.T:
+                    profiles[self.v_map[self.rn_map[j]]][t] = power
                 else:
-                    profiles[self.loc_map[self.map[j]]][t-1440] = power
+                    profiles[self.v_map[self.rn_map[j]]][t-self.T] = power
             
         self.evs = profiles
 
-    def loss_minimise(self,Pmax=3.5,constrain=True):
+    def loss_minimise(self,Pmax=7,c_eff=0.9,constrain=True):
         profiles = []
         for i in range(self.nH):
-            profiles.append([0.0]*1440)
+            profiles.append([0.0]*self.T)
 
         Pr = matrix(0.0,(self.n,self.n))
         qr = []
         for i in range(self.n):
-            qr.append(self.q0[self.map[i]])
+            qr.append(self.q0[self.v_map[i]])
             for j in range(self.n):
-                Pr[i,j] = self.P0[self.map[i],self.map[j]]
+                Pr[i,j] = self.P0[self.v_map[i],self.v_map[j]]
 
         x_h = []
-        for t in range(1440):
+        for t in range(self.T):
             for v in range(self.n):
-                x_h.append(self.x_h[t*self.n+self.map[v]])
+                x_h.append(-1000*self.hh_profiles[self.v_map[v]][t])
         
-        P = spdiag([Pr]*1440)
+        P = spdiag([Pr]*self.T)
         x_h = matrix(x_h)
-        q = matrix(qr*1440)
+        q = matrix(qr*self.T)
         q += (P+P.T)*x_h
 
-        if constrain == False:
-            A = matrix(0.0,(self.n,self.n*1440))
-            b = matrix(0.0,(self.n,1))
-        else:
-            A = matrix(0.0,(2*self.n,self.n*1440))
-            b = matrix(0.0,(2*self.n,1))
+        A = matrix(0.0,(self.rN+self.n,self.n*self.T)) # won't work for unconstrained
+        b = matrix(0.0,(self.rN+self.n,1))
 
-        for v in range(self.n):
-            for t in range(1440):
-                A[v,self.n*t+v] = 1.0/60
-                
-                if constrain == True:
-                    if t > self.times[v][0] and t < self.times[v][1]:
-                        A[v+self.n,self.n*t+v] = 1.0
+        for rn in range(self.rN):
+            b[rn] = -self.b[rn]*1000
+            if constrain == False:
+                for t in range(self.T):
+                    A[rn,1440*self.rn_map[rn]+t] = c_eff*self.t_res/60
+
+            else:
+                if self.times[rn][1] < self.times[rn][0]:
                         
-            b[v] = -self.b[v]*1000
+                    for t in range(0,self.times[rn][0]):
+                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
 
-        G = sparse([spdiag([-1.0]*(self.n*1440)),spdiag([1.0]*(self.n*1440))])
-        h = matrix([Pmax*1000]*(self.n*1440)+[0.0]*(self.n*1440))
+                    for t in range(self.times[rn][1],self.T):
+                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+                                                
+                else:
+                        
+                    for t in range(self.times[rn][0],self.times[rn][1]):
+                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+                        
+        for v in range(self.n):
+            jtimes = self.jtimes[self.v_map[v]]
+
+            for j in jtimes:
+                for t in range(j[0],j[1]):
+                    A[self.rN+v,t] = 1.0
+                    
+        G = sparse([spdiag([-1.0]*(self.n*self.T)),spdiag([1.0]*(self.n*self.T))])
+        h = matrix([Pmax*1000]*(self.n*self.T)+[0.0]*(self.n*self.T))
 
         sol=solvers.qp(P*2,q,G,h,A,b)
         x = sol['x']
@@ -243,41 +327,61 @@ class LVTestFeeder:
         del b
 
         for v in range(self.n):
-            for t in range(1440):
-                profiles[self.loc_map[self.map[v]]][t] -= x[self.n*t+v]/1000
-
+            for t in range(self.T):
+                profiles[self.v_map[v]][t] -= x[self.n*t+v]/1000
+                
         self.evs = profiles
 
-    def load_flatten(self,Pmax=3.5,constrain=True):
+    def load_flatten(self,Pmax=7,c_eff=0.9,constrain=True):
         profiles = []
         for i in range(self.nH):
-            profiles.append([0.0]*1440)
+            profiles.append([0.0]*self.T)
 
         q = copy.copy(self.base)*self.n
         q = matrix(q)
 
-        P = sparse([[spdiag([1]*1440)]*self.n]*self.n)
+        P = sparse([[spdiag([1]*self.T)]*self.n]*self.n)
 
-        if constrain == False:
-            A = matrix(0.0,(self.n,self.n*1440))
-            b = matrix(0.0,(self.n,1))
-        else:
-            A = matrix(0.0,(2*self.n,self.n*1440))
-            b = matrix(0.0,(2*self.n,1))
-        
+        A = matrix(0.0,(self.rN+self.n,self.n*self.T)) # won't work for unconstrained
+        b = matrix(0.0,(self.rN+self.n,1))
+
+        for rn in range(self.rN):
+            b[rn] = self.b[rn]
+            if constrain == False:
+                for t in range(self.T):
+                    A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+
+            else:
+                if self.times[rn][1] < self.times[rn][0]:
+                    maxTime = self.times[rn][0]+self.T-self.times[rn][1]
+                    if maxTime*Pmax*self.t_res/60 < b[rn]:
+                        print(':(')
+                        b[rn] = 0.99*maxTime*Pmax/(60*c_eff)
+                        
+                    for t in range(0,self.times[rn][0]):
+                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+
+                    for t in range(self.times[rn][1],self.T):
+                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+                                                
+                else:
+                    maxTime = self.times[rn][1]-self.times[rn][0]
+                    if maxTime*Pmax*self.t_res/60 < b[rn]:
+                        print(':(')
+                        b[rn] = 0.99*maxTime*Pmax/(60*c_eff)
+                        
+                    for t in range(self.times[rn][0],self.times[rn][1]):
+                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
 
         for v in range(self.n):
-            for t in range(1440):
-                A[v,1440*v+t] = 1.0/60
-                
-                if constrain == True:
-                    if t > self.times[v][0] and t < self.times[v][1]:
-                        A[v+self.n,1440*v+t] = 1.0
+            jtimes = self.jtimes[self.v_map[v]]
 
-            b[v] = self.b[v]
-        
-        G = sparse([spdiag([-1.0]*(self.n*1440)),spdiag([1.0]*(self.n*1440))])
-        h = matrix([0.0]*(self.n*1440)+[Pmax]*(self.n*1440))
+            for j in jtimes:
+                for t in range(j[0],j[1]):
+                    A[self.rN+v,t] = 1.0
+            
+        G = sparse([spdiag([-1.0]*(self.n*self.T)),spdiag([1.0]*(self.n*self.T))])
+        h = matrix([0.0]*(self.n*self.T)+[Pmax]*(self.n*self.T))
 
         sol=solvers.qp(P,q,G,h,A,b)
         x = sol['x']
@@ -291,31 +395,27 @@ class LVTestFeeder:
         del b
 
         for v in range(self.n):
-            for t in range(1440):
-                profiles[self.loc_map[self.map[v]]][t] = x[1440*v+t]
+            for t in range(self.T):
+                profiles[self.v_map[v]][t] = x[self.T*v+t]
         
         self.evs = profiles
+
+
 
     def predict_losses(self):
         losses = []
 
-        for t in range(1440):
+        for t in range(self.T):
             y = [0.0]*self.nH
-            print('hi')
             for i in range(self.nH):
                 y[i] -= self.hh_profiles[i][t]*1000
-            for v in range(self.n):
-                i = self.loc_map[self.map[v]]
-                y[i] -= self.evs[v][t]*1000
-
-            print(y)
+                y[i] -= self.evs[i][t]*1000
 
             y = matrix(y)
 
             losses.append((y.T*self.P0*y+matrix(self.q0).T*y)[0]+self.c)
-            print(losses)
 
-        return sum(losses)
+        return sum(losses)*self.t_res/60
     
     def predict_voltage(self):
         # THIS FUNCTION DOES NOT WORK IN THIS VERSION
@@ -444,9 +544,9 @@ class LVTestFeeder:
         return [current110,current296]
 
     def get_feeder_load(self):
-        total_load = [0.0]*1440
+        total_load = [0.0]*self.T
 
-        for t in range(1440):
+        for t in range(self.T):
             for i in range(self.nH):
                 total_load[t] += self.hh_profiles[i][t] + self.evs[i][t]
 
