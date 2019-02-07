@@ -124,6 +124,35 @@ def dy2YzR(dy,Dy): # Real version (positive t)
     Z = dz*(Nt-1)*np.fft.rfftfreq(Nt) # note different freqs if odd/even.
     return Y,Z
 
+def getHc(V,Cdf,v0):
+    prVmax = np.zeros((len(Cdf)))
+    for i in range(len(Cdf)):
+        v = V[i]
+        j = np.argmax(vpu>v0)
+        if vpu[j]<v0:
+            prVmax[i] = 1.0
+        elif vpu[j]>v0:
+            prVmax[i] = Cdf[j,i]
+    pHc = min(prVmax)
+    return pHc
+
+def vmM(vec,Mat): # Rowwise multiplication, i.e. np.diag(vec).dot(Mat)]
+    if len(vec)!=len(Mat):
+        print('Warning! vector length is not the same length as the matrix row no.')
+    MatOut = np.zeros(np.shape(Mat)); i = 0
+    for mati in Mat:
+        MatOut[i] = mati*vec[i]; i+=1
+    return MatOut
+
+def mvM(Mat,vec): # Columnwise multiplication, i.e. Mat.dot(np.diag(vec))
+    if len(vec)!=Mat.shape[1]:
+        print('Warning! vector length is not the same length as the matrix col no.')
+    MatOut = np.zeros(np.shape(Mat)); i = 0
+    for i in range(Mat.shape[1]):
+        MatOut[:,i] = Mat[:,i]*vec[i]; i+=1
+    return MatOut
+
+    
 # VVVVVVVVVVVVVVVVV TESTING VVVVVVVVVVVVVVVVV
 # # GETTING the RFFT working for faster processing: =============
 # dx = 1e-1

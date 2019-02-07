@@ -30,12 +30,14 @@ pltBox = False
 pltBoxDss = True
 pltBoxDss = False
 pltBoxBoth = True
-# pltBoxBoth = False
+pltBoxBoth = False
 pltBoxNorm = True
-# pltBoxNorm = False
+pltBoxNorm = False
+pltLinRst = True
+# pltLinRst = False
 
 pltSave = True
-# pltSave = False
+pltSave = False
 
 ltcModel=True
 ltcModel=False
@@ -50,7 +52,7 @@ feeder = fdrs[fdr_i]
 lin_point=0.6
 lp_taps='Lpt'
 
-nMc = int(1e3)
+nMc = int(1e2)
 
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
@@ -114,31 +116,23 @@ Th = -np.concatenate((xhy0rnd,xhd0rnd))/k # negative so that the pds are positiv
 th = 1.0
 
 # REDUCE THE LINEAR MODEL to a nice form for multiplication
-Ktot0 = np.zeros(Ktot.shape); i=0 # first, scale the matrices to the uncertainty in input:
-for th0 in Th:
-    Ktot0[:,i] = Ktot[:,i]*th0; i+=1
-
-KtotPu = np.zeros(Ktot0.shape); i=0 # next, scale to be in pu:
-for vbase in vBase:
-    KtotPu[i] = Ktot0[i]/vbase; i+=1
-
+Ktot0 = dsf.mvM(Ktot,Th) # first, scale the matrices to the uncertainty in input:
+KtotPu = dsf.vmM(1/vBase,Ktot0) # next, scale to be in pu:
 Kmax = np.max(abs(KtotPu),axis=1)
-K1 = np.zeros(KtotPu.shape); i = 0
-for kmax in Kmax:
-    K1[i] = KtotPu[i]/kmax; i+=1
+K1 = dsf.vmM(1/Kmax,KtotPu) # Finally, scale so that all K are unity
 
+# Choose the scale for x/t
 Nmult = np.ceil(10.0 + np.sqrt(Ktot.shape[0]))
 Dx = k*th*Nmult
 dx = 3e-2
 x,t = dsf.dy2YzR(dx,Dx)
-
 Nt = len(x)-1
 
 cfTot = np.ones((len(Ktot),Nt//2 + 1),dtype='complex')
 vDnew = np.zeros((len(Ktot),int(Nt+1)))
 vDnewNorm = np.zeros((len(Ktot),int(Nt+1)))
 Vpu = np.zeros((len(Ktot),int(Nt+1)))
-print('--- Start DFT Calc ---\n',time.process_time())
+print('--- Start DFT Calc ---\n',time.process_time()) # START DFT CALCS HERE ============
 for i in range(len(K1)):
     if i%(len(K1)//10)==0:
         print(i,'/',len(K1))
@@ -148,25 +142,28 @@ for i in range(len(K1)):
         cfTot[i,:] = cfTot[i,:]*cfJ
     vDnew[i,:] = np.fft.fftshift(np.fft.irfft(cfTot[i,:],n=Nt+1))
     vDnewNorm[i,:] = scipy.stats.norm.pdf(x,scale=np.sqrt(k*sum(abs(K1[i])))*th)*dx
-    Vpu[i,:] = b0[i] + (x + k*th*sum(K1[i]))*Kmax[i]
-
 print('DFT Calc complete.',time.process_time())
 
+# Vpu[i,:] = b0[i] + (x + k*th*sum(K1[i]))*Kmax[i] # < === per i version here of VVV
+Vpu = (b0 + dsf.vmM(Kmax,(k*th*dsf.vmM(np.sum(K1,axis=1),np.ones(vDnew.shape)) + x)).T).T
+
 vDnewSumEr = (sum(vDnew.T) - 1)*100 # normalised (%)
-print('Checksum: max PDFs error',max(vDnewSumEr))
-print('Checksum: mean PDFs error',np.mean(vDnewSumEr))
+print('Checksum: max PDF error',max(vDnewSumEr))
+print('Checksum: mean PDF error',np.mean(vDnewSumEr))
+
 vDnewCdf = np.cumsum(vDnew,axis=1).T
 vDnormCdf = np.cumsum(vDnewNorm,axis=1).T
 
-vAll = np.linspace(0.85,1.15,int(1e3))
-minV = []
-maxV = []
-for v in vAll:
-    cdfSet = []
-    for i in range(len(Vpu)):
-        cdfSet = cdfSet + [vDnewCdf[ np.argmin(abs(Vpu[i] - v)),i]]
-    minV = minV + [min(cdfSet)]
-    maxV = maxV + [max(cdfSet)]
+
+# vAll = np.linspace(0.85,1.15,int(1e3))
+# minV = []
+# maxV = []
+# for v in vAll:
+    # cdfSet = []
+    # for i in range(len(Vpu)):
+        # cdfSet = cdfSet + [vDnewCdf[ np.argmin(abs(Vpu[i] - v)),i]]
+    # minV = minV + [min(cdfSet)]
+    # maxV = maxV + [max(cdfSet)]
     
 print('Complete.',time.process_time())    
 
@@ -249,8 +246,8 @@ maxVdss = np.max(vOut,axis=1)
 
 yscale = np.linspace(0.,1.,len(vOut))
 
-Vp_pct_aly = 100.0*(1 - minV[np.argmin(abs(vAll - Vmax))] )
 Vp_pct_dss = 100.0*(1 - yscale[np.argmin(abs(maxVdss - Vmax))])
+Vp_pct_aly = 100.0*(1 - minV[np.argmin(abs(vAll - Vmax))] )
 
 print('\n==> HC Analytic value:',Vp_pct_aly,'%')
 print('==> HC OpenDSS value:',Vp_pct_dss,'%\n')
@@ -508,7 +505,6 @@ if pltBoxNorm:
         plt.plot(i,Vmx[i],'kv'); 
         plt.plot([i,i],[Vmn[i],Vmx[i]],'k:')
         plt.plot(i,b0[i],'rx')
-
     plt.xlabel('Bus No.')
     plt.ylabel('Voltage (pu)')
     xlm = plt.xlim()
@@ -523,3 +519,27 @@ if pltBoxNorm:
         plt.savefig(sn0+'pltBoxNorm.png')
     else:
         plt.show()
+        
+
+if pltLinRst:
+    Scls = np.arange(0.1,10.1,0.1)
+    prScls = np.zeros((len(Scls))); n=0
+    for scl in Scls:
+        
+        for i in range(len(K1)):
+            Vpu[i,:] = b0[i] + (x + k*th*sum(K1[i]))*Kmax[i]*scl
+        prVmax = np.zeros((len(K1)))
+        
+        for i in range(len(K1)):
+            vpu = Vpu[i]
+            j = np.argmax(vpu>Vmax)
+            if vpu[j]<Vmax:
+                prVmax[i] = 1.0
+            elif vpu[j]>Vmax:
+                prVmax[i] = vDnewCdf[j,i]
+        prScls[n] = 100*(1-min(prVmax))
+        n+=1
+    plt.plot(100*Scls,prScls)
+    plt.xlabel('Scale factor, %')
+    plt.ylabel('Probability of an overvoltage, %')
+    plt.show()
