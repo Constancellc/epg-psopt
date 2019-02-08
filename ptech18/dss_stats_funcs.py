@@ -125,13 +125,13 @@ def dy2YzR(dy,Dy): # Real version (positive t)
     return Y,Z
 
 def getHc(V,Cdf,v0):
-    prVmax = np.zeros((len(Cdf)))
-    for i in range(len(Cdf)):
+    prVmax = np.zeros((Cdf.shape[1]))
+    for i in range(Cdf.shape[1]):
         v = V[i]
-        j = np.argmax(vpu>v0)
-        if vpu[j]<v0:
+        j = np.argmax(v>v0)
+        if v[j]<v0:
             prVmax[i] = 1.0
-        elif vpu[j]>v0:
+        elif v[j]>v0:
             prVmax[i] = Cdf[j,i]
     pHc = min(prVmax)
     return pHc
@@ -152,7 +152,22 @@ def mvM(Mat,vec): # Columnwise multiplication, i.e. Mat.dot(np.diag(vec))
         MatOut[:,i] = Mat[:,i]*vec[i]; i+=1
     return MatOut
 
-    
+# BUS SENSITIVITIES for the normal assumption analysis.
+def getBusSens(b0,Vp,Mm,Kk,Scl=np.arange(0.05,3.05,0.05)): # get the sensitivity of buses to changes in scaling
+    a = np.zeros((len(Scl),len(b0))); i = 0
+    for scl in Scl:
+        a[i] = (Vp - (b0 + Mm*scl))/(Kk*np.sqrt(scl))
+        i+=1
+    return a
+
+def getCritBuses(b0,Vp,Mm,Kk,Scl=np.arange(0.1,3.10,0.10),n=3):
+    critBuses = []
+    a = getBusSens(b0,Vp,Mm,Kk,Scl)
+    for i in range(n):
+        critBuses = critBuses + np.unique(np.argmin(a,axis=1)).tolist()
+        a[:,critBuses] = np.inf
+    return critBuses
+
 # VVVVVVVVVVVVVVVVV TESTING VVVVVVVVVVVVVVVVV
 # # GETTING the RFFT working for faster processing: =============
 # dx = 1e-1
