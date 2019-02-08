@@ -26,11 +26,11 @@ pltPdfs = False
 pltCdfs = True
 pltCdfs = False
 pltBox = True
-# pltBox = False
+pltBox = False
 pltBoxDss = True
 pltBoxDss = False
 pltBoxBoth = True
-pltBoxBoth = False
+# pltBoxBoth = False
 pltBoxNorm = True
 pltBoxNorm = False
 pltLinRst = True
@@ -116,10 +116,8 @@ rndI = 1e3
 xhy0rnd = ld2mean*rndI*np.round(xhy0[:xhy0.shape[0]//2]/rndI  - 1e6*np.finfo(np.float64).eps) # latter required to make sure that this is negative
 xhd0rnd = ld2mean*rndI*np.round(xhd0[:xhd0.shape[0]//2]/rndI - 1e6*np.finfo(np.float64).eps)
 k = 2.0;  # choose the same for all
-# th0 = 
 
 Th = -np.concatenate((xhy0rnd,xhd0rnd))/k # negative so that the pds are positive.
-# Sgm = Th/th0
 Sgm = Th*(k**0.5) # scale to unity variance
 Mns = Th*k
 
@@ -129,23 +127,15 @@ KtotPu0 = dsf.mvM(KtotPu,Sgm) # scale the matrices to the input variance
 Kmax = np.max(abs(KtotPu0),axis=1)
 K1 = dsf.vmM(1/Kmax,KtotPu0) # Finally, scale so that all K are unity
 
-
 # IDENTIFY WORST BUSES using normal approximation.
 Ksgm = np.sqrt(np.sum(abs(K1),axis=1)) # useful for normal approximations
 Mm = KtotPu.dot(Mns)
 Kk = np.sqrt(np.sum(abs(K1),axis=1))*Kmax
-
-critBuses = dsf.getCritBuses(b0,Vmax,Mm,Kk,Scl=np.arange(0.1,3.10,0.1)/ld2mean)
-a = dsf.getBusSens(b0,Vmax,Mm,Kk)
-# Scl = np.arange(0.05,3.05,0.05)
-# plt.plot(Scl,a[:,critBuses]);
-# xlm = plt.xlim()
-# plt.plot(xlm,[3.,3.],'r--')
-# plt.xlim(xlm); plt.show()
+critBuses2,critBuses = dsf.getCritBuses(b0,Vmax,Mm,Kk,Scl=np.arange(0.1,3.10,0.1)/ld2mean)
+# a = dsf.getBusSens(b0,Vmax,Mm,Kk) # might be helpful for debugging
 
 # Choose the scale for x/t
-Nmult = np.ceil(10.0 + np.sqrt(Ktot.shape[0]))
-Dx = 2*Nmult
+Dx = np.ceil(2*3*2*max(Ksgm));
 dx = 3e-2
 x,t = dsf.dy2YzR(dx,Dx)
 Nt = len(x)-1
@@ -447,7 +437,14 @@ if pltBoxBoth:
     plt.plot(xlm,[Vmax,Vmax],'r--')
     plt.plot(xlm,[Vmin,Vmin],'r--')
     plt.xlim(xlm)
-    plt.grid(True)
+    if pltCritBus:
+        ylm = plt.ylim()
+        for critBus in critBuses:
+            plt.plot([critBus]*2,ylm,'g',zorder=-1e3)
+        plt.ylim(ylm)
+    else:
+        plt.grid(True)
+
     
     plt.title('Linear Model')
     plt.subplot(121)
@@ -469,7 +466,14 @@ if pltBoxBoth:
     plt.plot(xlm,[Vmax,Vmax],'r--')
     plt.plot(xlm,[Vmin,Vmin],'r--')
     plt.xlim(xlm)
-    # plt.grid(True)
+    if pltCritBus:
+        ylm = plt.ylim()
+        for critBus in critBuses:
+            plt.plot([critBus]*2,ylm,'g',zorder=-1e3)
+        plt.ylim(ylm)
+    else:
+        plt.grid(True)
+
     
     plt.title('OpenDSS Solutions')
     
