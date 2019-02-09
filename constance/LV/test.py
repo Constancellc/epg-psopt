@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from lv_optimization_new import LVTestFeeder
 
-network = LVTestFeeder('manc_models/041',t_res=10)
+network = LVTestFeeder('manc_models/041',t_res=1)
 network.set_households_NR('../../../Documents/netrev/TC2a/03-Dec-2013.csv')
 network.set_evs_MEA('../../../Documents/My_Electric_Avenue_Technical_Data/'+
                     'constance/ST1charges/')
