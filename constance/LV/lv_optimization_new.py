@@ -93,6 +93,18 @@ class LVTestFeeder:
 
         self.set_households(chosen)
 
+    def set_households_synthetic(self,pMax):
+
+        profiles = []
+        for hh in range(self.nH):
+            p = []
+            for t in range(1440):
+                p.append(random.random()*pMax)
+            profiles.append(p)
+
+        self.set_households(profiles)
+            
+
     def set_evs(self,vehicles): # UPDATED
 
         # now input has form [[[kWh1,arrival1,needed1],[kWh2...]],..]
@@ -235,6 +247,45 @@ class LVTestFeeder:
         self.set_evs(vehicles)
         self.evs = evs
 
+    def set_evs_synthetic(self,kWh,start=None,needed=None,nTrips=1,pUnused=0):
+        
+        vehicles = []
+        evs = []
+        
+        for v in range(self.nH):
+            vehicles.append([])
+            evs.append([0.0]*self.T)
+            if random.random() < pUnused:
+                continue
+            if start != None and needed != None and nTrips==1:
+                vehicles[v].append([kWh,start,needed])
+                
+            if nTrips == 1:
+                start_ = int(1440*random.random())
+                l = 100+int(1200*random.random())
+                needed_ = start_+l
+                if needed_ >= 1440:
+                    needed_ -= 1440
+                vehicles[v].append([kWh,int(start_/self.t_res),
+                                    int(needed_/self.t_res)])
+
+            elif nTrips == 2:
+                start_ = int(600*random.random())
+                needed_ = start_+200+int((600-start_)*random.random())
+
+                start_2 = int(400*random.random())+needed_
+                needed_2 = start_2+200+int(random.random()*(start_))
+                if needed_2 >= 1440:
+                    needed_2 -= 1440
+
+                vehicles[v].append([kWh,int(start_/self.t_res),
+                                    int(needed_/self.t_res)])
+                vehicles[v].append([kWh,int(start_2/self.t_res),
+                                    int(needed_2/self.t_res)])              
+                
+        self.set_evs(vehicles)
+        self.evs = evs
+
     def uncontrolled(self,power=3.5,c_eff=0.9): # UPDATED
         profiles = []
         for i in range(self.nH):
@@ -292,10 +343,10 @@ class LVTestFeeder:
             else:
                 if self.times[rn][1] < self.times[rn][0]:
                         
-                    for t in range(0,self.times[rn][0]):
+                    for t in range(0,self.times[rn][1]):
                         A[rn,self.n*t+self.rn_map[rn]] = c_eff*self.t_res/60
 
-                    for t in range(self.times[rn][1],self.T):
+                    for t in range(self.times[rn][0],self.T):
                         A[rn,self.n*t+self.rn_map[rn]] = c_eff*self.t_res/60
                                                 
                 else:
@@ -350,10 +401,10 @@ class LVTestFeeder:
                         print(':(')
                         b[rn] = 0.99*maxTime*Pmax/(60*c_eff)
                         
-                    for t in range(0,self.times[rn][0]):
+                    for t in range(0,self.times[rn][1]):
                         A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
 
-                    for t in range(self.times[rn][1],self.T):
+                    for t in range(self.times[rn][0],self.T):
                         A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
                                                 
                 else:
