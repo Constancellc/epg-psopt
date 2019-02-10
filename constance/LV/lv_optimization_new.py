@@ -93,6 +93,18 @@ class LVTestFeeder:
 
         self.set_households(chosen)
 
+    def set_households_synthetic(self,pMax):
+
+        profiles = []
+        for hh in range(self.nH):
+            p = []
+            for t in range(1440):
+                p.append(random.random()*pMax)
+            profiles.append(p)
+
+        self.set_households(profiles)
+            
+
     def set_evs(self,vehicles): # UPDATED
 
         # now input has form [[[kWh1,arrival1,needed1],[kWh2...]],..]
@@ -187,13 +199,11 @@ class LVTestFeeder:
 
         vehicles = []
         evs = []
-        jtimes = {}
         rn = 0 # requirement number 
         for hh in range(self.nH):
             vehicles.append([])
             evs.append([0.0]*self.T)
             v = chosen[hh]
-            jtimes[hh] = []
             with open(folderPath+v+'.csv','rU') as csvfile:
                 reader = csv.reader(csvfile)
                 next(reader)
@@ -204,37 +214,76 @@ class LVTestFeeder:
                     start = int(row[1])
                     needed = int(row[2])
 
-                    min_time = int(60*kWh/(3.19))+1
-
-                    if needed > start:
-                        if (needed-start) < min_time:
-                            needed = start+min_time
-                            if needed >= 1440:
-                                needed -= 1440
-                    else:
-                        if (needed+1440-start) < min_time:
-                            needed = min_time+start-1440
+                    if needed>start and needed-start<60:
+                        needed += 30
 
                     vehicles[hh].append([kWh,int(start/self.t_res),
                                          int(needed/self.t_res)])
+                    
 
-            # maybe here I should do some processing to check no requirements
-            # are overlapping?
+            # check for no overlapping constraints
             if len(vehicles[hh]) > 1:
+                for j in range(len(vehicles[hh])-1):
+                    if vehicles[hh][j][2] >= vehicles[hh][j+1][1]:
+                        vehicles[hh][j][2] = vehicles[hh][j+1][1]-1
+                               
                 if vehicles[hh][-1][2] < vehicles[hh][-1][1]:
                     # check no overlap with first journey:
                     if vehicles[hh][-1][2] > vehicles[hh][0][1]:
                         vehicles[hh][-1][2] = vehicles[hh][0][1]
-                jtimes[hh].append([start-int(30/self.t_res),start])
-                for j2 in range(len(vehicles[hh])-1):
-                    jtimes[hh].append([vehicles[hh][j2][2],vehicles[hh][j2][1]])
-                        
-            elif len(vehicles[hh]) == 1:
-                jtimes[hh].append([start-int(30/self.t_res),start])
+
+            # adjust any unfeasible constraints here
+            for j in range(len(vehicles[hh])):
+                if vehicles[hh][j][1] < vehicles[hh][j][2]:
+                    maxTime = vehicles[hh][j][2]-vehicles[hh][j][1]
+                else:
+                    maxTime = 1440+vehicles[hh][j][2]-vehicles[hh][j][1]
+                maxEnergy = maxTime*self.t_res*6.3/60 # 7kw at 90% eff
+                
+                if vehicles[hh][j][0] > maxEnergy:
+                    vehicles[hh][j][0] = maxEnergy
                     
 
         self.set_evs(vehicles)
-        self.jtimes = jtimes
+        self.evs = evs
+
+    def set_evs_synthetic(self,kWh,start=None,needed=None,nTrips=1,pUnused=0):
+        
+        vehicles = []
+        evs = []
+        
+        for v in range(self.nH):
+            vehicles.append([])
+            evs.append([0.0]*self.T)
+            if random.random() < pUnused:
+                continue
+            if start != None and needed != None and nTrips==1:
+                vehicles[v].append([kWh,start,needed])
+                
+            if nTrips == 1:
+                start_ = int(1440*random.random())
+                l = 100+int(1200*random.random())
+                needed_ = start_+l
+                if needed_ >= 1440:
+                    needed_ -= 1440
+                vehicles[v].append([kWh,int(start_/self.t_res),
+                                    int(needed_/self.t_res)])
+
+            elif nTrips == 2:
+                start_ = int(600*random.random())
+                needed_ = start_+200+int((600-start_)*random.random())
+
+                start_2 = int(400*random.random())+needed_
+                needed_2 = start_2+200+int(random.random()*(start_))
+                if needed_2 >= 1440:
+                    needed_2 -= 1440
+
+                vehicles[v].append([kWh,int(start_/self.t_res),
+                                    int(needed_/self.t_res)])
+                vehicles[v].append([kWh,int(start_2/self.t_res),
+                                    int(needed_2/self.t_res)])              
+                
+        self.set_evs(vehicles)
         self.evs = evs
 
     def uncontrolled(self,power=3.5,c_eff=0.9): # UPDATED
@@ -282,35 +331,28 @@ class LVTestFeeder:
         q = matrix(qr*self.T)
         q += (P+P.T)*x_h
 
-        A = matrix(0.0,(self.rN+self.n,self.n*self.T)) # won't work for unconstrained
-        b = matrix(0.0,(self.rN+self.n,1))
+        A = matrix(0.0,(self.rN,self.n*self.T)) # won't work for unconstrained
+        b = matrix(0.0,(self.rN,1))
 
         for rn in range(self.rN):
             b[rn] = -self.b[rn]*1000
             if constrain == False:
                 for t in range(self.T):
-                    A[rn,1440*self.rn_map[rn]+t] = c_eff*self.t_res/60
+                    A[rn,self.n*t+self.rn_map[rn]] = c_eff*self.t_res/60
 
             else:
                 if self.times[rn][1] < self.times[rn][0]:
                         
-                    for t in range(0,self.times[rn][0]):
-                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+                    for t in range(0,self.times[rn][1]):
+                        A[rn,self.n*t+self.rn_map[rn]] = c_eff*self.t_res/60
 
-                    for t in range(self.times[rn][1],self.T):
-                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+                    for t in range(self.times[rn][0],self.T):
+                        A[rn,self.n*t+self.rn_map[rn]] = c_eff*self.t_res/60
                                                 
                 else:
                         
                     for t in range(self.times[rn][0],self.times[rn][1]):
-                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
-                        
-        for v in range(self.n):
-            jtimes = self.jtimes[self.v_map[v]]
-
-            for j in jtimes:
-                for t in range(j[0],j[1]):
-                    A[self.rN+v,t] = 1.0
+                        A[rn,self.n*t+self.rn_map[rn]] = c_eff*self.t_res/60
                     
         G = sparse([spdiag([-1.0]*(self.n*self.T)),spdiag([1.0]*(self.n*self.T))])
         h = matrix([Pmax*1000]*(self.n*self.T)+[0.0]*(self.n*self.T))
@@ -342,8 +384,8 @@ class LVTestFeeder:
 
         P = sparse([[spdiag([1]*self.T)]*self.n]*self.n)
 
-        A = matrix(0.0,(self.rN+self.n,self.n*self.T)) # won't work for unconstrained
-        b = matrix(0.0,(self.rN+self.n,1))
+        A = matrix(0.0,(self.rN,self.n*self.T)) # won't work for unconstrained
+        b = matrix(0.0,(self.rN,1))
 
         for rn in range(self.rN):
             b[rn] = self.b[rn]
@@ -355,30 +397,26 @@ class LVTestFeeder:
                 if self.times[rn][1] < self.times[rn][0]:
                     maxTime = self.times[rn][0]+self.T-self.times[rn][1]
                     if maxTime*Pmax*self.t_res/60 < b[rn]:
+                        print(self.times[rn])
                         print(':(')
                         b[rn] = 0.99*maxTime*Pmax/(60*c_eff)
                         
-                    for t in range(0,self.times[rn][0]):
+                    for t in range(0,self.times[rn][1]):
                         A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
 
-                    for t in range(self.times[rn][1],self.T):
+                    for t in range(self.times[rn][0],self.T):
                         A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
                                                 
                 else:
                     maxTime = self.times[rn][1]-self.times[rn][0]
                     if maxTime*Pmax*self.t_res/60 < b[rn]:
                         print(':(')
+                        print(self.times[rn])
                         b[rn] = 0.99*maxTime*Pmax/(60*c_eff)
                         
                     for t in range(self.times[rn][0],self.times[rn][1]):
                         A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
 
-        for v in range(self.n):
-            jtimes = self.jtimes[self.v_map[v]]
-
-            for j in jtimes:
-                for t in range(j[0],j[1]):
-                    A[self.rN+v,t] = 1.0
             
         G = sparse([spdiag([-1.0]*(self.n*self.T)),spdiag([1.0]*(self.n*self.T))])
         h = matrix([0.0]*(self.n*self.T)+[Pmax]*(self.n*self.T))
