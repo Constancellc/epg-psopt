@@ -17,7 +17,7 @@ If regulators, go to II.
 --------
 Ia: create the *_y_z file:
 
-4. make sourcebus -> sourcebus_y in downstream element to remove
+4. make sourcebus -> sourcebus_y in downstream element to removexby
 5. remove all loads/caps as required
 
 If there are no regulators, this is then complete.
@@ -53,8 +53,10 @@ Each 'regulator' can be 3ph-gang; 3x1ph; 1ph; 2ph.
 
 zoneSet then needs to be chosen according to the splitting up of these regulators
 
-Note: setting band=1 on regulators tends to lead to a tighter response for LTC solutions.
-
+Notes: 
+- setting band=1 on regulators tends to lead to a tighter response for LTC solutions
+- having "yearly=..." and Load Allocations does not seem to cause problems with the linearization.
+- having lines with .0 append at bus names seems to cause problems and these need to be removed
 
 
 

@@ -50,12 +50,12 @@ intmax = 10
 dgn = 1 - (intgt/intmax) # only this percentage of loads are installed.
 
 fdr_i = 5
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7']
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']
 feeder = fdrs[fdr_i]
 lin_point=0.6
 lp_taps='Lpt'
 
-nMc = int(1e2)
+nMc = int(1e3)
 
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
@@ -64,8 +64,7 @@ fn = ckt[1]
 Vmax = 1.055
 Vmin  = 0.95
 
-ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
-ld2mean = 3.0 # ie the mean of those generators which install is 1/2 of their load
+ld2mean = 2.5 # ie the mean of those generators which install is 1/2 of their load
 # ld2mean = 1.25 # ie the mean of those generators which install is 1/2 of their load
 
 sn0 = sn +  feeder + str(int(lin_point*1e2)) + 'ltc' + str(int(ltcModel)) + 'ld' + str(int(ld2mean*1e2))
@@ -131,7 +130,7 @@ K1 = dsf.vmM(1/Kmax,KtotPu0) # Finally, scale so that all K are unity
 Ksgm = np.sqrt(np.sum(abs(K1),axis=1)) # useful for normal approximations
 Mm = KtotPu.dot(Mns)
 Kk = np.sqrt(np.sum(abs(K1),axis=1))*Kmax
-critBuses2,critBuses = dsf.getCritBuses(b0,Vmax,Mm,Kk,Scl=np.arange(0.1,3.10,0.1)/ld2mean)
+critBuses = dsf.getCritBuses(b0,Vmax,Mm,Kk,Scl=np.arange(0.1,3.10,0.1)/ld2mean)
 # a = dsf.getBusSens(b0,Vmax,Mm,Kk) # might be helpful for debugging
 
 # Choose the scale for x/t

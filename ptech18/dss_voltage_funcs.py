@@ -83,7 +83,10 @@ def get_regIdx(DSSCircuit):
         if DSSCircuit.ActiveElement.NumPhases==1:
             bus = DSSCircuit.ActiveElement.BusNames[1]
         elif DSSCircuit.ActiveElement.NumPhases==3: # WARNING: assume connected to .1 (true is bus='')
-            bus = DSSCircuit.ActiveElement.BusNames[1]+'.1'
+            if DSSCircuit.ActiveElement.BusNames[1].count('.')==4:
+                bus = DSSCircuit.ActiveElement.BusNames[1].split('.',1)[0] + '.1'
+            else:
+                bus = DSSCircuit.ActiveElement.BusNames[1]+'.1'
         regBus.append(bus)
         node = bus.split('.')[0]
         regIdx = regIdx + find_node_idx(node_to_YZ(DSSCircuit),bus,False)
@@ -270,6 +273,10 @@ def getZoneSet(feeder,DSSCircuit,zoneTree):
         zoneSet = {'msub':{1:[],2:[],3:[]},'mreg1':{1:[0],2:[0],3:[0]},'mreg2':{1:[0,3],2:[1,4],3:[2,5]}}
     elif feeder=='13busMod' or feeder=='13bus':
         zoneSet = {'msub':[],'mregs':{1:[0],2:[1],3:[2]}}
+    elif feeder=='epriK1':
+        zoneSet = {'msub':[],'mt2':{1:[0],2:[],3:[]}}
+    elif feeder=='epriM1':
+        zoneSet = {'msub':[],'m1_xfmr':{1:[0],2:[],3:[]}}
     else:
         print(feeder)
         print(regNms)

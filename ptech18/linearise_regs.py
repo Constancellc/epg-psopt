@@ -26,8 +26,8 @@ elif getpass.getuser()=='chri3793':
     WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
 # circuit details copied from linearise_manc_py.
-fdr_i = 13
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7']
+fdr_i = 21
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']
 feeder=fdrs[fdr_i]
 ckt=get_ckt(WD,feeder)
 
@@ -40,7 +40,7 @@ sn0 = dir0 + '\\' + feeder + lp_taps
 test_model = False
 
 lin_points = np.array([0.3, 0.6, 1.0])
-# lin_points = np.array([0.6])
+lin_points = np.array([0.6])
 
 for i in range(len(lin_points)):
     print('Creating model', feeder,', linpoint=',lin_points[i])

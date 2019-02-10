@@ -25,10 +25,12 @@ DSSSolution.tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
 test_model = True
-# test_model = False
-fdr_i = 13
+test_model = False
+test_model_bus = True
+test_model_bus = False
+fdr_i = 6
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7']; lp_taps='Nmt'
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']; lp_taps='Nmt'
 feeder='041'
 feeder=fdrs[fdr_i]
 lp_taps='Lpt'
@@ -36,7 +38,8 @@ lp_taps='Lpt'
 lin_points=np.array([0.3,0.6,1.0])
 lin_points=np.array([0.6])
 k = np.arange(-1.5,1.6,0.1)
-# k = np.array([-0.5,0,0.5,1.0,1.5])
+k = np.array([-1.5,-1.0,-0.5,0.0,0.3,lin_points[:],1.0,1.5])
+k = np.array([0.0,0.3,lin_points[:],1.0])
 
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
@@ -153,10 +156,10 @@ for K in range(len(lin_points)):
     Convrg = []
     TP = np.zeros((len(lin_points),len(k)),dtype=complex)
     TL = np.zeros((len(lin_points),len(k)),dtype=complex)
-    if test_model:
+    if test_model or test_model_bus:
         print('Start validation\n',time.process_time())
         for i in range(len(k)):
-            print(i)
+            print(i,'/',len(k))
             cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point)
             DSSSolution.Solve()
             Convrg.append(DSSSolution.Converged)
@@ -184,9 +187,10 @@ for K in range(len(lin_points)):
                 va_l[i,:] = Ky.dot(xhy) + Kd.dot(xhd) + b
                 vva_l[i,:] = KyV.dot(xhy[s_idx]) + KdV.dot(xhd) + bV
 
-            # ve[i,K] = np.linalg.norm( (v_l[i,:] - v_0[i,3:])/Yvbase )/np.linalg.norm(v_0[i,3:]/Yvbase)
+            # ve[i,K] = np.linalg.norm( (v_l[i,:] - v_0[i,3:])/Yvbase )/np.linalg.norm(v_0[i,3:]/Yvbase) # these are very slow for the bigger networks!
+            # vae[i,K] = np.linalg.norm( (va_l[i,:] - va_0[i,3:])/Yvbase )/np.linalg.norm(va_0[i,3:]/Yvbase) # these are very slow for the bigger networks!
+            
             vve[i,K] = np.linalg.norm( (vv_l[i,:] - vv_0[i,:])/YvbaseV )/np.linalg.norm(vv_0[i,:]/YvbaseV)
-            # vae[i,K] = np.linalg.norm( (va_l[i,:] - va_0[i,3:])/Yvbase )/np.linalg.norm(va_0[i,3:]/Yvbase)
             vvae[i,K] = np.linalg.norm( (vva_l[i,:] - vva_0[i,:])/YvbaseV )/np.linalg.norm(vva_0[i,:]/YvbaseV)
             # DVslv_e[i,K] = np.linalg.norm( (Vslv[i,:] - v_0[i,3:]) )/np.linalg.norm(v_0[i,3:])
             
@@ -216,9 +220,11 @@ print('Complete.\n',time.process_time())
 if test_model:
     # plt.figure()
     # plt.plot(k,ve), plt.title(feeder+', My error'), 
-    # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+    # plt.xlim((-1.5,1.5)); 
+    # # ylm = plt.ylim(); plt.ylim((0,ylm[1])), 
+    # plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     # plt.show()
-    # # plt.savefig(fig_loc+'figA')
+    # plt.savefig(fig_loc+'figA')
     plt.figure()
     plt.plot(k,vve), plt.title(feeder+', MyV error')
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
@@ -259,3 +265,32 @@ if saveCc:
     np.save(snCC+'aCc'+lp_str+'.npy',aCC)
     np.save(snCC+'V0Cc'+lp_str+'.npy',V0CC)
     np.save(snCC+'YbusCc'+lp_str+'.npy',YbusCC)
+    
+    
+
+
+if test_model_bus:
+    idxs = np.array([0,1,2,3])
+
+    plt.figure(figsize=(12,4))
+    for i in range(len(idxs)):
+        plt.subplot(2,len(idxs),i+1)
+        plt.title('K = '+str(k[idxs[i]]))
+        plt.plot(abs(vv_0[idxs[i]])/YvbaseV,'o')
+        plt.plot(abs(vv_l[idxs[i]])/YvbaseV,'x')
+        # plt.plot(abs(vv_0[idxs[i]] - vv_l[idxs[i]]),'o')
+        plt.xlabel('Bus index'); plt.grid(True)
+        plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); 
+        plt.grid(True)
+        if i==0:
+            plt.ylabel('Voltage Magnitude (pu)')
+            plt.legend(('OpenDSS','Fixed Tap'))
+            
+        plt.subplot(2,len(idxs),i+1+4)
+        plt.title('K = '+str(k[idxs[i]]))
+        plt.plot(np.angle(vv_0[idxs[i]]),'o')
+        plt.plot(np.angle(vv_l[idxs[i]]),'x')
+        plt.xlabel('Bus index'); plt.grid(True)
+        if i==0:
+            plt.ylabel('Voltage Angle (rads)')
+    plt.show()

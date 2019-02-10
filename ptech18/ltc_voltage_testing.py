@@ -40,13 +40,14 @@ DSSSolution = DSSCircuit.Solution
 test_model_plt = True
 # test_model_plt = False
 test_model_bus = True
-test_model_bus = False
-fdr_i = 8
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7']
+# test_model_bus = False
+fdr_i = 21
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']
 feeder=fdrs[fdr_i]
 
 k = np.arange(-1.5,1.6,0.025)
 k = np.arange(-1.5,1.6,0.1)
+# k = np.arange(-1.5,1.6,0.5)
 # k = np.arange(0,1.0,1.0)
 
 ckt = get_ckt(WD,feeder)
@@ -126,7 +127,7 @@ regIdxMatD = get_regIdxMatS(YZd,zoneList,zoneSet,Kp,Kq,len(regIdx),True)
 
 xhR = np.concatenate((xhy0[s_idx_shf],xhd0[sD_idx_shf]))
 regIdxMat = np.concatenate((regIdxMatY,regIdxMatD),axis=1) # matrix used for finding power through regulators
-Sreg = regIdxMat.dot(xhR)/1e3; print(Sreg) # for debugging.
+Sreg = regIdxMat.dot(xhR)/1e3; print(Sreg) # for debugging. Remember this is set as scaled at the lin point!
 
 
 regIdxMatYs = regIdxMatY[:,0:len(xhy0)//2].real
@@ -187,16 +188,18 @@ if test_model_plt or test_model_bus:
 
         RegSat[i] = getRegSat(DSSCircuit)
 
-        if len(H)==0:
-            vv_l[i,:] = Ky.dot(xhy[s_idx]) + bV
-        else:
-            xhd = -1e3*s_2_x(sD) # not [3:] like sY
-            vv_l[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
-            vv_lR[i,:] = vv_l[i,:][v_idx_shf]
-            xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
-            vv_lN[i,:] = np.concatenate((Anew.dot(xnew) + Bnew,np.array(regVreg)))
-            # vv_lL[i,:] = np.concatenate((Altc.dot(xnew) + Bltc,np.array(regVreg) + regIdxMatVlts.dot(xnew) ))
-            vv_lL[i,:] = Altc.dot(xnew) + Bltc # NB note no need to append regVreg
+        # if len(H)==0:
+            # vv_l[i,:] = Ky.dot(xhy[s_idx]) + bV
+        # else:
+        xhd = -1e3*s_2_x(sD) # not [3:] like sY
+        vv_l[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
+        vv_lR[i,:] = vv_l[i,:][v_idx_shf]
+        xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
+        vv_lN[i,:] = np.concatenate((Anew.dot(xnew) + Bnew,np.array(regVreg)))
+        # vv_lL[i,:] = np.concatenate((Altc.dot(xnew) + Bltc,np.array(regVreg) + regIdxMatVlts.dot(xnew) ))
+        vv_lL[i,:] = Altc.dot(xnew) + Bltc # NB note no need to append regVreg
+        # end ifelse
+        
         veR[i] = np.linalg.norm( vv_lR[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
         veN[i] = np.linalg.norm( vv_lN[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
         veL[i] = np.linalg.norm( vv_lL[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
@@ -233,9 +236,6 @@ if test_model_plt:
     plt.plot(k[unSat],veR[unSat],'b') 
     plt.plot(k[unSat],veN[unSat],'r')
     plt.plot(k[unSat],veL[unSat],'g')
-    # plt.plot(k[sat],ve[sat],'b-.')
-    # plt.plot(k[sat],veN[sat],'r-.')
-    # plt.plot(k[sat],veL[sat],'g-.')
     plt.plot(k[sat],veR[sat],'b.')
     plt.plot(k[sat],veN[sat],'r.')
     plt.plot(k[sat],veL[sat],'g.')
@@ -250,7 +250,7 @@ if test_model_plt:
 
 if test_model_bus:
     krnd = np.around(k,5) # this breaks at 0.000 for the error!
-    idxs = np.concatenate( ( (krnd==-1.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.0).nonzero()[0] ) )
+    idxs = np.concatenate( ( (krnd==-1.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.5).nonzero()[0] ) )
     
     plt.figure(figsize=(12,4))
     for i in range(len(idxs)):
@@ -264,7 +264,5 @@ if test_model_bus:
         plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
         if i==0:
             plt.ylabel('Voltage Magnitude (pu)')
-            plt.legend(('DSS, fxd regs,','Fixed Tap','Free, no LTC','Free, with LTC'))
+            plt.legend(('OpenDSS','Fixed Tap','Free, no LTC','Free, with LTC'))
     plt.show()
-    
-
