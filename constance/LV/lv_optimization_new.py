@@ -5,8 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cvxopt import matrix, spdiag, sparse, solvers
 
-solvers.options['maxiters'] = 40
-solvers.options['reltol'] = 1e-10
+solvers.options['maxiters'] = 30
+solvers.options['show_progress'] = False
 
 '''
 
@@ -77,19 +77,20 @@ class LVTestFeeder:
                         all_profiles[j] = []
                     all_profiles[j].append(float(row[j+1]))
 
-        if len(all_profiles) < self.nH:
-            print('Not enough profiles')
-            return None
-
         # now chose some
         chosen_ = [] # for indexes
         chosen = [] # for profiles
 
-        while len(chosen_) < self.nH:
-            ran = int(random.random()*len(all_profiles))
-            if ran not in chosen_:
-                chosen_.append(ran)
-                chosen.append(all_profiles[ran])
+        if len(all_profiles) < self.nH:
+            while len(chosen) < self.nH:
+                chosen.append(all_profiles[int(random.random()*len(all_profiles))])
+
+        else:
+            while len(chosen_) < self.nH:
+                ran = int(random.random()*len(all_profiles))
+                if ran not in chosen_:
+                    chosen_.append(ran)
+                    chosen.append(all_profiles[ran])
 
         self.set_households(chosen)
 
@@ -185,10 +186,15 @@ class LVTestFeeder:
                     '113','114']
 
         chosen = []
-        while len(chosen) < self.nH:
-            ran = int(random.random()*len(vehicles))
-            if vehicles[ran] not in chosen:
-                chosen.append(vehicles[ran])
+        if len(vehicles) < self.nH:
+            while len(chosen) < self.nH:
+                chosen.append(vehicles[int(random.random()*len(vehicles))])
+                
+        else:
+            while len(chosen) < self.nH:
+                ran = int(random.random()*len(vehicles))
+                if vehicles[ran] not in chosen:
+                    chosen.append(vehicles[ran])
 
         # when it comes to variation I need to think about both variation
         # between vehicles and variation over time. For now I don't care
@@ -223,9 +229,12 @@ class LVTestFeeder:
 
             # check for no overlapping constraints
             if len(vehicles[hh]) > 1:
-                for j in range(len(vehicles[hh])-1):
-                    if vehicles[hh][j][2] >= vehicles[hh][j+1][1]:
-                        vehicles[hh][j][2] = vehicles[hh][j+1][1]-1
+                # The following is an outrageous hack but frankly idc
+                for j in range(1,len(vehicles[hh])):
+                    diff = vehicles[hh][j][1]-vehicles[hh][j-1][1]
+                    d2 = int(diff/2)
+                    vehicles[hh][j-1][2] = vehicles[hh][j-1][1]+d2+\
+                                           int(random.random()*d2)
                                
                 if vehicles[hh][-1][2] < vehicles[hh][-1][1]:
                     # check no overlap with first journey:
@@ -241,7 +250,7 @@ class LVTestFeeder:
                 maxEnergy = maxTime*self.t_res*6.3/60 # 7kw at 90% eff
                 
                 if vehicles[hh][j][0] > maxEnergy:
-                    vehicles[hh][j][0] = maxEnergy
+                    vehicles[hh][j][0] = 0.99*maxEnergy
                     
 
         self.set_evs(vehicles)
@@ -352,7 +361,10 @@ class LVTestFeeder:
                 else:
                         
                     for t in range(self.times[rn][0],self.times[rn][1]):
-                        A[rn,self.n*t+self.rn_map[rn]] = c_eff*self.t_res/60
+                        try:
+                            A[rn,self.n*t+self.rn_map[rn]] = c_eff*self.t_res/60
+                        except:
+                            print(t)
                     
         G = sparse([spdiag([-1.0]*(self.n*self.T)),spdiag([1.0]*(self.n*self.T))])
         h = matrix([Pmax*1000]*(self.n*self.T)+[0.0]*(self.n*self.T))
@@ -453,7 +465,7 @@ class LVTestFeeder:
 
             losses.append((y.T*self.P0*y+matrix(self.q0).T*y)[0]+self.c)
 
-        return sum(losses)*self.t_res/60
+        return sum(losses)*self.t_res/60000 # kWh
     
     def predict_voltage(self):
         # THIS FUNCTION DOES NOT WORK IN THIS VERSION
