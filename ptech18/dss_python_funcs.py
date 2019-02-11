@@ -416,7 +416,7 @@ def loadLinMagModel(feeder,lin_point,WD,lp_taps):
     end = str(np.round(lin_point*100).astype(int)).zfill(3)+'.npy'
     LM = {}
     LM['Ky'] = np.load(stt+'Ky'+end)
-    LM['Kt'] = np.load(stt+'Kt'+end)
+    
     LM['bV'] = np.load(stt+'bV'+end)
     LM['xhy0'] = np.load(stt+'xhy0'+end)
     LM['vKvbase'] = np.load(stt+'vKvbase'+end)
@@ -431,6 +431,10 @@ def loadLinMagModel(feeder,lin_point,WD,lp_taps):
         LM['Kd'] = np.empty(shape=(LM['Ky'].shape[0],0))
         LM['xhd0'] = np.array([])
         LM['SdYNodeOrder'] = np.array([])
+    try: 
+        LM['Kt'] = np.load(stt+'Kt'+end)
+    except:
+        LM['Kt'] = np.empty(shape=(LM['Ky'].shape[0],0))
     return LM
     
 def loadLtcModel(feeder,lin_point,WD,lp_taps):

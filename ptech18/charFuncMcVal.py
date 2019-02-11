@@ -16,37 +16,47 @@
 import numpy as np
 
 # CHOOSE Network
-fdr_i = 5
+fdr_i = 0
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']
 feeder = fdrs[fdr_i]
+
+ltcModel=True
+ltcModel=False
 
 lin_point=0.6
 lp_taps='Lpt'
 
 Vmax = 1.055
+# Vmax = 1.065 # EPRI ckt 5
 Vmin  = 0.95
 
 ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
 
-nMc = int(3e2)
-nMc = int(1e3)
+# nMc = int(1e3)
+# nMc = int(3e2)
+nMc = int(1e2)
 
 # PDF options
-pdfName = 'gamma'
-mu_k = np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. # 13 BUS with LTC
+mu_k = 0.7*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. # 13 BUS with LTC
 # mu_k = 0.4*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. # 34 BUS with LTC
-mu_k = 3.0*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. # 123 BUS with LTC
+# mu_k = 3.0*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. # 123 BUS with LTC
+mu_k = 0.6*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. # EU LV
+# mu_k = 0.7*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. # EPRI K1, no LTC
+# mu_k = 1.20*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. # EPRI K1, with LTC
+# mu_k = 0.5*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. # EPRI ckt5
 
-# mu_k = 0.5*np.arange(1.0,9.0,1.0) # NB this is as a PERCENTAGE of the chosen nominal powers.
-# mu_k = np.arange(1.0,2.5,0.01) # NB this is as a PERCENTAGE of the chosen nominal powers.
 # mu_k = np.array([1.0]) # NB this is as a PERCENTAGE of the chosen nominal powers.
+
+
+pdfName = 'gamma'
 k = np.array([2.0]) # we do not know th, sigma until we know the scaling from mu0.
 params = k
-
 pdfData = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))}
 
 mcOn = True
-mcOn = False
+# mcOn = False
+useCbs = True
+# useCbs = False
 
 # (Active) PLOTTING options:
 pltPdfs = True
@@ -68,16 +78,11 @@ pltHcBoth = True
 pltGen = True
 pltGen = False
 
+pltCritBus = True
+pltCritBus = False
+
 pltSave = True
 pltSave = False
-
-ltcModel=True
-# ltcModel=False
-
-pltCritBus = True
-# pltCritBus = False
-
-
 
 # ADMIN =============================================
 import numpy.random as rnd
@@ -132,7 +137,13 @@ elif ltcModel:
     KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
     
     Ktot = np.concatenate((KyP,KdP),axis=1)
-v_idx=LM['v_idx'];
+
+KtotCheck = np.sum(Ktot==0,axis=1)!=Ktot.shape[1]
+Ktot = Ktot[KtotCheck]
+b0 = b0[KtotCheck]
+vBase = vBase[KtotCheck]
+
+v_idx=LM['v_idx'][KtotCheck]
 YZp = LM['SyYNodeOrder']
 YZd = LM['SdYNodeOrder']
 
@@ -152,8 +163,7 @@ if not ltcModel:
     DSSText.command='set controlmode=off'
 elif ltcModel:
     DSSText.command='set maxcontroliter=30'
-    DSSText.command='set maxiterations=100'
-
+DSSText.command='set maxiterations=100'
 
 YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 YZ = DSSCircuit.YNodeOrder
@@ -175,7 +185,7 @@ hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
 
 for i in range(pdfData['nP'][0]):
     # PART A.2 - choose distributions and reduce linear model ===========================
-    roundI = 1e3
+    roundI = 1e0
     Mu0_y = -ld2mean*roundI*np.round(xhy0[:xhy0.shape[0]//2]/roundI  - 1e6*np.finfo(np.float64).eps) # latter required to make sure that this is negative
     Mu0_d = -ld2mean*roundI*np.round(xhd0[:xhd0.shape[0]//2]/roundI - 1e6*np.finfo(np.float64).eps)
     Mu0 = np.concatenate((Mu0_y,Mu0_d))
@@ -200,25 +210,26 @@ for i in range(pdfData['nP'][0]):
     Ksgm = np.sqrt(np.sum(abs(K1),axis=1)) # useful for normal approximations
     Mm = KtotPu.dot(mns)
     Kk = np.sqrt(np.sum(abs(K1),axis=1))*Kmax
-    critBuses = dsf.getCritBuses(b0,Vmax,Mm,Kk,Scl=np.arange(0.1,3.10,0.1)/ld2mean)
-    
+    if useCbs:
+        cBs = dsf.getCritBuses(b0,Vmax,Mm,Kk,Scl=np.arange(0.1,3.10,0.1)/ld2mean) # critical buses
+    else:
+        cBs = np.arange(0,len(b0)) # all buses
     KgSgm = np.sqrt(np.sum(abs(Kg),axis=1)) # useful for normal approximations
     MmGen = Kgen.dot(mns)
     KkGen = np.sqrt(np.sum(abs(Kg),axis=1))*KgenMax
-    
-    # a = dsf.getBusSens(b0,Vmax,Mm,Kk) # might be helpful for debugging
 
     # PART A.3 - Calculate PDF ===========================
     print('---- Start DFT ----',time.process_time())
-    # Choose the scale for x/t
     params = ['gamma',k,k**-0.5] # parameters chosen to make sure zero mean/unit variance
-
+    # Choose the scale for x/t
     Dx = np.ceil(2*3*2*max(Ksgm));
     dx = 3e-2
     x,t = dsf.dy2YzR(dx,Dx)
     Nt = len(x)-1
     
-    pdfV = dsf.calcPdfSum(K1,x,t,params)
+    # pdfV = dsf.calcPdfSum(K1,x,t,params)
+    # pdfVnorm = dsf.getPdfNormSum(Ksgm,x)
+    pdfV = dsf.calcPdfSum(K1[cBs],x,t,params)
     pdfVnorm = dsf.getPdfNormSum(Ksgm,x)
     
     DxG = np.ceil(2*3*2*max(KgSgm));
@@ -237,7 +248,8 @@ for i in range(pdfData['nP'][0]):
     for jj in range(pdfData['nP'][-1]):
         Mn_k = pdfData['mu_k'][jj]
         # Vpu[i,:] = b0[i] + Mn_k*(x*Kmax[i] + KtotPu[i].dot(mns)) # < === per i version here of VVV
-        Vpu = (b0 + Mn_k*(dsf.vmM(Kmax,dsf.mvM(np.ones(pdfV.shape),x)).T + KtotPu.dot(mns))).T
+        # Vpu = (b0 + Mn_k*(dsf.vmM(Kmax,dsf.mvM(np.ones(pdfV.shape),x)).T + KtotPu.dot(mns))).T
+        Vpu = (b0[cBs] + Mn_k*(dsf.vmM(Kmax[cBs],dsf.mvM(np.ones(pdfV.shape),x)).T + KtotPu.dot(mns)[cBs])).T
         Gpu = Mn_k*((dsf.vmM(KgenMax,dsf.mvM(np.ones((1,pdfG.shape[0])),xG))[0] + Kgen.dot(mns)))
         
         prHcMax = dsf.getHc(Vpu,cdfV,Vmax)
@@ -248,9 +260,6 @@ for i in range(pdfData['nP'][0]):
             # print('Index:',np.argmin(abs(cdfG - prHcMax))) # for testing
             hc_aly[i,jj] = Gpu[np.argmin(abs(cdfG - prHcMax))]
 
-    # pdfVsum = (cdfV[-1] - 1)*100 # normalised (%)
-    # print('Checksum: max PDF error',max(pdfVsum),'%')
-    # print('Checksum: mean PDF error',np.mean(pdfVsum),'%')
     print('Complete DFT version.',time.process_time())    
 
     # PART B FROM HERE ==============================
@@ -433,7 +442,7 @@ if pltBox:
     
     if pltCritBus:
         ylm = plt.ylim()
-        for critBus in critBuses:
+        for critBus in cBs:
             plt.plot([critBus]*2,ylm,'g',zorder=-1e3)
         plt.ylim(ylm)
     else:
@@ -445,11 +454,11 @@ if pltBox:
         plt.show()
 
 if pltBoxBoth:
-    Vmn = np.zeros(len(Ktot))
-    Vlo = np.zeros(len(Ktot))
-    Vmd = np.zeros(len(Ktot))
-    Vhi = np.zeros(len(Ktot))
-    Vmx = np.zeros(len(Ktot))
+    Vmn = np.zeros(len(Vpu))
+    Vlo = np.zeros(len(Vpu))
+    Vmd = np.zeros(len(Vpu))
+    Vhi = np.zeros(len(Vpu))
+    Vmx = np.zeros(len(Vpu))
 
     emn = 0.01
     elo = 0.25
@@ -460,7 +469,7 @@ if pltBoxBoth:
     plt.figure(figsize=(9,4))
     
     plt.subplot(122)
-    for i in range(len(Ktot)):
+    for i in range(len(Vpu)):
         Vmn[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - emn))]
         Vlo[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - elo))]
         Vmd[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - emd))]
@@ -470,7 +479,7 @@ if pltBoxBoth:
         plt.plot(i,Vlo[i],'g_'); plt.plot(i,Vmd[i],'b_'); plt.plot(i,Vhi[i],'g_');
         plt.plot(i,Vmx[i],'kv'); 
         plt.plot([i,i],[Vmn[i],Vmx[i]],'k:')
-        plt.plot(i,b0[i],'rx')
+        plt.plot(i,b0[cBs[i]],'rx')
 
     plt.xlabel('Bus No.')
     plt.ylabel('Voltage (pu)')
@@ -480,7 +489,7 @@ if pltBoxBoth:
     plt.xlim(xlm)
     if pltCritBus:
         ylm = plt.ylim()
-        for critBus in critBuses:
+        for critBus in cBs:
             plt.plot([critBus]*2,ylm,'g',zorder=-1e3)
         plt.ylim(ylm)
     else:
@@ -509,7 +518,7 @@ if pltBoxBoth:
     plt.xlim(xlm)
     if pltCritBus:
         ylm = plt.ylim()
-        for critBus in critBuses:
+        for critBus in cBs:
             plt.plot([critBus]*2,ylm,'g',zorder=-1e3)
         plt.ylim(ylm)
     else:

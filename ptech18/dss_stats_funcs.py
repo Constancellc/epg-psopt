@@ -161,20 +161,14 @@ def getBusSens(b0,Vp,Mm,Kk,Scl=np.arange(0.05,3.05,0.05)): # get the sensitivity
     return a
 
 def getCritBuses(b0,Vp,Mm,Kk,Scl=np.arange(0.1,3.10,0.10),n=3):
-    # critBuses = []
-    # a = getBusSens(b0,Vp,Mm,Kk,Scl)
-    # for i in range(n):
-        # critBuses = critBuses + np.unique(np.argmin(a,axis=1)).tolist()
-        # a[:,critBuses] = np.inf
-    # alternative method:
     aScl = (Vp - b0)/Kk
     bScl = Mm/Kk
-    abScl = np.log(aScl/bScl)
-    critBuses = np.concatenate((np.argsort(aScl)[0:3],np.argsort(np.log(bScl))[0:3],np.argsort(abScl)[0:3]))
-    # critBuses2 = np.argsort(aScl)[0:3]
-    # critBuses = np.argsort(np.log(bScl))[0:3]
-    # critBuses2 = np.argsort(abScl)[0:3]
+    abScl = aScl/bScl
     
+    bScl[bScl<0] = np.inf
+    abScl[bScl==np.inf] = np.inf
+    
+    critBuses = np.concatenate((np.argsort(aScl)[0:3],np.argsort(bScl)[0:3],np.argsort(abScl)[0:3]))
     return critBuses
 
 def calcPdfSum(K,x,t,PP,verbose=False):
