@@ -177,6 +177,59 @@ def getCritBuses(b0,Vp,Mm,Kk,Scl=np.arange(0.1,3.10,0.10),n=3):
     
     return critBuses
 
+def calcPdfSum(K,x,t,PP,verbose=False):
+    Nt = len(x)-1
+
+    cfTot = np.ones((len(K),Nt//2 + 1),dtype='complex')
+    pdfV = np.zeros((len(K),int(Nt+1)))
+    pdfVnorm = np.zeros((len(K),int(Nt+1)))
+    
+    if verbose:
+        print('--- Start DFT Calc ---\n',time.process_time()) # START DFT CALCS HERE ============
+    for i in range(len(K)):
+        if verbose and (len(K)//10>0):
+            if i%(len(K)//10):
+                print(i,'/',len(K))
+        
+        for j in range(K.shape[1]):
+            cfJ = cf_gm_sh(PP[1],PP[2],t*K[i,j]) # shifted mean; scaled to unit variance
+            cfTot[i,:] = cfTot[i,:]*cfJ
+        pdfV[i,:] = np.fft.fftshift(np.fft.irfft(cfTot[i,:],n=Nt+1))
+    
+    if verbose:
+        print('DFT Calc complete.',time.process_time())
+    return pdfV
+    
+def getPdfNormSum(Ksgm,x):
+    i = 0;
+    pdfVnorm = np.zeros((len(Ksgm),len(x)))
+    for sgm in Ksgm:
+        pdfVnorm[i,:] = scipy.stats.norm.pdf(x,scale=sgm)*get_dx(x) # unit variance means sum of sqrt(abs(K)).
+        i+=1
+    return pdfVnorm
+
+def mcErrorAnalysis(vOut,Vmax):
+    # MC Error analysis:
+    nMc = len(vOut)
+    vOutH0 = vOut[0:nMc//2]
+    vOutH1 = vOut[nMc//2:]
+    vOutH0.sort(axis=0)
+    vOutH1.sort(axis=0)
+
+    maxVdssH0 = np.max(vOutH0,axis=1)
+    maxVdssH1 = np.max(vOutH1,axis=1)
+
+    yscale01 = np.linspace(0.0,1.0,nMc//2)
+
+    Vp_pct_dss_H0 = 100.0*(1 - yscale01[np.argmin(abs(maxVdssH0 - Vmax))])
+    Vp_pct_dss_H1 = 100.0*(1 - yscale01[np.argmin(abs(maxVdssH1 - Vmax))])
+    if Vp_pct_dss_H0!=0 and Vp_pct_dss_H1!=0:
+        errH = 100.0*(Vp_pct_dss_H0-Vp_pct_dss_H1)/Vp_pct_dss_H0
+        if errH>10.:
+            print('\n==> HC Ests:',Vp_pct_dss_H0,'%, ',Vp_pct_dss_H1,'%')
+            print('==> HC Relative Error:',errH,'%')
+    return
+
 # VVVVVVVVVVVVVVVVV TESTING VVVVVVVVVVVVVVVVV
 # # GETTING the RFFT working for faster processing: =============
 # dx = 1e-1

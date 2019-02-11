@@ -1,6 +1,85 @@
 # based on the script from 21/1, 'fft_calcs' in matlab.
 # Based on script charFuncHcAlys, deleted 30/01
+
+# STEPS:
+# Part A: analytic solution
+# 1. Load linear model.
+# 2. Choose distributions at each bus
+# 3. Calculate distribution
+# 4. Run MC analysis using linear model
+#
+# Part B: Run MC analysis using OpenDSS
+# 1. load appropriate model
+# 2. sample distibution appropriately and run load flow
+# 3. Compare results.
+
 import numpy as np
+
+# CHOOSE Network
+fdr_i = 5
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']
+feeder = fdrs[fdr_i]
+
+lin_point=0.6
+lp_taps='Lpt'
+
+Vmax = 1.055
+Vmin  = 0.95
+
+ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
+
+nMc = int(3e2)
+nMc = int(1e3)
+
+# PDF options
+pdfName = 'gamma'
+mu_k = np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. # 13 BUS with LTC
+# mu_k = 0.4*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. # 34 BUS with LTC
+mu_k = 3.0*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. # 123 BUS with LTC
+
+# mu_k = 0.5*np.arange(1.0,9.0,1.0) # NB this is as a PERCENTAGE of the chosen nominal powers.
+# mu_k = np.arange(1.0,2.5,0.01) # NB this is as a PERCENTAGE of the chosen nominal powers.
+# mu_k = np.array([1.0]) # NB this is as a PERCENTAGE of the chosen nominal powers.
+k = np.array([2.0]) # we do not know th, sigma until we know the scaling from mu0.
+params = k
+
+pdfData = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))}
+
+mcOn = True
+mcOn = False
+
+# (Active) PLOTTING options:
+pltPdfs = True
+pltPdfs = False
+pltCdfs = True
+pltCdfs = False
+pltBox = True
+pltBox = False
+pltBoxDss = True
+pltBoxDss = False
+pltBoxBoth = True
+pltBoxBoth = False
+pltBoxNorm = True
+pltBoxNorm = False
+pltLinRst = True
+pltLinRst = False
+pltHcBoth = True
+# pltHcBoth = False
+pltGen = True
+pltGen = False
+
+pltSave = True
+pltSave = False
+
+ltcModel=True
+# ltcModel=False
+
+pltCritBus = True
+# pltCritBus = False
+
+
+
+# ADMIN =============================================
 import numpy.random as rnd
 import matplotlib.pyplot as plt
 import getpass
@@ -18,70 +97,17 @@ elif getpass.getuser()=='Matt':
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
     sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190204\\charFuncMcVal_"
 
-# Plotting options:
-pltGen = True
-pltGen = False
-pltPdfs = True
-pltPdfs = False
-pltCdfs = True
-pltCdfs = False
-pltBox = True
-pltBox = False
-pltBoxDss = True
-pltBoxDss = False
-pltBoxBoth = True
-# pltBoxBoth = False
-pltBoxNorm = True
-pltBoxNorm = False
-pltLinRst = True
-pltLinRst = False
-
-pltSave = True
-pltSave = False
-
-ltcModel=True
-ltcModel=False
-
-pltCritBus = True
-# pltCritBus = False
-
-intgt = 00
-intmax = 10
-dgn = 1 - (intgt/intmax) # only this percentage of loads are installed.
-
-fdr_i = 5
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']
-feeder = fdrs[fdr_i]
-lin_point=0.6
-lp_taps='Lpt'
-
-nMc = int(1e3)
-
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
 fn = ckt[1]
 
-Vmax = 1.055
-Vmin  = 0.95
-
-ld2mean = 2.5 # ie the mean of those generators which install is 1/2 of their load
-# ld2mean = 1.25 # ie the mean of those generators which install is 1/2 of their load
-
+DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
+DSSText = DSSObj.Text
+DSSCircuit = DSSObj.ActiveCircuit
+DSSSolution = DSSCircuit.Solution
 sn0 = sn +  feeder + str(int(lin_point*1e2)) + 'ltc' + str(int(ltcModel)) + 'ld' + str(int(ld2mean*1e2))
 
-# STEPS:
-# Part A: analytic solution
-# 1. Load linear model.
-# 2. Choose bus; distribution
-# 3. Calculate distribution
-# 4. Run MC analysis using linear model
-#
-# Part B: Run MC analysis using OpenDSS
-# 1. load appropriate model
-# 2. sample distibution appropriately and run load flow
-# 3. Compare results.
-
-# PART A ===========================
+# PART A.1 - load model ===========================
 if not ltcModel:
     # IF using the FIXED model:
     LM = loadLinMagModel(feeder,lin_point,WD,'Lpt')
@@ -102,7 +128,7 @@ elif ltcModel:
     x0 = np.concatenate((xhy0,xhd0))
     b0 = (A.dot(x0) + bV)/vBase # in pu
     
-    KyP = A[:,0:len(xhy0)//2]
+    KyP = A[:,0:len(xhy0)//2] # these might be zero if there is no injection (e.g. only Q)
     KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
     
     Ktot = np.concatenate((KyP,KdP),axis=1)
@@ -110,71 +136,12 @@ v_idx=LM['v_idx'];
 YZp = LM['SyYNodeOrder']
 YZd = LM['SdYNodeOrder']
 
-# NB: mean of gamma distribution is k*th; variance is k*(th**2)
-rndI = 1e3
-xhy0rnd = ld2mean*rndI*np.round(xhy0[:xhy0.shape[0]//2]/rndI  - 1e6*np.finfo(np.float64).eps) # latter required to make sure that this is negative
-xhd0rnd = ld2mean*rndI*np.round(xhd0[:xhd0.shape[0]//2]/rndI - 1e6*np.finfo(np.float64).eps)
-k = 2.0;  # choose the same for all
-
-Th = -np.concatenate((xhy0rnd,xhd0rnd))/k # negative so that the pds are positive.
-Sgm = Th*(k**0.5) # scale to unity variance
-Mns = Th*k
-
 # REDUCE THE LINEAR MODEL to a nice form for multiplication
 KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
-KtotPu0 = dsf.mvM(KtotPu,Sgm) # scale the matrices to the input variance
-Kmax = np.max(abs(KtotPu0),axis=1)
-K1 = dsf.vmM(1/Kmax,KtotPu0) # Finally, scale so that all K are unity
 
-# IDENTIFY WORST BUSES using normal approximation.
-Ksgm = np.sqrt(np.sum(abs(K1),axis=1)) # useful for normal approximations
-Mm = KtotPu.dot(Mns)
-Kk = np.sqrt(np.sum(abs(K1),axis=1))*Kmax
-critBuses = dsf.getCritBuses(b0,Vmax,Mm,Kk,Scl=np.arange(0.1,3.10,0.1)/ld2mean)
-# a = dsf.getBusSens(b0,Vmax,Mm,Kk) # might be helpful for debugging
 
-# Choose the scale for x/t
-Dx = np.ceil(2*3*2*max(Ksgm));
-dx = 3e-2
-x,t = dsf.dy2YzR(dx,Dx)
-Nt = len(x)-1
-
-cfTot = np.ones((len(Ktot),Nt//2 + 1),dtype='complex')
-pdfV = np.zeros((len(Ktot),int(Nt+1)))
-pdfVnorm = np.zeros((len(Ktot),int(Nt+1)))
-Vpu = np.zeros((len(Ktot),int(Nt+1)))
-print('--- Start DFT Calc ---\n',time.process_time()) # START DFT CALCS HERE ============
-for i in range(len(K1)):
-    if i%(len(K1)//10)==0:
-        print(i,'/',len(K1))
-    
-    for j in range(K1.shape[1]):
-        cfJ = dsf.cf_gm_sh(k,k**-0.5,t*K1[i,j]) # shifted mean; scaled to unit variance
-        cfTot[i,:] = cfTot[i,:]*cfJ
-    pdfV[i,:] = np.fft.fftshift(np.fft.irfft(cfTot[i,:],n=Nt+1))
-    pdfVnorm[i,:] = scipy.stats.norm.pdf(x,scale=Ksgm[i])*dx # unit variance means sum of sqrt(abs(K)).
-
-print('DFT Calc complete.',time.process_time())
-
-# Vpu[i,:] = b0[i] + x*Kmax[i] + KtotPu[i].dot(Mns) # < === per i version here of VVV
-Vpu = (b0 + KtotPu.dot(Mns) + dsf.vmM(Kmax,dsf.mvM(np.ones(pdfV.shape),x)).T).T
-
-pdfVsum = (sum(pdfV.T) - 1)*100 # normalised (%)
-print('Checksum: max PDF error',max(pdfVsum),'%')
-print('Checksum: mean PDF error',np.mean(pdfVsum),'%')
-
-cdfV = np.cumsum(pdfV,axis=1).T
-cdfVnorm = np.cumsum(pdfVnorm,axis=1).T
-    
-print('Complete.',time.process_time())    
-
-# PART B FROM HERE ==============================
-# 1. load the appropriate model/DSS
-DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
-DSSText = DSSObj.Text
-DSSCircuit = DSSObj.ActiveCircuit
-DSSSolution = DSSCircuit.Solution
-
+# OPENDSS ADMIN =======================================
+# B1. load the appropriate model/DSS
 DSSText.command='Compile ('+fn+'.dss)'
 BB0,SS0 = cpf_get_loads(DSSCircuit)
 if lp_taps=='Lpt':
@@ -199,64 +166,143 @@ DSSSolution.Solve()
 
 genNames = genNamesY+genNamesD
 
-# 2a. now draw from the correct distributions
-pdfGen = np.zeros((nMc,len(genNames)))
-for i in range(len(genNames)):
-    pdfGen[:,i] = np.random.gamma(k,1e-3*Th[i],nMc)
+Vp_pct_aly = np.zeros(pdfData['nP'])
+Vp_pct_dss = np.zeros(pdfData['nP'])
 
-vOut = np.zeros((nMc,len(v_idx)))
-conv = []
-print('---- Start MC ----',time.process_time())
-for i in range(nMc):
-    if i%(nMc//10)==0:
-        print(i,'/',nMc)
-    set_generators( DSSCircuit,genNames,pdfGen[i] )
-    DSSSolution.Solve()
-    conv = conv+[DSSSolution.Converged]
-    v00 = abs(tp_2_ar(DSSCircuit.YNodeVarray))
-    vOut[i,:] = v00[3:][v_idx]/vBase
+hc_aly = np.nan*np.zeros(pdfData['nP'])
+hc_dss = np.zeros(pdfData['nP'])
+hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
 
+for i in range(pdfData['nP'][0]):
+    # PART A.2 - choose distributions and reduce linear model ===========================
+    roundI = 1e3
+    Mu0_y = -ld2mean*roundI*np.round(xhy0[:xhy0.shape[0]//2]/roundI  - 1e6*np.finfo(np.float64).eps) # latter required to make sure that this is negative
+    Mu0_d = -ld2mean*roundI*np.round(xhd0[:xhd0.shape[0]//2]/roundI - 1e6*np.finfo(np.float64).eps)
+    Mu0 = np.concatenate((Mu0_y,Mu0_d))
+    
+    mns = Mu0
+    
+    if pdfData['name']=='gamma': # NB: mean of gamma distribution is k*th; variance is k*(th**2)
+        k = pdfData['prms'][i]
+        sgm = mns/np.sqrt(pdfData['prms'][i])
+        # Th = mns/k # theta as a scale parameter 
+    
+    KtotPu0 = dsf.mvM(KtotPu,sgm) # scale the matrices to the input variance
+    Kmax = np.max(abs(KtotPu0),axis=1)
+    K1 = dsf.vmM(1/Kmax,KtotPu0) # Finally, scale so that all K are unity
+    
+    Kgen = np.ones((1,len(sgm)))
+    Kgen0 = dsf.mvM(Kgen,sgm)
+    KgenMax = np.max(abs(Kgen0),axis=1)
+    Kg = dsf.vmM(1/KgenMax,Kgen0)
+    
+    # IDENTIFY WORST BUSES using normal approximation.
+    Ksgm = np.sqrt(np.sum(abs(K1),axis=1)) # useful for normal approximations
+    Mm = KtotPu.dot(mns)
+    Kk = np.sqrt(np.sum(abs(K1),axis=1))*Kmax
+    critBuses = dsf.getCritBuses(b0,Vmax,Mm,Kk,Scl=np.arange(0.1,3.10,0.1)/ld2mean)
+    
+    KgSgm = np.sqrt(np.sum(abs(Kg),axis=1)) # useful for normal approximations
+    MmGen = Kgen.dot(mns)
+    KkGen = np.sqrt(np.sum(abs(Kg),axis=1))*KgenMax
+    
+    # a = dsf.getBusSens(b0,Vmax,Mm,Kk) # might be helpful for debugging
 
-print('MC complete.',time.process_time())
-print('\nNo. Converged:',sum(conv),'/',nMc)
+    # PART A.3 - Calculate PDF ===========================
+    print('---- Start DFT ----',time.process_time())
+    # Choose the scale for x/t
+    params = ['gamma',k,k**-0.5] # parameters chosen to make sure zero mean/unit variance
 
-# MC Error analysis:
-vOutH0 = vOut[0:nMc//2]
-vOutH1 = vOut[nMc//2:]
-vOutH0.sort(axis=0)
-vOutH1.sort(axis=0)
+    Dx = np.ceil(2*3*2*max(Ksgm));
+    dx = 3e-2
+    x,t = dsf.dy2YzR(dx,Dx)
+    Nt = len(x)-1
+    
+    pdfV = dsf.calcPdfSum(K1,x,t,params)
+    pdfVnorm = dsf.getPdfNormSum(Ksgm,x)
+    
+    DxG = np.ceil(2*3*2*max(KgSgm));
+    dxG = 1e-2
+    xG,tG = dsf.dy2YzR(dx,Dx)
+    Nt = len(x)-1
 
-minVdssH0 = np.min(vOutH0,axis=1)
-maxVdssH0 = np.max(vOutH0,axis=1)
-minVdssH1 = np.min(vOutH1,axis=1)
-maxVdssH1 = np.max(vOutH1,axis=1)
+    pdfG = dsf.calcPdfSum(Kg,xG,tG,params)[0]
+    pdfGnorm = dsf.getPdfNormSum(KgSgm,x)[0]
+    
+    cdfV = np.cumsum(pdfV,axis=1).T
+    cdfVnorm = np.cumsum(pdfVnorm,axis=1).T
+    cdfG = np.cumsum(pdfG)
+    cdfGnorm = np.cumsum(pdfGnorm)
+    
+    for jj in range(pdfData['nP'][-1]):
+        Mn_k = pdfData['mu_k'][jj]
+        # Vpu[i,:] = b0[i] + Mn_k*(x*Kmax[i] + KtotPu[i].dot(mns)) # < === per i version here of VVV
+        Vpu = (b0 + Mn_k*(dsf.vmM(Kmax,dsf.mvM(np.ones(pdfV.shape),x)).T + KtotPu.dot(mns))).T
+        Gpu = Mn_k*((dsf.vmM(KgenMax,dsf.mvM(np.ones((1,pdfG.shape[0])),xG))[0] + Kgen.dot(mns)))
+        
+        prHcMax = dsf.getHc(Vpu,cdfV,Vmax)
+        prHcMin = dsf.getHc(Vpu,cdfV,Vmin)
+        
+        Vp_pct_aly[i,jj] = 100.0*(1 - prHcMax)
+        if (1-prHcMax)>1e-7:
+            # print('Index:',np.argmin(abs(cdfG - prHcMax))) # for testing
+            hc_aly[i,jj] = Gpu[np.argmin(abs(cdfG - prHcMax))]
 
-yscale01 = np.linspace(0.0,1.0,nMc//2)
+    # pdfVsum = (cdfV[-1] - 1)*100 # normalised (%)
+    # print('Checksum: max PDF error',max(pdfVsum),'%')
+    # print('Checksum: mean PDF error',np.mean(pdfVsum),'%')
+    print('Complete DFT version.',time.process_time())    
 
-Vp_pct_dss_H0 = 100.0*(1 - yscale01[np.argmin(abs(maxVdssH0 - Vmax))])
-Vp_pct_dss_H1 = 100.0*(1 - yscale01[np.argmin(abs(maxVdssH1 - Vmax))])
-errH = 100.0*(Vp_pct_dss_H0-Vp_pct_dss_H1)/Vp_pct_dss_H0
+    # PART B FROM HERE ==============================
+    if mcOn:
+        print('---- Start MC ----',time.process_time())
+        for jj in range(pdfData['nP'][-1]):
+            # 2a. now draw from the correct distributions. (For naming see opendss admin)
+            Mns = Mu0*pdfData['mu_k'][jj] # NB: we only scale by the FIRST ONE here
+            pdfGen = np.zeros((nMc,len(genNames)))
+            for j in range(len(genNames)):
+                pdfGen[:,j] = np.random.gamma(k,1e-3*Mns[j]/k,nMc)
 
-print('\n==> HC Ests:',Vp_pct_dss_H0,'%, ',Vp_pct_dss_H1,'%')
-print('==> HC Relative Error:',errH,'%')
+            vOut = np.zeros((nMc,len(v_idx)))
+            conv = []
+            for j in range(nMc):
+                if j%(nMc//4)==0:
+                    print(j,'/',nMc)
+                set_generators( DSSCircuit,genNames,pdfGen[j] )
+                DSSSolution.Solve()
+                conv = conv+[DSSSolution.Converged]
+                v00 = abs(tp_2_ar(DSSCircuit.YNodeVarray))
+                vOut[j,:] = v00[3:][v_idx]/vBase
+            genTot = np.sum(pdfGen,axis=1)
+            if sum(conv)!=len(conv):
+                print('\nNo. Converged:',sum(conv),'/',nMc)
 
-# NOW: calculate the HC value:
-vOut.sort(axis=0)
-minVdss = np.min(vOut,axis=1)
-maxVdss = np.max(vOut,axis=1)
+            # NOW: calculate the HC value:
+            
+            dsf.mcErrorAnalysis(vOut,Vmax)
+            
+            minV = np.min(vOut,axis=1)
+            maxV = np.max(vOut,axis=1)
+            
+            Vp_pct_dss[i,jj] = 100*(sum(maxV>Vmax)/nMc)
+            
+            hcGen = genTot[maxV>Vmax]
+            # hcGen = np.concatenate((genTot[maxV>Vmax],np.array([np.inf])))
+            # hc_dss[i,jj] = min( hcGen )
+            hc_dss[i,jj] = min( np.concatenate((hcGen,np.array([np.inf]))) )
+            # if hcGen[0]!=np.inf:
+            if len(hcGen)!=0:
+                hcGen.sort()
+                hcGenSet[i,jj,0] = hcGen[np.floor(len(hcGen)*1.0/20.0).astype(int)]
+                hcGenSet[i,jj,1] = hcGen[np.floor(len(hcGen)*1.0/4.0).astype(int)]
+                hcGenSet[i,jj,2] = hcGen[np.floor(len(hcGen)*1.0/2.0).astype(int)]
+                hcGenSet[i,jj,3] = hcGen[np.floor(len(hcGen)*3.0/4.0).astype(int)]
+                hcGenSet[i,jj,4] = hcGen[np.floor(len(hcGen)*19.0/20.0).astype(int)]
+        print('MC complete.',time.process_time())
 
-yscale = np.linspace(0.,1.,len(vOut))
-
-Vp_pct_dss = 100.0*(1 - yscale[np.argmin(abs(maxVdss - Vmax))])
-
-prHcMax = dsf.getHc(Vpu,cdfV,Vmax)
-prHcMin = dsf.getHc(Vpu,cdfV,Vmin)
-
-Vp_pct_aly = 100.0*(1 - prHcMax)
-
-print('\n==> HC Analytic value:',Vp_pct_aly,'%')
-print('==> HC OpenDSS value:',Vp_pct_dss,'%\n')
-
+# alyMinHc = min(Vmax*(KkGen)/(Kk)) # NOT COMPLETELY clear why this isn't working.
+# print('Min HC, Pred:',alyMinHc/1e3)
+# print('Min HC, Act:',np.nanmin(hc_aly)/1e3)
 
 # COMPARE RESULTS ==========
 if pltBoxDss:
@@ -277,27 +323,23 @@ if pltBoxDss:
 
 # ================ PLOTTING FUNCTIONS FROM HERE
 if pltGen:
-    dP = 10*1e3 # W
-    DP = 100000*1e3 # W
-    Tpmax = np.pi/(dP) # see WB 22-1-19
-    Np = int(DP/dP)
-    tp = np.linspace(-Tpmax,Tpmax,int(Np + 1))
-    P = dP*np.arange(-Np//2,Np//2 + 1)
+    hist = plt.hist(genTot,bins=30,density=True);
+    hist = plt.hist(genTot,bins=30,density=True);
+    plt.close()
 
-    pDnew = np.zeros((Np+1))
-    pgTot = np.ones((Np+1),dtype='complex')
-    j=0
-    for th in Th:
-        pgJ = dsf.cf_gm_dgn(k,th,tp,1,dgn);
-        pgTot = pgTot*pgJ
-        j+=1
-    pDnew = abs(np.fft.fftshift(np.fft.ifft(pgTot)))/dP
+    dhist = dsf.get_dx(hist[1])
 
-    plt.plot(P/1e6,pDnew*1e6)
-    plt.xlabel('x (Power, MW)')
-    plt.ylabel('p(x)')
-    plt.xlim((0,5))
-    plt.grid(True)
+    histx = hist[1][:-1] + 0.5*dhist
+
+    pdfY = hist[0]*dhist
+    dx0 = dsf.get_dx(Gpu*1e-3)
+    ratio = dx0/dhist
+
+    plt.plot(Gpu*1e-3,pdfG);
+    plt.plot(histx,pdfY*ratio);
+
+    plt.xlabel('Total Installed Power (kW)')
+    plt.ylabel('Probability'); plt.grid(True)
     if pltSave:
         plt.savefig(sn0+'pltGen.png')
     else:
@@ -451,7 +493,7 @@ if pltBoxBoth:
     Vmn = np.percentile(vOut,1,axis=0)
     Vlo = np.percentile(vOut,25,axis=0)
     Vmd = np.percentile(vOut,50,axis=0)
-    Vhi = np.percentile(vOut,25,axis=0)
+    Vhi = np.percentile(vOut,75,axis=0)
     Vmx = np.percentile(vOut,99,axis=0)
     
     plt.plot(Vmn,'k^')
@@ -569,3 +611,34 @@ if pltLinRst:
     plt.xlabel('Scale factor, %')
     plt.ylabel('Probability of an overvoltage, %')
     plt.show()
+
+if pltHcBoth:
+    plt.subplot(121)
+    for i in range(pdfData['nP'][0]):
+        plt.plot(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
+        plt.plot(pdfData['mu_k'],Vp_pct_aly[i],'bx-')
+    
+    plt.xlabel('Scale factor');
+    plt.title('Prob. of overvoltage');
+    plt.grid(True)
+    plt.subplot(122)
+    for i in range(pdfData['nP'][0]):
+        # plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'ro')
+        # plt.plot(pdfData['mu_k'],hc_dss[i],'ro-')
+        plt.plot(pdfData['mu_k'],1e-3*hc_aly[i],'bx-')
+        
+        plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'k^'); 
+        plt.plot(pdfData['mu_k'],hcGenSet[i,:,1],'g_'); 
+        plt.plot(pdfData['mu_k'],hcGenSet[i,:,2],'b_'); 
+        plt.plot(pdfData['mu_k'],hcGenSet[i,:,3],'g_');
+        plt.plot(pdfData['mu_k'],hcGenSet[i,:,4],'kv');
+    xlm = plt.xlim()
+    plt.xlim((-dsf.get_dx(pdfData['mu_k']),xlm[1]))
+    plt.xlabel('Scale factor');
+    plt.title('Hosting Capacity (kW)');
+
+    ylm = plt.ylim()
+    plt.ylim((0,ylm[1]))
+    plt.grid(True)
+    plt.show()
+
