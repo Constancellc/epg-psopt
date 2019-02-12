@@ -379,8 +379,8 @@ def print_node_array(YZ,thing):
         print(YZ[i]+': '+str(thing[i]))
 
 def get_ckt(WD,feeder):
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5',feeder]
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1',feeder]
+    # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1'] # for editing
     ckts = {'feeder_name':['fn_ckt','fn']}
     ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
     ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
@@ -454,3 +454,40 @@ def loadLtcModel(feeder,lin_point,WD,lp_taps):
     LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)
     return LM
     
+def getMu_Kk(feeder,ltcOn):
+    # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1',feeder]
+    if feeder=='13bus' and ltcOn:
+        mu_kk = 0.9 # 13 BUS with LTC
+    if feeder=='34bus' and ltcOn:
+        mu_kk = 0.4 # 34 BUS with LTC
+    if feeder=='123bus' and ltcOn:        
+        mu_kk = 3.0 # 123 BUS with LTC
+    if feeder=='eulv':
+        mu_kk = 0.6 # EU LV
+    if feeder=='epriK1' and not ltcOn:
+        mu_kk = 0.7 # EPRI K1, no LTC
+    if feeder=='epriK1' and ltcOn:
+        mu_kk = 1.20 # EPRI K1, with LTC
+    if feeder=='epri7' and not ltcOn:
+        mu_kk = 0.5 # EPRI ckt7
+    if feeder=='usLv':
+        mu_kk = 1.75 # US LV
+    if feeder=='041':
+        mu_kk = 1.5 # 041
+    if feeder=='011':
+        mu_kk = 0.7 # 011
+    if feeder=='193':
+        mu_kk = 0.5 # 193 # NOT WORKING for DSS Solve
+    if feeder=='213':
+        mu_kk = 0.9 # 213 # NOT WORKING for DSS Solve
+    if feeder=='162':
+        mu_kk = 0.7 # 162
+    if feeder=='031':
+        mu_kk = 0.6 # 031 # NOT WORKING for DSS Solve
+    if feeder=='024':
+        mu_kk = 0.45 # 024
+    if feeder=='021':
+        mu_kk = 0.6 # 021
+    if feeder=='074':
+        mu_kk = 0.45 # 074
+    return mu_kk
