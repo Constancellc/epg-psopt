@@ -7,6 +7,15 @@ def tp_2_ar(tuple_ex):
     ar = np.array(tuple_ex[0::2]) + 1j*np.array(tuple_ex[1::2])
     return ar
 
+def tp2mat(tuple_ex):
+    n = int(np.sqrt(len(tuple_ex)))
+    mat = np.zeros((n,n))
+    for i in range(n):
+        mat[i] = tuple_ex[i*n:(i+1)*n]
+    
+    return mat
+    
+    
 def s_2_x(s):
     return np.concatenate((s.real,s.imag))
 
