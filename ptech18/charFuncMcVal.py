@@ -17,13 +17,13 @@ import numpy as np
 from dss_python_funcs import *
 
 # CHOOSE Network
-fdr_i = 6
+fdr_i = 8
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']
 feeder = fdrs[fdr_i]
-feeder = '213'
+# feeder = '213'
 
 ltcModel=True
-ltcModel=False
+# ltcModel=False
 
 lin_point=0.6
 lp_taps='Lpt'
@@ -34,25 +34,31 @@ Vmin  = 0.95
 
 ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
 
-nMc = int(1e3)
+nMc = int(1e5)
+nMc = int(3e4)
+# nMc = int(3e3)
+# nMc = int(1e3)
 nMc = int(3e2)
-nMc = int(1e2)
+# nMc = int(1e2)
 
 # PDF options
 mu_k0 = np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. 
-# mu_k0 = np.array([1.0]) # NB this is as a PERCENTAGE of the chosen nominal powers. 
-mu_kk = getMu_Kk(feeder,ltcModel)
+# mu_k0 = np.arange(0.5,6.0,0.1) # NB this is as a PERCENTAGE of the chosen nominal powers. 
+# mu_k0 = 5.5*np.array([1.0]) # NB this is as a PERCENTAGE of the chosen nominal powers. 
 
+mu_kk = getMu_Kk(feeder,ltcModel)
 mu_k = mu_k0*mu_kk
 pdfName = 'gamma'
 k = np.array([2.0]) # we do not know th, sigma until we know the scaling from mu0.
 params = k
 pdfData = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))}
 
-mcOn = True
-# mcOn = False
+mcLinOn = True
+# mcLinOn = False
+mcDssOn = True
+# mcDssOn = False
 useCbs = True
-# useCbs = False
+useCbs = False
 
 # (Active) PLOTTING options:
 pltPdfs = True
@@ -79,7 +85,6 @@ pltCritBus = False
 
 pltSave = True
 pltSave = False
-
 # ADMIN =============================================
 import numpy.random as rnd
 import matplotlib.pyplot as plt
@@ -182,6 +187,7 @@ hc_dss = np.zeros(pdfData['nP'])
 hc_lin = np.zeros(pdfData['nP'])
 hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
 hcGenSetLin = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
+hcGen = []; hcGenLin = []
 
 for i in range(pdfData['nP'][0]):
     # PART A.2 - choose distributions and reduce linear model ===========================
@@ -189,8 +195,6 @@ for i in range(pdfData['nP'][0]):
     Mu0_y = -ld2mean*roundI*np.round(xhy0[:xhy0.shape[0]//2]/roundI  - 1e6*np.finfo(np.float64).eps) # latter required to make sure that this is negative
     Mu0_d = -ld2mean*roundI*np.round(xhd0[:xhd0.shape[0]//2]/roundI - 1e6*np.finfo(np.float64).eps)
     Mu0 = np.concatenate((Mu0_y,Mu0_d))
-    
-    # Mu0 = Mu0
     
     if pdfData['name']=='gamma': # NB: mean of gamma distribution is k*th; variance is k*(th**2)
         k = pdfData['prms'][i]
@@ -258,12 +262,12 @@ for i in range(pdfData['nP'][0]):
         Vp_pct_aly[i,jj] = 100.0*(1 - prHcMax)
         if (1-prHcMax)>1e-7:
             # print('Index:',np.argmin(abs(cdfG - prHcMax))) # for testing
-            hc_aly[i,jj] = Gpu[np.argmin(abs(cdfG - prHcMax))]
+            hc_aly[i,jj] = Gpu[np.argmin(abs(cdfG - prHcMax))]*1e-3 # kW
 
     print('Complete DFT version.',time.process_time())    
 
     # PART B FROM HERE ==============================
-    if mcOn:
+    if mcLinOn or mcDssOn:
         print('---- Start MC ----',time.process_time())
         # 2a. draw from the correct distributions. (For naming see opendss admin)
         pdfGen = np.zeros((len(genNames),nMc)) # ASK CONSTANCE if this is cheating?
@@ -272,48 +276,47 @@ for i in range(pdfData['nP'][0]):
         DvOutLin = (KtotPu.dot(pdfGen).T)*1e3
         
         for jj in range(pdfData['nP'][-1]):
-            # Mns = Mu0*pdfData['mu_k'][jj] # NB: we only scale by the FIRST ONE here
-            vOut = np.zeros((nMc,len(v_idx)))
-            conv = []
-            for j in range(nMc):
-                if j%(nMc//4)==0:
-                    print(j,'/',nMc)
-                set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
-                DSSSolution.Solve()
-                conv = conv+[DSSSolution.Converged]
-                v00 = abs(tp_2_ar(DSSCircuit.YNodeVarray))
-                vOut[j,:] = v00[3:][v_idx]/vBase
             genTot = np.sum(pdfGen*pdfData['mu_k'][jj],axis=0)
-            if sum(conv)!=len(conv):
-                print('\nNo. Converged:',sum(conv),'/',nMc)
+            if mcDssOn:
+                # Mns = Mu0*pdfData['mu_k'][jj] # NB: we only scale by the FIRST ONE here
+                vOut = np.zeros((nMc,len(v_idx)))
+                conv = []
+                for j in range(nMc):
+                    if j%(nMc//4)==0:
+                        print(j,'/',nMc)
+                    set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
+                    DSSSolution.Solve()
+                    conv = conv+[DSSSolution.Converged]
+                    v00 = abs(tp_2_ar(DSSCircuit.YNodeVarray))
+                    vOut[j,:] = v00[3:][v_idx]/vBase
+                if sum(conv)!=len(conv):
+                    print('\nNo. Converged:',sum(conv),'/',nMc)
+                
+                # NOW: calculate the HC value:
+                
+                dsf.mcErrorAnalysis(vOut,Vmax)
+                maxV = np.max(vOut,axis=1)
+                Vp_pct_dss[i,jj] = 100*(sum(maxV>Vmax)/nMc)
+                hcGen = genTot[maxV>Vmax]
+                hc_dss[i,jj] = min( np.concatenate((hcGen,np.array([np.inf]))) )
             
-            # NOW: calculate the HC value:
+            if mcLinOn:
+                vOutLin = (DvOutLin*pdfData['mu_k'][jj]) + b0
+                maxVlin = np.max(vOutLin,axis=1)
+                
+                Vp_pct_lin[i,jj] = 100*(sum(maxVlin>Vmax)/nMc)
+                hcGenLin = genTot[maxVlin>Vmax]
+                hc_lin[i,jj] = min( np.concatenate((hcGenLin,np.array([np.inf]))) )
             
-            dsf.mcErrorAnalysis(vOut,Vmax)
-            
-            minV = np.min(vOut,axis=1)
-            maxV = np.max(vOut,axis=1)
-            
-            vOutLin = (DvOutLin*pdfData['mu_k'][jj]) + b0
-            # minVlin = np.min(vOutLin,axis=1)
-            maxVlin = np.max(vOutLin,axis=1)
-            
-            Vp_pct_dss[i,jj] = 100*(sum(maxV>Vmax)/nMc)
-            Vp_pct_lin[i,jj] = 100*(sum(maxVlin>Vmax)/nMc)
-            
-            hcGen = genTot[maxV>Vmax]
-            hcGenLin = genTot[maxVlin>Vmax]
-            hc_dss[i,jj] = min( np.concatenate((hcGen,np.array([np.inf]))) )
-            hc_lin[i,jj] = min( np.concatenate((hcGenLin,np.array([np.inf]))) )
 
-            if len(hcGen)!=0:
+            if len(hcGen)!=0 and mcDssOn:
                 hcGen.sort()
                 hcGenSet[i,jj,0] = hcGen[np.floor(len(hcGen)*1.0/20.0).astype(int)]
                 hcGenSet[i,jj,1] = hcGen[np.floor(len(hcGen)*1.0/4.0).astype(int)]
                 hcGenSet[i,jj,2] = hcGen[np.floor(len(hcGen)*1.0/2.0).astype(int)]
                 hcGenSet[i,jj,3] = hcGen[np.floor(len(hcGen)*3.0/4.0).astype(int)]
                 hcGenSet[i,jj,4] = hcGen[np.floor(len(hcGen)*19.0/20.0).astype(int)]
-            if len(hcGenLin)!=0:
+            if len(hcGenLin)!=0 and mcLinOn:
                 hcGenLin.sort()
                 hcGenSetLin[i,jj,0] = hcGenLin[np.floor(len(hcGenLin)*1.0/20.0).astype(int)]
                 hcGenSetLin[i,jj,1] = hcGenLin[np.floor(len(hcGenLin)*1.0/4.0).astype(int)]
@@ -324,7 +327,26 @@ for i in range(pdfData['nP'][0]):
 
 # alyMinHc = min(Vmax*(KkGen)/(Kk)) # NOT COMPLETELY clear why this isn't working.
 # print('Min HC, Pred:',alyMinHc/1e3)
-# print('Min HC, Act:',np.nanmin(hc_aly)/1e3)
+# print('Min HC, Act:',np.nanmin(hc_aly))
+
+
+# ii = 23
+# hist0 = plt.hist(vOutLin[:,ii],bins=100,density=True)[1]
+# # plt.hist(vOut[:,ii],bins=100,density=True)
+# print(b0[ii])
+# plt.plot(Vpu[ii],pdfV[ii]/dsf.get_dx(Vpu[ii]))
+# ylm = plt.ylim()
+# plt.plot([b0[ii],b0[ii]],ylm,'g--')
+# plt.plot([Vmax,Vmax],ylm,'r')
+# plt.ylim(ylm)
+# plt.show()
+
+
+
+
+# plt.hist(maxVlin,bins=100)
+# plt.hist(maxV,bins=100)
+# plt.show()
 
 # COMPARE RESULTS ==========
 if pltBoxDss:
@@ -639,16 +661,18 @@ if pltHcBoth:
     for i in range(pdfData['nP'][0]):
         plt.plot(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
         plt.plot(pdfData['mu_k'],Vp_pct_aly[i],'bx-')
-        # plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
+        plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
+        
 
     plt.xlabel('Scale factor');
     plt.title('Prob. of overvoltage');
     plt.grid(True)
     plt.subplot(122)
     for i in range(pdfData['nP'][0]):
+        # plt.plot(pdfData['mu_k'],Vp_pct_lin[i]/Vp_pct_aly[i],'g.-')
         # plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'ro')
         # plt.plot(pdfData['mu_k'],hc_dss[i],'ro-')
-        # plt.plot(pdfData['mu_k'],1e-3*hc_aly[i],'bx-')
+        # plt.plot(pdfData['mu_k'],hc_aly[i],'bx-')
         
         plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'r^'); 
         # plt.plot(pdfData['mu_k'],hcGenSet[i,:,1],'g_'); 
