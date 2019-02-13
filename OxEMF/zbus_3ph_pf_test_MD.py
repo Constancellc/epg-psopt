@@ -2,7 +2,7 @@
 import sys
 import getpass
 if getpass.getuser()=='Matt':
-    WD0 = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\OxEMF\OxEMF_3ph_PF"
+    WD0 = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\OxEMF"
     WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
 if getpass.getuser()=='chri3793':
     WD0 = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\OxEMF"
