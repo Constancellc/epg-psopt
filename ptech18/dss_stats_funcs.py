@@ -136,6 +136,18 @@ def getHc(V,Cdf,v0):
     pHc = min(prVmax)
     return pHc
 
+def getHcV2(V,Cdf,v0):
+    prVmax = np.zeros((Cdf.shape[1]))
+    for i in range(Cdf.shape[1]):
+        v = V[i]
+        j = np.argmax(v>v0)
+        if v[j]<v0:
+            prVmax[i] = 1.0
+        elif v[j]>v0:
+            prVmax[i] = Cdf[j,i]
+    pHc = 1-sum(1-prVmax)
+    return pHc
+
 def vmM(vec,Mat): # Rowwise multiplication, i.e. np.diag(vec).dot(Mat)]
     if len(vec)!=len(Mat):
         print('Warning! vector length is not the same length as the matrix row no.')

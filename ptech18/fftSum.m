@@ -142,6 +142,25 @@ randnos = randi(imax,[1,Nadd])/imax;
 
 
 
+%%A
+
+
+A = [1,0,0;1,0.1,0;0,0,1] + 0.03*randn(3)
+A
+[U,S,V] = svd(A)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
