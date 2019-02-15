@@ -17,13 +17,13 @@ import numpy as np
 from dss_python_funcs import *
 
 # CHOOSE Network
-fdr_i = 0
+fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']
 feeder = fdrs[fdr_i]
 # feeder = '213'
 
 ltcModel=True
-ltcModel=False
+# ltcModel=False
 
 lin_point=0.6
 lp_taps='Lpt'
@@ -36,8 +36,8 @@ ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their lo
 
 nMc = int(1e5)
 nMc = int(3e4)
-nMc = int(1e4)
-# nMc = int(3e3)
+# nMc = int(1e4)
+nMc = int(3e3)
 # nMc = int(1e3)
 # nMc = int(3e2)
 # nMc = int(1e2)
@@ -50,7 +50,8 @@ mu_k0 = 0.5*np.arange(0.5,6.0,0.1) # NB this is as a PERCENTAGE of the chosen no
 mu_kk = getMu_Kk(feeder,ltcModel)
 mu_k = mu_k0*mu_kk
 pdfName = 'gamma'
-k = np.array([2.0]) # we do not know th, sigma until we know the scaling from mu0.
+k = np.array([0.5]) # we do not know th, sigma until we know the scaling from mu0.
+# k = np.array([3.0]) # we do not know th, sigma until we know the scaling from mu0.
 params = k
 pdfData = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))}
 
@@ -59,14 +60,9 @@ mcLinOn = True
 mcDssOn = True
 mcDssOn = False
 useCbs = True
-# useCbs = False
+useCbs = False
 
-evSvdLim = 0.85
-evSvdLim = 0.90
-evSvdLim = 0.95
-evSvdLim = 0.98
-# evSvdLim = 0.99
-evSvdPcLim = 1.0
+evSvdLim = 0.99
 nSvdMax = 30
 nSvdMax = 16
 
@@ -123,6 +119,10 @@ DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution = DSSCircuit.Solution
 sn0 = sn +  feeder + str(int(lin_point*1e2)) + 'ltc' + str(int(ltcModel)) + 'ld' + str(int(ld2mean*1e2))
 
+from sklearn.decomposition import TruncatedSVD
+    
+svd = TruncatedSVD(n_components=nSvdMax,algorithm='arpack') # see: https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html#sklearn.decomposition.TruncatedSVD
+
 print('Start. Feeder:',feeder,' Linpoint:',lin_point,' LTC On:',ltcModel,' Vmax:',Vmax)
 
 # PART A.1 - load model ===========================
@@ -163,7 +163,6 @@ YZd = LM['SdYNodeOrder']
 # REDUCE THE LINEAR MODEL to a nice form for multiplication
 KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
 
-
 # OPENDSS ADMIN =======================================
 # B1. load the appropriate model/DSS
 DSSText.command='Compile ('+fn+'.dss)'
@@ -193,6 +192,8 @@ Vp_pct_aly = np.zeros(pdfData['nP'])
 Vp_pct_aly2 = np.zeros(pdfData['nP'])
 Vp_pct_dss = np.zeros(pdfData['nP'])
 Vp_pct_lin = np.zeros(pdfData['nP'])
+Vp_pct_linU = np.zeros(pdfData['nP'])
+Vp_pct_linS = np.zeros(pdfData['nP'])
 
 hc_aly = np.nan*np.zeros(pdfData['nP'])
 hc_dss = np.zeros(pdfData['nP'])
@@ -211,25 +212,20 @@ for i in range(pdfData['nP'][0]):
     if pdfData['name']=='gamma': # NB: mean of gamma distribution is k*th; variance is k*(th**2)
         k = pdfData['prms'][i]
         sgm = Mu0/np.sqrt(pdfData['prms'][i])
-        # Th = Mu0/k # theta as a scale parameter 
     
     KtotPu0 = dsf.mvM(KtotPu,sgm) # scale the matrices to unit input variance
-    dVvarPu = Vmax - (b0 + KtotPu.dot(Mu0)) # nb this changes with Mu_k = ... !?
+    
+    # dVvarPu = Vmax - (b0 + KtotPu.dot(Mu0)) # nb this changes with Mu_k = ... !?
+    dVvarPu = Vmax - b0 # nb this changes with Mu_k = ... !?
     KtotU = dsf.vmM(1/dVvarPu,KtotPu0) # scale the matrices to unity output
     
-    from sklearn.decomposition import TruncatedSVD
+    Us,Ss,Vhs,evS = dsf.trunc_svd(svd,KtotU)
+    nSvd = np.argmax(evS>evSvdLim)
     
-    svd = TruncatedSVD(n_components=nSvdMax,algorithm='arpack') # see: https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html#sklearn.decomposition.TruncatedSVD
-    svd.fit(KtotU.T)
-    Ssvd = svd.singular_values_
-    Usvd = svd.components_
+    KtotSvd = Us.T[:nSvd].dot(KtotU)
+    VmaxSvd = Us.T[:nSvd].dot(np.ones(len(KtotU)))
     
-    evSvdPc = svd.explained_variance_ratio_
-    evSvd = np.cumsum(evSvdPc)
-    
-    nSvd = np.argmax((evSvd>evSvdLim)*(evSvdPc<evSvdPcLim)) # most variance explained AND per component change small.
-    # Usvd,Ssvd,Vhsvd = np.linalg.svd(KtotU) # for debugging/checking
-    print('Number of SVD components:',nSvd)
+    # print('Number of SVD components:',nSvd)    
     
     Kmax = np.max(abs(KtotPu0),axis=1)
     K1 = dsf.vmM(1/Kmax,KtotPu0) # Finally, scale so that all K are unity
@@ -248,24 +244,6 @@ for i in range(pdfData['nP'][0]):
         cBs = np.argmax(abs(Usvd[0:nSvd]),axis=1)
     else:
         cBs = np.arange(0,len(b0)) # all buses
-
-    # # plt.subplot(131)
-    # # plt.plot(Ssvd)
-    # # plt.plot(Ssvd[0:nSvd],'x')
-    # # plt.subplot(132)
-    # # plt.plot(evSvd)
-    # # plt.plot(evSvdPc)
-    # # xlm = plt.xlim()
-    # # plt.plot(xlm,[evSvdPcLim,evSvdPcLim],'r--')
-    # # plt.plot(xlm,[evSvdLim,evSvdLim],'r--')
-    # # plt.xlim(xlm)
-    # # plt.ylim((0,1.0))
-    # # plt.subplot(133)
-    # # plt.plot(abs(Usvd[0:nSvd].T))
-    # # kk = 0
-    # # for cbs in cBs:
-        # # plt.plot(cbs,abs(Usvd[kk,cbs]),'x'); kk+=1
-    # # plt.show()
     
     KgSgm = np.sqrt(np.sum(abs(Kg),axis=1)) # useful for normal approximations
     MmGen = Kgen.dot(Mu0)
@@ -274,6 +252,7 @@ for i in range(pdfData['nP'][0]):
     # PART A.3 - Calculate PDF ===========================
     print('---- Start DFT ----',time.process_time())
     params = ['gamma',k,k**-0.5] # parameters chosen to make sure zero mean/unit variance
+
     # Choose the scale for x/t
     Dx = np.ceil(2*3*2*max(Ksgm));
     dx = 3e-2
@@ -320,11 +299,22 @@ for i in range(pdfData['nP'][0]):
     # PART B FROM HERE ==============================
     if mcLinOn or mcDssOn:
         print('---- Start MC ----',time.process_time())
-        # 2a. draw from the correct distributions. (For naming see opendss admin)
-        pdfGen = np.zeros((len(genNames),nMc)) # ASK CONSTANCE if this is cheating?
-        for j in range(len(genNames)):
-            pdfGen[j] = np.random.gamma(k,1e-3*Mu0[j]/k,nMc)
+
+        pdfGen0 = (np.random.gamma(k,1/np.sqrt(k),(len(genNames),nMc)))
+        pdfGen = dsf.vmM(1e-3*Mu0/np.sqrt(k),pdfGen0) # scale
+        pdfGenSh = pdfGen0 - np.sqrt(k)
+        
+        # pdfGen = np.zeros((len(genNames),nMc))
+        # for j in range(len(genNames)):
+            # pdfGen[j] = np.random.gamma(k,1e-3*Mu0[j]/k,nMc)
+        
         DvOutLin = (KtotPu.dot(pdfGen).T)*1e3
+        
+        DvOutLinK = (KtotU.dot(pdfGenSh).T)
+        DvQwe = KtotU.dot(np.sqrt(k)*np.ones(len(Mu0)))
+        
+        vOutSvd = (KtotSvd.dot(pdfGenSh).T)
+        DvSvd = KtotSvd.dot(np.sqrt(k)*np.ones(len(Mu0)))
         
         for jj in range(pdfData['nP'][-1]):
             genTot = np.sum(pdfGen*pdfData['mu_k'][jj],axis=0)
@@ -344,7 +334,6 @@ for i in range(pdfData['nP'][0]):
                     print('\nNo. Converged:',sum(conv),'/',nMc)
                 
                 # NOW: calculate the HC value:
-                
                 dsf.mcErrorAnalysis(vOut,Vmax)
                 maxV = np.max(vOut,axis=1)
                 Vp_pct_dss[i,jj] = 100*(sum(maxV>Vmax)/nMc)
@@ -355,7 +344,19 @@ for i in range(pdfData['nP'][0]):
                 vOutLin = (DvOutLin*pdfData['mu_k'][jj]) + b0
                 maxVlin = np.max(vOutLin,axis=1)
                 
+                vOutULin = (DvOutLinK + DvQwe)*pdfData['mu_k'][jj]
+                maxVlinU = np.max(vOutULin,axis=1)
+                
+                vOutSLin = (vOutSvd + DvSvd)*pdfData['mu_k'][jj]
+                maxVlinS = np.zeros((nMc))
+                for ii in range(nMc):
+                    maxVlinS[ii] = np.any(vOutSLin[ii]>VmaxSvd)
+                
                 Vp_pct_lin[i,jj] = 100*(sum(maxVlin>Vmax)/nMc)
+                Vp_pct_linU[i,jj] = 100*(sum(maxVlinU>1)/nMc)
+                Vp_pct_linS[i,jj] = 100*(sum(maxVlinS)/nMc)
+                
+                
                 hcGenLin = genTot[maxVlin>Vmax]
                 hc_lin[i,jj] = min( np.concatenate((hcGenLin,np.array([np.inf]))) )
             
@@ -392,12 +393,6 @@ for i in range(pdfData['nP'][0]):
 # plt.ylim(ylm)
 # plt.show()
 
-
-
-
-# plt.hist(maxVlin,bins=100)
-# plt.hist(maxV,bins=100)
-# plt.show()
 
 # COMPARE RESULTS ==========
 if pltBoxDss:
@@ -716,10 +711,11 @@ if pltHcBoth:
         # plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
         # plt.ylim((0,20))
         # plt.semilogy(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
-        plt.semilogy(pdfData['mu_k'],Vp_pct_aly[i],'bx-')
-        plt.semilogy(pdfData['mu_k'],Vp_pct_aly2[i],'b.-')
+        # plt.semilogy(pdfData['mu_k'],Vp_pct_aly[i],'bx-')
+        # plt.semilogy(pdfData['mu_k'],Vp_pct_aly2[i],'b.-')
+        plt.semilogy(pdfData['mu_k'],Vp_pct_linU[i],'rx-')
         plt.semilogy(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
-        plt.ylim((1e-3,20))
+        plt.ylim((1e-3,50))
         
 
     plt.xlabel('Scale factor');

@@ -236,6 +236,16 @@ def mcErrorAnalysis(vOut,Vmax):
             print('==> HC Relative Error:',errH,'%')
     return
 
+def trunc_svd(svd,mat):
+    svd.fit(mat) # 
+    Vh = svd.components_
+    svd.fit(mat.T)
+    S = svd.singular_values_
+    U = svd.components_.T
+    ev = np.cumsum(svd.explained_variance_ratio_)
+    # Usvd,Ssvd,Vhsvd = np.linalg.svd(KtotPu0) # for debugging/checking
+    return U,S,Vh,ev
+
 # VVVVVVVVVVVVVVVVV TESTING VVVVVVVVVVVVVVVVV
 # # GETTING the RFFT working for faster processing: =============
 # dx = 1e-1
