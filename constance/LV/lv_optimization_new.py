@@ -159,7 +159,7 @@ class LVTestFeeder:
         self.n = len(self.b)
         '''
 
-    def set_evs_MEA(self,folderPath,weekday=True,weekend=False): #UPDATED
+    def set_evs_MEA(self,folderPath,nEVs=None,weekday=True,weekend=False): #UPDATED
         # day 4 is a Monday
         # day 7 and 0 are Thursdays
         # max day is 253
@@ -171,6 +171,9 @@ class LVTestFeeder:
                 days.append(day)
             elif day%7 in [2,3] and weekend == True:
                 days.append(day)
+
+        if nEVs == None:
+            nEVs = self.nH
 
         vehicles = ['000','001','002','003','004','005','006','007','009',
                     '010','011','012','013','014','018','019','020','021',
@@ -205,11 +208,15 @@ class LVTestFeeder:
 
         vehicles = []
         evs = []
-        rn = 0 # requirement number 
+        rn = 0 # requirement number
+        vn = 0 # vehicle number
         for hh in range(self.nH):
             vehicles.append([])
             evs.append([0.0]*self.T)
             v = chosen[hh]
+            vn += 1
+            if vn > nEVs:
+                continue
             with open(folderPath+v+'.csv','rU') as csvfile:
                 reader = csv.reader(csvfile)
                 next(reader)
