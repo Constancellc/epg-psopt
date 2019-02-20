@@ -473,132 +473,27 @@ class LVTestFeeder:
             losses.append((y.T*self.P0*y+matrix(self.q0).T*y)[0]+self.c)
 
         return sum(losses)*self.t_res/60000 # kWh
-    
-    def predict_voltage(self):
-        # THIS FUNCTION DOES NOT WORK IN THIS VERSION
-        v_ = []
-        for i in range(55):
-            v_.append([])
 
-        for t in range(1440):
-            y = [0.0]*55
-            for i in range(55):
-                y[i] -= self.hh[i][t]*1000
-            for v in range(self.n):
-                i = self.map[v]
-                y[i] -= self.evs[v][t]*1000
+    def get_average_current_inections(self,M,Ybus,alpha,filepath):
+        iav = [0]*len(M)
+        for t in range(self.T):
+            y = [0.0]*self.nH*2
+            for hh in range(self.nH):
+                y[hh] -= self.hh_profiles[hh][t]*1000
+                y[hh] -= self.evs[hh][t]*1000
+            for hh in range(self.nH):
+                y[hh+self.nH] = alpha*y[hh]
 
-            y = matrix(y)
+            v = M*x
+            i = Y*v
+            for b in range(len(i)):
+                iav[b] += abs(i[b])/self.T
 
-            v_new = self.M0*y+matrix(self.a0)
-            i = 0
-            for vv in v_new:
-                v_[i].append(vv)
-                i += 1
-
-        v_av = [0.0]*1440
-        for t in range(1440):
-            for i in range(55):
-                v_av[t] += v_[i][t]/55
-
-        return v_av
-    
-    def predict_lowest_voltage(self):
-        # THIS FUNCTION DOES NOT WORK IN THIS VERSION
-        v_ = []
-        for i in range(55):
-            v_.append([])
-
-        for t in range(1440):
-            y = [0.0]*55
-            for i in range(55):
-                y[i] -= self.hh[i][t]*1000
-            for v in range(self.n):
-                i = self.map[v]
-                y[i] -= self.evs[v][t]*1000
-
-            y = matrix(y)
-
-            v_new = self.M0*y+matrix(self.a0)
-            i = 0
-            for vv in v_new:
-                v_[i].append(vv)
-                i += 1
-
-        v_l = [1000.0]*1440
-        for t in range(1440):
-            for i in range(55):
-                if v_[i][t] < v_l[t]:
-                    v_l[t] = v_[i][t]
-
-        return v_l
-    
-    def getLineCurrents(self):
-        # THIS FUNCTION DOES NOT WORK IN THIS VERSION
-        current110 = []
-        current296 = []
-
-        Ar = matrix(0.0,(6,55))
-        Ai = matrix(0.0,(6,55))
-
-        br = matrix(0.0,(6,1))
-        bi = matrix(0.0,(6,1))
-
-        with open('Ar.csv','rU') as csvfile:
-            reader = csv.reader(csvfile)
-            i = 0
-            for row in reader:
-                for j in range(len(row)):
-                    Ar[i,j] = float(row[j])
-                i += 1
-
-        with open('Ai.csv','rU') as csvfile:
-            reader = csv.reader(csvfile)
-            i = 0
-            for row in reader:
-                for j in range(len(row)):
-                    Ai[i,j] = float(row[j])
-                i += 1
-
-        with open('br.csv','rU') as csvfile:
-            reader = csv.reader(csvfile)
-            i = 0
-            for row in reader:
-                br[i] = float(row[0])
-                i += 1
-                
-        with open('bi.csv','rU') as csvfile:
-            reader = csv.reader(csvfile)
-            i = 0
-            for row in reader:
-                bi[i] = float(row[0])
-                i += 1
-                
-        for t in range(1440):
-            y = [0.0]*55
-            for i in range(55):
-                y[i] -= self.hh[i][t]*1000
-            for v in range(self.n):
-                i = self.map[v]
-                y[i] -= self.evs[v][t]*1000
-            y = matrix(y)
-
-            ir = (Ar*y+br)
-            ii = (Ai*y+bi)
-
-            # phase b and c
-            '''
-            current110.append(np.sqrt(np.power(ir[1,0]+ii[1,0],2))+\
-                               np.sqrt(np.power(ir[2,0]+ii[2,0],2)))
-            current296.append(np.sqrt(np.power(ir[4,0]+ii[4,0],2))+\
-                              np.sqrt(np.power(ir[5,0]+ii[5,0],2)))
-            '''
-
-            # phase c only
-            current110.append(10*np.sqrt(np.power(ir[2,0]+ii[2,0],2)))
-            current296.append(10*np.sqrt(np.power(ir[3,0]+ii[3,0],2)))
-
-        return [current110,current296]
+        with open(filepath,'w') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['line#','avCurrent'])
+            for b in range(len(i)):
+                writer.writerow([b+1,iav[b]])
 
     def get_feeder_load(self):
         total_load = [0.0]*self.T

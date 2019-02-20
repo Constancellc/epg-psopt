@@ -35,6 +35,8 @@ nH = int(len(xhy)/2)
 
 alpha = xhy[nH]/xhy[0]
 
+print(alpha)
+
 P_r = np.zeros((nH,nH))
 q_r = np.zeros((nH,1))
 for i in range(nH):
