@@ -279,3 +279,5 @@ if saveModel:
         os.makedirs(dir0)
     bus_df.to_csv(sn0+"_bus_df.csv")
     line_df.to_csv(sn0+"_line_df.csv")
+    # bus_df.to_excel(sn0+"_bus_df.xlsx")
+    # line_df.to_excel(sn0+"_line_df.xlsx")

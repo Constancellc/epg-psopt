@@ -1,21 +1,17 @@
 # -*- coding: utf-8 -*-
-import sys
+import sys, os
 import getpass
-if getpass.getuser()=='Matt':
-    WD0 = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\OxEMF"
-    WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-if getpass.getuser()=='chri3793':
-    WD0 = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\OxEMF"
-    WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
 
-sys.path.insert(0, WD0 + r"\OxEMF_3ph_PF")
-sys.path.insert(0, WD)
+nomPath = os.path.abspath(os.path.dirname(sys.argv[0]))
+rootPath = os.path.abspath(os.path.join(nomPath,os.pardir))
+ptechPath = os.path.join(rootPath,'ptech18')
+sys.path.insert(0, ptechPath)
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-from Network_3ph_pf import Network_3ph 
+from OxEMF_3ph_PF.Network_3ph_pf import Network_3ph
 import copy
 import time
 from dss_python_funcs import get_ckt
@@ -25,10 +21,9 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 feeder='021'
 feeder = fdrs[fdr_i]
 
-fn_ckt = get_ckt(WD,feeder)[1]
-dir0 = WD0 + '\\ntwx\\' + feeder
-sn0 = dir0 + '\\' + feeder + lp_taps
-
+fn_ckt = get_ckt(ptechPath,feeder)[1]
+dir0 = os.path.join(nomPath,'ntwx',feeder)
+sn0 = os.path.join(dir0, feeder + lp_taps)
 
 net_ieee13 = Network_3ph()
 
@@ -65,29 +60,40 @@ bus_df.iloc[11]={'name':'692','number':11, 'load_type':'PQ','connect':'D','Pa': 
 bus_df.iloc[12]={'name':'675','number':12, 'load_type':'PQ','connect':'Y','Pa':150,'Pb':150,'Pc':150,'Qa': 50,'Qb': 50,'Qc': 50}
 
 bus_df2 = pd.read_csv(sn0+"_bus_df.csv",index_col=0)
+# bus_df2 = pd.read_excel(sn0+"_bus_df.xlsx",index_col=0)
 bus_df2.index=np.arange(len(bus_df2))
 bus_df2.loc[:,'load_type'] = 'PQ'
 bus_df2.loc[0,'load_type'] = 'S'
 
+
 line_df2 = pd.read_csv(sn0+"_line_df.csv",index_col=0)
+# line_df2 = pd.read_excel(sn0+"_line_df.xlsx",index_col=0)
 line_df2.index=np.arange(len(line_df2))
 line_df2.loc[:,'busA'] = list(map(str,line_df2.loc[:,'busA'])) # cannot save numbers as 'str' type when saving as csv
 line_df2.loc[:,'busB'] = list(map(str,line_df2.loc[:,'busB'])) # cannot save numbers as 'str' type when saving as csv
+
+# fix up all of the complex numbers to be complex:
+for i in range(2,line_df2.shape[1]):
+    for j in range(line_df2.shape[0]):
+        line_df2.iloc[j,i] = complex(line_df2.iloc[j,i])
 
 line_df = net_ieee13.line_df
 
 buses = np.array(line_df.loc[:,'busB'])
 buses2 = np.array(line_df2.loc[:,'busB'])
+Bbc = np.array(line_df.loc[:,'Bbc'])
+Bbc2 = np.array(line_df2.loc[:,'Bbc'])
 
 shift = []
 for bus in buses2:
     shift = shift + np.nonzero(bus==buses)[0].tolist()
     
-print(line_df2)
-print(line_df.iloc[shift])
+# print(line_df2)
+# print(line_df.iloc[shift])
 
 net_ieee13.bus_df = bus_df2
 net_ieee13.line_df = line_df2
+net_ieee13.update_YandZ()
 net_ieee13.zbus_pf()
 
 
