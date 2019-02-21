@@ -17,7 +17,7 @@ import numpy as np
 from dss_python_funcs import *
 
 # CHOOSE Network
-fdr_i = 5
+fdr_i = 20
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']
 feeder = fdrs[fdr_i]
 # feeder = '213'
@@ -34,17 +34,16 @@ Vmin  = 0.95
 
 ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
 
-nMc = int(1e5)
-nMc = int(3e4)
-# nMc = int(1e4)
+nMc = int(1e4)
 nMc = int(3e3)
-# nMc = int(1e3)
+nMc = int(1e3)
 # nMc = int(3e2)
 # nMc = int(1e2)
 
 # PDF options
 mu_k0 = np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. 
-mu_k0 = 0.5*np.arange(0.5,6.0,0.1) # NB this is as a PERCENTAGE of the chosen nominal powers. 
+mu_k0 = 0.1*np.arange(0.5,6.0,0.1) # NB this is as a PERCENTAGE of the chosen nominal powers. 
+# mu_k0 = 0.3*np.arange(0.5,6.0,0.1) # NB this is as a PERCENTAGE of the chosen nominal powers. 
 # mu_k0 = 5.5*np.array([1.0]) # NB this is as a PERCENTAGE of the chosen nominal powers. 
 
 mu_kk = getMu_Kk(feeder,ltcModel)
@@ -63,6 +62,7 @@ useCbs = True
 useCbs = False
 
 evSvdLim = 0.99
+evSvdLim = 0.98
 nSvdMax = 30
 nSvdMax = 16
 
@@ -221,9 +221,11 @@ for i in range(pdfData['nP'][0]):
     
     Us,Ss,Vhs,evS = dsf.trunc_svd(svd,KtotU)
     nSvd = np.argmax(evS>evSvdLim)
+    print('Number of Components:',nSvd)
+    print('Computational effort saved (%):',100*(1-(nSvd*(KtotU.shape[0] + KtotU.shape[1])/(KtotU.shape[0]*KtotU.shape[1]) )))
+    UsSvd = Us[:,:nSvd]
     
-    KtotSvd = Us.T[:nSvd].dot(KtotU)
-    VmaxSvd = Us.T[:nSvd].dot(np.ones(len(KtotU)))
+    KtotSvd = UsSvd.T.dot(KtotU)
     
     # print('Number of SVD components:',nSvd)    
     
@@ -248,54 +250,7 @@ for i in range(pdfData['nP'][0]):
     KgSgm = np.sqrt(np.sum(abs(Kg),axis=1)) # useful for normal approximations
     MmGen = Kgen.dot(Mu0)
     KkGen = np.sqrt(np.sum(abs(Kg),axis=1))*KgenMax
-
-    # PART A.3 - Calculate PDF ===========================
-    print('---- Start DFT ----',time.process_time())
-    params = ['gamma',k,k**-0.5] # parameters chosen to make sure zero mean/unit variance
-
-    # Choose the scale for x/t
-    Dx = np.ceil(2*3*2*max(Ksgm));
-    dx = 3e-2
-    x,t = dsf.dy2YzR(dx,Dx)
-    Nt = len(x)-1
     
-    # pdfV = dsf.calcPdfSum(K1,x,t,params)
-    # pdfVnorm = dsf.getPdfNormSum(Ksgm,x)
-    pdfV = dsf.calcPdfSum(K1[cBs],x,t,params)
-    pdfVnorm = dsf.getPdfNormSum(Ksgm,x)
-    
-    DxG = np.ceil(2*3*2*max(KgSgm));
-    dxG = 1e-2
-    xG,tG = dsf.dy2YzR(dx,Dx)
-    Nt = len(x)-1
-
-    pdfG = dsf.calcPdfSum(Kg,xG,tG,params)[0]
-    pdfGnorm = dsf.getPdfNormSum(KgSgm,x)[0]
-    
-    cdfV = np.cumsum(pdfV,axis=1).T
-    cdfVnorm = np.cumsum(pdfVnorm,axis=1).T
-    cdfG = np.cumsum(pdfG)
-    cdfGnorm = np.cumsum(pdfGnorm)
-    
-    for jj in range(pdfData['nP'][-1]):
-        Mn_k = pdfData['mu_k'][jj]
-        # Vpu[i,:] = b0[i] + Mn_k*(x*Kmax[i] + KtotPu[i].dot(Mu0)) # < === per i version here of VVV
-        # Vpu = (b0 + Mn_k*(dsf.vmM(Kmax,dsf.mvM(np.ones(pdfV.shape),x)).T + KtotPu.dot(Mu0))).T
-        Vpu = (b0[cBs] + Mn_k*(dsf.vmM(Kmax[cBs],dsf.mvM(np.ones(pdfV.shape),x)).T + KtotPu.dot(Mu0)[cBs])).T
-        Gpu = Mn_k*((dsf.vmM(KgenMax,dsf.mvM(np.ones((1,pdfG.shape[0])),xG))[0] + Kgen.dot(Mu0)))
-        
-        prHcMax = dsf.getHc(Vpu,cdfV,Vmax)
-        prHcMin = dsf.getHc(Vpu,cdfV,Vmin)
-        prHcMax2 = dsf.getHcV2(Vpu,cdfV,Vmax)
-        
-        Vp_pct_aly[i,jj] = 100.0*(1 - prHcMax)
-        Vp_pct_aly2[i,jj] = 100.0*(1 - prHcMax2)
-        if (1-prHcMax)>1e-7:
-            # print('Index:',np.argmin(abs(cdfG - prHcMax))) # for testing
-            hc_aly[i,jj] = Gpu[np.argmin(abs(cdfG - prHcMax))]*1e-3 # kW
-
-    print('Complete DFT version.',time.process_time())    
-
     # PART B FROM HERE ==============================
     if mcLinOn or mcDssOn:
         print('---- Start MC ----',time.process_time())
@@ -304,17 +259,12 @@ for i in range(pdfData['nP'][0]):
         pdfGen = dsf.vmM(1e-3*Mu0/np.sqrt(k),pdfGen0) # scale
         pdfGenSh = pdfGen0 - np.sqrt(k)
         
-        # pdfGen = np.zeros((len(genNames),nMc))
-        # for j in range(len(genNames)):
-            # pdfGen[j] = np.random.gamma(k,1e-3*Mu0[j]/k,nMc)
-        
         DvOutLin = (KtotPu.dot(pdfGen).T)*1e3
         
         DvOutLinK = (KtotU.dot(pdfGenSh).T)
         DvQwe = KtotU.dot(np.sqrt(k)*np.ones(len(Mu0)))
         
-        vOutSvd = (KtotSvd.dot(pdfGenSh).T)
-        DvSvd = KtotSvd.dot(np.sqrt(k)*np.ones(len(Mu0)))
+        vOutSvd = UsSvd.dot((KtotSvd.dot(pdfGenSh))).T
         
         for jj in range(pdfData['nP'][-1]):
             genTot = np.sum(pdfGen*pdfData['mu_k'][jj],axis=0)
@@ -347,14 +297,12 @@ for i in range(pdfData['nP'][0]):
                 vOutULin = (DvOutLinK + DvQwe)*pdfData['mu_k'][jj]
                 maxVlinU = np.max(vOutULin,axis=1)
                 
-                vOutSLin = (vOutSvd + DvSvd)*pdfData['mu_k'][jj]
-                maxVlinS = np.zeros((nMc))
-                for ii in range(nMc):
-                    maxVlinS[ii] = np.any(vOutSLin[ii]>VmaxSvd)
+                vOutSLin = (vOutSvd + DvQwe)*pdfData['mu_k'][jj]
+                maxVlinS = np.max(vOutSLin,axis=1)
                 
                 Vp_pct_lin[i,jj] = 100*(sum(maxVlin>Vmax)/nMc)
                 Vp_pct_linU[i,jj] = 100*(sum(maxVlinU>1)/nMc)
-                Vp_pct_linS[i,jj] = 100*(sum(maxVlinS)/nMc)
+                Vp_pct_linS[i,jj] = 100*(sum(maxVlinS>1)/nMc)
                 
                 
                 hcGenLin = genTot[maxVlin>Vmax]
@@ -714,6 +662,7 @@ if pltHcBoth:
         # plt.semilogy(pdfData['mu_k'],Vp_pct_aly[i],'bx-')
         # plt.semilogy(pdfData['mu_k'],Vp_pct_aly2[i],'b.-')
         plt.semilogy(pdfData['mu_k'],Vp_pct_linU[i],'rx-')
+        plt.semilogy(pdfData['mu_k'],Vp_pct_linS[i],'b.-')
         plt.semilogy(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
         plt.ylim((1e-3,50))
         
@@ -722,30 +671,34 @@ if pltHcBoth:
     plt.title('Prob. of overvoltage');
     plt.grid(True)
     plt.subplot(122)
-    for i in range(pdfData['nP'][0]):
-        # plt.plot(pdfData['mu_k'],Vp_pct_lin[i]/Vp_pct_aly[i],'g.-')
-        # plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'ro')
-        # plt.plot(pdfData['mu_k'],hc_dss[i],'ro-')
-        # plt.plot(pdfData['mu_k'],hc_aly[i],'bx-')
+    
+    plt.plot(pdfData['mu_k'],Vp_pct_linU[i],'rx-')
+    plt.plot(pdfData['mu_k'],Vp_pct_linS[i],'b.-')
+    plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
+    # for i in range(pdfData['nP'][0]):
+        # # plt.plot(pdfData['mu_k'],Vp_pct_lin[i]/Vp_pct_aly[i],'g.-')
+        # # plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'ro')
+        # # plt.plot(pdfData['mu_k'],hc_dss[i],'ro-')
+        # # plt.plot(pdfData['mu_k'],hc_aly[i],'bx-')
         
-        plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'r^'); 
-        # plt.plot(pdfData['mu_k'],hcGenSet[i,:,1],'g_'); 
-        plt.plot(pdfData['mu_k'],hcGenSet[i,:,2],'r_'); 
-        # plt.plot(pdfData['mu_k'],hcGenSet[i,:,3],'g_');
-        plt.plot(pdfData['mu_k'],hcGenSet[i,:,4],'rv');        
+        # plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'r^'); 
+        # # plt.plot(pdfData['mu_k'],hcGenSet[i,:,1],'g_'); 
+        # plt.plot(pdfData['mu_k'],hcGenSet[i,:,2],'r_'); 
+        # # plt.plot(pdfData['mu_k'],hcGenSet[i,:,3],'g_');
+        # plt.plot(pdfData['mu_k'],hcGenSet[i,:,4],'rv');        
         
-        plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,0],'g^'); 
-        # plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,1],'k_'); 
-        plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,2],'g_'); 
-        # plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,3],'k_');
-        plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,4],'gv');
-    xlm = plt.xlim()
-    plt.xlim((-dsf.get_dx(pdfData['mu_k']),xlm[1]))
-    plt.xlabel('Scale factor');
-    plt.title('Hosting Capacity (kW)');
+        # plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,0],'g^'); 
+        # # plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,1],'k_'); 
+        # plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,2],'g_'); 
+        # # plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,3],'k_');
+        # plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,4],'gv');
+    # xlm = plt.xlim()
+    # plt.xlim((-dsf.get_dx(pdfData['mu_k']),xlm[1]))
+    # plt.xlabel('Scale factor');
+    # plt.title('Hosting Capacity (kW)');
 
-    ylm = plt.ylim()
-    plt.ylim((0,ylm[1]))
+    # ylm = plt.ylim()
+    # plt.ylim((0,ylm[1]))
     plt.grid(True)
     plt.show()
 
