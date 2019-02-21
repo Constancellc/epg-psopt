@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from cvxopt import matrix, spdiag, sparse, solvers
 
 solvers.options['maxiters'] = 30
-solvers.options['show_progress'] = False
+#solvers.options['show_progress'] = False
 
 '''
 
@@ -474,8 +474,8 @@ class LVTestFeeder:
 
         return sum(losses)*self.t_res/60000 # kWh
 
-    def get_average_current_inections(self,M,Ybus,alpha,filepath):
-        iav = [0]*len(M)
+    def get_average_voltages(self,M,a,alpha):
+        vav = [0]*len(M)
         for t in range(self.T):
             y = [0.0]*self.nH*2
             for hh in range(self.nH):
@@ -483,17 +483,21 @@ class LVTestFeeder:
                 y[hh] -= self.evs[hh][t]*1000
             for hh in range(self.nH):
                 y[hh+self.nH] = alpha*y[hh]
+            y = np.array(y)
 
-            v = M*x
-            i = Y*v
-            for b in range(len(i)):
-                iav[b] += abs(i[b])/self.T
+            v = np.matmul(M,y)
+            v = v+a
+            for b in range(len(v)):
+                vav[b] += v[b]/self.T
+        '''
 
         with open(filepath,'w') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['line#','avCurrent'])
             for b in range(len(i)):
-                writer.writerow([b+1,iav[b]])
+                writer.writerow([b+1,iav[b]])'''
+
+        return vav
 
     def get_feeder_load(self):
         total_load = [0.0]*self.T

@@ -44,9 +44,9 @@ with open('lv test/Lines.csv','rU') as csvfile:
     next(reader)
     next(reader)
     for row in reader:
-        lines[row[0]] = [int(row[1]),int(row[2])]
-        linesR[row[0]] = float(row[4])*r0[row[6]]
-        linesL[row[0]] = float(row[4])
+        lines[row[0][4:]] = [int(row[1]),int(row[2])]
+        linesR[row[0][4:]] = float(row[4])*r0[row[6]]
+        linesL[row[0][4:]] = float(row[4])
         if r0[row[6]] > maxRL:
             maxRL = r0[row[6]]
         if r0[row[6]] < minRL:
@@ -61,16 +61,29 @@ with open('lv test/Loads.csv','rU') as csvfile:
     for row in reader:
         loads.append(int(row[2]))
 
+files = {1:'no_evs',2:'uncontrolled',3:'lf',4:'lm'}
 plt.figure(figsize=(6,6))
 for i in range(1,5):
     plt.subplot(2,2,i)
+    # get currents
+    currents = {}
+    with open('lv test/'+files[i]+'.csv','rU') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            currents[row[0][4:]] = float(row[1])
     for l in lines:
         a = lines[l][0]
         b = lines[l][1]
         x = [buses[a][0],buses[b][0]]
         y = [buses[a][1],buses[b][1]]
-        plt.plot(x,y,c=red(linesR[l]/linesL[l],maxRL,minRL),
-                 lw=linesR[l]/linesL[l])#'gray',#lw=linesR[l]/linesL[l])
+        #losses = currents[l]*currents[l]*linesR[l]/linesL[l]
+        losses = currents[l]
+        if losses > 20:
+            lw = 20
+        else:
+            lw = losses
+        
+        plt.plot(x,y,lw=lw,c='r')#c=red(losses,0,3))#,lw=linesR[l]/linesL[l])#'gray',#lw=linesR[l]/linesL[l])
 
     x = []
     y = []
