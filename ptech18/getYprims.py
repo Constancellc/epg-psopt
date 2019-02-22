@@ -17,7 +17,6 @@ lin_point = '060'
 lin_point = '100'
 
 SD = os.path.join(WD,'lin_models','ccModels',feeder)
-sn = os.path.join(SD,'lnsYprims.pkl')
 
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
@@ -48,12 +47,12 @@ while i:
     i = LNS.Next
 
 # f = open("lnsYprims.pkl","wb")
-f = open(sn,"wb")
+f = open(os.path.join(SD,'lnsYprims.pkl'),"wb")
 pickle.dump(lnsYprims,f)
 f.close()
 
 # g = open("lnsYprims.pkl",'rb')
-g = open(sn,'rb')
+g = open(os.path.join(SD,'lnsYprims.pkl'),'rb')
 data = pickle.load(g)
 g.close()
 
@@ -73,8 +72,6 @@ Vlin = My.dot(xhy) + alin
 Vtot = np.concatenate((V0,Vlin))
 
 data0 = data['line1'] # Choose a line here
-# data0 = data['line667'] # Choose line here
-
 # EU LV Version
 buses = []
 for node in YNodeOrder:
@@ -82,13 +79,15 @@ for node in YNodeOrder:
 
 bus1 = data0[0]
 bus2 = data0[1]
+Yprim = data0[2]
 
 idx1 = [i for i, x in enumerate(buses) if x == bus1]
 idx2 = [i for i, x in enumerate(buses) if x == bus2]
 
 Vidx = Vtot[idx1+idx2]
-Iphs = Yprim[0:3].dot(Vidx) # second 3 are -ve of first three
-Itot = np.linalg.norm(Iphs)
+Iphs = Yprim.dot(Vidx)
+Sinj = Vidx*(Iphs.conj())
+Sloss = sum(Sinj)
 
 # # FULL VERSION
 # buses = []
