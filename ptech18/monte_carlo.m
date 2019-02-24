@@ -2,9 +2,12 @@ clear all; % close all;
 tic
 set(0,'DefaultTextInterpreter','Latex')
 
-FD = 'C:\Users\Matt\Documents\DPhil\pesgm19\pesgm19_paper\figures\';
+posterPlt = 1;
 
-modeli = 5; % CHOOSE model here
+% FD = 'C:\Users\Matt\Documents\DPhil\pesgm19\pesgm19_paper\figures\'; % paper version
+FD = 'C:\Users\Matt\Documents\DPhil\papers\pesgm19\pesgm19_poster\figures\'; % poster version
+
+modeli = 3; % CHOOSE model here
 nl = linspace(0,1,7); % number of load here
 nl = linspace(0,1,13);
 nl(1) = 1e-4;
@@ -35,7 +38,7 @@ load([pwd,'\lin_models\',model]);
 Nl = ceil(nl*LDS.count);
 
 Ns = 1000; % number of samples
-Ns = 100; % number of samples
+% Ns = 100; % number of samples
 
 Vb = 230;
 vp = 1.10;
@@ -231,6 +234,47 @@ set(lgnd,'Interpreter','Latex','FontSize',12);
 % export_fig(gcf,FL);
 % export_fig(gcf,[FL,'.pdf'],'-pdf');
 % saveas(gcf,FL,'meta')
+
+
+if posterPlt
+    close
+    fig = figure('Position',[100 150 300 450]);
+    subplot(211);
+    plot(xx,Pout*1e-3.*Nl,'rx'); hold on;
+    boxplot(kX,'Positions',xx,'Whisker',10); hold on;
+    xticklabels(xtl);
+    xlabel(['Penetration, \% (Feeder N',num2str(modeli),')']); 
+    ylabel('Hosting capacity $\Phi$, kW'); grid on;
+    xs = axis; axis([xs(1:2),0,xs(4)])
+    lgnd = legend('$\Phi_{\mathrm{5\%}}$');
+    set(lgnd,'Interpreter','Latex','FontSize',12,'Location','SouthEast');
+
+
+    subplot(212);
+    plot(xx,Pout*1e-3,'ro'); hold on;
+    boxplot(X*1e-3,'Positions',xx,'Whisker',10); hold on;
+    xticklabels(xtl)
+    xlabel(['Penetration, \% (Feeder N',num2str(modeli),')']); 
+    ylabel('Generator power $\phi$, kW'); grid on;
+    if modeli==3
+        xs=axis; axis([xs(1:2),0,25]);
+    else
+        xs = axis; axis([xs(1:2),0,40]);
+    end
+    lgnd = legend('$\phi_{\mathrm{5\%}}$');
+    set(lgnd,'Interpreter','Latex','FontSize',12);
+    
+    FL = [FD,'variable_N_',num2str(modeli),'Pstr'];
+    export_fig(gcf,[FL,'.pdf'],'-pdf','-transparent'); close;
+end
+
+
+
+
+
+
+
+
 
 % figure;
 % boxplot(Vub,'Positions',Nl,'Whisker',10);

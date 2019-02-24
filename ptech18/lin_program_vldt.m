@@ -3,7 +3,8 @@
 set(0,'DefaultTextInterpreter','latex')
 % WD = 'C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18';
 WD = pwd;
-FD = 'C:\Users\Matt\Documents\DPhil\pesgm19\pesgm19_paper\figures\';
+% FD = 'C:\Users\Matt\Documents\DPhil\pesgm19\pesgm19_paper\figures\';
+FD = 'C:\Users\Matt\Documents\DPhil\papers\pesgm19\pesgm19_poster\figures\'; % poster version
 addpath('lin_functions');
 models = {'eulv','n1f1','n2f1','n3f1','n4f1'};
 model = models{1};
@@ -70,8 +71,8 @@ Vt = [1.05, 1,1,1,1]*240/230;
 
 dV =  [ones(1,5)*vp;vmag] - ones(2,1)*Vt;
 
-FN = [FD,'lin_program_vldt'];
-
+FN = [FD,'lin_program_vldtPstr'];
+%% PAPER VERSION
 fig = figure('Color','White','Position',[100 150 550 250]);
 subplot(121);
 bar(X/1e3)
@@ -90,3 +91,40 @@ legend('Predicted (Lin. Model)','Actual (OpenDSS)','Location','NorthWest');
 % export_fig(fig,FN);
 % export_fig(fig,[FN,'.pdf'],'-dpdf');
 % saveas(fig,FN,'meta');
+%% POSTER VERSION
+fig = figure('Color','White','Position',[100 150 260 400]);
+subplot(211);
+bar(X/1e3)
+xlabel('Feeder ID');
+ylabel('Power per house, kW')
+axis([-inf inf 0 11]);
+xticklabels({'N1','N2','N3','N4','N5'})
+subplot(212);
+bar(dV');
+xlabel('Feeder ID');
+ylabel('Max voltage rise ($\Delta v^{\mathrm{max}}$), pu');
+axis([-inf inf 0 0.12]);
+xticklabels({'N1','N2','N3','N4','N5'})
+legend('Linear Model','OpenDSS','Location','NorthWest');
+
+FN = [FD,'lin_program_vldtPstr'];
+export_fig(fig,[FN,'.pdf'],'-dpdf','-transparent'); close
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

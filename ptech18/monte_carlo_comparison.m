@@ -3,6 +3,7 @@ set(0,'DefaultTextInterpreter','Latex')
 % addpath('lin_functions');
 
 FD = 'C:\Users\Matt\Documents\DPhil\pesgm19\pesgm19_paper\tables\';
+pltD = 'C:\Users\Matt\Documents\DPhil\papers\pesgm19\pesgm19_poster\figures\';
 nl = 0.5;
 
 modes = {'Wfix','Vfix'};
@@ -174,7 +175,7 @@ for k = 1:numel(modes)
     end
 end
 
-
+%%
 Tnm = 'montecarlo_comparison';
 mat = [counts,mc_time(:,1),Pout(:,1),mc_time(:,2),Pout(:,2)];
 Tfn = [FD,Tnm];
@@ -184,8 +185,43 @@ headerCol = {'EU LV','N1.1','N2.1','N3.1','N4.1'};
 caption = 'Comparison of timings and estimated hosting capacities for the fixed power and fixed voltage methods'
 formatCol = {'$%d$','$%.2f$','$%.1f$','$%.2f$','$%.1f$'};
 
-matrix2latex(mat,Tfn,'label',Tnm,'formatColumns',formatCol,'alignment','l','caption',caption,...
-                    'headerRow',headerRow,'headerColumn',headerCol)
+% matrix2latex(mat,Tfn,'label',Tnm,'formatColumns',formatCol,'alignment','l','caption',caption,...
+%                     'headerRow',headerRow,'headerColumn',headerCol)
+
+%% POSTER BAR CHARTS
+figure('Position',[100 150 260 400]);
+subplot(211)
+bar(mc_time);
+set(gca,'yscale','log')
+ylim([0.06,300])
+yticks([0.1,1,10,100])
+% xticklabels({'EU LV','N1.1','N2.1','N3.1','N4.1'})
+xticklabels({'N1','N2','N3','N4','N5'})
+xlabel('Feeder ID')
+ylabel('Solution time, s')
+
+subplot(212)
+bar(Pout);
+% set(gca,'yscale','log')
+xticklabels({'N1','N2','N3','N4','N5'})
+xlabel('Feeder ID')
+ylabel('Hosting Capacity $\Phi_{5\%}$, kW')
+ylim([0,400])
+legend('Fixed power','Fixed voltage')
+
+FL = [pltD,'monteCarloComparisonPstr'];
+export_fig(gcf,[FL,'.pdf'],'-pdf','-transparent');
+
+
+
+
+
+
+
+
+
+
+
 
 
 
