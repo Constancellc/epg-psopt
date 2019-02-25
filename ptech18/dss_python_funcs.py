@@ -49,14 +49,14 @@ def idx_shf(x_idx,reIdx):
     return x_idx_shf,x_idx_new
 
 def add_generators(DSSObj,genBuses,delta):
-    # NB: nominal power is 10 kW.
+    # NB: nominal power is 0.5 kW.
     genNames = []
     for genBus in genBuses:
         DSSObj.ActiveCircuit.SetActiveBus(genBus)
         if not delta: # ie wye
             genName = genBus.replace('.','_')
             genKV = str(DSSObj.ActiveCircuit.ActiveBus.kVbase)
-            DSSObj.Text.command='new generator.'+genName+' phases=1 bus1='+genBus+' kV='+genKV+' kW=10.0 pf=1.0 model=1 vminpu=0.33 vmaxpu=3.0 conn=wye'
+            DSSObj.Text.command='new generator.'+genName+' phases=1 bus1='+genBus+' kV='+genKV+' kW=0.5 pf=1.0 model=1 vminpu=0.33 vmaxpu=3.0 conn=wye'
         elif delta:
             genKV = str(DSSObj.ActiveCircuit.ActiveBus.kVbase*np.sqrt(3))
             if genBus[-1]=='1':
@@ -66,7 +66,7 @@ def add_generators(DSSObj,genBuses,delta):
             if genBus[-1]=='3':
                 genBuses = genBus+'.1'
             genName = genBuses.replace('.','_')
-            DSSObj.Text.command='new generator.'+genName+' phases=1 bus1='+genBuses+' kV='+genKV+' kW=10.0 pf=1.0 model=1 vminpu=0.33 vmaxpu=3.0 conn=wye'
+            DSSObj.Text.command='new generator.'+genName+' phases=1 bus1='+genBuses+' kV='+genKV+' kW=0.5 pf=1.0 model=1 vminpu=0.33 vmaxpu=3.0 conn=wye'
         genNames = genNames+[genName]
     return genNames
 
