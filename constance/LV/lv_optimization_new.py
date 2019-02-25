@@ -489,15 +489,28 @@ class LVTestFeeder:
             v = v+a
             for b in range(len(v)):
                 vav[b] += v[b]/self.T
-        '''
-
-        with open(filepath,'w') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(['line#','avCurrent'])
-            for b in range(len(i)):
-                writer.writerow([b+1,iav[b]])'''
 
         return vav
+
+    def get_all_voltages(self,M,a,alpha,v0):
+        v_tot = {}
+        for t in range(self.T):
+            y = [0.0]*self.nH*2
+            for hh in range(self.nH):
+                y[hh] -= self.hh_profiles[hh][t]*1000
+                y[hh] -= self.evs[hh][t]*1000
+            for hh in range(self.nH):
+                y[hh+self.nH] = alpha*y[hh]
+            y = np.array(y)
+
+            v = np.matmul(M,y)
+            v = v+a
+            v = np.hstack((v0,v))
+
+            v_tot[t] = v
+            
+        return v_tot
+    
 
     def get_feeder_load(self):
         total_load = [0.0]*self.T

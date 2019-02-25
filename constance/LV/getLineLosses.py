@@ -56,31 +56,55 @@ fdr.set_households_NR('../../../Documents/netrev/TC2a/03-Dec-2013.csv')
 fdr.set_evs_MEA('../../../Documents/My_Electric_Avenue_Technical_Data/'+
                 'constance/ST1charges/')
 
-voltages = fdr.get_average_voltages(My,a,alpha)
+voltages = fdr.get_all_voltages(My,a,alpha,v0)
+losses_no_evs = {}
 print(fdr.predict_losses())
-losses_no_evs = get_losses(np.hstack((v0,np.array(voltages))))
+for t in voltages:
+    ls = get_losses(voltages[t])
+    for l in ls:
+        if l not in losses_no_evs:
+            losses_no_evs[l] = 0
+        losses_no_evs[l] += ls[l][2]
 
 fdr.uncontrolled()
-voltages = fdr.get_average_voltages(My,a,alpha)
+voltages = fdr.get_all_voltages(My,a,alpha,v0)
+losses_unc = {}
 print(fdr.predict_losses())
-losses_unc = get_losses(np.hstack((v0,np.array(voltages))))
+for t in voltages:
+    ls = get_losses(voltages[t])
+    for l in ls:
+        if l not in losses_unc:
+            losses_unc[l] = 0
+        losses_unc[l] += ls[l][2]
 
 fdr.load_flatten()
-voltages = fdr.get_average_voltages(My,a,alpha)
+voltages = fdr.get_all_voltages(My,a,alpha,v0)
+losses_lf = {}
 print(fdr.predict_losses())
-losses_lf = get_losses(np.hstack((v0,np.array(voltages))))
+for t in voltages:
+    ls = get_losses(voltages[t])
+    for l in ls:
+        if l not in losses_lf:
+            losses_lf[l] = 0
+        losses_lf[l] += ls[l][2]
 
 fdr.loss_minimise()
-voltages = fdr.get_average_voltages(My,a,alpha)
+voltages = fdr.get_all_voltages(My,a,alpha,v0)
+losses_lm = {}
 print(fdr.predict_losses())
-losses_lm = get_losses(np.hstack((v0,np.array(voltages))))
+for t in voltages:
+    ls = get_losses(voltages[t])
+    for l in ls:
+        if l not in losses_lm:
+            losses_lm[l] = 0
+        losses_lm[l] += ls[l][2]
 
 with open('lv test/branch_losses.csv','w') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(['line','no evs','unc','lf','lm'])
     for l in losses_unc:
-        writer.writerow([l,losses_no_evs[l][2],losses_unc[l][2],losses_lf[l][2],
-                         losses_lm[l][2]])
+        writer.writerow([l,losses_no_evs[l],losses_unc[l],losses_lf[l],
+                         losses_lm[l]])
 
 '''
 busV = {}
