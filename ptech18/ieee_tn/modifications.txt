@@ -26,7 +26,7 @@ If there are no regulators, this is then complete.
 II: fixed_voltage_testing
 We need to insert an additional line to connect the meter to to get the elements downstream, ie
 
-b0--Reg--b0r 
+b0--Reg--b0r
 to
 b0--Reg--b0r0--Line+meter--b0r.
 

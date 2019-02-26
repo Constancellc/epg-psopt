@@ -410,7 +410,7 @@ def get_ckt(WD,feeder):
     ckts[fdrs[16]]=[WD+'\\ieee_tn\\13Bus_copy',WD+'\\ieee_tn\\13Bus_copy\\IEEE13NodecktMod_z']
     ckts[fdrs[17]]=[WD+'\\ieee_tn\\ckt5',WD+'\\ieee_tn\\ckt5\\Master_ckt5_z']
     ckts[fdrs[18]]=[WD+'\\ieee_tn\\ckt7',WD+'\\ieee_tn\\ckt7\\Master_ckt7_z']
-    
+    ckts[fdrs[19]]=[WD+'\\ieee_tn\\j1',WD+'\\ieee_tn\\j1\\Master_noPV_z']
     ckts[fdrs[20]]=[WD+'\\ieee_tn\\k1',WD+'\\ieee_tn\\k1\\Master_NoPV_z']
     ckts[fdrs[21]]=[WD+'\\ieee_tn\\m1',WD+'\\ieee_tn\\m1\\Master_NoPV_z']
     
@@ -499,4 +499,6 @@ def getMu_Kk(feeder,ltcOn):
         mu_kk = 0.6 # 021
     if feeder=='074':
         mu_kk = 0.45 # 074
+    if feeder=='epri5':
+        mu_kk = 0.7
     return mu_kk

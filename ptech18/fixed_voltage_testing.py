@@ -35,19 +35,20 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-test_model_plt = False
+# test_model_plt = False
 test_model_bus = True
-# test_model_bus = False
+test_model_bus = False
 test_model_dff = True
 test_model_dff = False
 
-fdr_i = 16
+fdr_i = 9
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']
 feeder=fdrs[fdr_i]
 
 k = np.arange(-1.5,1.6,0.025)
 # k = np.arange(1.6,-1.5,-0.025)
 k = np.arange(-1.5,1.6,0.1)
+k = np.arange(-1.5,1.6,0.3)
 # k = np.arange(0,1.0,1.0)
 
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -115,8 +116,9 @@ bVR = bV[v_idx_shf]
 KtR = Kt[v_idx_shf,:]
 regVreg = get_regVreg(DSSCircuit)
 
+print('Start Kron Red...',time.process_time())
 Anew,Bnew = kron_red(KyR,KdR,KtR,bVR,regVreg)
-Anew,Bnew = kron_red(KyR,KdR,KtR,bVR,regVreg)
+
 # 5. Test if these are working
 
 ve=np.zeros([k.size])
@@ -162,6 +164,7 @@ for i in range(len(k)):
     
     if len(H)==0:
         vv_l[i,:] = Ky.dot(xhy[s_idx]) + bV
+        vv_lN[i,:] = np.concatenate((Anew.dot(xhy[s_idx_new]) + Bnew,np.array(regVreg)))
     else:
         xhd = -1e3*s_2_x(sD) # not [3:] like sY
         vv_l[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
@@ -173,7 +176,7 @@ for i in range(len(k)):
     veN[i] = np.linalg.norm( vv_lN[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
 
 
-print('--- Start Testing, 1/2 --- \n',time.process_time())
+print('--- Start Testing, 2/2 --- \n',time.process_time())
 DSSText.command='set controlmode=static'
 for i in range(len(k)):
     print(i,'/',len(k)-1)
@@ -194,6 +197,7 @@ for i in range(len(k)):
 
     if len(H)==0:
         vv_l_ctr[i,:] = Ky.dot(xhy[s_idx]) + bV
+        vv_lN_ctr[i,:] = np.concatenate((Anew.dot(xhy[s_idx_new]) + Bnew,np.array(regVreg)))
     else:
         xhd = -1e3*s_2_x(sD) # not [3:] like sY
         vv_l_ctr[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV

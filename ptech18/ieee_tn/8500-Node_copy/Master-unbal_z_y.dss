@@ -18,7 +18,7 @@ Redirect  Triplex_Linecodes.dss
 Redirect  Lines_z.dss
 Redirect  LoadXfmrs.dss    ! Load Transformers
 Redirect  Triplex_Lines.dss
-Redirect  Regulators.dss
+Redirect  Regulators_z.dss
 
 !Redirect  UnbalancedLoads.dss
 !Redirect  Capacitors.dss
@@ -33,8 +33,10 @@ Buscoords  Buscoords.dss
 
 Set Maxiterations=100
 
-New Energymeter.m1 Line.ln5815900-1 1
-New Monitor.m1 Line.ln5815900-1 1
+New energymeter.msub element=transformer.HVMV_Sub ! not clear right now if this will work with the source reactor...!
+New energymeter.mreg2 element=line.reg2
+New energymeter.mreg3 element=line.reg3
+New energymeter.mreg4 element=line.reg4
 
 batchedit line..*_sw length=0.01
 solve

@@ -204,11 +204,12 @@ def get_regZneIdx(DSSCircuit):
                         node = bus.split('.')[0]
                         phs = bus.split('.')[1:]
                         for ph in phs:
-                            idx = find_node_idx(n2y,node+'.'+ph,False)
-                            zoneIdx[i-1].append(idx)
-                            for no in idx:
-                                if (no in yzRegIdx[i-1])==False:
-                                    yzRegIdx[i-1].append(no)
+                            if ph!='0': # added???
+                                idx = find_node_idx(n2y,node+'.'+ph,False)
+                                zoneIdx[i-1].append(idx)
+                                for no in idx:
+                                    if (no in yzRegIdx[i-1])==False:
+                                        yzRegIdx[i-1].append(no)
                 
         yzRegIdx[i-1].sort()
         regSze.append(len(yzRegIdx[i-1]))
