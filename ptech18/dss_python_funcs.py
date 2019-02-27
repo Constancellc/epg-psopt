@@ -462,22 +462,42 @@ def loadLtcModel(feeder,lin_point,WD,lp_taps):
     LM['SyYNodeOrder'] = np.load(stt+'SyYNodeOrder'+end)
     LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)
     return LM
+
+def loadNetModel(feeder,lin_point,WD,lp_taps,netModel):
+    # lp_taps either 'Nmt' or 'Lpt'.
+    if netModel==1:
+        stt = WD+'\\lin_models\\'+feeder+'\\ltc_model\\'+feeder+lp_taps+'Ltc'
+    if netModel==2:
+        stt = WD+'\\lin_models\\'+feeder+'\\fxd_model\\'+feeder+lp_taps+'Fxd'
+    end = str(np.round(lin_point*100).astype(int)).zfill(3)+'.npy'
+    LM = {}
+    LM['A'] = np.load(stt+'A'+end)
+    LM['B'] = np.load(stt+'B'+end)
+    LM['s_idx'] = np.load(stt+'s_idx'+end)
+    LM['v_idx'] = np.load(stt+'v_idx'+end)
+    LM['Vbase'] = np.load(stt+'Vbase'+end)
+    LM['xhy0'] = np.load(stt+'xhy0'+end)
+    LM['xhd0'] = np.load(stt+'xhd0'+end)
+    LM['YZ'] = np.load(stt+'YZ'+end)
+    LM['SyYNodeOrder'] = np.load(stt+'SyYNodeOrder'+end)
+    LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)
+    return LM
     
-def getMu_Kk(feeder,ltcOn):
+def getMu_Kk(feeder,tapOn):
     # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1',feeder]
-    if feeder=='13bus' and ltcOn:
+    if feeder=='13bus' and tapOn:
         mu_kk = 0.9 # 13 BUS with LTC
-    if feeder=='34bus' and ltcOn:
+    if feeder=='34bus' and tapOn:
         mu_kk = 0.4 # 34 BUS with LTC
-    if feeder=='123bus' and ltcOn:        
+    if feeder=='123bus' and tapOn:        
         mu_kk = 3.0 # 123 BUS with LTC
     if feeder=='eulv':
         mu_kk = 0.6 # EU LV
-    if feeder=='epriK1' and not ltcOn:
+    if feeder=='epriK1' and not tapOn:
         mu_kk = 0.7 # EPRI K1, no LTC
-    if feeder=='epriK1' and ltcOn:
+    if feeder=='epriK1' and tapOn:
         mu_kk = 1.20 # EPRI K1, with LTC
-    if feeder=='epri7' and not ltcOn:
+    if feeder=='epri7' and not tapOn:
         mu_kk = 0.5 # EPRI ckt7
     if feeder=='usLv':
         mu_kk = 1.75 # US LV

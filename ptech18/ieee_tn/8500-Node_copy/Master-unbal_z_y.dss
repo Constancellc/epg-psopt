@@ -8,7 +8,7 @@ New Circuit.IEEE8500u
 ! Make the source stiff with small impedance
 ~ pu=1.05  r1=0  x1=0.001  r0=0  x0=0.001 basekv=12.47
 
-!Redirect  Transformers_y.dss
+!Redirect  Transformers.dss
 Redirect  Transformers_z_y.dss
 
 Redirect  LineCodes2.dss
@@ -34,6 +34,7 @@ Buscoords  Buscoords.dss
 Set Maxiterations=100
 
 New energymeter.msub element=transformer.HVMV_Sub ! not clear right now if this will work with the source reactor...!
+New energymeter.mregf element=line.regf
 New energymeter.mreg2 element=line.reg2
 New energymeter.mreg3 element=line.reg3
 New energymeter.mreg4 element=line.reg4

@@ -79,7 +79,6 @@ regZonIdx = (np.array(regZonIdx0[3:])-3).tolist()
 
 regIdx = get_regIdx(DSSCircuit)
 reIdx = (np.array(get_reIdx(regIdx,len(YZ))[3:])-3).tolist()
-
 YZnew = vecSlc(YZ[3:],reIdx) # checksum
 
 # get index shifts
@@ -94,14 +93,17 @@ sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
 p_idx_yz = np.array(sY[3:].nonzero())
 p_idx_shf,p_idx_new = idx_shf(p_idx_yz[0],reIdx)
 s_idx_shf = np.concatenate((p_idx_shf,p_idx_shf+len(p_idx_shf)))
-
-p_idx = np.array(sY[3:].nonzero())
-s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)[0]
+s_idx = np.concatenate((p_idx_yz,p_idx_yz+len(sY)-3),axis=1)[0]
 s_idx_new = np.concatenate((p_idx_new,p_idx_new+len(sY)-3))
+# p_idx = np.array(sY[3:].nonzero())
+# s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)[0]
 
 yzI = yzD2yzI(yzD,node_to_YZ(DSSCircuit))
 yzI_shf,yzI_new = idx_shf(yzI,reIdx)
 
+YZp = vecSlc(YZ[3:],p_idx_new) # verified
+YZd = vecSlc(YZ,yzI_new) 
+Yvbase_new = get_Yvbase(DSSCircuit)[3:][v_idx_new]
 sD_idx_shf = np.concatenate((yzI_shf,yzI_shf+len(yzI_shf)))
 
 Sd = YNodeVnom[yzI]*(iD.conj())/1e3
@@ -111,10 +113,7 @@ Kq = Sd[yzI_shf].imag/sD[yzI_shf].imag # not sure here?
 
 xhR = np.concatenate((xhy0[s_idx_shf],xhd0[sD_idx_shf]))
 
-YZp = vecSlc(YZ[3:],p_idx_new) # verified
-YZd = vecSlc(YZ,yzI_new) 
 
-Yvbase_new = get_Yvbase(DSSCircuit)[3:][v_idx_new]
 # 3. FIND LTC MATRICES ====
 rReg,xReg = getRxVltsMat(DSSCircuit)
 Rreg = np.diag(rReg)

@@ -17,36 +17,36 @@ import numpy as np
 from dss_python_funcs import *
 
 # CHOOSE Network
-fdr_i = 8
+fdr_i = 9
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1']
 feeder = fdrs[fdr_i]
 # feeder = '213'
 
-ltcModel=True
-# ltcModel=False
+netModel=0 # none
+netModel=1 # ltc
+netModel=2 # fixed
 
 lin_point=0.6
 lp_taps='Lpt'
 
 Vmax = 1.055
-# Vmax = 1.065 # EPRI ckt 7
+# Vmax = 1.065 # EPRI ckt 7; 8500 Node
 Vmin  = 0.95
 
 ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
 
 nMc = int(1e5)
-nMc = int(3e4)
-# nMc = int(3e3)
-# nMc = int(1e3)
 nMc = int(3e2)
-# nMc = int(1e2)
+nMc = int(1e2)
+# nMc = int(30)
 
 # PDF options
 mu_k0 = np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. 
 # mu_k0 = np.arange(0.5,6.0,0.1) # NB this is as a PERCENTAGE of the chosen nominal powers. 
 # mu_k0 = 5.5*np.array([1.0]) # NB this is as a PERCENTAGE of the chosen nominal powers. 
 
-mu_kk = getMu_Kk(feeder,ltcModel)
+# mu_kk = getMu_Kk(feeder,netModel)
+mu_kk = 0.4
 mu_k = mu_k0*mu_kk
 pdfName = 'gamma'
 k = np.array([2.0]) # we do not know th, sigma until we know the scaling from mu0.
@@ -58,7 +58,7 @@ mcLinOn = True
 mcDssOn = True
 # mcDssOn = False
 useCbs = True
-useCbs = False
+# useCbs = False
 
 # (Active) PLOTTING options:
 pltPdfs = True
@@ -110,12 +110,12 @@ DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText = DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution = DSSCircuit.Solution
-sn0 = sn +  feeder + str(int(lin_point*1e2)) + 'ltc' + str(int(ltcModel)) + 'ld' + str(int(ld2mean*1e2))
+# sn0 = sn +  feeder + str(int(lin_point*1e2)) + 'mdl' + str(netModel) + 'ld' + str(int(ld2mean*1e2))
 
-print('Start. Feeder:',feeder,' Linpoint:',lin_point,' LTC On:',ltcModel,' Vmax:',Vmax)
+# print('Start. Feeder:',feeder,' Linpoint:',lin_point,' Tap Model:',netModel,' Vmax:',Vmax)
 
 # PART A.1 - load model ===========================
-if not ltcModel:
+if not netModel:
     # IF using the FIXED model:
     LM = loadLinMagModel(feeder,lin_point,WD,'Lpt')
     Ky=LM['Ky'];Kd=LM['Kd'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
@@ -126,9 +126,9 @@ if not ltcModel:
     KyP = Ky[:,:Ky.shape[1]//2]
     KdP = Kd[:,:Kd.shape[1]//2]
     Ktot = np.concatenate((KyP,KdP),axis=1)
-elif ltcModel:
+elif netModel>0: # 1 or 2
     # IF using the LTC model:
-    LM = loadLtcModel(feeder,lin_point,WD,'Lpt')
+    LM = loadNetModel(feeder,lin_point,WD,'Lpt',netModel)
     A=LM['A'];bV=LM['B'];xhy0=LM['xhy0'];xhd0=LM['xhd0']; 
     vBase = LM['Vbase']
     
@@ -161,9 +161,12 @@ if lp_taps=='Lpt':
     cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
     DSSSolution.Solve()
 
-if not ltcModel:
+# if not ltcModel:
+if not netModel:
     DSSText.command='set controlmode=off'
-elif ltcModel:
+elif netModel:
+# elif ltcModel:
+    print(netModel)
     DSSText.command='set maxcontroliter=30'
 DSSText.command='set maxiterations=100'
 
@@ -231,9 +234,7 @@ for i in range(pdfData['nP'][0]):
     x,t = dsf.dy2YzR(dx,Dx)
     Nt = len(x)-1
     
-    # pdfV = dsf.calcPdfSum(K1,x,t,params)
-    # pdfVnorm = dsf.getPdfNormSum(Ksgm,x)
-    pdfV = dsf.calcPdfSum(K1[cBs],x,t,params)
+    pdfV = dsf.calcPdfSum(K1[cBs],x,t,params,verbose=True) # pdf calcs here
     pdfVnorm = dsf.getPdfNormSum(Ksgm,x)
     
     DxG = np.ceil(2*3*2*max(KgSgm));
