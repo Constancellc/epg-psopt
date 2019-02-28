@@ -1,0 +1,1 @@
+New Load.Other_Feeders phases=3 Bus1=Feeders kV=34.5 xfkVA=23496.8 Allocationfactor=1 pf=0.992 conn=wye model=1 yearly=Other_Bus_Load
