@@ -116,7 +116,7 @@ def find_node_idx(n2y,bus,D):
         idx.append(n2y.get(bus_id+'.1',None))
         idx.append(n2y.get(bus_id+'.2',None))
         idx.append(n2y.get(bus_id+'.3',None))
-    elif ph=='0.0.0':
+    elif ph=='0.0.0' or ph=='0': # nb second part experimental for single phase caps
         idx.append(n2y.get(bus_id+'.1',None))
         idx.append(n2y.get(bus_id+'.2',None))
         idx.append(n2y.get(bus_id+'.3',None))
@@ -124,7 +124,7 @@ def find_node_idx(n2y,bus,D):
         idx.append(n2y.get(bus_id+'.1',None))
         idx.append(n2y.get(bus_id+'.2',None))
         idx.append(n2y.get(bus_id+'.3',None))
-        idx.append(n2y.get(bus_id+'.4',None))
+        idx.append(n2y.get(bus_id+'.4',None))        
     elif D:
         if bus.count('.')==1:
             idx.append(n2y[bus])
