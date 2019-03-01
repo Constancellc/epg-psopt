@@ -9,6 +9,7 @@ Here we mostly need to reorder so that the _y version
 
 1. reorder things (next to sourcebus first; loads/caps to end)
 2. Change 3ph delta loads to 3x1ph loads
+2a. If causing problems, also convert 3ph y- loads to 1ph loads.
 3. Change loads to constant power and fix load min/max voltages (if wanted)
 
 TO DO: 3a: calculate source impedance; remove source impedance from Vsource; add source impedance line.
@@ -19,7 +20,7 @@ Ia: create the *_y_z file:
 
 4. make sourcebus -> sourcebus_y in downstream element to removexby
 5. remove all loads/caps as required
-
+len(H)
 If there are no regulators, this is then complete.
 
 ======

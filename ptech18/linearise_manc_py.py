@@ -25,12 +25,14 @@ DSSSolution.tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
 test_model = True
-# test_model = False
+test_model = False
 test_model_bus = True
 test_model_bus = False
+saveModel = True
 saveCc = True
 saveCc = False
-fdr_i = 22
+verbose=True
+fdr_i = 8
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']; lp_taps='Nmt'
 # feeder='021'
@@ -41,8 +43,8 @@ lin_points=np.array([0.3,0.6,1.0])
 lin_points=np.array([0.6])
 # lin_points=np.array([1.0])
 k = np.arange(-1.5,1.6,0.1)
-k = np.array([-1.5,-1.0,-0.5,0.0,0.3,lin_points[:],1.0,1.5])
-# k = np.array([0.0,0.3,lin_points[:],1.0])
+# k = np.array([-1.5,-1.0,-0.5,0.0,0.3,lin_points[:],1.0,1.5]) # for speedier test model plotting
+# k = np.array([0.0,0.3,lin_points[:],1.0]) for test_model_bus
 
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
@@ -52,9 +54,9 @@ fn_y = fn+'_y'
 dir0 = WD + '\\lin_models\\' + feeder
 sn0 = dir0 + '\\' + feeder + lp_taps
 
-print('Start, feeder:',feeder,'\n',time.process_time())
+print('Start, feeder:',feeder,'\nSaving:',saveModel,'\n',time.process_time())
 
-ve=np.zeros([k.size,lin_points.size])
+# ve=np.zeros([k.size,lin_points.size])
 vve=np.zeros([k.size,lin_points.size])
 vae=np.zeros([k.size,lin_points.size])
 vvae=np.zeros([k.size,lin_points.size])
@@ -81,8 +83,13 @@ for K in range(len(lin_points)):
     # cndY = np.linalg.cond(Ybus.toarray())
     # print(np.log10(cndY))
     
+    # CHECK 1: YNodeOrder 
+    DSSText.command='Compile ('+fn+'.dss)'
+    YZ0 = DSSCircuit.YNodeOrder
+    
     # Reproduce delta-y power flow eqns (1)
     DSSText.command='Compile ('+fn+'.dss)'
+
     fix_tap_pos(DSSCircuit, TC_No0)
     DSSText.command='Set Controlmode=off'
     DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
@@ -90,39 +97,58 @@ for K in range(len(lin_points)):
     # BB00,SS00 = cpf_get_loads(DSSCircuit)
     
     Yvbase = get_Yvbase(DSSCircuit)[3:]
-    
+
     cpf_set_loads(DSSCircuit,BB00,SS00,lin_point)
     DSSSolution.Solve()
     YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
     sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
-    # sY0,sD0,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
-    # chkc = abs(iTot + Ybus.dot(YNodeV))/abs(iTot) # 1c needs checking outside
-    # chkc_n = np.linalg.norm(iTot + Ybus.dot(YNodeV))/np.linalg.norm(iTot) # 1c needs checking outside
-    # print_node_array(DSSCircuit.YNodeOrder,chkc)
-    # plt.plot( chkc_nom[np.isinf(chkc)==False] ), plt.show()
     BB0,SS0 = cpf_get_loads(DSSCircuit)
+    
+    cpf_set_loads(DSSCircuit,BB00,SS00,0.0)
+    DSSSolution.Solve()
+    YNodeVnoLoad = tp_2_ar(DSSCircuit.YNodeVarray)
+    
+    
+    dI = iTot + Ybus.dot(YNodeV)
+    dIang0 = np.rad2deg(np.angle(iTot[iTot!=0]) - np.angle(Ybus.dot(YNodeV)[iTot!=0]) )
+    dIang = np.mod(dIang0+270,180)-90
+    
+    # plt.semilogy(np.abs(dI)), plt.show()
+    # chkc = abs(dI)/abs(iTot) # 1c needs checking outside
+    # chkc_n = np.linalg.norm(iTot + Ybus.dot(YNodeV))/np.linalg.norm(iTot) # 1c needs checking outside
+    # plt.plot( chkc[np.isinf(chkc)==False] ), plt.show()
     # --------------------
     xhy0 = -1e3*s_2_x(sY[3:])
     xhd0 = -1e3*s_2_x(sD) # not [3:] like sY!
     
     V0 = YNodeV[0:3]
     Vh = YNodeV[3:]
+    VnoLoad = YNodeVnoLoad[3:]
 
     if len(H)==0:
         print('Create linear models My:\n',time.process_time())
         My,a = nrel_linearization_My( Ybus,Vh,V0 )
         print('Create linear models Ky:\n',time.process_time())
         Ky,b = nrel_linearization_Ky(My,Vh,sY)
+        Vh0 = My.dot(xhy0) + a # for validation
     else:
         print('Create linear models M:\n',time.process_time())
         My,Md,a = nrel_linearization( Ybus,Vh,V0,H )
         print('Create linear models K:\n',time.process_time())
         Ky,Kd,b = nrel_linearization_K(My,Md,Vh,sY,sD)
-
+        Vh0 = My.dot(xhy0) + Md.dot(xhd0) + a # for validation
+    
+    if verbose:
+        print('\nYNodeOrder Check - matching:',YZ0==YNodeOrder)
+        print('\nMax abs(dI), Amps:',max(np.abs(dI[3:])))
+        print('Max angle(dI), deg:',max(abs(dIang)))
+        print('\nVoltage error (lin point), Volts:',np.linalg.norm(Vh0-Vh)/np.linalg.norm(Vh))
+        print('Voltage error (no load point), Volts:',np.linalg.norm(a-VnoLoad)/np.linalg.norm(VnoLoad),'\n')
+    
     DSSText.command='Compile ('+fn+')'
     fix_tap_pos(DSSCircuit, TC_No0)
     DSSText.command='Set controlmode=off'
-    # DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+    DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
 
     # NB!!! -3 required for models which have the first three elements chopped off!
     v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
@@ -132,7 +158,6 @@ for K in range(len(lin_points)):
     
     p_idx = np.array(sY[3:].nonzero())
     s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)[0]
-
     
     MyV = My[v_idx,:][:,s_idx]
     aV = a[v_idx]
@@ -177,7 +202,6 @@ for K in range(len(lin_points)):
             xhy = -1e3*s_2_x(sY[3:])
             
             # Vslv[i,:] = fixed_point_solve(Ybus,v_0[i,:],-1e3*sY[3:],-1e3*sD,H)
-            
             if len(H)==0:
                 # v_l[i,:] = My.dot(xhy) + a
                 vv_l[i,:] = MyV.dot(xhy[s_idx]) + aV
@@ -185,13 +209,13 @@ for K in range(len(lin_points)):
                 vva_l[i,:] = KyV.dot(xhy[s_idx]) + bV
             else:
                 xhd = -1e3*s_2_x(sD) # not [3:] like sY
-                v_l[i,:] = My.dot(xhy) + Md.dot(xhd) + a
+                # v_l[i,:] = My.dot(xhy) + Md.dot(xhd) + a
                 vv_l[i,:] = MyV.dot(xhy[s_idx]) + MdV.dot(xhd) + aV
-                va_l[i,:] = Ky.dot(xhy) + Kd.dot(xhd) + b
+                # va_l[i,:] = Ky.dot(xhy) + Kd.dot(xhd) + b
                 vva_l[i,:] = KyV.dot(xhy[s_idx]) + KdV.dot(xhd) + bV
 
             # ve[i,K] = np.linalg.norm( (v_l[i,:] - v_0[i,3:])/Yvbase )/np.linalg.norm(v_0[i,3:]/Yvbase) # these are very slow for the bigger networks!
-            # vae[i,K] = np.linalg.norm( (va_l[i,:] - va_0[i,3:])/Yvbase )/np.linalg.norm(va_0[i,3:]/Yvbase) # these are very slow for the bigger networks!
+            vae[i,K] = np.linalg.norm( (va_l[i,:] - va_0[i,3:])/Yvbase )/np.linalg.norm(va_0[i,3:]/Yvbase) # these are very slow for the bigger networks!
             
             vve[i,K] = np.linalg.norm( (vv_l[i,:] - vv_0[i,:])/YvbaseV )/np.linalg.norm(vv_0[i,:]/YvbaseV)
             vvae[i,K] = np.linalg.norm( (vva_l[i,:] - vva_0[i,:])/YvbaseV )/np.linalg.norm(vva_0[i,:]/YvbaseV)
@@ -199,25 +223,26 @@ for K in range(len(lin_points)):
             
             # plt.plot(abs(v_l[i]/Yvbase),'rx-')
             # plt.plot(abs(v_0[i,3:]/Yvbase),'ko-')
-    header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
-    lp_str = str(round(lin_point*100).astype(int)).zfill(3)
-    if not os.path.exists(dir0):
-        os.makedirs(dir0)
-    np.savetxt(sn0+'header'+lp_str+'.txt',[0],header=header_str)
-    np.save(sn0+'Ky'+lp_str+'.npy',KyV)
-    np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx])
-    np.save(sn0+'bV'+lp_str+'.npy',bV)
-    
-    np.save(sn0+'v_idx'+lp_str+'.npy',v_idx)
-    
-    np.save(sn0+'vKvbase'+lp_str+'.npy',YvbaseV)
-    np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vecSlc(YNodeOrder[3:],v_idx))
-    np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',vecSlc(YNodeOrder[3:],p_idx)[0])
-    np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',yzD)
-    
-    if len(H)!=0:
-        np.save(sn0+'Kd'+lp_str+'.npy',KdV)
-        np.save(sn0+'xhd0'+lp_str+'.npy',xhd0)
+    if saveModel:
+        header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
+        lp_str = str(round(lin_point*100).astype(int)).zfill(3)
+        if not os.path.exists(dir0):
+            os.makedirs(dir0)
+        np.savetxt(sn0+'header'+lp_str+'.txt',[0],header=header_str)
+        np.save(sn0+'Ky'+lp_str+'.npy',KyV)
+        np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx])
+        np.save(sn0+'bV'+lp_str+'.npy',bV)
+        
+        np.save(sn0+'v_idx'+lp_str+'.npy',v_idx)
+        
+        np.save(sn0+'vKvbase'+lp_str+'.npy',YvbaseV)
+        np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vecSlc(YNodeOrder[3:],v_idx))
+        np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',vecSlc(YNodeOrder[3:],p_idx)[0])
+        np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',yzD)
+        
+        if len(H)!=0:
+            np.save(sn0+'Kd'+lp_str+'.npy',KdV)
+            np.save(sn0+'xhd0'+lp_str+'.npy',xhd0)
 print('Complete.\n',time.process_time())
 
 if test_model:
@@ -227,7 +252,7 @@ if test_model:
     # # ylm = plt.ylim(); plt.ylim((0,ylm[1])), 
     # plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     # plt.show()
-    # plt.savefig(fig_loc+'figA')
+    # # plt.savefig(fig_loc+'figA')
     plt.figure()
     plt.plot(k,vve), plt.title(feeder+', MyV error')
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
@@ -237,7 +262,7 @@ if test_model:
     # plt.plot(k,vae), plt.title(feeder+', Ky error')
     # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     # plt.show()
-    # # # plt.savefig('figC')
+    # # plt.savefig('figC')
     plt.figure()
     plt.plot(k,vvae), plt.title(feeder+', KyV error')
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')

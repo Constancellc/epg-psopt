@@ -12,10 +12,10 @@ def nrel_linearization(Ybus,Vh,V0,H):
     
     Ylli = spla.inv(Yll)
     
-    Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) ).tocsc()
+    Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) ).tocsc() # NB: this looks slow
     Vh_diagi = spla.inv(Vh_diag)
 
-    HVh_diag = sparse.dia_matrix( (H0.dot(Vh.conj()),0) ,shape=(H0.shape[0],H0.shape[0]) ).tocsc()
+    HVh_diag = sparse.dia_matrix( (H0.dot(Vh.conj()),0) ,shape=(H0.shape[0],H0.shape[0]) ).tocsc() # NB: this looks slow
     HVh_diagi = spla.inv(HVh_diag)
     
     My_0 = Ylli.dot(Vh_diagi)
