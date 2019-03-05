@@ -34,7 +34,7 @@ b0--Reg--b0r0--Line+meter--b0r.
 For each regulator X,
 6. Change regulator secondary bus to *r0
 7. Add a switch (line) from *r0 to *r, called line.X (e.g. new line.X bus1=634r0 bus2=634r phases=3 switch=true)
-8. Before Add a new meter at the substation: new energymeter.msub element=transformer.sub
+8. Add a new meter at the substation: new energymeter.msub element=transformer.sub
 9. Add a new meter for each regulator: new energymeter.mX element=line.X
 10. Naming convention: Try to call all regulators reg\s\i e.g. regD2 (not cregX); call gang operated regulators *G (like regxG)
 

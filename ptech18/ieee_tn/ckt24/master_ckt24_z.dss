@@ -39,7 +39,9 @@ Calcvoltagebases
 !Redirect Monitors_ckt24.dss
 
 ! optional energy meter. this was used to allocate the loads
-New energymeter.Feeder element=line.fdr_05410 term=1 option=R action=C PhaseVolt=yes peakcurrent=(466,469,452)
+!New energymeter.Feeder element=line.fdr_05410 term=1 option=R action=C PhaseVolt=yes peakcurrent=(466,469,452)
+new energymeter.msub element=transformer.SubXFMR
+new energymeter.mregsG element=line.regsG
 
 ! now that we have buses defined, define the bus coordinates so we can draw pictures
 Buscoords buscoords_ckt24.dss

@@ -17,7 +17,7 @@ import numpy as np
 from dss_python_funcs import *
 
 # CHOOSE Network
-fdr_i = 9
+fdr_i = 21
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder = fdrs[fdr_i]
 # feeder = '213'
@@ -195,9 +195,10 @@ hcGen = []; hcGenLin = []
 for i in range(pdfData['nP'][0]):
     # PART A.2 - choose distributions and reduce linear model ===========================
     roundI = 1e0
-    Mu0_y = -ld2mean*roundI*np.round(xhy0[:xhy0.shape[0]//2]/roundI  - 1e6*np.finfo(np.float64).eps) # latter required to make sure that this is negative
-    Mu0_d = -ld2mean*roundI*np.round(xhd0[:xhd0.shape[0]//2]/roundI - 1e6*np.finfo(np.float64).eps)
+    Mu0_y = -ld2mean*roundI*np.round(xhy0[:xhy0.shape[0]//2]/roundI  - 1e8*np.finfo(np.float64).eps) # latter required to make sure that this is negative
+    Mu0_d = -ld2mean*roundI*np.round(xhd0[:xhd0.shape[0]//2]/roundI - 1e8*np.finfo(np.float64).eps)
     Mu0 = np.concatenate((Mu0_y,Mu0_d))
+    Mu0[Mu0<=0] = 0.0
     
     if pdfData['name']=='gamma': # NB: mean of gamma distribution is k*th; variance is k*(th**2)
         k = pdfData['prms'][i]
