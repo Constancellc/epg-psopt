@@ -3,6 +3,7 @@ import random
 import copy
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 #from cvxopt import matrix, spdiag, sparse, solvers
 
 def red(f,upper,lower):
@@ -69,8 +70,9 @@ with open('lv test/branch_losses.csv','rU') as csvfile:
         losses[row[0][4:]] = [float(row[1]),float(row[2]),float(row[3]),
                               float(row[4])]
 
+
 titles = ['No EVs','Uncontrolled']
-plt.figure(figsize=(6,3))
+plt.subplots(1,figsize=(6,3))
 plt.rcParams["font.family"] = 'serif'
 plt.rcParams['font.size'] = 9
 for i in range(1,3):
@@ -110,18 +112,21 @@ for i in range(1,3):
     plt.ylim(392740,392890)
     plt.xticks([390860,391030],['',''])
     plt.yticks([392740,392890],['',''])
-plt.tight_layout()
+    plt.axis('off')
 plt.tight_layout()
 plt.savefig('../../../Dropbox/papers/losses/img/network_loss_map.eps', format='eps',
             dpi=1000, bbox_inches='tight', pad_inches=0)
 
-plt.figure(figsize=(4,3.5))
+
+fig,ax = plt.subplots(1,figsize=(5.5,3.5))
+
 for l in lines:
     a = lines[l][0]
     b = lines[l][1]
     x = [buses[a][0],buses[b][0]]
     y = [buses[a][1],buses[b][1]]
     lpd = (losses[l][2]-losses[l][3])/linesL[l]
+    
     if lpd <= 0:
         plt.plot(x,y,lw=1,c='r')
     else:
@@ -136,8 +141,23 @@ y = []
 for l in loads:
     x.append(buses[l][0])
     y.append(buses[l][1])
+rect1 = patches.Rectangle((391040,392850),40,4.6,linewidth=0.1,edgecolor='b',facecolor='b')
+rect2 = patches.Rectangle((391040,392830),40,2.4,linewidth=0.1,edgecolor='b',facecolor='b')
+rect3 = patches.Rectangle((391040,392810),40,0.8,linewidth=0.1,edgecolor='b',facecolor='b')
+rect4 = patches.Rectangle((391040,392790),40,0.8,linewidth=0.1,edgecolor='r',facecolor='r')
+
+ax.add_patch(rect1)
+ax.add_patch(rect2)
+ax.add_patch(rect3)
+ax.add_patch(rect4)
+ax.axis('off')
+plt.text(391085,392849,'200 W/m')
+plt.text(391085,392829,'100 W/m')
+plt.text(391085,392809,'50 W/m')
+plt.text(391085,392789,'-50 W/m')
+
 plt.scatter(x,y,c='gray')
-plt.xlim(390860,391030)
+plt.xlim(390860,391120)
 plt.ylim(392740,392890)
 plt.xticks([390860,391030],['',''])
 plt.yticks([392740,392890],['',''])
