@@ -2,12 +2,13 @@
 New Circuit.J1  pu=0.97 r1=0.0001376 x1=0.000014257 r0=0.001 x0=0.00008203 bus1=SourceBus basekv=69
 
 !New Transformer.SubXfmr phases=3 windings=2 buses=(S,LS_Bus) conns=(wye,wye) 
-New Transformer.SubXfmr phases=3 windings=2 buses=(SourceBus,LS_Bus) conns=(wye,wye) 
+New Transformer.SubXfmr phases=3 windings=2 buses=(SourceBus,LS_Busr) conns=(wye,wye) 
 ~ kvs=(68.8,13.09) kvas=(16000,16000) numtaps=16
 ~ xhl=11.63 wdg=1 %r=0.596 wdg=2 %r=0.596
 ~ ppm_antifloat=5
 
-New regcontrol.SubXfmr transformer=SubXfmr vreg=124 winding=2 band=2 PTratio=60 Delay=90 tapdelay=30 
+New regcontrol.regsG transformer=SubXfmr vreg=124 winding=2 band=2 PTratio=60 Delay=90 tapdelay=30 
+new line.SubXfmr bus1=LS_Busr bus2=LS_Bus switch=True phases=3
 
 New line.temp_sub bus1=LS_Bus bus2=FeederHead switch=yes enabled=yes phases=3 normamps=99999 emergamps=99999
  

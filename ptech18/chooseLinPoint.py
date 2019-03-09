@@ -15,14 +15,17 @@ DSSSolution.tolerance=1e-7
 
 pltVxtrm = True
 # pltVxtrm = False
+savePts = True
+# savePts = False
 
-load1 = 0.2
+# load1 = 0.2
+load1 = 0.5
 load2 = 1.0
 Vp0 = 1.05 # pu
 Vm0 = 0.95 # pu
 roundInt = 200.
 
-fdr_i = 5
+fdr_i = 3
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 # feeder='021'
@@ -40,11 +43,15 @@ DSSText.command='Compile ('+fn+'.dss)'
 DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
 DSSText.command='Batchedit load..* status=variable'
 DSSSolution.Solve()
-DSSText.command='set maxcontroliter=30'
+# DSSText.command='set maxcontroliter=100' # if it isn't this high then J1 fails even for load=1.0!
+DSSText.command='set maxcontroliter=300' # if it isn't this high then J1 fails even for load=1.0!
 DSSText.command='set maxiterations=100'
 
 loadMults = np.linspace(-1.5,1.5,31)
-# loadMults = np.linspace(-0.2,1.5,21) # seems to be required for IEEE 8500
+if feeder=='epriJ1':
+    loadMults = np.linspace(-1.0,1.5,26) # required for EPRI J1
+elif feeder=='8500node':
+    loadMults = np.linspace(-0.2,1.5,18) # required for IEEE 8500
 
 vmax = []
 vmin = []
@@ -94,8 +101,9 @@ print('Feeder:',feeder)
 print('No. converged:',sum(cnvg),'/',len(cnvg))
 print('Vmax:',Vp,'pu\nVmin:',Vm,'pu')
 
-if not os.path.exists(SD):
-    os.makedirs(SD)
+if savePts:
+    if not os.path.exists(SD):
+        os.makedirs(SD)
 
-with open(SN,'wb') as handle:
-    pickle.dump(dataOut,handle)
+    with open(SN,'wb') as handle:
+        pickle.dump(dataOut,handle)

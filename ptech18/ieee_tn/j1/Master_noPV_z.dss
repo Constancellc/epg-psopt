@@ -10,7 +10,7 @@ Redirect LineCodes.dss
 Redirect Lines.dss
 Redirect Transformers.dss
 Redirect Services.dss
-Redirect Regulators.dss
+Redirect Regulators_z.dss
 Redirect Capacitors.dss
 Redirect LoadsInd.dss
 !Redirect ExistingPV.txt
@@ -18,15 +18,25 @@ Redirect LoadsInd.dss
 set maxiter=100
 set maxcontroliter=100
 
+new energymeter.msub element=transformer.subxfmr
+new energymeter.ma3 element=line.a3
+new energymeter.mb2 element=line.b2
+new energymeter.mc1 element=line.c1
+new energymeter.md1 element=line.d1
+new energymeter.me1 element=line.e1
+new energymeter.mf2 element=line.f2
+new energymeter.mh3 element=line.h3
+new energymeter.mi2 element=line.i2
+
 Set voltagebases=[69, 12.47, 7.2, 0.480, 0.416]
 Calcv
 Solve
 
-redirect monitors.dss
+!redirect monitors.dss
 
-Buscoords buscoords.dss
+!Buscoords buscoords.dss
 
-solve
-set markreg=True
-
-plot
+!solve
+!plot profile phases=all
+!set markreg=True
+!plot
