@@ -1,32 +1,19 @@
-import win32com.client
+import win32com.client, pickle, sys, os
 import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
 from dss_voltage_funcs import *
-import getpass
-
 
 # NB at the moment on considers the case where there is a single transformer tap to play with.
-
-try:
-	DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
-except:
-	print("Unable to stat the OpenDSS Engine")
-	raise SystemExit
-
+DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText = DSSObj.Text
 DSSCircuit=DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
+WD = os.path.dirname(sys.argv[0])
 
 # Things to do: 
 # 1. load a circuit;
-if getpass.getuser()=='Matt':
-    WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-elif getpass.getuser()=='chri3793':
-    WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
-
-# circuit details copied from linearise_manc_py.
-fdr_i = 21
+fdr_i = 8
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder=fdrs[fdr_i]
 ckt=get_ckt(WD,feeder)
@@ -41,6 +28,13 @@ test_model = False
 
 lin_points = np.array([0.3, 0.6, 1.0])
 lin_points = np.array([0.6])
+lin_points = False # use this if wanting to use the nominal point from chooseLinPoint.
+
+with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
+    lp0data = pickle.load(handle)
+if not lin_points:
+    lin_points=np.array([lp0data['k']])
+
 
 for i in range(len(lin_points)):
     print('Creating model', feeder,', linpoint=',lin_points[i])

@@ -2,7 +2,7 @@
 # Based on script charFuncHcAlys, deleted 30/01
 
 # STEPS:
-# Part A: analytic solution
+# Part A: Linear method
 # 1. Load linear model.
 # 2. Choose distributions at each bus
 # 3. Calculate distribution
@@ -13,105 +13,102 @@
 # 2. sample distibution appropriately and run load flow
 # 3. Compare results.
 
+import pickle, os, sys, win32com.client, time, getpass, scipy.stats
 import numpy as np
 from dss_python_funcs import *
+import numpy.random as rnd
+import matplotlib.pyplot as plt
+from math import gamma
+import dss_stats_funcs as dsf
+from sklearn.decomposition import TruncatedSVD
+
+WD = os.path.dirname(sys.argv[0])
 
 # CHOOSE Network
-fdr_i = 18
+fdr_i = 8
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder = fdrs[fdr_i]
 # feeder = '213'
 
 netModel=0 # none
-# netModel=1 # ltc
+netModel=1 # ltc
 # netModel=2 # fixed
 
-lin_point=0.6
+# lin_point=0.6
+lin_point=False
 lp_taps='Lpt'
 
-Vmax = 1.055
-# Vmax = 1.065 # EPRI ckt 7
-Vmin  = 0.95
+with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
+    lp0data = pickle.load(handle)
 
-ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
+load_point = lp0data['kLo']
+ld2mean = load_point - lp0data['k']
+
+Vmax = lp0data['Vp']
+Vmin = lp0data['Vm']
+
+# ld2mean = 0.5 # ie the mean of those generators which install is 1/2 of their load
 
 nMc = int(1e4)
 nMc = int(3e3)
-# nMc = int(1e3)
-# nMc = int(3e2)
-# nMc = int(1e2)
+nMc = int(1e3)
+nMc = int(3e2)
+nMc = int(1e2)
 
 # PDF options
 mu_k0 = np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. 
-# mu_k0 = 0.1*np.arange(0.5,6.0,0.1) # NB this is as a PERCENTAGE of the chosen nominal powers. 
-# mu_k0 = 0.3*np.arange(0.5,6.0,0.1) # NB this is as a PERCENTAGE of the chosen nominal powers. 
+mu_k0 = 0.1*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. 
+mu_k0 = 0.3*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers.
+# mu_k0 = 0.4*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers.
+# mu_k0 = 0.6*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers.
+
 # mu_k0 = 5.5*np.array([1.0]) # NB this is as a PERCENTAGE of the chosen nominal powers. 
 
-# mu_kk = getMu_Kk(feeder,ltcModel)
-mu_kk = getMu_Kk(feeder,netModel)
+# mu_kk = getMu_Kk(feeder,netModel)
+mu_kk = 1
 mu_k = mu_k0*mu_kk
 pdfName = 'gamma'
 k = np.array([0.5]) # we do not know th, sigma until we know the scaling from mu0.
-# k = np.array([3.0]) # we do not know th, sigma until we know the scaling from mu0.
+k = np.array([3.0]) # we do not know th, sigma until we know the scaling from mu0.
+k = np.array([10.0]) # we do not know th, sigma until we know the scaling from mu0.
+
 params = k
 pdfData = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))}
 
 mcLinOn = True
 # mcLinOn = False
 mcDssOn = True
-mcDssOn = False
+# mcDssOn = False
 useCbs = True
 useCbs = False
 
-evSvdLim = 0.99
-evSvdLim = 0.985
-evSvdLim = 0.90
-# nSvdMax = 100
+evSvdLim = 0.999
+evSvdLim = 0.995
+# evSvdLim = 0.98
+# evSvdLim = 0.90
 nSvdMax = 300
-# nSvdMax = 30
+nSvdMax = 100
+nSvdMax = 30
 # nSvdMax = 16
 
 
 # (Active) PLOTTING options:
-pltPdfs = True
-pltPdfs = False
-pltCdfs = True
-pltCdfs = False
-pltBox = True
-pltBox = False
 pltBoxDss = True
 pltBoxDss = False
-pltBoxBoth = True
-pltBoxBoth = False
-pltBoxNorm = True
-pltBoxNorm = False
-pltLinRst = True
-pltLinRst = False
 pltHcBoth = True
 # pltHcBoth = False
 pltGen = True
 pltGen = False
 
-pltCritBus = True
-pltCritBus = False
-
 pltSave = True
 pltSave = False
 # ADMIN =============================================
-import numpy.random as rnd
-import matplotlib.pyplot as plt
-import getpass
-from math import gamma
-import time
-import dss_stats_funcs as dsf
-import win32com.client
-import scipy.stats
+if not lin_point:
+    lin_point=lp0data['k']
 
 if getpass.getuser()=='chri3793':
-    WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
     sn = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190204\\charFuncMcVal_"
 elif getpass.getuser()=='Matt':
-    WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
     sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190204\\charFuncMcVal_"
 
 ckt = get_ckt(WD,feeder)
@@ -124,12 +121,9 @@ DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution = DSSCircuit.Solution
 # sn0 = sn +  feeder + str(int(lin_point*1e2)) + 'ltc' + str(int(netModel)) + 'ld' + str(int(ld2mean*1e2))
 
-from sklearn.decomposition import TruncatedSVD
-
-
 svd = TruncatedSVD(n_components=nSvdMax,algorithm='arpack') # see: https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html#sklearn.decomposition.TruncatedSVD
 
-print('Start. Feeder:',feeder,' Linpoint:',lin_point,' Tap Model:',netModel,' Vmax:',Vmax)
+print('Start. Feeder:',feeder,' Linpoint:',lin_point,' Load Point:',load_point,' Tap Model:',netModel,' Vmax:',Vmax)
 
 # PART A.1 - load model ===========================
 if not netModel:
@@ -138,7 +132,12 @@ if not netModel:
     Ky=LM['Ky'];Kd=LM['Kd'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
     vBase = LM['vKvbase']
 
-    b0 = (Ky.dot(xhy0) + Kd.dot(xhd0) + bV)/vBase # in pu
+    xhyN = xhy0/lin_point # needed seperately for lower down
+    xhdN = xhd0/lin_point
+    # xNom = np.concatenate((xhyN,xhdN))
+    
+    b0 = (Ky.dot(xhyN*load_point) + Kd.dot(xhdN*load_point) + bV)/vBase # in pu
+    # b0 = (Ky.dot(xhy0) + Kd.dot(xhd0) + bV)/vBase # in pu
 
     KyP = Ky[:,:Ky.shape[1]//2]
     KdP = Kd[:,:Kd.shape[1]//2]
@@ -149,8 +148,14 @@ elif netModel>0:
     A=LM['A'];bV=LM['B'];xhy0=LM['xhy0'];xhd0=LM['xhd0']; 
     vBase = LM['Vbase']
     
-    x0 = np.concatenate((xhy0,xhd0))
-    b0 = (A.dot(x0) + bV)/vBase # in pu
+    xhyN = xhy0/lin_point # needed seperately for lower down
+    xhdN = xhd0/lin_point
+    xNom = np.concatenate((xhyN,xhdN))
+    # xLoad = xNom*load_point
+    b0 = (A.dot(xNom*load_point) + bV)/vBase # in pu
+    
+    # x0 = np.concatenate((xhy0,xhd0))
+    # b0 = (A.dot(x0) + bV)/vBase # in pu
     
     KyP = A[:,0:len(xhy0)//2] # these might be zero if there is no injection (e.g. only Q)
     KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
@@ -174,13 +179,13 @@ KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
 DSSText.command='Compile ('+fn+'.dss)'
 BB0,SS0 = cpf_get_loads(DSSCircuit)
 if lp_taps=='Lpt':
-    cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
+    cpf_set_loads(DSSCircuit,BB0,SS0,load_point)
     DSSSolution.Solve()
 
 if not netModel:
     DSSText.command='set controlmode=off'
 elif netModel:
-    DSSText.command='set maxcontroliter=30'
+    DSSText.command='set maxcontroliter=300'
 DSSText.command='set maxiterations=100'
 
 YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
@@ -194,14 +199,11 @@ DSSSolution.Solve()
 
 genNames = genNamesY+genNamesD
 
-Vp_pct_aly = np.zeros(pdfData['nP'])
-Vp_pct_aly2 = np.zeros(pdfData['nP'])
 Vp_pct_dss = np.zeros(pdfData['nP'])
 Vp_pct_lin = np.zeros(pdfData['nP'])
 Vp_pct_linU = np.zeros(pdfData['nP'])
 Vp_pct_linS = np.zeros(pdfData['nP'])
 
-hc_aly = np.nan*np.zeros(pdfData['nP'])
 hc_dss = np.zeros(pdfData['nP'])
 hc_lin = np.zeros(pdfData['nP'])
 hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
@@ -211,8 +213,8 @@ hcGen = []; hcGenLin = []
 # PART A.2 - choose distributions and reduce linear model ===========================
 for i in range(pdfData['nP'][0]):
     roundI = 1e0
-    Mu0_y = -ld2mean*roundI*np.round(xhy0[:xhy0.shape[0]//2]/roundI  - 1e6*np.finfo(np.float64).eps) # latter required to make sure that this is negative
-    Mu0_d = -ld2mean*roundI*np.round(xhd0[:xhd0.shape[0]//2]/roundI - 1e6*np.finfo(np.float64).eps)
+    Mu0_y = -ld2mean*roundI*np.round(xhyN[:xhyN.shape[0]//2]/roundI  - 1e6*np.finfo(np.float64).eps) # latter required to make sure that this is negative
+    Mu0_d = -ld2mean*roundI*np.round(xhdN[:xhdN.shape[0]//2]/roundI - 1e6*np.finfo(np.float64).eps)
     Mu0 = np.concatenate((Mu0_y,Mu0_d))
     
     if pdfData['name']=='gamma': # NB: mean of gamma distribution is k*th; variance is k*(th**2)
@@ -331,21 +333,7 @@ for i in range(pdfData['nP'][0]):
                 hcGenSetLin[i,jj,4] = hcGenLin[np.floor(len(hcGenLin)*19.0/20.0).astype(int)]
         print('MC complete.',time.process_time())
 
-# alyMinHc = min(Vmax*(KkGen)/(Kk)) # NOT COMPLETELY clear why this isn't working.
-# print('Min HC, Pred:',alyMinHc/1e3)
-# print('Min HC, Act:',np.nanmin(hc_aly))
 
-
-# ii = 23
-# hist0 = plt.hist(vOutLin[:,ii],bins=100,density=True)[1]
-# # plt.hist(vOut[:,ii],bins=100,density=True)
-# print(b0[ii])
-# plt.plot(Vpu[ii],pdfV[ii]/dsf.get_dx(Vpu[ii]))
-# ylm = plt.ylim()
-# plt.plot([b0[ii],b0[ii]],ylm,'g--')
-# plt.plot([Vmax,Vmax],ylm,'r')
-# plt.ylim(ylm)
-# plt.show()
 
 
 # COMPARE RESULTS ==========
@@ -390,287 +378,17 @@ if pltGen:
         plt.show()
 
 
-if pltPdfs:
-    for i in range(len(Ktot)):
-        plt.plot(Vpu[i,:],pdfV[i,:])
-    plt.xlim((0.90,1.1))
-    
-    # plt.ylim((-5,90))
-    ylm = plt.ylim()
-    plt.plot(Vmin*np.ones(2),ylm,'r:')
-    plt.plot(Vmax*np.ones(2),ylm,'r:')
-    plt.ylim(ylm)
-    plt.grid(True)
-    if pltSave:
-        plt.savefig(sn0+'pltPdfs.png')
-    else:
-        plt.show()
-
-if pltCdfs:
-    # Analytic
-    plt.subplot(122)
-    plt.title('Linear Model')
-    plt.plot(Vpu.T,cdfV)
-    plt.plot(vAll,minV,'k--',linewidth=2.0)
-    plt.plot(vAll,maxV,'k--',linewidth=2.0)
-    plt.xlim((0.925,1.125))
-    ylm = plt.ylim()
-    plt.plot([Vmax,Vmax],ylm,'r:')
-    plt.plot([Vmin,Vmin],ylm,'r:')
-    plt.ylim(ylm)
-    plt.xlabel('x (Voltage, pu)')
-    plt.ylabel('p(X <= x)')
-    plt.grid(True)
-    
-    plt.subplot(121)
-    plt.title('OpenDSS')
-    vOutS = vOut.T
-    for vout in vOutS:
-        plt.plot(vout,yscale)
-    plt.plot(minVdss,yscale,'k--',linewidth=2.0)
-    plt.plot(maxVdss,yscale,'k--',linewidth=2.0)
-    plt.xlim((0.925,1.125))
-    ylm = plt.ylim()
-    plt.plot([Vmax,Vmax],ylm,'r:')
-    plt.plot([Vmin,Vmin],ylm,'r:')
-    plt.ylim(ylm)
-    plt.xlabel('x (Voltage, pu)')
-    plt.ylabel('p(X <= x)')
-    plt.grid(True)
-    
-    if pltSave:
-        plt.savefig(sn0+'pltCdfs'+str(int(ld2mean*100))+'.png')
-    else:
-        plt.show()
-    
-if pltBox:
-    Vmn = np.zeros(len(Ktot))
-    Vlo = np.zeros(len(Ktot))
-    Vmd = np.zeros(len(Ktot))
-    Vhi = np.zeros(len(Ktot))
-    Vmx = np.zeros(len(Ktot))
-
-    emn = 0.01
-    elo = 0.25
-    emd = 0.50
-    ehi = 0.75
-    emx = 0.99
-
-    for i in range(len(Ktot)):
-        Vmn[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - emn))]
-        Vlo[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - elo))]
-        Vmd[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - emd))]
-        Vhi[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - ehi))]
-        Vmx[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - emx))]
-        plt.plot(i,Vmn[i],'k^'); 
-        plt.plot(i,Vlo[i],'g_'); plt.plot(i,Vmd[i],'b_'); plt.plot(i,Vhi[i],'g_');
-        plt.plot(i,Vmx[i],'kv'); 
-        plt.plot([i,i],[Vmn[i],Vmx[i]],'k:')
-        plt.plot(i,b0[i],'rx')
-
-    plt.xlabel('Bus No.')
-    plt.ylabel('Voltage (pu)')
-    xlm = plt.xlim()
-    plt.plot(xlm,[Vmax,Vmax],'r--')
-    plt.plot(xlm,[Vmin,Vmin],'r--')
-    plt.xlim(xlm)
-    
-    if pltCritBus:
-        ylm = plt.ylim()
-        for critBus in cBs:
-            plt.plot([critBus]*2,ylm,'g',zorder=-1e3)
-        plt.ylim(ylm)
-    else:
-        plt.grid(True)
-    
-    if pltSave:
-        plt.savefig(sn0+'pltBox.png')
-    else:
-        plt.show()
-
-if pltBoxBoth:
-    Vmn = np.zeros(len(Vpu))
-    Vlo = np.zeros(len(Vpu))
-    Vmd = np.zeros(len(Vpu))
-    Vhi = np.zeros(len(Vpu))
-    Vmx = np.zeros(len(Vpu))
-
-    emn = 0.01
-    elo = 0.25
-    emd = 0.50
-    ehi = 0.75
-    emx = 0.99
-    
-    plt.figure(figsize=(9,4))
-    
-    plt.subplot(122)
-    for i in range(len(Vpu)):
-        Vmn[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - emn))]
-        Vlo[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - elo))]
-        Vmd[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - emd))]
-        Vhi[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - ehi))]
-        Vmx[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - emx))]
-        plt.plot(i,Vmn[i],'k^'); 
-        plt.plot(i,Vlo[i],'g_'); plt.plot(i,Vmd[i],'b_'); plt.plot(i,Vhi[i],'g_');
-        plt.plot(i,Vmx[i],'kv'); 
-        plt.plot([i,i],[Vmn[i],Vmx[i]],'k:')
-        plt.plot(i,b0[cBs[i]],'rx')
-
-    plt.xlabel('Bus No.')
-    plt.ylabel('Voltage (pu)')
-    xlm = plt.xlim()
-    plt.plot(xlm,[Vmax,Vmax],'r--')
-    plt.plot(xlm,[Vmin,Vmin],'r--')
-    plt.xlim(xlm)
-    if pltCritBus:
-        ylm = plt.ylim()
-        for critBus in cBs:
-            plt.plot([critBus]*2,ylm,'g',zorder=-1e3)
-        plt.ylim(ylm)
-    else:
-        plt.grid(True)
-
-    
-    plt.title('Linear Model')
-    plt.subplot(121)
-    
-    Vmn = np.percentile(vOut,1,axis=0)
-    Vlo = np.percentile(vOut,25,axis=0)
-    Vmd = np.percentile(vOut,50,axis=0)
-    Vhi = np.percentile(vOut,75,axis=0)
-    Vmx = np.percentile(vOut,99,axis=0)
-    
-    plt.plot(Vmn,'k^')
-    plt.plot(Vlo,'g_'); plt.plot(Vmd,'b_'); plt.plot(Vhi,'g_');
-    plt.plot(Vmx,'kv'); 
-    plt.plot([range(len(v_idx)),range(len(v_idx))],[Vmn,Vmx],'k:')
-    plt.plot(b0,'rx')
-    
-
-    xlm = plt.xlim()
-    plt.plot(xlm,[Vmax,Vmax],'r--')
-    plt.plot(xlm,[Vmin,Vmin],'r--')
-    plt.xlim(xlm)
-    if pltCritBus:
-        ylm = plt.ylim()
-        for critBus in cBs:
-            plt.plot([critBus]*2,ylm,'g',zorder=-1e3)
-        plt.ylim(ylm)
-    else:
-        plt.grid(True)
-
-    
-    plt.title('OpenDSS Solutions')
-    
-    if pltSave:
-        plt.savefig(sn0+'pltBoxBoth.png')
-    else:
-        plt.show()
-        
-if pltBoxNorm:
-    Vmn = np.zeros(len(Ktot))
-    Vlo = np.zeros(len(Ktot))
-    Vmd = np.zeros(len(Ktot))
-    Vhi = np.zeros(len(Ktot))
-    Vmx = np.zeros(len(Ktot))
-
-    emn = 0.01
-    elo = 0.25
-    emd = 0.50
-    ehi = 0.75
-    emx = 0.99
-    
-    plt.figure(figsize=(9,4))
-
-    plt.subplot(121)
-    for i in range(len(Ktot)):
-        Vmn[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - emn))]
-        Vlo[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - elo))]
-        Vmd[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - emd))]
-        Vhi[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - ehi))]
-        Vmx[i]=Vpu[i,np.argmin(abs(cdfV[:,i] - emx))]
-        plt.plot(i,Vmn[i],'k^'); 
-        plt.plot(i,Vlo[i],'g_'); plt.plot(i,Vmd[i],'b_'); plt.plot(i,Vhi[i],'g_');
-        plt.plot(i,Vmx[i],'kv'); 
-        plt.plot([i,i],[Vmn[i],Vmx[i]],'k:')
-        plt.plot(i,b0[i],'rx')
-
-    plt.xlabel('Bus No.')
-    plt.ylabel('Voltage (pu)')
-    xlm = plt.xlim()
-    plt.plot(xlm,[Vmax,Vmax],'r--')
-    plt.plot(xlm,[Vmin,Vmin],'r--')
-    plt.xlim(xlm)
-    plt.grid(True)
-    
-    plt.title('Linear Model (full)')
-    
-    plt.subplot(122)
-    for i in range(len(Ktot)):
-        Vmn[i]=Vpu[i,np.argmin(abs(cdfVnorm[:,i] - emn))]
-        Vlo[i]=Vpu[i,np.argmin(abs(cdfVnorm[:,i] - elo))]
-        Vmd[i]=Vpu[i,np.argmin(abs(cdfVnorm[:,i] - emd))]
-        Vhi[i]=Vpu[i,np.argmin(abs(cdfVnorm[:,i] - ehi))]
-        Vmx[i]=Vpu[i,np.argmin(abs(cdfVnorm[:,i] - emx))]
-        plt.plot(i,Vmn[i],'k^'); 
-        plt.plot(i,Vlo[i],'g_'); plt.plot(i,Vmd[i],'b_'); plt.plot(i,Vhi[i],'g_');
-        plt.plot(i,Vmx[i],'kv'); 
-        plt.plot([i,i],[Vmn[i],Vmx[i]],'k:')
-        plt.plot(i,b0[i],'rx')
-    plt.xlabel('Bus No.')
-    plt.ylabel('Voltage (pu)')
-    xlm = plt.xlim()
-    plt.plot(xlm,[Vmax,Vmax],'r--')
-    plt.plot(xlm,[Vmin,Vmin],'r--')
-    plt.xlim(xlm)
-    plt.grid(True)
-    
-    plt.title('Linear Model (norm approx)')
-    
-    if pltSave:
-        plt.savefig(sn0+'pltBoxNorm.png')
-    else:
-        plt.show()
-        
-
-if pltLinRst:
-    Scls = np.arange(0.1,3.01,0.01)
-    # Scls = np.arange(0.5,5.5,0.5)
-    prScls = np.zeros((len(Scls))); n=0
-    prScls2 = np.zeros((len(Scls)))
-    for scl in Scls:
-        Vpu = (b0 +  scl*(KtotPu.dot(Mns) + dsf.vmM(Kmax,dsf.mvM(np.ones(pdfV.shape),x)).T)).T
-        prVmax = np.zeros((len(K1)))
-        
-        prHc = dsf.getHc(Vpu,cdfV,Vmax)
-        prHc2 = dsf.getHc(Vpu,cdfV,Vmin)
-        
-        prScls[n] = 100*(1-prHc)
-        prScls2[n] = 100*prHc2
-        # print('Linearly scaled HCs, scale',100*int(scl),'%, HC:',100*(1-prHc),'%')
-        n+=1
-    
-    plt.plot(100*Scls,prScls)
-    plt.plot(100*Scls,prScls2)
-    plt.xlabel('Scale factor, %')
-    plt.ylabel('Probability of an overvoltage, %')
-    plt.show()
-
 if pltHcBoth:
     plt.subplot(121)
     for i in range(pdfData['nP'][0]):
         # plt.plot(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
-        # plt.plot(pdfData['mu_k'],Vp_pct_aly[i],'bx-')
-        # plt.plot(pdfData['mu_k'],Vp_pct_aly2[i],'b.-')
         # plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
         # plt.ylim((0,20))
-        # plt.semilogy(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
-        # plt.semilogy(pdfData['mu_k'],Vp_pct_aly[i],'bx-')
-        # plt.semilogy(pdfData['mu_k'],Vp_pct_aly2[i],'b.-')
+        plt.semilogy(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
         plt.semilogy(pdfData['mu_k'],Vp_pct_linU[i],'rx-')
         plt.semilogy(pdfData['mu_k'],Vp_pct_linS[i],'b.-')
         # plt.semilogy(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
-        plt.legend(('VpNom','VpSvd'))
+        plt.legend(('VpDss','VpNom','VpSvd'))
         # plt.ylim((1e-3,50))
         
 
@@ -679,15 +397,14 @@ if pltHcBoth:
     plt.grid(True)
     plt.subplot(122)
     
+    plt.plot(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
     plt.plot(pdfData['mu_k'],Vp_pct_linU[i],'rx-')
     plt.plot(pdfData['mu_k'],Vp_pct_linS[i],'b.-')
     # plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
     plt.title('Prob. of overvoltage');
     # for i in range(pdfData['nP'][0]):
-        # # plt.plot(pdfData['mu_k'],Vp_pct_lin[i]/Vp_pct_aly[i],'g.-')
         # # plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'ro')
         # # plt.plot(pdfData['mu_k'],hc_dss[i],'ro-')
-        # # plt.plot(pdfData['mu_k'],hc_aly[i],'bx-')
         
         # plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'r^'); 
         # # plt.plot(pdfData['mu_k'],hcGenSet[i,:,1],'g_'); 

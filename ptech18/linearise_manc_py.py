@@ -1,22 +1,13 @@
-import win32com.client
 import numpy as np
-import os
+import os, sys, win32com.client, time, pickle
 from math import sqrt
 from scipy import sparse
 import scipy.sparse.linalg as spla
 import matplotlib.pyplot as plt
-import time
 from dss_python_funcs import *
 from dss_vlin_funcs import *
-import getpass
 
-# ======== specify working directories
-if getpass.getuser()=='Matt':
-    WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-elif getpass.getuser()=='chri3793':
-    WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
-
-
+WD = os.path.dirname(sys.argv[0])
 DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText=DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
@@ -33,23 +24,28 @@ saveModel = True
 saveCc = True
 saveCc = False
 verbose=True
-fdr_i = 22
+fdr_i = 8
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']; lp_taps='Nmt'
 # feeder='021'
 feeder=fdrs[fdr_i]
 lp_taps='Lpt'
 
+with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
+    lp0data = pickle.load(handle)
+
 lin_points=np.array([0.3,0.6,1.0])
 lin_points=np.array([0.6])
-# lin_points=np.array([1.0])
+lin_points=np.array([lp0data['k']])
+
 k = np.arange(-1.5,1.6,0.1)
-k = np.array([-1.5,-1.0,-0.5,0.0,0.3,lin_points[:],1.0,1.5]) # for speedier test model plotting
+# k = np.array([-1.5,-1.0,-0.5,0.0,0.3,lin_points[:],1.0,1.5]) # for speedier test model plotting
 # k = np.array([0.0,0.3,lin_points[:],1.0]) for test_model_bus
 
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
 fn = ckt[1]
+
 
 fn_y = fn+'_y'
 dir0 = WD + '\\lin_models\\' + feeder

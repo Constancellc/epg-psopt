@@ -9,11 +9,9 @@
 
 # A bunch of notes on the main method in WB 7-01-19 and 15-01-19
 
-import getpass
+import getpass, time, win32com.client, pickle
 import numpy as np
-import win32com.client
 import matplotlib.pyplot as plt
-import time
 from dss_python_funcs import *
 from dss_voltage_funcs import *
 from scipy import sparse
@@ -38,10 +36,10 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-test_model_plt = False
+# test_model_plt = False
 test_model_bus = True
 test_model_bus = False
-fdr_i = 5
+fdr_i = 8
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder=fdrs[fdr_i]
 
@@ -54,10 +52,15 @@ ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
 fn = ckt[1]
 lin_point=0.6
+lin_point=False
 lp_taps='Lpt'
 sn0 = WD + '\\lin_models\\' + feeder
 
-# get_sYsD(DSSCircuit)
+with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
+    lp0data = pickle.load(handle)
+if not lin_point:
+    lin_point=lp0data['k']
+
 
 # 1. Nominal Voltage Solution at Linearization point. Load Linear models.
 DSSText.command='Compile ('+fn+'.dss)'
@@ -209,7 +212,7 @@ if test_model_plt or test_model_bus:
 # SAVE MODEL ============
 dir0 = WD + '\\lin_models\\' + feeder + '\\ltc_model'
 sn0 = dir0 + '\\' + feeder + lp_taps + 'Ltc'
-lp_str = str(round(lin_point*100)).zfill(3)
+lp_str = str(round(lin_point*100).astype(int)).zfill(3)
 
 if not os.path.exists(dir0):
         os.makedirs(dir0)

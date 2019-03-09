@@ -6,11 +6,9 @@
 # 3. reorder & remove elements as appropriate
 # 4. run continuation analysis.
 
-import getpass
+import getpass, time, pickle, win32com.client
 import numpy as np
-import win32com.client
 import matplotlib.pyplot as plt
-import time
 from dss_python_funcs import *
 from dss_voltage_funcs import *
 from scipy import sparse
@@ -40,14 +38,14 @@ test_model_bus = False
 test_model_dff = True
 test_model_dff = False
 
-fdr_i = 21
+fdr_i = 8
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder=fdrs[fdr_i]
 
 k = np.arange(-1.5,1.6,0.025)
 # k = np.arange(1.6,-1.5,-0.025)
 k = np.arange(-1.5,1.6,0.1)
-k = np.arange(-1.5,1.6,0.3)
+# k = np.arange(-1.5,1.6,0.3)
 # k = np.arange(0,1.0,1.0)
 
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -56,13 +54,18 @@ ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
 fn = ckt[1]
 lin_point=0.6
+lin_point=False # use this if wanting to use the nominal point from chooseLinPoint.
 lp_taps='Lpt'
 print('Start. Feeder:',feeder,'Lin Point:',lp_taps,'. NB: Kt and Ky should be up to date.\n',time.process_time())
 
 fn_y = fn+'_y'
 sn0 = WD + '\\lin_models\\' + feeder
 
-# get_sYsD(DSSCircuit)
+with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
+    lp0data = pickle.load(handle)
+if not lin_point:
+    lin_point=lp0data['k']
+
 
 # 1. Load files' find nominal voltages, node orders, linear model
 DSSText.command='Compile ('+fn+'.dss)'
