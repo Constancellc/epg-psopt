@@ -25,7 +25,7 @@ from sklearn.decomposition import TruncatedSVD
 WD = os.path.dirname(sys.argv[0])
 
 # CHOOSE Network
-fdr_i = 8
+fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder = fdrs[fdr_i]
 # feeder = '213'
@@ -53,13 +53,17 @@ nMc = int(1e4)
 nMc = int(3e3)
 nMc = int(1e3)
 nMc = int(3e2)
-nMc = int(1e2)
+# nMc = int(1e2)
 
 # PDF options
 mu_k0 = np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. 
 mu_k0 = 0.1*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers. 
 mu_k0 = 0.3*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers.
-# mu_k0 = 0.4*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers.
+mu_k0 = 0.4*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers.
+mu_k0 = 1.0*np.arange(0.05,6.0,0.25) # NB this is as a PERCENTAGE of the chosen nominal powers.
+# mu_k0 = 1.0*np.arange(0.05,6.0,0.03) # NB this is as a PERCENTAGE of the chosen nominal powers.
+# mu_k0 = 1.2*np.arange(0.05,6.0,0.03) # NB this is as a PERCENTAGE of the chosen nominal powers.
+# mu_k0 = 0.6*np.arange(0.05,6.0,0.03) # NB this is as a PERCENTAGE of the chosen nominal powers
 # mu_k0 = 0.6*np.arange(0.5,6.0,0.5) # NB this is as a PERCENTAGE of the chosen nominal powers.
 
 # mu_k0 = 5.5*np.array([1.0]) # NB this is as a PERCENTAGE of the chosen nominal powers. 
@@ -70,7 +74,7 @@ mu_k = mu_k0*mu_kk
 pdfName = 'gamma'
 k = np.array([0.5]) # we do not know th, sigma until we know the scaling from mu0.
 k = np.array([3.0]) # we do not know th, sigma until we know the scaling from mu0.
-k = np.array([10.0]) # we do not know th, sigma until we know the scaling from mu0.
+# k = np.array([10.0]) # we do not know th, sigma until we know the scaling from mu0.
 
 params = k
 pdfData = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))}
@@ -78,7 +82,7 @@ pdfData = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))
 mcLinOn = True
 # mcLinOn = False
 mcDssOn = True
-# mcDssOn = False
+mcDssOn = False
 useCbs = True
 useCbs = False
 
@@ -89,16 +93,18 @@ evSvdLim = 0.995
 nSvdMax = 300
 nSvdMax = 100
 nSvdMax = 30
-# nSvdMax = 16
+nSvdMax = 16
 
 
-# (Active) PLOTTING options:
+# PLOTTING options:
 pltBoxDss = True
 pltBoxDss = False
 pltHcBoth = True
 # pltHcBoth = False
-pltGen = True
-pltGen = False
+pltHcGen = True
+pltHcGen = False
+pltPwrCdf = True
+pltPwrCdf = False
 
 pltSave = True
 pltSave = False
@@ -151,11 +157,7 @@ elif netModel>0:
     xhyN = xhy0/lin_point # needed seperately for lower down
     xhdN = xhd0/lin_point
     xNom = np.concatenate((xhyN,xhdN))
-    # xLoad = xNom*load_point
     b0 = (A.dot(xNom*load_point) + bV)/vBase # in pu
-    
-    # x0 = np.concatenate((xhy0,xhd0))
-    # b0 = (A.dot(x0) + bV)/vBase # in pu
     
     KyP = A[:,0:len(xhy0)//2] # these might be zero if there is no injection (e.g. only Q)
     KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
@@ -208,8 +210,9 @@ hc_dss = np.zeros(pdfData['nP'])
 hc_lin = np.zeros(pdfData['nP'])
 hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
 hcGenSetLin = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
-hcGen = []; hcGenLin = []
-
+genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
+hcGenLinAll = np.array([]); hcGenAll = np.array([])
+hcGen = []; hcGenLin=[]
 # PART A.2 - choose distributions and reduce linear model ===========================
 for i in range(pdfData['nP'][0]):
     roundI = 1e0
@@ -265,17 +268,23 @@ for i in range(pdfData['nP'][0]):
 
         pdfGen0 = (np.random.gamma(k,1/np.sqrt(k),(len(genNames),nMc)))
         pdfGen = dsf.vmM(1e-3*Mu0/np.sqrt(k),pdfGen0) # scale
-        pdfGenSh = pdfGen0 - np.sqrt(k)
+        pdfGenSh = pdfGen0 - np.sqrt(k) # shift to zero mean
+        genTot0 = np.sum(pdfGen,axis=0)
+        genTotSort = genTot0.copy()
+        genTotSort.sort()
+        genTotAll = np.outer(genTot0,pdfData['mu_k'])
+        genTotAll = genTotAll.flatten()
         
         DvOutLin = (KtotPu.dot(pdfGen).T)*1e3
         
         DvOutLinK = (KtotU.dot(pdfGenSh).T)
-        DvQwe = KtotU.dot(np.sqrt(k)*np.ones(len(Mu0)))
+        DvMu0 = KtotU.dot(np.sqrt(k)*np.ones(len(Mu0)))
         
         vOutSvd = UsSvd.dot((KtotSvd.dot(pdfGenSh))).T
         
         for jj in range(pdfData['nP'][-1]):
-            genTot = np.sum(pdfGen*pdfData['mu_k'][jj],axis=0)
+            # genTot = np.sum(pdfGen*pdfData['mu_k'][jj],axis=0)
+            genTot = genTot0*pdfData['mu_k'][jj]
             if mcDssOn:
                 # Mns = Mu0*pdfData['mu_k'][jj] # NB: we only scale by the FIRST ONE here
                 vOut = np.zeros((nMc,len(v_idx)))
@@ -294,6 +303,8 @@ for i in range(pdfData['nP'][0]):
                 # NOW: calculate the HC value:
                 dsf.mcErrorAnalysis(vOut,Vmax)
                 maxV = np.max(vOut,axis=1)
+                minV = np.min(vOut,axis=1)
+                
                 Vp_pct_dss[i,jj] = 100*(sum(maxV>Vmax)/nMc)
                 hcGen = genTot[maxV>Vmax]
                 hc_dss[i,jj] = min( np.concatenate((hcGen,np.array([np.inf]))) )
@@ -301,93 +312,107 @@ for i in range(pdfData['nP'][0]):
             if mcLinOn:
                 vOutLin = (DvOutLin*pdfData['mu_k'][jj]) + b0
                 maxVlin = np.max(vOutLin,axis=1)
+                minVlin = np.min(vOutLin,axis=1)
                 
-                vOutULin = (DvOutLinK + DvQwe)*pdfData['mu_k'][jj]
+                vOutULin = (DvOutLinK + DvMu0)*pdfData['mu_k'][jj]
                 maxVlinU = np.max(vOutULin,axis=1)
+                minVlinU = np.min(vOutULin,axis=1)
                 
-                vOutSLin = (vOutSvd + DvQwe)*pdfData['mu_k'][jj]
+                vOutSLin = (vOutSvd + DvMu0)*pdfData['mu_k'][jj]
                 maxVlinS = np.max(vOutSLin,axis=1)
+                minVlinS = np.min(vOutSLin,axis=1)
                 
-                Vp_pct_lin[i,jj] = 100*(sum(maxVlin>Vmax)/nMc)
+                print('Overvoltage:',100*(sum(maxVlin>Vmax)/nMc))
+                print('V. Violation:',100*sum(np.any(np.array([maxVlin>Vmax,minVlin<Vmin]),axis=0))/nMc)
+                
+                Vp_pct_lin[i,jj] = 100*sum(np.any(np.array([maxVlin>Vmax,minVlin<Vmin]),axis=0))/nMc
                 Vp_pct_linU[i,jj] = 100*(sum(maxVlinU>1)/nMc)
                 Vp_pct_linS[i,jj] = 100*(sum(maxVlinS>1)/nMc)
+                
+                # Vp_pct_lin[i,jj] = 100*(sum(maxVlin>Vmax)/nMc)
+                # Vp_pct_linU[i,jj] = 100*(sum(maxVlinU>1)/nMc)
+                # Vp_pct_linS[i,jj] = 100*(sum(maxVlinS>1)/nMc)
                 
                 
                 hcGenLin = genTot[maxVlin>Vmax]
                 hc_lin[i,jj] = min( np.concatenate((hcGenLin,np.array([np.inf]))) )
-            
+                
 
             if len(hcGen)!=0 and mcDssOn:
+                hcGenAll = np.concatenate((hcGenAll,hcGen))
                 hcGen.sort()
-                hcGenSet[i,jj,0] = hcGen[np.floor(len(hcGen)*1.0/20.0).astype(int)]
+                # hcGenSet[i,jj,0] = hcGen[np.floor(len(hcGen)*1.0/20.0).astype(int)]
+                hcGenSet[i,jj,0] = hcGen[0]
                 hcGenSet[i,jj,1] = hcGen[np.floor(len(hcGen)*1.0/4.0).astype(int)]
                 hcGenSet[i,jj,2] = hcGen[np.floor(len(hcGen)*1.0/2.0).astype(int)]
                 hcGenSet[i,jj,3] = hcGen[np.floor(len(hcGen)*3.0/4.0).astype(int)]
-                hcGenSet[i,jj,4] = hcGen[np.floor(len(hcGen)*19.0/20.0).astype(int)]
+                # hcGenSet[i,jj,4] = hcGen[np.floor(len(hcGen)*19.0/20.0).astype(int)]
+                hcGenSet[i,jj,4] = hcGen[-1]
             if len(hcGenLin)!=0 and mcLinOn:
+                hcGenLinAll = np.concatenate((hcGenLinAll,hcGenLin))
                 hcGenLin.sort()
-                hcGenSetLin[i,jj,0] = hcGenLin[np.floor(len(hcGenLin)*1.0/20.0).astype(int)]
+                hcGenSetLin[i,jj,0] = hcGenLin[0]
+                # hcGenSetLin[i,jj,0] = hcGenLin[np.floor(len(hcGenLin)*1.0/20.0).astype(int)]
                 hcGenSetLin[i,jj,1] = hcGenLin[np.floor(len(hcGenLin)*1.0/4.0).astype(int)]
                 hcGenSetLin[i,jj,2] = hcGenLin[np.floor(len(hcGenLin)*1.0/2.0).astype(int)]
                 hcGenSetLin[i,jj,3] = hcGenLin[np.floor(len(hcGenLin)*3.0/4.0).astype(int)]
-                hcGenSetLin[i,jj,4] = hcGenLin[np.floor(len(hcGenLin)*19.0/20.0).astype(int)]
+                hcGenSetLin[i,jj,4] = hcGenLin[-1]
+                # hcGenSetLin[i,jj,4] = hcGenLin[np.floor(len(hcGenLin)*19.0/20.0).astype(int)]
+            
+            genTotSet[i,jj,0] = genTotSort[0]*pdfData['mu_k'][jj]
+            genTotSet[i,jj,1] = genTotSort[np.floor(len(genTotSort)*1.0/4.0).astype(int)]*pdfData['mu_k'][jj]
+            genTotSet[i,jj,2] = genTotSort[np.floor(len(genTotSort)*1.0/2.0).astype(int)]*pdfData['mu_k'][jj]
+            genTotSet[i,jj,3] = genTotSort[np.floor(len(genTotSort)*3.0/4.0).astype(int)]*pdfData['mu_k'][jj]
+            genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
         print('MC complete.',time.process_time())
 
 
-
-
-# COMPARE RESULTS ==========
-if pltBoxDss:
-    plt.boxplot(vOut,whis=[1,99])
-    plt.plot(range(1,len(vBase)+1),abs(YNodeVnom[3:])[v_idx]/vBase,'rx')
-    plt.xlabel('Bus no.')
-    plt.ylabel('Voltage (pu)')
-    xlm = plt.xlim()
-    plt.plot(xlm,[Vmax,Vmax],'r--')
-    plt.plot(xlm,[Vmin,Vmin],'r--')
-    plt.xlim(xlm)
-    plt.grid(True)
-    if pltSave:
-        plt.savefig(sn0+'pltBoxDss.png')
-        plt.close()
-    else:
-        plt.show()
-
-# ================ PLOTTING FUNCTIONS FROM HERE
-if pltGen:
-    hist = plt.hist(genTot,bins=30,density=True);
-    hist = plt.hist(genTot,bins=30,density=True);
+if pltPwrCdf:
+    hist1 = plt.hist(genTotAll,bins=100,range=(0,max(genTotAll)))
+    if mcDssOn:
+        hist2 = plt.hist(hcGenAll,bins=100,range=(0,max(genTotAll)))
+    hist2lin = plt.hist(hcGenLinAll,bins=100,range=(0,max(genTotAll)))
     plt.close()
 
-    dhist = dsf.get_dx(hist[1])
-
-    histx = hist[1][:-1] + 0.5*dhist
-
-    pdfY = hist[0]*dhist
-    dx0 = dsf.get_dx(Gpu*1e-3)
-    ratio = dx0/dhist
-
-    plt.plot(Gpu*1e-3,pdfG);
-    plt.plot(histx,pdfY*ratio);
-
-    plt.xlabel('Total Installed Power (kW)')
-    plt.ylabel('Probability'); plt.grid(True)
-    if pltSave:
-        plt.savefig(sn0+'pltGen.png')
-    else:
-        plt.show()
+    plt.plot(hist1[1][1:],hist2lin[0]/hist1[0])
+    if mcDssOn:
+        plt.plot(hist1[1][1:],hist2[0]/hist1[0])
+    plt.label(('Lin model','OpenDSS'))
+    plt.xlabel('Power');
+    plt.ylabel('P(.)');
+    plt.grid(True)
+    plt.show()
 
 
+# # COMPARE RESULTS ==========
+# if pltBoxDss:
+    # plt.boxplot(vOut,whis=[1,99])
+    # plt.plot(range(1,len(vBase)+1),abs(YNodeVnom[3:])[v_idx]/vBase,'rx')
+    # plt.xlabel('Bus no.')
+    # plt.ylabel('Voltage (pu)')
+    # xlm = plt.xlim()
+    # plt.plot(xlm,[Vmax,Vmax],'r--')
+    # plt.plot(xlm,[Vmin,Vmin],'r--')
+    # plt.xlim(xlm)
+    # plt.grid(True)
+    # if pltSave:
+        # plt.savefig(sn0+'pltBoxDss.png')
+        # plt.close()
+    # else:
+        # plt.show()
+
+# ================ PLOTTING FUNCTIONS FROM HERE
 if pltHcBoth:
     plt.subplot(121)
     for i in range(pdfData['nP'][0]):
         # plt.plot(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
         # plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
         # plt.ylim((0,20))
-        plt.semilogy(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
+        if mcDssOn:
+            plt.semilogy(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
         plt.semilogy(pdfData['mu_k'],Vp_pct_linU[i],'rx-')
         plt.semilogy(pdfData['mu_k'],Vp_pct_linS[i],'b.-')
-        # plt.semilogy(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
+        plt.semilogy(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
         plt.legend(('VpDss','VpNom','VpSvd'))
         # plt.ylim((1e-3,50))
         
@@ -397,30 +422,38 @@ if pltHcBoth:
     plt.grid(True)
     plt.subplot(122)
     
-    plt.plot(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
+    if mcDssOn:
+        plt.plot(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
     plt.plot(pdfData['mu_k'],Vp_pct_linU[i],'rx-')
     plt.plot(pdfData['mu_k'],Vp_pct_linS[i],'b.-')
-    # plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
+    plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
     plt.title('Prob. of overvoltage');
-    # for i in range(pdfData['nP'][0]):
-        # # plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'ro')
-        # # plt.plot(pdfData['mu_k'],hc_dss[i],'ro-')
+    
+    plt.grid(True)
+    plt.show()
+    
+if pltHcGen:
+    for i in range(pdfData['nP'][0]):
+        # plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'ro')
+        # plt.plot(pdfData['mu_k'],hc_dss[i],'ro-')
         
-        # plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'r^'); 
-        # # plt.plot(pdfData['mu_k'],hcGenSet[i,:,1],'g_'); 
-        # plt.plot(pdfData['mu_k'],hcGenSet[i,:,2],'r_'); 
-        # # plt.plot(pdfData['mu_k'],hcGenSet[i,:,3],'g_');
-        # plt.plot(pdfData['mu_k'],hcGenSet[i,:,4],'rv');        
-        
-        # plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,0],'g^'); 
-        # # plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,1],'k_'); 
-        # plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,2],'g_'); 
-        # # plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,3],'k_');
-        # plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,4],'gv');
-    # xlm = plt.xlim()
-    # plt.xlim((-dsf.get_dx(pdfData['mu_k']),xlm[1]))
-    # plt.xlabel('Scale factor');
-    # plt.title('Hosting Capacity (kW)');
+        plt.plot(pdfData['mu_k'],genTotSet[i,:,0],'b-'); 
+        plt.plot(pdfData['mu_k'],genTotSet[i,:,2],'b_'); 
+        plt.plot(pdfData['mu_k'],genTotSet[i,:,4],'b-');
+        if mcDssOn:
+            plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'r-'); 
+            plt.plot(pdfData['mu_k'],hcGenSet[i,:,2],'r_'); 
+            plt.plot(pdfData['mu_k'],hcGenSet[i,:,4],'r-');        
+        if mcLinOn:
+            plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,0],'g-'); 
+            plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,2],'g_'); 
+            plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,4],'g-');
+
+            
+    xlm = plt.xlim()
+    plt.xlim((-dsf.get_dx(pdfData['mu_k']),xlm[1]))
+    plt.xlabel('Scale factor');
+    plt.title('Hosting Capacity (kW)');
 
     # ylm = plt.ylim()
     # plt.ylim((0,ylm[1]))

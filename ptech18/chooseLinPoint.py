@@ -24,7 +24,7 @@ Vp0 = 1.05 # pu
 Vm0 = 0.95 # pu
 roundInt = 200.
 
-fdr_i = 8
+fdr_i = 20
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 # feeder='021'
@@ -46,11 +46,11 @@ DSSSolution.Solve()
 DSSText.command='set maxcontroliter=300' # if it isn't this high then J1 fails even for load=1.0!
 DSSText.command='set maxiterations=100'
 
-loadMults = np.linspace(-1.5,1.5,31)
+loadMults = np.linspace(-1.5,1.5,31+1)
 if feeder=='epriJ1':
-    loadMults = np.linspace(-1.0,1.5,26) # required for EPRI J1
+    loadMults = np.linspace(-1.0,1.5,26+1) # required for EPRI J1
 elif feeder=='8500node':
-    loadMults = np.linspace(-0.2,1.5,18) # required for IEEE 8500
+    loadMults = np.linspace(-0.2,1.5,18+1) # required for IEEE 8500
 
 vmax = []
 vmin = []
@@ -60,7 +60,7 @@ for lm in loadMults:
     DSSSolution.Solve()
     
     VmagPu = np.array(DSSCircuit.AllBusVmagPu)
-    VmagPu = VmagPu[VmagPu>0.1] # get rid of outliers
+    VmagPu = VmagPu[VmagPu>0.01] # get rid of outliers
     
     vmax = vmax + [VmagPu.max()]
     vmin = vmin + [VmagPu.min()]
@@ -69,7 +69,7 @@ for lm in loadMults:
 
 dV = 1e-5 # get rid of pesky cases just below 1.05
 vmaxCl = np.ceil((np.array(vmax)+dV)*roundInt)/roundInt
-vminFl = np.floor((np.array(vmin)+dV)*roundInt)/roundInt
+vminFl = np.floor((np.array(vmin)-dV)*roundInt)/roundInt
 
 idx1 = abs(loadMults-load1).argmin()
 idx2 = abs(loadMults-load2).argmin()

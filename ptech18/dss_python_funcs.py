@@ -75,6 +75,7 @@ def set_generators(DSSCircuit,genNames,S):
     for genName in genNames:
         DSSCircuit.Generators.Name=genName
         DSSCircuit.Generators.kW = S[i]
+        
         i+=1
     return
 
