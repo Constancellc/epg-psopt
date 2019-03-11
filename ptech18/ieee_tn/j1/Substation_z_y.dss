@@ -1,8 +1,9 @@
-!New Circuit.J1  pu=0.97 r1=1.376 x1=14.257 r0=0.001 x0=8.203 bus1=S basekv=69
-New Circuit.J1  pu=0.97 r1=0.0001376 x1=0.000014257 r0=0.001 x0=0.00008203 bus1=SourceBus basekv=69
+New Circuit.J1  pu=0.97 basekv=69 !r1=1.376 x1=14.257 r0=0.001 x0=8.203
+~ R1=0.0001 X1=0.0001 R0=0.0001 X0=0.0001
 
-!New Transformer.SubXfmr phases=3 windings=2 buses=(S,LS_Bus) conns=(wye,wye) 
-New Transformer.SubXfmr phases=3 windings=2 buses=(SourceBus_0,LS_Busr) conns=(wye,wye) 
+new line.sourceZ bus1=SourceBus_y bus2=SourceBusZ phases=3 r1=1.376 x1=14.257 r0=0.001 x0=8.203
+
+New Transformer.SubXfmr phases=3 windings=2 buses=(SourceBusZ,LS_Busr) conns=(wye,wye) 
 ~ kvs=(68.8,13.09) kvas=(16000,16000) numtaps=16
 ~ xhl=11.63 wdg=1 %r=0.596 wdg=2 %r=0.596
 ~ ppm_antifloat=5

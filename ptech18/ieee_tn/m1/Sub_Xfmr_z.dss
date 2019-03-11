@@ -1,4 +1,4 @@
-New Transformer.reg1  phases=3  windings=2  buses=(Sourcebus, tempr0)  conns=(delta wye)  sub=y subname=M1
+New Transformer.reg1  phases=3  windings=2  buses=(SourcebusZ, tempr0)  conns=(delta wye)  sub=y subname=M1
 ~ kvs=(67, 12.47)  kvas=(16800 16800)  xhl=8  sub=y  subname=M1 mintap=0.95 maxtap=1.05
 ~ wdg=1  %r=.2
 ~ wdg=2  %r=.2

@@ -1,8 +1,19 @@
-Things to get the networks into a form for voltage linearization.
+0Things to get the networks into a form for voltage linearization.
 
 First: copy a version of the script, rename as *_z.dss.
 
 Note: it is usually useful to run each step in OpenDSS.
+
+======
+0: Source impedance line [if non trivial]
+0a. Run nominal script in OpenDSS to get R1 X1 R0 X0 (or calculate)
+0b. Set source parameters to small (0.0001 for all seem to work)
+	~ R1=0.0001 X1=0.0001 R0=0.0001 X0=0.0001
+0c. Insert new line from the source to sourceZ:
+	new line.sourceZ bus1=SourceBus bus2=SourceBusZ phases=3 R1=XXX X1=XXX R0=XXX X0=XXX
+0d. Redirect downstream elements to SourceBusZ as appropriate
+NB: the choosing of energymeters for LTC purposes has not been looked at in detail.
+
 ======
 I: linearize_manc_py.py
 Here we mostly need to reorder so that the _y version 

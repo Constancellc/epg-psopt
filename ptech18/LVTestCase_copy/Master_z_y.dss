@@ -3,9 +3,12 @@ clear
 Set DefaultBaseFrequency=50  ! for European system
 
 New circuit.LVTest
-!Edit Vsource.Source BasekV=11 pu=1.05  ISC3=3000  ISC1=5 ===========> REMOVED
-Edit Vsource.Source BasekV=11 pu=1.05  ISC3=1000000  ISC1=1050000 ===========> SOURCE STIFFENED
-Redirect Transformers_y.txt !==> moved to make order line up with _y &&& changed .txt file
+Edit Vsource.Source BasekV=11 pu=1.05  !ISC3=3000  ISC1=5
+~ R1=0.0001 X1=0.0001 R0=0.0001 X0=0.0001
+
+new line.sourceZ bus1=SourceBus_y bus2=SourceBusZ phases=3 R1=0.51344 X1=2.0537 R0=1203.7 X0=3611
+
+Redirect Transformers_z.txt
 Redirect LineCode.txt
 Redirect LoadShapes.txt
 batchedit loadshape..* useactual=no

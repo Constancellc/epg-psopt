@@ -4,8 +4,10 @@
 ! For reference purposes, please use: EPRI Feeder M1, Distributed PV (DPV) Monitoring and Feeder Analysis, dpv.epri.com, 2013
 Clear
 
-!New Circuit.M1 bus1=SourceBus pu=1.0  basekV=67  R1= 0.0518  X1=0.1555    R0= 0.0518  X0=0.155
-New Circuit.M1 bus1=SourceBus pu=1.0  basekV=67  R1= 0.0000518  X1=0.0001555    R0= 0.0000518  X0=0.000155
+New Circuit.M1 bus1=SourceBus pu=1.0  basekV=67  !R1= 0.0518  X1=0.1555    R0= 0.0518  X0=0.155
+~ R1=0.0001 X1=0.0001 R0=0.0001 X0=0.0001
+
+new line.sourceZ bus1=SourceBus bus2=SourceBusZ phases=3 R1=0.0518 X1=0.1555 R0= 0.0518 X0=0.155
 
 Redirect Sub_Xfmr_z.dss
 
@@ -27,7 +29,7 @@ Redirect  Loads_Only_z.dss
 !Redirect  Loads_Only.dss
 
 !batchedit load..* model=1 vmin=0.30 vmax=3.00 status=fixed
-batchedit load..* model=1 vmin=0.0030 vmax=300.00 status=fixed
+batchedit load..* model=1 vmin=0.0030 vmax=300.00 status=variable
 
 new energymeter.msub element=transformer.reg1
 new energymeter.mreg1G element=line.reg1
@@ -35,6 +37,11 @@ new energymeter.mreg1G element=line.reg1
 Set voltagebases=[66 12.47,  0.480, 0.416, 0.208]
 Calcv
 Solve
+
+!set loadmult=0.0
+!solve
+!show taps
+
 
 /*
 New Energymeter.M1 element=line.temp2 term=1 PhaseVolt=yes 

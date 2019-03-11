@@ -51,7 +51,7 @@ fn_y = fn+'_y'
 dir0 = WD + '\\lin_models\\' + feeder
 sn0 = dir0 + '\\' + feeder + lp_taps
 
-print('Start, feeder:',feeder,'\nSaving:',saveModel,'\n',time.process_time())
+print('Start, feeder:',feeder,'\nSaving:',saveModel,'\nLin Points:',lin_points,'\n',time.process_time())
 
 # ve=np.zeros([k.size,lin_points.size])
 vve=np.zeros([k.size,lin_points.size])

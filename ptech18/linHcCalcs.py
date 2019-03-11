@@ -24,7 +24,7 @@ from sklearn.decomposition import TruncatedSVD
 WD = os.path.dirname(sys.argv[0])
 
 # CHOOSE Network
-fdr_i = 18
+fdr_i = 17
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder = fdrs[fdr_i]
 # feeder = '213'
@@ -51,29 +51,29 @@ nMc = int(1e2)
 nMc = int(3e1)
 
 if netModel==0:
-    circuitK = {'13bus':0.8,'34bus':0.9,'8500node':0.2,'epri5':0.4,'epri7':0.15,'epriJ1':0.2,'epriK1':0.2,'epriM1':0.25,'epri24':0.25}
+    circuitK = {'13bus':4.8,'34bus':5.4,'8500node':1.2,'epri5':2.4,'epri7':0.9,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
 elif netModel==1:
-    circuitK = {'13bus':1.2,'34bus':0.9,'123bus':0.6}
+    circuitK = {'13bus':7.2,'34bus':5.4,'123bus':3.6}
 elif netModel==2:
-    circuitK = {'8500node':0.2,'epriJ1':0.6,'epriK1':0.2,'epriM1':0.3,'epri24':0.25}
-    
+    circuitK = {'8500node':1.2,'epriJ1':3.6,'epriK1':1.5,'epriM1':1.8,'epri24':1.5}
+
 # PDF options
 dMu = 0.01
 # dMu = 0.025
-mu_k = circuitK[feeder]*6.0*np.arange(dMu,1.0,dMu) # NB this is as a PERCENTAGE of the chosen nominal powers.
+mu_k = circuitK[feeder]*np.arange(dMu,1.0,dMu) # NB this is as a PERCENTAGE of the chosen nominal powers.
 
 pdfName = 'gamma'
+pdfName = 'gamma0'
 k = np.array([0.5]) # we do not know th, sigma until we know the scaling from mu0.
 k = np.array([3.0]) # we do not know th, sigma until we know the scaling from mu0.
-# k = np.array([10.0]) # we do not know th, sigma until we know the scaling from mu0.
-
+# k = np.array([20.0]) # we do not know th, sigma until we know the scaling from mu0.
 params = k
 pdfData = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))}
 
 mcLinOn = True
 # mcLinOn = False
 mcDssOn = True
-# mcDssOn = False
+mcDssOn = False
 
 # PLOTTING options:
 pltHcBoth = True
@@ -159,6 +159,7 @@ if not netModel:
     DSSText.command='set controlmode=off'
 elif netModel:
     DSSText.command='set maxcontroliter=300'
+    DSSObj.AllowForms=False
 DSSText.command='set maxiterations=100'
 
 YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
@@ -192,14 +193,13 @@ for i in range(pdfData['nP'][0]):
     
     if pdfData['name']=='gamma': # NB: mean of gamma distribution is k*th; variance is k*(th**2)
         k = pdfData['prms'][i]
-        sgm = Mu0/np.sqrt(pdfData['prms'][i])
     
     # PART B FROM HERE ==============================
     print('---- Start MC ----',time.process_time())
 
     pdfGen0 = (np.random.gamma(k,1/np.sqrt(k),(len(genNames),nMc)))
     
-    pdfGen = dsf.vmM(1e-3*Mu0/np.sqrt(k),pdfGen0) # scale
+    pdfGen = dsf.vmM( 1e-3*Mu0/np.sqrt(k),pdfGen0 ) # scale into kW
     genTot0 = np.sum(pdfGen,axis=0)
     
     genTotSort = genTot0.copy()
@@ -228,7 +228,9 @@ for i in range(pdfData['nP'][0]):
                 conv = conv+[DSSSolution.Converged]
                 
                 v00 = abs(tp_2_ar(DSSCircuit.YNodeVarray))
+                v00[v00<0.5] = 1.0
                 vOut[j,:] = v00[3:][v_idx]/vBase
+                
             
             if sum(conv)!=len(conv):
                 print('\nNo. Converged:',sum(conv),'/',nMc)
@@ -244,6 +246,7 @@ for i in range(pdfData['nP'][0]):
         
         if mcLinOn:
             vOutLin = (DvOutLin*pdfData['mu_k'][jj]) + b0
+            vOutLin[vOutLin<0.5] = 1.0
             maxVlin = np.max(vOutLin,axis=1)
             minVlin = np.min(vOutLin,axis=1)
             

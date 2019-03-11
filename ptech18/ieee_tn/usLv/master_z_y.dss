@@ -1,8 +1,11 @@
 clear
 Set DefaultBaseFrequency=60
 
-new circuit.ieee390 basekv=230 pu=1.05 bus1=P1_0 mvasc3=200000 mvasc1=2000000 
- 
+new circuit.ieee390 basekv=230 pu=1.05 bus1=P1 !mvasc3=200000 mvasc1=2000000
+~ R1=0.0001 X1=0.0001 R0=0.0001 X0=0.0001
+
+new line.sourceZ bus1=P1_y bus2=P1Z phases=3 R1=0.064151 X1=0.2566 R0=-0.14523 X0=-0.43568
+
 new LineCode.Switch nphases=3 r1=1e-6 r0=1e-6 x1=1e-6 x0=1e-6 c1=0 c0=0
  
 new LineSpacing.101 nconds=3 nphases=3 units=ft x=[0,10,20] h=[50,50,50]
@@ -19,7 +22,7 @@ new LineGeometry.Trans nconds=3 nphases=3 spacing=101 wires=[397AA 397AA 397AA]
 new LineGeometry.Pri nconds=3 nphases=3 spacing=102 cncables=[1000AA 1000AA 1000AA]
 new LineGeometry.Sec nconds=4 nphases=3 reduce=y spacing=103 wires=[UG500Cu UG500Cu UG500Cu UG500Cu]
  
-new Line.1 bus1=P1.1.2.3 bus2=P2.1.2.3 phases=3 length=150 units=ft geometry=Trans
+new Line.1 bus1=P1Z.1.2.3 bus2=P2.1.2.3 phases=3 length=150 units=ft geometry=Trans
 new Line.2 bus1=P2.1.2.3 bus2=P3.1.2.3 phases=3 length=150 units=ft geometry=Trans
 new Line.3 bus1=P2.1.2.3 bus2=P7.1.2.3 phases=3 length=150 units=ft geometry=Trans
 new Line.4 bus1=P6.1.2.3 bus2=P11.1.2.3 phases=3 length=50 units=ft geometry=Pri

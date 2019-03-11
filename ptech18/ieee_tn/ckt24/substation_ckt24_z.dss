@@ -1,5 +1,5 @@
 
-    New Transformer.SubXFMR Phases=3 Windings=2 Xhl=10.63 wdg=1 conn=delta bus=SourceBus kV=230 kVA=45000 wdg=2 bus=SubXfmr_LSBr0 kV=34.5 kVA=45000 conn=wye mintap=0.9 maxtap=1.1 sub=yes
+New Transformer.SubXFMR Phases=3 Windings=2 Xhl=10.63 wdg=1 conn=delta bus=SourceBusZ kV=230 kVA=45000 wdg=2 bus=SubXfmr_LSBr0 kV=34.5 kVA=45000 conn=wye mintap=0.9 maxtap=1.1 sub=yes
 ~ %noloadloss=0.18 !assumed
 ~ %Rs = (0.12,0.12)
 ~ emergHkva = 75000

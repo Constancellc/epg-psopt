@@ -1,11 +1,13 @@
-!New Circuit.ckt7  pu=1.05 r1=2.314 x1=28.52 r0=0.0001 x0=0.0001 bus1=SourceBus basekv=115
-New Circuit.ckt7  pu=1.05 r1=0.0001 x1=0.0001 r0=0.0001 x0=0.0001 bus1=SourceBus basekv=115
+New Circuit.ckt7 pu=1.05 bus1=SourceBus basekv=115 !r1=2.314 x1=28.52 r0=0.0001 x0=0.0001
+~ R1=0.0001 X1=0.0001 R0=0.0001 X0=0.0001
+
+new line.sourceZ bus1=SourceBus bus2=SourceBusZ phases=3 r1=2.314 x1=28.52 r0=0.0001 x0=0.0001
  
-New Transformer.Sub1 phases=3 windings=2 buses=(SourceBus,ckt7.1.2.3.0) conns=(delta,wye) kvs=(115, 12.47) kvas=(41700, 41700)
+New Transformer.Sub1 phases=3 windings=2 buses=(SourceBusZ,ckt7.1.2.3.0) conns=(delta,wye) kvs=(115, 12.47) kvas=(41700, 41700)
 ~ xhl=0.635 wdg=1 %r=0.0056 wdg=2 %r=0.0008 
-New Transformer.Sub2 phases=3 windings=2 buses=(SourceBus,ckt7.1.2.3.0) conns=(delta,wye) kvs=(115, 12.47) kvas=(41700, 41700)
+New Transformer.Sub2 phases=3 windings=2 buses=(SourceBusZ,ckt7.1.2.3.0) conns=(delta,wye) kvs=(115, 12.47) kvas=(41700, 41700)
 ~ xhl=0.635 wdg=1 %r=0.0056 wdg=2 %r=0.0008 
-New Transformer.Sub3 phases=3 windings=2 buses=(SourceBus,ckt7.1.2.3.0) conns=(delta,wye) kvs=(115, 12.47) kvas=(41700, 41700)
+New Transformer.Sub3 phases=3 windings=2 buses=(SourceBusZ,ckt7.1.2.3.0) conns=(delta,wye) kvs=(115, 12.47) kvas=(41700, 41700)
 ~ xhl=0.635 wdg=1 %r=0.0056 wdg=2 %r=0.0008 
 
 

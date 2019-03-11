@@ -1,13 +1,15 @@
 Clear
 
-!New Circuit.ckt24 bus1=SourceBus pu=1.05  basekV=230 R1=0.63 X1=6.72 R0=4.07 X0=15.55
-New Circuit.ckt24 bus1=SourceBus pu=1.05  basekV=230 R1=0.000063 X1=0.0000672 R0=0.0000407 X0=0.000001555
+New Circuit.ckt24 bus1=SourceBus pu=1.05  basekV=230 !R1=0.63 X1=6.72 R0=4.07 X0=15.55
+~ R1=0.0001 X1=0.0001 R0=0.0001 X0=0.0001
+
+new line.sourceZ bus1=SourceBus_y bus2=SourceBusZ phases=3 R1=0.63 X1=6.72 R0=4.07 X0=15.55
 
 Redirect  Wiredata_ckt24.dss
 Redirect  Linegeometry_ckt24.dss
 Redirect  LineCodes_ckt24.dss
 Redirect  TriplexLineCodes_ckt24.dss
-Redirect  Substation_ckt24_z_y.dss
+Redirect  Substation_ckt24_z.dss
 
 ! Loadshapes for yearly simulations (normalized)
 New Loadshape.LS_PhaseA npts=8760 interval=1 mult=(file=LS_PhaseA.txt) action=normalize 

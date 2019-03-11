@@ -6,18 +6,18 @@ set defaultbasefrequency=60
 !
 
 new circuit.IEEE13Nodeckt 
-~ basekv=115 pu=1.0001 phases=3 bus1=SourceBus  
+~ basekv=115 pu=1.0001 phases=3 bus1=SourceBus
 ~ Angle=30 ! advance angle 30 deg so result agree with published angle
-~ MVAsc3=20000 MVASC1=21000    ! stiffen the source to approximate inf source
+~ R1=0.0001 X1=0.0001 R0=0.0001 X0=0.0001
+!~ MVAsc3=20000 MVASC1=21000    ! stiffen the source to approximate inf source
 
-
-
+new line.sourceZ bus1=SourceBus_y bus2=SourceBusZ phases=3 R1=0.16038 X1=0.64151 R0=0.1796 X0=0.53881
 !SUB TRANSFORMER DEFINITION
 ! Although this data was given, it does not appear to be used in the test case results
 ! The published test case starts at 1.0 per unit at Bus 650. To make this happen, we will change the impedance
 ! on the transformer to something tiny by dividing by 1000 using the DSS in-line RPN math
 New Transformer.Sub Phases=3 Windings=2   XHL=(8 1000 /)
-~ wdg=1 bus=SourceBus_y   conn=delta  kv=115  kva=5000   %r=(.5 1000 /)  XHT=4
+~ wdg=1 bus=SourceBusZ   conn=delta  kv=115  kva=5000   %r=(.5 1000 /)  XHT=4
 ~ wdg=2 bus=650             conn=wye    kv=4.16  kva=5000   %r=(.5 1000 /)   XLT=4
 
 ! FEEDER 1-PHASE VOLTAGE REGULATORS

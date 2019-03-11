@@ -4,10 +4,12 @@
 ! For reference purposes, please use: EPRI Feeder M1, Distributed PV (DPV) Monitoring and Feeder Analysis, dpv.epri.com, 2013
 Clear
 
-!New Circuit.M1 bus1=SourceBus pu=1.0  basekV=67  R1= 0.0518  X1=0.1555    R0= 0.0518  X0=0.155
-New Circuit.M1 bus1=SourceBus pu=1.0  basekV=67  R1= 0.0000518  X1=0.0001555    R0= 0.0000518  X0=0.000155
+New Circuit.M1 bus1=SourceBus pu=1.0  basekV=67  !R1= 0.0518  X1=0.1555    R0= 0.0518  X0=0.155
+~ R1=0.0001 X1=0.0001 R0=0.0001 X0=0.0001
 
-Redirect Sub_Xfmr_z_y.dss
+new line.sourceZ bus1=SourceBus_y bus2=SourceBusZ phases=3 R1=0.0518 X1=0.1555 R0= 0.0518 X0=0.155
+
+Redirect Sub_Xfmr_z.dss
 
 New line.temp bus1=temp bus2=temp2 switch=yes enabled=yes phases=3 normamps=99999 emergamps=99999
 New line.temp1 bus1=temp2 bus2=AggLD switch=yes enabled=yes phases=3 normamps=99999 emergamps=99999
