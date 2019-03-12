@@ -4,6 +4,7 @@ import numpy as np
 
 WD = os.path.dirname(sys.argv[0])
 feeders = ['13bus','34bus','123bus','epri5','epri7']
+feeders = ['epriJ1','epriK1','epriM1','epri5','epri24']
 
 rslts = {}
 
@@ -14,7 +15,7 @@ for feeder in feeders:
 
 p0 = []; p0lin = []; p10 = []; p10lin = []
 k0 = []; k0lin = []; k10 = []; k10lin = []
-
+times = []
 for rslt in rslts.values():
     p0 = p0+[rslt[0]['p0']]
     p0lin = p0lin + [rslt[0]['p0lin']]
@@ -24,6 +25,7 @@ for rslt in rslts.values():
     k0lin = k0lin + [rslt[0]['k0lin']]
     k10 = k10+[rslt[0]['k10']]
     k10lin = k10lin + [rslt[0]['k10lin']]
+    times = times + [rslt[0]['time2run']]
     
 x = np.arange(len(feeders))
 dx = 0.25

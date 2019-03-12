@@ -19,19 +19,18 @@ import numpy.random as rnd
 import matplotlib.pyplot as plt
 from math import gamma
 import dss_stats_funcs as dsf
-from sklearn.decomposition import TruncatedSVD
 
 WD = os.path.dirname(sys.argv[0])
 
 # CHOOSE Network
-fdr_i = 17
+fdr_i = 22
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder = fdrs[fdr_i]
 # feeder = '213'
 
 netModel=0 # none
-# netModel=1 # ltc
-# netModel=2 # fixed
+netModel=1 # ltc
+netModel=2 # fixed
 
 lp_taps='Lpt'
 
@@ -51,7 +50,8 @@ nMc = int(1e2)
 nMc = int(3e1)
 
 if netModel==0:
-    circuitK = {'13bus':4.8,'34bus':5.4,'8500node':1.2,'epri5':2.4,'epri7':0.9,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
+    # circuitK = {'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':0.9,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
+    circuitK = {'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':1.3,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
 elif netModel==1:
     circuitK = {'13bus':7.2,'34bus':5.4,'123bus':3.6}
 elif netModel==2:
@@ -63,7 +63,6 @@ dMu = 0.01
 mu_k = circuitK[feeder]*np.arange(dMu,1.0,dMu) # NB this is as a PERCENTAGE of the chosen nominal powers.
 
 pdfName = 'gamma'
-pdfName = 'gamma0'
 k = np.array([0.5]) # we do not know th, sigma until we know the scaling from mu0.
 k = np.array([3.0]) # we do not know th, sigma until we know the scaling from mu0.
 # k = np.array([20.0]) # we do not know th, sigma until we know the scaling from mu0.
@@ -73,7 +72,7 @@ pdfData = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))
 mcLinOn = True
 # mcLinOn = False
 mcDssOn = True
-mcDssOn = False
+# mcDssOn = False
 
 # PLOTTING options:
 pltHcBoth = True
@@ -191,6 +190,9 @@ for i in range(pdfData['nP'][0]):
     Mu0_d = -ld2mean*roundI*np.round(xhdN[:xhdN.shape[0]//2]/roundI - 1e6*np.finfo(np.float64).eps)
     Mu0 = np.concatenate((Mu0_y,Mu0_d))
     
+    Mu0[Mu0>(10*Mu0.mean())] = Mu0.mean()
+    Mu0[Mu0>(10*Mu0.mean())] = Mu0.mean()
+    
     if pdfData['name']=='gamma': # NB: mean of gamma distribution is k*th; variance is k*(th**2)
         k = pdfData['prms'][i]
     
@@ -228,9 +230,9 @@ for i in range(pdfData['nP'][0]):
                 conv = conv+[DSSSolution.Converged]
                 
                 v00 = abs(tp_2_ar(DSSCircuit.YNodeVarray))
-                v00[v00<0.5] = 1.0
+                # v00[(v00/vBase)<0.5] = 1.0
                 vOut[j,:] = v00[3:][v_idx]/vBase
-                
+            vOut[vOut<0.5] = 1.0
             
             if sum(conv)!=len(conv):
                 print('\nNo. Converged:',sum(conv),'/',nMc)
@@ -313,7 +315,7 @@ if mcDssOn:
     
     if not os.path.exists(SD):
         os.makedirs(SD)
-    rslt = {'p0lin':p0lin,'p10lin':p10lin,'k0lin':k0lin,'k10lin':k10lin,'p0':p0,'p10':p10,'k0':k0,'k10':k10,'netModel':netModel,'nMc':nMc,'dMu':dMu,'feeder':feeder}
+    rslt = {'p0lin':p0lin,'p10lin':p10lin,'k0lin':k0lin,'k10lin':k10lin,'p0':p0,'p10':p10,'k0':k0,'k10':k10,'netModel':netModel,'nMc':nMc,'dMu':dMu,'feeder':feeder,'time2run':time.process_time()}
     with open(SN,'wb') as file:
         pickle.dump([rslt],file)
     
@@ -327,6 +329,9 @@ if pltPwrCdf:
     plt.xlabel('Power');
     plt.ylabel('P(.)');
     plt.grid(True)
+    if mcDssOn:
+        plt.savefig(os.path.join(SD,'pltPwrCdf.png'))
+
     plt.show()
 
 if pltHcBoth:
@@ -340,8 +345,6 @@ if pltHcBoth:
         plt.semilogy(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
         plt.legend(('VpDss','VpNom','VpSvd'))
         # plt.ylim((1e-3,50))
-        
-
     plt.xlabel('Scale factor');
     plt.title('Prob. of overvoltage (logscale)');
     plt.grid(True)
@@ -353,32 +356,37 @@ if pltHcBoth:
     plt.title('Prob. of overvoltage');
     
     plt.grid(True)
+    if mcDssOn:
+        plt.savefig(os.path.join(SD,'pltHcBoth.png'))
     plt.show()
     
 if pltHcGen:
-    for i in range(pdfData['nP'][0]):
+    # for i in range(pdfData['nP'][0]):
         # plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'ro')
-        
-        plt.plot(pdfData['mu_k'],genTotSet[i,:,0],'b-'); 
-        plt.plot(pdfData['mu_k'],genTotSet[i,:,2],'b_'); 
-        plt.plot(pdfData['mu_k'],genTotSet[i,:,4],'b-');
-        if mcDssOn:
-            plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'r-'); 
-            plt.plot(pdfData['mu_k'],hcGenSet[i,:,2],'r_'); 
-            plt.plot(pdfData['mu_k'],hcGenSet[i,:,4],'r-');        
-        if mcLinOn:
-            plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,0],'g-'); 
-            plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,2],'g_'); 
-            plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,4],'g-');
+    i=0
+    plt.plot(pdfData['mu_k'],genTotSet[i,:,0],'b-'); 
+    plt.plot(pdfData['mu_k'],genTotSet[i,:,2],'b_'); 
+    plt.plot(pdfData['mu_k'],genTotSet[i,:,4],'b-');
+    if mcDssOn:
+        plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'r-'); 
+        plt.plot(pdfData['mu_k'],hcGenSet[i,:,2],'r_'); 
+        plt.plot(pdfData['mu_k'],hcGenSet[i,:,4],'r-');        
+
+    plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,0],'g-'); 
+    plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,2],'g_'); 
+    plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,4],'g-');
 
                 
-        xlm = plt.xlim()
-        plt.xlim((-dsf.get_dx(pdfData['mu_k']),xlm[1]))
-        plt.xlabel('Scale factor');
-        plt.title('Hosting Capacity (kW)');
+    xlm = plt.xlim()
+    plt.xlim((-dsf.get_dx(pdfData['mu_k']),xlm[1]))
+    plt.xlabel('Scale factor');
+    plt.title('Hosting Capacity (kW)');
 
-        # ylm = plt.ylim()
-        # plt.ylim((0,ylm[1]))
-        plt.grid(True)
-        plt.show()
+    # ylm = plt.ylim()
+    # plt.ylim((0,ylm[1]))
+    plt.grid(True)
+    if mcDssOn:
+        plt.savefig(os.path.join(SD,'pltHcGen.png'))
+
+    plt.show()
 
