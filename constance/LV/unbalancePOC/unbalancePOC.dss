@@ -1,0 +1,52 @@
+! NOTES:
+! NB you need to run each section seperately to show the losses changing in the output files
+! RUN A is identical to run B and C in terms of 'load flattening'
+! RUN B and C result in higher total losses than 2x A.
+!
+! The same happens with run A versus run A.1
+
+
+clear
+
+new circuit.circuitTest
+
+!new transformer.xfmr buses=(sourcebus, loadbus, ) xhl=8 %Rs=(2, 2,) kvs=(115,115) ! the effect of A and A.1 do not work 
+new line.line0 bus1=sourcebus bus2=loadbus length=10000 b1=0 b0=0
+
+! RUN A
+new load.loadA bus=loadbus.1 kW=200 pf=0.95 phases=1
+~ kv=115 vminpu=0.33 vmaxpu=3.0
+new load.loadB bus=loadbus.2 kW=200 pf=0.95 phases=1
+~ kv=115 vminpu=0.33 vmaxpu=3.0
+new load.loadC bus=loadbus.3 kW=200 pf=0.95 phases=1
+~ kv=115 vminpu=0.33 vmaxpu=3.0
+
+set maxiterations=200
+calcv
+
+solve
+show losses
+
+! RUN A.1
+edit load.loadA kW=200
+edit load.loadB kW=0
+edit load.loadC kW=0
+
+solve
+show losses
+
+! RUN B
+edit load.loadA kW=100
+edit load.loadB kW=250
+edit load.loadC kW=250
+
+solve
+show losses
+
+! RUN C
+edit load.loadA kW=300
+edit load.loadB kW=150
+edit load.loadC kW=150
+
+solve
+show losses
