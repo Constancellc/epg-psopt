@@ -63,27 +63,37 @@ with open('lv test/Loads.csv','rU') as csvfile:
         loads.append(int(row[2]))
 
 losses = {}
-with open('lv test/branch_losses.csv','rU') as csvfile:
+with open('lv test/branch_0.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     next(reader)
     for row in reader:
         losses[row[0][4:]] = [float(row[1]),float(row[2]),float(row[3]),
                               float(row[4])]
+with open('lv test/branch_1.csv','rU') as csvfile:
+    reader = csv.reader(csvfile)
+    next(reader)
+    for row in reader:
+        for i in range(1,5):
+            losses[row[0][4:]][i-1] = losses[row[0][4:]][i-1]/float(row[i])
 
 
-titles = ['No EVs','Uncontrolled']
-plt.subplots(1,figsize=(6,3))
+titles = ['No EVs','Uncontrolled','Load Flatttening','Loss Minimizing']
+plt.subplots(1,figsize=(6,6))
 plt.rcParams["font.family"] = 'serif'
 plt.rcParams['font.size'] = 9
-for i in range(1,3):
-    plt.subplot(1,2,i)
+for i in range(1,5):
+    plt.subplot(2,2,i)
     plt.title(titles[i-1])
     for l in lines:
         a = lines[l][0]
         b = lines[l][1]
         x = [buses[a][0],buses[b][0]]
         y = [buses[a][1],buses[b][1]]
-        lpd = np.log(0.05*losses[l][i-1]/linesL[l])
+        try:
+            lpd = losses[l][i-1]
+        except:
+            lpd = 0.1
+            
         if lpd < 0.1:
             plt.plot(x,y,lw=0.1,c='r')
         else:
@@ -114,6 +124,7 @@ for i in range(1,3):
     plt.yticks([392740,392890],['',''])
     plt.axis('off')
 plt.tight_layout()
+plt.show()
 #plt.savefig('../../../Dropbox/papers/losses/img/network_loss_map.eps', format='eps',
 #            dpi=1000, bbox_inches='tight', pad_inches=0)
 
@@ -125,12 +136,11 @@ for l in lines:
     b = lines[l][1]
     x = [buses[a][0],buses[b][0]]
     y = [buses[a][1],buses[b][1]]
-    lpd = (losses[l][2]-losses[l][3])/linesL[l]
+    lpd = 10*(losses[l][2]-losses[l][3])/losses[l][2]
     
     if lpd <= 0:
         plt.plot(x,y,lw=1,c='r')
     else:
-        lpd = np.log(lpd)
         if lpd < 1:
             plt.plot(x,y,lw=1,c='b')
         else:

@@ -235,6 +235,10 @@ plt.xlim(1,len(heatmap4)-2)
 plt.ylim(1,len(heatmap4)-2)
 plt.plot([0,len(heatmap4)],[len(heatmap4),0],ls='--',color='r')
 
+
+x_int = len(heatmap2)/5
+ax = [0,1*x_int,2*x_int,3*x_int,4*x_int,5*x_int-1]
+
 plt.subplot(1,2,2)
 plt.imshow(heatmap2,cmap='inferno')
 plt.xticks(ax,ax_ticks)

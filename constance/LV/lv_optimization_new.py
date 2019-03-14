@@ -393,6 +393,106 @@ class LVTestFeeder:
                 
         self.evs = profiles
 
+    def balance_phase(self,phase,Pmax=7,c_eff=0.9,constrain=False):
+        profiles = []
+        for i in range(self.nH):
+            profiles.append([0.0]*self.T)
+
+        bases = {'A':[0.0]*self.T,'B':[0.0]*self.T,'C':[0.0]*self.T}
+        others = {'A':['B','C'],'B':['A','C'],'C':['B','A']}
+        
+        for i in range(self.nH):
+            for t in range(self.T):
+                bases[phase[i]][t] += self.hh_profiles[i][t]
+
+        P = sparse([[spdiag([4]*self.T)]*self.n]*self.n)
+        for t in range(self.T):
+            for v1 in range(self.n):
+                for v2 in range(self.n):
+                    if v1 == v2:
+                        continue
+                        P[self.T*v1+t,self.T*v2+t] = -1
+        P = sparse(P)
+
+        q = []
+        for v in range(self.n):
+            ph = phase[self.v_map[v]]
+            for t in range(self.T):
+                n = 8*bases[ph][t]
+                for p in others[ph]:
+                    n -= 2*bases[p][t]
+                q.append(n)
+
+        q = matrix(q)
+
+        A = matrix(0.0,(self.rN,self.n*self.T)) # won't work for unconstrained
+        b = matrix(0.0,(self.rN,1))
+
+        for rn in range(self.rN):
+            b[rn] = self.b[rn]
+            if constrain == False:
+                for t in range(self.T):
+                    A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+
+            else:
+                if self.times[rn][1] < self.times[rn][0]:
+                    maxTime = self.times[rn][0]+self.T-self.times[rn][1]
+                    if maxTime*Pmax*self.t_res/60 < b[rn]:
+                        print(self.times[rn])
+                        print(':(')
+                        b[rn] = 0.99*maxTime*Pmax/(60*c_eff)
+                        
+                    for t in range(0,self.times[rn][1]):
+                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+
+                    for t in range(self.times[rn][0],self.T):
+                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+                                                
+                else:
+                    maxTime = self.times[rn][1]-self.times[rn][0]
+                    if maxTime*Pmax*self.t_res/60 < b[rn]:
+                        print(':(')
+                        print(self.times[rn])
+                        b[rn] = 0.99*maxTime*Pmax/(60*c_eff)
+                        
+                    for t in range(self.times[rn][0],self.times[rn][1]):
+                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+
+            
+        G = sparse([spdiag([-1.0]*(self.n*self.T)),spdiag([1.0]*(self.n*self.T))])
+        h = matrix([0.0]*(self.n*self.T)+[Pmax]*(self.n*self.T))
+
+        sol=solvers.qp(P,q,G,h,A,b)
+        x = sol['x']
+        self.status = sol['status'] 
+        
+        del P
+        del q
+        del G
+        del h
+        del A
+        del b
+
+        for v in range(self.n):
+            for t in range(self.T):
+                profiles[self.v_map[v]][t] = x[self.T*v+t]
+        
+        self.evs = profiles
+
+
+                
+
+        '''
+        so, for each row of the quadratic matrix:
+        +4 for itself
+        -1 for any element at the same time (regardless of phase)
+
+        for the linear matrix:
+        +8 the total household load on that phase
+        -2 the total household load on different phases
+
+        '''
+
     def load_flatten(self,Pmax=7,c_eff=0.9,constrain=True):
         profiles = []
         for i in range(self.nH):

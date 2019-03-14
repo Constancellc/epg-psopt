@@ -52,8 +52,8 @@ def get_losses(Vtot):
     return losses
 
 def get_unbalance(Vtot):
-    losses = {}
-    a = complex(0.5,0.866)
+    unbalance = {}
+    a = complex(-0.5,0.866)
     A = np.array([[complex(1,0),complex(1,0),complex(1,0)],
                   [complex(1,0),a,a*a],
                   [complex(1,0),a*a,a]])
@@ -71,14 +71,11 @@ def get_unbalance(Vtot):
         Vidx = Vtot[idx1+idx2]
         Iphs = Yprim.dot(Vidx)
         Is = np.matmul(A,Iphs[:3])
-        print(Is)
-        print('')
-        
-        Sinj = Vidx*(Iphs.conj())
-        Sloss = sum(Sinj)
 
-        losses[line] = [bus1,bus2,Sloss.real]
-    return losses
+        #ub = abs(Is[2])/abs(Is[1])
+        unbalance[line] = [bus1,bus2,abs(Is[0]),abs(Is[1]),abs(Is[2])]
+                  
+    return unbalance
      
 fdr = LVTestFeeder('manc_models/1',1)
 fdr.set_households_NR('../../../Documents/netrev/TC2a/03-Dec-2013.csv')
@@ -87,46 +84,96 @@ fdr.set_evs_MEA('../../../Documents/My_Electric_Avenue_Technical_Data/'+
 
 voltages = fdr.get_all_voltages(My,a,alpha,v0)
 losses_no_evs = {}
+ub_no_evs = {}
+l1_no_ev = [[],[],[]]
 print(fdr.predict_losses())
 for t in voltages:
-    ls = get_unbalance(voltages[t])
+    ls = get_losses(voltages[t])
+    ub = get_unbalance(voltages[t])
     for l in ls:
+        if l == 'line2':
+            for i in range(3):
+                 l1_no_ev[i].append(ub[l][2+i])
         if l not in losses_no_evs:
             losses_no_evs[l] = 0
+            ub_no_evs[l] = [0]*3
         losses_no_evs[l] += ls[l][2]
+        for i in range(3):
+            ub_no_evs[l][i] += ub[l][2+i]
 
 fdr.uncontrolled()
 voltages = fdr.get_all_voltages(My,a,alpha,v0)
 losses_unc = {}
+ub_unc = {}
+l1_unc = [[],[],[]]
 print(fdr.predict_losses())
 for t in voltages:
-    ls = get_losses(voltages[t])
+    ls = get_unbalance(voltages[t])
+    ub = get_unbalance(voltages[t])
     for l in ls:
+        if l == 'line2':
+            for i in range(3):
+                 l1_unc[i].append(ub[l][2+i])
         if l not in losses_unc:
             losses_unc[l] = 0
+            ub_unc[l] = [0]*3
         losses_unc[l] += ls[l][2]
+        for i in range(3):
+            ub_unc[l][i] += ub[l][2+i]
 
 fdr.load_flatten()
 voltages = fdr.get_all_voltages(My,a,alpha,v0)
 losses_lf = {}
+ub_lf = {}
+l1_lf = [[],[],[]]
 print(fdr.predict_losses())
 for t in voltages:
-    ls = get_losses(voltages[t])
+    ls = get_unbalance(voltages[t])
+    ub = get_unbalance(voltages[t])
     for l in ls:
+        if l == 'line2':
+            for i in range(3):
+                 l1_lf[i].append(ub[l][2+i])
         if l not in losses_lf:
             losses_lf[l] = 0
+            ub_lf[l] = [0]*3
         losses_lf[l] += ls[l][2]
+        for i in range(3):
+            ub_lf[l][i] += ub[l][2+i]
 
 fdr.loss_minimise()
 voltages = fdr.get_all_voltages(My,a,alpha,v0)
 losses_lm = {}
+ub_lm = {}
+l1_lm = [[],[],[]]
 print(fdr.predict_losses())
 for t in voltages:
-    ls = get_losses(voltages[t])
+    ls = get_unbalance(voltages[t])
+    ub = get_unbalance(voltages[t])
     for l in ls:
+        if l == 'line2':
+            for i in range(3):
+                 l1_lm[i].append(ub[l][2+i])
         if l not in losses_lm:
             losses_lm[l] = 0
+            ub_lm[l] = [0]*3
         losses_lm[l] += ls[l][2]
+        for i in range(3):
+            ub_lm[l][i] += ub[l][2+i]
+
+for i in range(3):
+     with open('lv test/branch_'+str(i)+'.csv','w') as csvfile:
+         writer = csv.writer(csvfile)
+         writer.writerow(['line','no evs','unc','lf','lm'])
+         for l in losses_unc:
+             writer.writerow([l,ub_no_evs[l][i],ub_unc[l][i],ub_lf[l][i],
+                              ub_lm[l][i]])
+     with open('lv test/line2/'+str(i)+'.csv','w') as csvfile:
+         writer = csv.writer(csvfile)
+         writer.writerow(['line','no evs','unc','lf','lm'])
+         for t in range(1440):
+             writer.writerow([l,l1_no_ev[i][t],l1_unc[i][t],l1_lf[i][t],
+                              l1_lm[i][t]])
 
 with open('lv test/branch_losses.csv','w') as csvfile:
     writer = csv.writer(csvfile)
