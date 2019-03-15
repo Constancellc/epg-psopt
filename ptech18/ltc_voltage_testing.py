@@ -9,7 +9,7 @@
 
 # A bunch of notes on the main method in WB 7-01-19 and 15-01-19
 
-import getpass, time, win32com.client, pickle
+import time, win32com.client, pickle, os, sys
 import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
@@ -18,17 +18,14 @@ from scipy import sparse
 from cvxopt import spmatrix
 from scipy import random
 import scipy.linalg as spla
+from win32com.client import makepy
 
 print('Start.\n',time.process_time())
 
-FD = r"C:\Users\\"+getpass.getuser()+"\Documents\DPhil\malcolm_updates\wc181217\\"
-if getpass.getuser()=='Matt':
-    WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-    fig_loc = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190128\\ltcVoltageTesting_"
-elif getpass.getuser()=='chri3793':
-    WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
-    fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\ltcVoltageTesting_"
+WD = os.path.dirname(sys.argv[0])
 
+sys.argv=["makepy","OpenDSSEngine.DSS"]
+makepy.main()
 DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText = DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
@@ -39,7 +36,7 @@ test_model_plt = True
 # test_model_plt = False
 test_model_bus = True
 test_model_bus = False
-fdr_i = 20
+fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder=fdrs[fdr_i]
 
@@ -63,14 +60,14 @@ if not lin_point:
 
 
 # 1. Nominal Voltage Solution at Linearization point. Load Linear models.
-DSSText.command='Compile ('+fn+'.dss)'
+DSSText.Command='Compile ('+fn+'.dss)'
 BB0,SS0 = cpf_get_loads(DSSCircuit)
 if lp_taps=='Lpt':
     cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
     DSSSolution.Solve()
 YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 
-DSSText.command='set controlmode=off'
+DSSText.Command='set controlmode=off'
 YZ = DSSCircuit.YNodeOrder
 
 LM = loadLinMagModel(feeder,lin_point,WD,lp_taps)
@@ -170,7 +167,7 @@ Convrg = []
 TP = np.zeros(len(k),dtype=complex)
 TL = np.zeros(len(k),dtype=complex)
 
-DSSText.command='set controlmode=static'
+DSSText.Command='set controlmode=static'
 
 if test_model_plt or test_model_bus:
     print('--- Start Testing --- \n',time.process_time())
@@ -245,7 +242,6 @@ if test_model_plt:
     plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
     plt.legend(('Fixed taps','Control, R, X = 0','Control, actual R, X'))
     plt.show()
-    # plt.savefig(fig_loc+'reg_on_err.png')
     
     krnd = np.around(k,5) # this breaks at 0.000 for the error!
     idxs = np.concatenate( ( (krnd==-1.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.0).nonzero()[0] ) )

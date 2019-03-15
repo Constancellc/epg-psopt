@@ -178,17 +178,17 @@ KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
 
 # OPENDSS ADMIN =======================================
 # B1. load the appropriate model/DSS
-DSSText.command='Compile ('+fn+'.dss)'
+DSSText.Command='Compile ('+fn+'.dss)'
 BB0,SS0 = cpf_get_loads(DSSCircuit)
 if lp_taps=='Lpt':
     cpf_set_loads(DSSCircuit,BB0,SS0,load_point)
     DSSSolution.Solve()
 
 if not netModel:
-    DSSText.command='set controlmode=off'
+    DSSText.Command='set controlmode=off'
 elif netModel:
-    DSSText.command='set maxcontroliter=300'
-DSSText.command='set maxiterations=100'
+    DSSText.Command='set maxcontroliter=300'
+DSSText.Command='set maxiterations=100'
 
 YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 YZ = DSSCircuit.YNodeOrder

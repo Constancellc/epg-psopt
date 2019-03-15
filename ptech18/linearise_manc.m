@@ -38,14 +38,14 @@ for K = 1:numel(lin_points)
 	[~, DSSObj, DSSText] = DSSStartup;
 	DSSCircuit=DSSObj.ActiveCircuit; 
 	DSSSolution = DSSCircuit.Solution;
-	DSSText.command=['Compile (',fn,'.dss)'];
+	DSSText.Command=['Compile (',fn,'.dss)'];
 	[ TC_No0,TR_name,~ ] = find_tap_pos( DSSCircuit );
 
 	[Ybus,YZNodeOrder] = create_tapped_ybus( DSSObj,fn_y,feeder,TR_name,TC_No0 );
 
 	%% REPRODUCE the 'Delta Power Flow Eqns' (1)
-	DSSText.command=['Compile (',fn,'.dss)'];
-	DSSText.command=['Batchedit load..* vminpu=0.33 vmaxpu=3'];
+	DSSText.Command=['Compile (',fn,'.dss)'];
+	DSSText.Command=['Batchedit load..* vminpu=0.33 vmaxpu=3'];
 	DSSSolution.Solve;
 	[ BB00,SS00 ] = cpf_get_loads( DSSCircuit );
 	
@@ -80,10 +80,10 @@ for K = 1:numel(lin_points)
 
 	tic
 	for i = 1:numel(k)
-		DSSText.command=['Compile (',fn,')'];
+		DSSText.Command=['Compile (',fn,')'];
 		
 		[~] = set_taps(DSSCircuit.RegControls); % fix taps at their current positions
-		DSSText.command=['Batchedit load..* vminpu=0.33 vmaxpu=3'];
+		DSSText.Command=['Batchedit load..* vminpu=0.33 vmaxpu=3'];
 		[~] = cpf_set_loads(DSSCircuit,BB0,SS0,k(i)/lin_point);
 		DSSSolution.Solve;
 		

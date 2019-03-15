@@ -3,17 +3,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
 from dss_voltage_funcs import *
+from win32com.client import makepy
 
+WD = os.path.dirname(sys.argv[0])
 # NB at the moment on considers the case where there is a single transformer tap to play with.
+sys.argv=["makepy","OpenDSSEngine.DSS"]
+makepy.main()
 DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
+
 DSSText = DSSObj.Text
 DSSCircuit=DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
-WD = os.path.dirname(sys.argv[0])
 
 # Things to do: 
 # 1. load a circuit;
-fdr_i = 22
+fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder=fdrs[fdr_i]
 ckt=get_ckt(WD,feeder)
@@ -25,6 +29,7 @@ lp_taps='Lpt'
 dir0 = WD + '\\lin_models\\' + feeder
 sn0 = dir0 + '\\' + feeder + lp_taps
 test_model = False
+# test_model = True
 
 lin_points = np.array([0.3, 0.6, 1.0])
 lin_points = np.array([0.6])
@@ -40,12 +45,12 @@ for i in range(len(lin_points)):
     print('Creating model', feeder,', linpoint=',lin_points[i])
     
     # 2. Solve at the right linearization point
-    DSSText.command='Compile ('+fn+'.dss)'
+    DSSText.Command='Compile ('+fn+'.dss)'
     lin_point = lin_points[i]
     BB00,SS00 = cpf_get_loads(DSSCircuit)
     cpf_set_loads(DSSCircuit,BB00,SS00,lin_point)
     DSSSolution.Solve()
-    DSSText.command='set controlmode=off'
+    DSSText.Command='set controlmode=off'
     v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
     v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3
     v_idx = v_idx[v_idx>=0]
@@ -67,16 +72,16 @@ for i in range(len(lin_points)):
         else:
             tap_hi = tap0+1; tap_lo=tap0
             dt = 0.00625
-        DSSCircuit.RegControls.Tapnumber = tap_hi
+        DSSCircuit.RegControls.TapNumber = tap_hi
         DSSSolution.Solve()
         V1 = abs(tp_2_ar(DSSCircuit.YNodeVarray)[3:])[v_idx] # NOT the same order as AllBusVmag!
-        DSSCircuit.RegControls.Tapnumber = tap_lo
+        DSSCircuit.RegControls.TapNumber = tap_lo
         DSSSolution.Solve()
         V0 = abs(tp_2_ar(DSSCircuit.YNodeVarray)[3:])[v_idx]
         # dVdt[:,j-1] = (V1 - V0)/(dt*Yvbase)
         dVdt[:,j-1] = (V1 - V0)/(dt)
         
-        DSSCircuit.RegControls.Tapnumber = tap0
+        DSSCircuit.RegControls.TapNumber = tap0
         j = DSSCircuit.RegControls.Next
         
     lp_str = str(round(lin_point*100).astype(int)).zfill(3)

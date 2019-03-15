@@ -36,7 +36,7 @@ for K = 1:numel(fn)
     modeli = K
     rng(0); % for repeatability
 
-    DSSText.command=['Compile (',fn{modeli},')'];
+    DSSText.Command=['Compile (',fn{modeli},')'];
     model = models{modeli};
 
     load([pwd,'\lin_models\',model]);

@@ -48,7 +48,7 @@ for k = 1:numel(modes)
         rng(0);
         modeli = K;
         
-        DSSText.command=['Compile (',fn{modeli},')'];
+        DSSText.Command=['Compile (',fn{modeli},')'];
         model = models{modeli};
 
         load([pwd,'\lin_models\',model]);

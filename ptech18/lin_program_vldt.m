@@ -54,12 +54,12 @@ for i = 1:numel(models)
 	[X(i),FVal,exitflag] = linprog(f,A,b);
 	
 	% now compile and compare to opendss version
-	DSSText.command=['Compile (',fn{i},')'];
-	DSSText.command=['Batchedit load..* vmaxpu=10 vminpu=0.1'];
-	DSSText.command=['Batchedit generator..* vmaxpu=10 vminpu=0.1'];
-	DSSText.command=['Batchedit generator..* pf=',num2str(gen_pf)];
-	DSSText.command=['set loadmult=',num2str(p0/1e3)];
-	DSSText.command=['set genmult=',num2str(X(i)/1e3)];
+	DSSText.Command=['Compile (',fn{i},')'];
+	DSSText.Command=['Batchedit load..* vmaxpu=10 vminpu=0.1'];
+	DSSText.Command=['Batchedit generator..* vmaxpu=10 vminpu=0.1'];
+	DSSText.Command=['Batchedit generator..* pf=',num2str(gen_pf)];
+	DSSText.Command=['set loadmult=',num2str(p0/1e3)];
+	DSSText.Command=['set genmult=',num2str(X(i)/1e3)];
 	DSSSolution.Solve
 	vmag(i) = max(DSSCircuit.AllBusVmag(4:end))/Vb;
 end

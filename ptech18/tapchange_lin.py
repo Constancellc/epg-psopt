@@ -29,11 +29,11 @@ fn = WD+'\\13Bus_copy\\IEEE13Nodeckt'
 Nreg = 4
 
 # 2. solve; find nominal voltages; 
-DSSText.command='Compile ('+fn+'.dss)'
+DSSText.Command='Compile ('+fn+'.dss)'
 DSSSolution.Solve()
 V0 = np.array(DSSCircuit.AllBusVmagPu)
 
-DSSText.command='set controlmode=off'
+DSSText.Command='set controlmode=off'
 
 # 3. increment tap changers; find new voltages
 DSSCircuit.Transformers.First

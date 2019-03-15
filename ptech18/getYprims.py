@@ -26,7 +26,7 @@ DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText = DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution = DSSCircuit.Solution
-DSSText.command='Compile ('+fn+'.dss)'
+DSSText.Command='Compile ('+fn+'.dss)'
 
 LNS = DSSCircuit.Lines
 # ACE = DSSCircuit.ActiveElement

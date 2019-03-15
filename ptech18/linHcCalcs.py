@@ -23,21 +23,22 @@ import dss_stats_funcs as dsf
 WD = os.path.dirname(sys.argv[0])
 
 # CHOOSE Network
-fdr_i = 14
+fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder = fdrs[fdr_i]
 # feeder = '213'
 
 netModel=0 # none
-# netModel=1 # ltc
+netModel=1 # ltc
 # netModel=2 # fixed
 
 lp_taps='Lpt'
 
 with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
     lp0data = pickle.load(handle)
-load_point = lp0data['kLo']
-ld2mean = load_point - lp0data['k']
+loadPointLo = lp0data['kLo']
+loadPointHi = lp0data['kHi']
+ld2mean = loadPointLo - lp0data['k']
 Vmax = lp0data['Vp']
 Vmin = lp0data['Vm']
 lin_point=lp0data['k']
@@ -86,7 +87,7 @@ pltCns = True
 pltBoxDss = True
 pltBoxDss = False
 
-pltSave = True
+pltSave = True # for saving both plots and results
 pltSave = False
 
 DVmax = 0.06 # percent
@@ -99,7 +100,7 @@ ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
 fn = ckt[1]
 
-# 
+# opendss with 'early bindings'
 from win32com.client import makepy
 sys.argv=["makepy","OpenDSSEngine.DSS"]
 makepy.main()
@@ -109,7 +110,7 @@ DSSText = DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution = DSSCircuit.Solution
 
-print('Start. \nFeeder:',feeder,'\nLinpoint:',lin_point,'\nLoad Point:',load_point,'\nTap Model:',netModel)
+print('Start. \nFeeder:',feeder,'\nLinpoint:',lin_point,'\nLoad Point:',loadPointLo,'\nTap Model:',netModel)
 
 # PART A.1 - load models ===========================
 if not netModel:
@@ -121,7 +122,8 @@ if not netModel:
     xhyN = xhy0/lin_point # needed seperately for lower down
     xhdN = xhd0/lin_point
     
-    b0 = (Ky.dot(xhyN*load_point) + Kd.dot(xhdN*load_point) + bV)/vBase # in pu
+    b0lo = (Ky.dot(xhyN*loadPointLo) + Kd.dot(xhdN*loadPointLo) + bV)/vBase # in pu
+    b0hi = (Ky.dot(xhyN*loadPointHi) + Kd.dot(xhdN*loadPointHi) + bV)/vBase # in pu
 
     KyP = Ky[:,:Ky.shape[1]//2]
     KdP = Kd[:,:Kd.shape[1]//2]
@@ -135,7 +137,8 @@ elif netModel>0:
     xhyN = xhy0/lin_point # needed seperately for lower down
     xhdN = xhd0/lin_point
     xNom = np.concatenate((xhyN,xhdN))
-    b0 = (A.dot(xNom*load_point) + bV)/vBase # in pu
+    b0lo = (A.dot(xNom*loadPointLo) + bV)/vBase # in pu
+    b0hi = (A.dot(xNom*loadPointHi) + bV)/vBase # in pu
     
     KyP = A[:,0:len(xhy0)//2] # these might be zero if there is no injection (e.g. only Q)
     KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
@@ -144,7 +147,8 @@ elif netModel>0:
 
 KtotCheck = np.sum(Ktot==0,axis=1)!=Ktot.shape[1] # [this seems to get rid of fixed regulated buses]
 Ktot = Ktot[KtotCheck]
-b0 = b0[KtotCheck]
+b0lo = b0lo[KtotCheck]
+b0hi = b0hi[KtotCheck]
 vBase = vBase[KtotCheck]
 
 v_idx=LM['v_idx'][KtotCheck]
@@ -173,7 +177,7 @@ KfixPu = dsf.vmM(1/dvBase,Kfix)
 DSSText.Command='Compile ('+fn+'.dss)'
 BB0,SS0 = cpf_get_loads(DSSCircuit)
 
-cpf_set_loads(DSSCircuit,BB0,SS0,load_point)
+cpf_set_loads(DSSCircuit,BB0,SS0,loadPointLo)
 DSSSolution.Solve()
 
 if not netModel:
@@ -195,9 +199,9 @@ DSSSolution.Solve()
 genNames = genNamesY+genNamesD
 
 Vp_pct_dss = np.zeros(pdfData['nP'])
-Cns_pct_dss = np.zeros(list(pdfData['nP'])+[3])
+Cns_pct_dss = np.zeros(list(pdfData['nP'])+[5])
 Vp_pct_lin = np.zeros(pdfData['nP'])
-Cns_pct_lin = np.zeros(list(pdfData['nP'])+[3])
+Cns_pct_lin = np.zeros(list(pdfData['nP'])+[5])
 
 hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
 hcGenSetLin = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
@@ -239,75 +243,88 @@ for i in range(pdfData['nP'][0]):
         genTot = genTot0*pdfData['mu_k'][jj]
         
         if mcDssOn:
-            vOut = np.zeros((nMc,len(v_idx)))
-            dvOut = np.zeros((nMc,len(v_idx)))
-            conv = []
-            DVconv = []
+            vLo_dss = np.zeros((nMc,len(v_idx)))
+            vHi_dss = np.zeros((nMc,len(v_idx)))
+            vDv_dss = np.zeros((nMc,len(v_idx)))
+            convLo = []; convDv = []; convHi = []
             print('\nRun:',jj,'/',pdfData['nP'][-1])
+            
             for j in range(nMc):
                 if j%(nMc//4)==0:
                     print(j,'/',nMc)
                 set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
-                
                 DSSText.Command='Batchedit load..* vmin=0.33 vmax=3.0 model=1'
                 DSSText.Command='Batchedit generator..* vmin=0.33 vmax=3.0'
                 DSSText.Command='Batchedit regcontrol..* band=1.0' # seems to be as low as we can set without bit problems
                 
-                DSSSolution.Solve()
-                conv = conv+[DSSSolution.Converged]
-                v00 = tp_2_ar(DSSCircuit.YNodeVarray)
+                # first solve for the high load point [NB: This order seems best!]
+                cpf_set_loads(DSSCircuit,BB0,SS0,loadPointHi)
                 
+                DSSSolution.Solve()
+                convHi = convHi+[DSSSolution.Converged]
+                vHi0 = tp_2_ar(DSSCircuit.YNodeVarray)
+                
+                # then low load point
+                cpf_set_loads(DSSCircuit,BB0,SS0,loadPointLo)
+                
+                DSSSolution.Solve()
+                convLo = convLo+[DSSSolution.Converged]
+                vLo0 = tp_2_ar(DSSCircuit.YNodeVarray)
+                
+                # finally solve for voltage deviation. 
                 DSSText.Command='Batchedit generator..* kW=0.001'
                 DSSText.Command='set controlmode=off'
                 DSSSolution.Solve()
 
-                DVconv = DVconv+[DSSSolution.Converged]
-                DV00 = tp_2_ar(DSSCircuit.YNodeVarray)
+                convDv = convDv+[DSSSolution.Converged]
+                vDv0 = tp_2_ar(DSSCircuit.YNodeVarray)
                 
                 DSSText.Command='set controlmode=static'
                 
-                vOut[j,:] = abs(v00)[3:][v_idx]/vBase
-                dvOut[j,:] = abs(abs(v00) - abs(DV00))[3:][v_idx]/vBase
-                dvOut[j,:] = abs(abs(v00) - abs(DV00))[3:][v_idx]/vBase
+                vLo_dss[j,:] = abs(vLo0)[3:][v_idx]/vBase
+                vHi_dss[j,:] = abs(vHi0)[3:][v_idx]/vBase
+                vDv_dss[j,:] = abs(abs(vLo0) - abs(vDv0))[3:][v_idx]/vBase
                 
-                # plt.plot(abs(v00)); plt.plot(abs(DV00)); plt.show()
-                # plt.plot(abs(v00)[3:][v_idx]/vBase,'x-'); plt.plot(vOutLin[-1],'x-'); plt.show()
+                # plt.plot(abs(vLo0)); plt.plot(abs(vDv0)); plt.show()
+                # plt.plot(abs(vLo0)[3:][v_idx]/vBase,'x-'); plt.plot(vLo_lin[-1],'x-'); plt.show()
                 # YZ
                 
-            vOut[vOut<0.5] = 1.0
+            vLo_dss[vLo_dss<0.5] = 1.0
             
-            if sum(conv)!=len(conv):
-                print('\nNo. Converged:',sum(conv),'/',nMc)
+            if sum(convLo+convHi+convDv)!=len(convLo+convHi+convDv):
+                print('\nNo. Converged:',sum(convLo+convHi+convDv),'/',nMc*3)
             
             # NOW: calculate the HC value:
-            # dsf.mcErrorAnalysis(vOut,Vmax)
-            maxV = np.max(vOut,axis=1)
-            minV = np.min(vOut,axis=1)
-            maxDv = np.max(dvOut,axis=1)
+            # dsf.mcErrorAnalysis(vLo_dss,Vmax)
+            maxVloDss = np.max(vLo_dss,axis=1)
+            minVloDss = np.min(vLo_dss,axis=1)
+            maxVhiDss = np.max(vHi_dss,axis=1)
+            minVhiDss = np.min(vHi_dss,axis=1)
+            maxDvDss = np.max(vDv_dss,axis=1)
             
             
-            Cns_pct_dss[i,jj] = 100*np.array([sum(maxDv>DVmax),sum(maxV>Vmax),sum(minV<Vmin)])/nMc
-            # Vhi_pct_dss[i,jj] = 100*/nMc
-            # Vlo_pct_dss[i,jj] = 100*/nMc
-            
-            inBounds = np.any(np.array([maxV>Vmax,minV<Vmin,maxDv>DVmax]),axis=0)
+            Cns_pct_dss[i,jj] = 100*np.array([sum(maxDvDss>DVmax),sum(maxVhiDss>Vmax),sum(minVhiDss<Vmin),sum(maxVloDss>Vmax),sum(minVloDss<Vmin)])/nMc
+            inBounds = np.any(np.array([maxVhiDss>Vmax,minVhiDss<Vmin,maxVloDss>Vmax,minVloDss<Vmin,maxDvDss>DVmax]),axis=0)
 
             Vp_pct_dss[i,jj] = 100*sum(inBounds)/nMc
             hcGen = genTot[inBounds]
         
         if mcLinOn:
-            vOutLin = (DelVoutLin*pdfData['mu_k'][jj]) + b0
-            DvOutLin = ddVoutLin*pdfData['mu_k'][jj]
-            vOutLin[vOutLin<0.5] = 1.0
-            maxVlin = np.max(vOutLin,axis=1)
-            minVlin = np.min(vOutLin,axis=1)
-            maxDvLin = np.max(DvOutLin,axis=1)
+            vLo_lin = (DelVoutLin*pdfData['mu_k'][jj]) + b0lo
+            vHi_lin = (DelVoutLin*pdfData['mu_k'][jj]) + b0hi
+            vDv_lin = ddVoutLin*pdfData['mu_k'][jj]
             
-            # print('Overvoltage:',100*(sum(maxVlin>Vmax)/nMc))
-            # print('V. Violation:',100*sum(np.any(np.array([maxVlin>Vmax,minVlin<Vmin]),axis=0))/nMc)
+            vLo_lin[vLo_lin<0.5] = 1.0
+            vHi_lin[vHi_lin<0.5] = 1.0
             
-            Cns_pct_lin[i,jj] = 100*np.array([sum(maxDvLin>DVmax),sum(maxVlin>Vmax),sum(minVlin<Vmin)])/nMc
-            inBoundsLin = np.any(np.array([maxVlin>Vmax,minVlin<Vmin,maxDvLin>DVmax]),axis=0)
+            maxVloLin = np.max(vLo_lin,axis=1)
+            minVloLin = np.min(vLo_lin,axis=1)
+            maxVhiLin = np.max(vHi_lin,axis=1)
+            minVhiLin = np.min(vHi_lin,axis=1)
+            maxDvLin = np.max(vDv_lin,axis=1)
+            
+            Cns_pct_lin[i,jj] = 100*np.array([sum(maxDvLin>DVmax),sum(maxVhiLin>Vmax),sum(minVhiLin<Vmin),sum(maxVloLin>Vmax),sum(minVloLin<Vmin)])/nMc
+            inBoundsLin = np.any(np.array([maxVhiLin>Vmax,minVhiLin<Vmin,maxVloLin>Vmax,minVloLin<Vmin,maxDvLin>DVmax]),axis=0)
             Vp_pct_lin[i,jj] = 100*sum(inBoundsLin)/nMc
             hcGenLin = genTot[inBoundsLin]
 
@@ -369,22 +386,24 @@ if mcDssOn:
     if not os.path.exists(SD):
         os.makedirs(SD)
     rslt = {'p0lin':p0lin,'p10lin':p10lin,'k0lin':k0lin,'k10lin':k10lin,'p0':p0,'p10':p10,'k0':k0,'k10':k10,'netModel':netModel,'nMc':nMc,'dMu':dMu,'feeder':feeder,'time2run':time.process_time()}
-    with open(SN,'wb') as file:
-        pickle.dump([rslt],file)
+    if pltSave:
+        with open(SN,'wb') as file:
+            pickle.dump([rslt],file)
     
 
 # ================ PLOTTING FUNCTIONS FROM HERE
 if pltCns:
     fig, ax = plt.subplots()
-    ax.set_prop_cycle(color=['red', 'blue', 'green'])
+    clrs = ['#1f77b4','#ff7f0e','red','#2ca02c','green']
+    ax.set_prop_cycle(color=clrs)
     if mcDssOn:
         plt.plot(pdfData['mu_k'],Cns_pct_dss[0])
     plt.plot(pdfData['mu_k'],Cns_pct_lin[0],'--')
     plt.xlabel('Scale factor');
     plt.ylabel('P(.), %');
     plt.title('Constraints')
-    plt.legend(('Voltage deviation','Overvoltage','Undervoltage'))
-    if mcDssOn:
+    plt.legend(('Voltage deviation','Overvoltage (hi ld)','Undervoltage (hi ld)','Overvoltage (lo ld)','Undervoltage (lo ld)'))
+    if mcDssOn and pltSave:
         plt.savefig(os.path.join(SD,'pltCns.png'))
     plt.show()
 
@@ -397,7 +416,7 @@ if pltPwrCdf:
     plt.xlabel('Power');
     plt.ylabel('P(.)');
     plt.grid(True)
-    if mcDssOn:
+    if mcDssOn and pltSave:
         plt.savefig(os.path.join(SD,'pltPwrCdf.png'))
 
     plt.show()
@@ -428,7 +447,7 @@ if pltHcBoth:
     
     plt.grid(True)
     plt.tight_layout()
-    if mcDssOn:
+    if mcDssOn and pltSave:
         plt.savefig(os.path.join(SD,'pltHcBoth.png'))
     plt.show()
     
@@ -457,7 +476,7 @@ if pltHcGen:
     # ylm = plt.ylim()
     # plt.ylim((0,ylm[1]))
     plt.grid(True)
-    if mcDssOn:
+    if mcDssOn and pltSave:
         plt.savefig(os.path.join(SD,'pltHcGen.png'))
 
     plt.show()

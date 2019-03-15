@@ -6,7 +6,7 @@
 # 3. reorder & remove elements as appropriate
 # 4. run continuation analysis.
 
-import getpass, time, pickle, win32com.client
+import time, pickle, win32com.client, sys, os
 import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
@@ -15,15 +15,13 @@ from scipy import sparse
 from cvxopt import spmatrix
 from scipy import random
 import scipy.linalg as spla
+from win32com.client import makepy
 
 # based on monte_carlo.py
+WD = os.path.dirname(sys.argv[0])
 
-FD = r"C:\Users\\"+getpass.getuser()+"\Documents\DPhil\malcolm_updates\wc181217\\"
-if getpass.getuser()=='Matt':
-    WD = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18"
-elif getpass.getuser()=='chri3793':
-    WD = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18"
-
+sys.argv=["makepy","OpenDSSEngine.DSS"]
+makepy.main()
 DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 
 DSSText = DSSObj.Text
@@ -32,13 +30,13 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-test_model_plt = False
+# test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 test_model_dff = True
 test_model_dff = False
 
-fdr_i = 22
+fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder=fdrs[fdr_i]
 
@@ -68,16 +66,16 @@ if not lin_point:
 
 
 # 1. Load files' find nominal voltages, node orders, linear model
-DSSText.command='Compile ('+fn+'.dss)'
+DSSText.Command='Compile ('+fn+'.dss)'
 BB0,SS0 = cpf_get_loads(DSSCircuit)
 nRegs = DSSCircuit.RegControls.Count # NB is not necessarily the same as the number of transformers (e.g. 123 bus)
-# DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+# DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
 if lp_taps=='Lpt':
     cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
     DSSSolution.Solve()
 YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 
-DSSText.command='set controlmode=off'
+DSSText.Command='set controlmode=off'
 YZ = DSSCircuit.YNodeOrder
 
 LM = loadLinMagModel(feeder,lin_point,WD,lp_taps)
@@ -181,7 +179,7 @@ if test_model_plt or test_model_bus or test_model_dff:
         ve[i] = np.linalg.norm( vv_l[i,:] - vv_0[i,:] )/np.linalg.norm(vv_0[i,:])
         veN[i] = np.linalg.norm( vv_lN[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
     print('--- Start Testing, 2/2 --- \n',time.process_time())
-    DSSText.command='set controlmode=static'
+    DSSText.Command='set controlmode=static'
     for i in range(len(k)):
         print(i,'/',len(k)-1)
         cpf_set_loads(DSSCircuit,BB0,SS0,k[i])

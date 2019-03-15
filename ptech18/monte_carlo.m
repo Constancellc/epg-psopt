@@ -30,7 +30,7 @@ fn{5} = [pwd,'\manchester_models\network_4\Feeder_1\master_g'];
 DSSCircuit = DSSObj.ActiveCircuit;
 DSSSolution = DSSCircuit.Solution;
 LDS = DSSCircuit.loads;
-DSSText.command=['Compile (',fn{modeli},')'];
+DSSText.Command=['Compile (',fn{modeli},')'];
 model = models{modeli};
 
 load([pwd,'\lin_models\',model]);
