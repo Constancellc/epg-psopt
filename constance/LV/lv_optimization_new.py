@@ -3,7 +3,7 @@ import random
 import copy
 import numpy as np
 import matplotlib.pyplot as plt
-from cvxopt import matrix, spdiag, sparse, solvers
+from cvxopt import matrix, spdiag, sparse, solvers, spmatrix
 
 solvers.options['maxiters'] = 30
 #solvers.options['show_progress'] = False
@@ -393,7 +393,7 @@ class LVTestFeeder:
                 
         self.evs = profiles
 
-    def balance_phase(self,phase,Pmax=7,c_eff=0.9,constrain=False):
+    def balance_phase(self,phase,Pmax=7,c_eff=0.9,constrain=True):
         profiles = []
         for i in range(self.nH):
             profiles.append([0.0]*self.T)
@@ -405,25 +405,44 @@ class LVTestFeeder:
             for t in range(self.T):
                 bases[phase[i]][t] += self.hh_profiles[i][t]
 
-        P = sparse([[spdiag([4]*self.T)]*self.n]*self.n)
-        for t in range(self.T):
-            for v1 in range(self.n):
-                for v2 in range(self.n):
-                    if v1 == v2:
-                        continue
-                        P[self.T*v1+t,self.T*v2+t] = -1
-        P = sparse(P)
+        vals = [2.0]*self.T*self.n
+        i_ = list(range(self.T*self.n))
+        j_ = list(range(self.T*self.n))
+
+        i1 = []
+        j1 = []
+        i2 = []
+        j2 = []
+
+        for v1 in range(self.n):
+            for v2 in range(self.n):
+                if v1 == v2:
+                    continue
+                p1 = phase[self.v_map[v1]]
+                p2 = phase[self.v_map[v2]]
+                if p1 == p2:
+                    for t in range(self.T):
+                        i1.append(self.T*v1+t)
+                        j1.append(self.T*v2+t)
+                else:
+                    for t in range(self.T):
+                        i2.append(self.T*v1+t)
+                        j2.append(self.T*v2+t)
+
+        vals += [2.0]*len(i1)
+        vals += [-1.0]*len(i2)
+        P_ = spmatrix(vals,i_+i1+i2,j_+j1+j2,(self.T*self.n,self.T*self.n))
 
         q = []
         for v in range(self.n):
             ph = phase[self.v_map[v]]
             for t in range(self.T):
-                n = 8*bases[ph][t]
+                n = 4*bases[ph][t]
                 for p in others[ph]:
                     n -= 2*bases[p][t]
                 q.append(n)
 
-        q = matrix(q)
+        q_ = matrix(q)
 
         A = matrix(0.0,(self.rN,self.n*self.T)) # won't work for unconstrained
         b = matrix(0.0,(self.rN,1))
@@ -462,8 +481,10 @@ class LVTestFeeder:
         G = sparse([spdiag([-1.0]*(self.n*self.T)),spdiag([1.0]*(self.n*self.T))])
         h = matrix([0.0]*(self.n*self.T)+[Pmax]*(self.n*self.T))
 
-        sol=solvers.qp(P,q,G,h,A,b)
+
+        sol=solvers.qp(P*2,q,G,h,A,b)
         x = sol['x']
+        print(sum(x))
         self.status = sol['status'] 
         
         del P
@@ -482,16 +503,117 @@ class LVTestFeeder:
 
                 
 
-        '''
-        so, for each row of the quadratic matrix:
-        +4 for itself
-        -1 for any element at the same time (regardless of phase)
+    def balance_phase2(self,phase,Pmax=7,c_eff=0.9,constrain=True):
+        alpha=0.0001
+        profiles = []
+        for i in range(self.nH):
+            profiles.append([0.0]*self.T)
 
-        for the linear matrix:
-        +8 the total household load on that phase
-        -2 the total household load on different phases
+        bases = {'A':[0.0]*self.T,'B':[0.0]*self.T,'C':[0.0]*self.T}
+        others = {'A':['B','C'],'B':['A','C'],'C':['B','A']}
+        
+        for i in range(self.nH):
+            for t in range(self.T):
+                bases[phase[i]][t] += self.hh_profiles[i][t]
 
-        '''
+        vals = [alpha*4.0]*self.T*self.n
+        i_ = list(range(self.T*self.n))
+        j_ = list(range(self.T*self.n))
+
+        i1 = []
+        j1 = []
+        i2 = []
+        j2 = []
+
+        for v1 in range(self.n):
+            for v2 in range(self.n):
+                if v1 == v2:
+                    continue
+                p1 = phase[self.v_map[v1]]
+                p2 = phase[self.v_map[v2]]
+                if p1 == p2:
+                    for t in range(self.T):
+                        i1.append(self.T*v1+t)
+                        j1.append(self.T*v2+t)
+                else:
+                    for t in range(self.T):
+                        i2.append(self.T*v1+t)
+                        j2.append(self.T*v2+t)
+
+        vals += [alpha*4.0]*len(i1)
+        vals += [alpha*-2.0]*len(i2)
+        P_ = spmatrix(vals,i_+i1+i2,j_+j1+j2,(self.T*self.n,self.T*self.n))
+
+        q = copy.copy(self.base)*self.n
+
+        P = sparse([[spdiag([1]*self.T)]*self.n]*self.n)
+        P += P_
+
+        for v in range(self.n):
+            ph = phase[self.v_map[v]]
+            for t in range(self.T):
+                q[v*self.T+t] += alpha*4*bases[ph][t]
+                for p in others[ph]:
+                    q[v*self.T+t] -= alpha*2*bases[p][t]
+
+        q = matrix(q)
+                
+        A = matrix(0.0,(self.rN,self.n*self.T)) # won't work for unconstrained
+        b = matrix(0.0,(self.rN,1))
+
+        for rn in range(self.rN):
+            b[rn] = self.b[rn]
+            if constrain == False:
+                for t in range(self.T):
+                    A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+
+            else:
+                if self.times[rn][1] < self.times[rn][0]:
+                    maxTime = self.times[rn][0]+self.T-self.times[rn][1]
+                    if maxTime*Pmax*self.t_res/60 < b[rn]:
+                        print(self.times[rn])
+                        print(':(')
+                        b[rn] = 0.99*maxTime*Pmax/(60*c_eff)
+                        
+                    for t in range(0,self.times[rn][1]):
+                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+
+                    for t in range(self.times[rn][0],self.T):
+                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+                                                
+                else:
+                    maxTime = self.times[rn][1]-self.times[rn][0]
+                    if maxTime*Pmax*self.t_res/60 < b[rn]:
+                        print(':(')
+                        print(self.times[rn])
+                        b[rn] = 0.99*maxTime*Pmax/(60*c_eff)
+                        
+                    for t in range(self.times[rn][0],self.times[rn][1]):
+                        A[rn,self.T*self.rn_map[rn]+t] = c_eff*self.t_res/60
+
+            
+        G = sparse([spdiag([-1.0]*(self.n*self.T)),spdiag([1.0]*(self.n*self.T))])
+        h = matrix([0.0]*(self.n*self.T)+[Pmax]*(self.n*self.T))
+
+
+        sol=solvers.qp(P,q,G,h,A,b)
+        x = sol['x']
+        print(sum(x))
+        self.status = sol['status'] 
+        
+        del P
+        del q
+        del G
+        del h
+        del A
+        del b
+
+        for v in range(self.n):
+            for t in range(self.T):
+                profiles[self.v_map[v]][t] = x[self.T*v+t]
+        
+        self.evs = profiles
+        
 
     def load_flatten(self,Pmax=7,c_eff=0.9,constrain=True):
         profiles = []
@@ -542,6 +664,7 @@ class LVTestFeeder:
 
         sol=solvers.qp(P,q,G,h,A,b)
         x = sol['x']
+        print(sum(x))
         self.status = sol['status'] 
         
         del P
