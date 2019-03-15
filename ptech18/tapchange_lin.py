@@ -66,7 +66,7 @@ for dt in dT:
 # plt.ylabel('Change in voltage per unit tap, dVdt')
 # fig.gca().set_axisbelow(True)
 # plt.show()
-# fig.savefig(fig_loc+'dVdt_'+DSSCircuit.name+'_'+DSSCircuit.Transformers.name+'.pdf')
+# fig.savefig(fig_loc+'dVdt_'+DSSCircuit.Name+'_'+DSSCircuit.Transformers.Name+'.pdf')
 
 # fig = plt.figure()
 # for i in range(len(dV[0])):
@@ -77,7 +77,7 @@ for dt in dT:
 # plt.ylabel('Change in voltage, dV')
 # fig.gca().set_axisbelow(True)
 # plt.show()
-# fig.savefig(fig_loc+'dV_'+DSSCircuit.name+'_'+DSSCircuit.Transformers.name+'.pdf')
+# fig.savefig(fig_loc+'dV_'+DSSCircuit.Name+'_'+DSSCircuit.Transformers.Name+'.pdf')
 # fig.savefig(fig_loc+'dV_eulv.pdf')
 
 

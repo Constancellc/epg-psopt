@@ -11,7 +11,7 @@ def get_regXfmr(DSSCircuit):
     return regXfmr
     
 def in_regs(DSSCircuit,regXfmr):
-    type,name = DSSCircuit.ActiveElement.name.split('.')
+    type,name = DSSCircuit.ActiveElement.Name.split('.')
     in_regs = (type.lower()=='transformer' and (name.lower() in regXfmr))
     return in_regs
 
@@ -183,14 +183,14 @@ def get_regZneIdx(DSSCircuit):
     zoneRegId = []
     i = DSSEM.First
     while i:
-        zoneNames.append(DSSEM.name)
+        zoneNames.append(DSSEM.Name)
         zoneBus.append([])
         zoneIdx.append([])
         yzRegIdx.append([])
         for branch in DSSEM.AllBranchesInZone:
             DSSCircuit.SetActiveElement(branch)
             if in_regs(DSSCircuit,regXfmr):
-                zoneRegId = zoneRegId + [DSSEM.name]
+                zoneRegId = zoneRegId + [DSSEM.Name]
             else:
                 for bus in DSSCircuit.ActiveElement.BusNames:
                     zoneBus[i-1].append(bus)

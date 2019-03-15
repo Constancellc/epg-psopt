@@ -55,10 +55,10 @@ def add_generators(DSSObj,genBuses,delta):
         DSSObj.ActiveCircuit.SetActiveBus(genBus)
         if not delta: # ie wye
             genName = genBus.replace('.','_')
-            genKV = str(DSSObj.ActiveCircuit.ActiveBus.kVbase)
-            DSSObj.Text.command='new generator.'+genName+' phases=1 bus1='+genBus+' kV='+genKV+' kW=0.5 pf=1.0 model=1 vminpu=0.33 vmaxpu=3.0 conn=wye'
+            genKV = str(DSSObj.ActiveCircuit.ActiveBus.kVBase)
+            DSSObj.Text.Command='new generator.'+genName+' phases=1 bus1='+genBus+' kV='+genKV+' kW=0.5 pf=1.0 model=1 vminpu=0.33 vmaxpu=3.0 conn=wye'
         elif delta:
-            genKV = str(DSSObj.ActiveCircuit.ActiveBus.kVbase*np.sqrt(3))
+            genKV = str(DSSObj.ActiveCircuit.ActiveBus.kVBase*np.sqrt(3))
             if genBus[-1]=='1':
                 genBuses = genBus+'.2'
             if genBus[-1]=='2':
@@ -66,7 +66,7 @@ def add_generators(DSSObj,genBuses,delta):
             if genBus[-1]=='3':
                 genBuses = genBus+'.1'
             genName = genBuses.replace('.','_')
-            DSSObj.Text.command='new generator.'+genName+' phases=1 bus1='+genBuses+' kV='+genKV+' kW=0.5 pf=1.0 model=1 vminpu=0.33 vmaxpu=3.0 conn=wye'
+            DSSObj.Text.Command='new generator.'+genName+' phases=1 bus1='+genBuses+' kV='+genKV+' kW=0.5 pf=1.0 model=1 vminpu=0.33 vmaxpu=3.0 conn=wye'
         genNames = genNames+[genName]
     return genNames
 
@@ -84,7 +84,7 @@ def ld_vals( DSSCircuit ):
     ii = DSSCircuit.FirstPCElement()
     S=[]; V=[]; I=[]; B=[]; D=[]; N=[]
     while ii!=0:
-        if DSSCircuit.ActiveElement.name[0:4].lower()=='load':
+        if DSSCircuit.ActiveElement.Name[0:4].lower()=='load':
             DSSCircuit.Loads.Name=DSSCircuit.ActiveElement.Name.split(sep='.')[1]
             S.append(tp_2_ar(DSSCircuit.ActiveElement.Powers))
             V.append(tp_2_ar(DSSCircuit.ActiveElement.Voltages))
@@ -98,7 +98,7 @@ def ld_vals( DSSCircuit ):
         ii=DSSCircuit.NextPCElement()
     jj = DSSCircuit.FirstPDElement()
     while jj!=0:
-        if DSSCircuit.ActiveElement.name[0:4].lower()=='capa':
+        if DSSCircuit.ActiveElement.Name[0:4].lower()=='capa':
             DSSCircuit.Capacitors.Name=DSSCircuit.ActiveElement.Name.split(sep='.')[1]
             S.append(tp_2_ar(DSSCircuit.ActiveElement.Powers))
             V.append(tp_2_ar(DSSCircuit.ActiveElement.Voltages))
@@ -212,7 +212,7 @@ def cpf_get_loads(DSSCircuit):
     while i!=0:
         SS[i]=DSSCircuit.Loads.kW + 1j*DSSCircuit.Loads.kvar
         BB[i]=DSSCircuit.Loads.Name
-        i=DSSCircuit.Loads.next
+        i=DSSCircuit.Loads.Next
     imax = DSSCircuit.Loads.Count
     j = DSSCircuit.Capacitors.First
     while j!=0:
@@ -232,8 +232,8 @@ def cpf_set_loads(DSSCircuit,BB,SS,k):
     j = DSSCircuit.Capacitors.First
     while j!=0:
         DSSCircuit.Capacitors.Name=BB[j+imax]
-        DSSCircuit.Capacitors.kVar=k*SS[j+imax].imag
-        j=DSSCircuit.Capacitors.next
+        DSSCircuit.Capacitors.kvar=k*SS[j+imax].imag
+        j=DSSCircuit.Capacitors.Next
     return
 
 def find_tap_pos(DSSCircuit):
@@ -252,9 +252,9 @@ def fix_tap_pos(DSSCircuit, TC_No):
 
         
 def create_tapped_ybus_very_slow( DSSObj,fn_y,TC_No0 ):
-    DSSObj.Text.command='Compile ('+fn_y+')'
+    DSSObj.Text.Command='Compile ('+fn_y+')'
     fix_tap_pos(DSSObj.ActiveCircuit, TC_No0)
-    DSSObj.Text.command='set controlmode=off'
+    DSSObj.Text.Command='set controlmode=off'
     DSSObj.ActiveCircuit.Solution.Solve()
     
     SysY = DSSObj.ActiveCircuit.SystemY
@@ -282,9 +282,9 @@ def create_tapped_ybus_very_slow( DSSObj,fn_y,TC_No0 ):
         
         
 def create_tapped_ybus_slow( DSSObj,fn_y,TC_No0 ):
-    DSSObj.Text.command='Compile ('+fn_y+')'
+    DSSObj.Text.Command='Compile ('+fn_y+')'
     fix_tap_pos(DSSObj.ActiveCircuit, TC_No0)
-    DSSObj.Text.command='set controlmode=off'
+    DSSObj.Text.Command='set controlmode=off'
     DSSObj.ActiveCircuit.Solution.Solve()
     Ybus0 = tp_2_ar(DSSObj.ActiveCircuit.SystemY)
     n = int(np.sqrt(len(Ybus0)))
@@ -295,9 +295,9 @@ def create_tapped_ybus_slow( DSSObj,fn_y,TC_No0 ):
     return Ybus, YNodeOrder
 
 def create_tapped_ybus( DSSObj,fn_y,fn_ckt,TC_No0 ):
-    DSSObj.Text.command='Compile ('+fn_y+')'
+    DSSObj.Text.Command='Compile ('+fn_y+')'
     fix_tap_pos(DSSObj.ActiveCircuit, TC_No0)
-    DSSObj.Text.command='set controlmode=off'
+    DSSObj.Text.Command='set controlmode=off'
     DSSObj.ActiveCircuit.Solution.Solve()
     Ybus_,YNodeOrder_,n = build_y(DSSObj,fn_ckt)
     Ybus = Ybus_[3:,3:]
@@ -305,13 +305,13 @@ def create_tapped_ybus( DSSObj,fn_y,fn_ckt,TC_No0 ):
     return Ybus, YNodeOrder
 
 def build_y(DSSObj,fn_ckt):
-    # DSSObj.Text.command='Compile ('+fn_z+'.dss)'
+    # DSSObj.Text.Command='Compile ('+fn_z+'.dss)'
     YNodeOrder = DSSObj.ActiveCircuit.YNodeOrder
-    DSSObj.Text.command='show Y'
+    DSSObj.Text.Command='show Y'
     os.system("TASKKILL /F /IM notepad.exe")
     
-    fn_y = fn_ckt+'\\'+DSSObj.ActiveCircuit.name+'_SystemY.txt'
-    fn_csv = fn_ckt+'\\'+DSSObj.ActiveCircuit.name+'_SystemY_csv.txt'
+    fn_y = fn_ckt+'\\'+DSSObj.ActiveCircuit.Name+'_SystemY.txt'
+    fn_csv = fn_ckt+'\\'+DSSObj.ActiveCircuit.Name+'_SystemY_csv.txt'
 
     file_r = open(fn_y,'r')
     stream = file_r.read()
@@ -361,7 +361,7 @@ def get_idxs(e_idx,DSSCircuit,ELE):
                 except:
                     for ph in range(1,4):
                         e_idx.append(DSSCircuit.YNodeOrder.index(splt[0]+'.'+str(ph)))
-        i = ELE.next
+        i = ELE.Next
     return e_idx
 
 def get_element_idxs(DSSCircuit,ele_types):
@@ -375,7 +375,7 @@ def get_Yvbase(DSSCircuit):
     for yz in DSSCircuit.YNodeOrder:
         bus_id = yz.split('.')
         i = DSSCircuit.SetActiveBus(bus_id[0]) # return needed or this prints a number
-        Yvbase.append(1e3*DSSCircuit.ActiveBus.kvbase)
+        Yvbase.append(1e3*DSSCircuit.ActiveBus.kVBase)
     return np.array(Yvbase)
     
 def feeder_to_fn(WD,feeder):

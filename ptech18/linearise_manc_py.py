@@ -8,11 +8,16 @@ from dss_python_funcs import *
 from dss_vlin_funcs import *
 
 WD = os.path.dirname(sys.argv[0])
+
+from win32com.client import makepy
+sys.argv=["makepy","OpenDSSEngine.DSS"]
+makepy.main()
 DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
+
 DSSText=DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
-DSSSolution.tolerance=1e-7
+DSSSolution.Tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
 test_model = True
@@ -20,11 +25,11 @@ test_model = False
 test_model_bus = True
 test_model_bus = False
 saveModel = True
-# saveModel = False
+saveModel = False
 saveCc = True
 saveCc = False
 verbose=True
-fdr_i = 22
+fdr_i = 20
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']; lp_taps='Nmt'
 # feeder='021'
@@ -62,8 +67,8 @@ DVslv_e=np.zeros([k.size,lin_points.size])
 for K in range(len(lin_points)):
     lin_point = lin_points[K]
     # run the dss
-    DSSText.command='Compile ('+fn+'.dss)'
-    DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+    DSSText.Command='Compile ('+fn+'.dss)'
+    DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
     BB00,SS00 = cpf_get_loads(DSSCircuit)
     if lp_taps=='Nmt':
         TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
@@ -81,15 +86,15 @@ for K in range(len(lin_points)):
     # print(np.log10(cndY))
     
     # CHECK 1: YNodeOrder 
-    DSSText.command='Compile ('+fn+'.dss)'
+    DSSText.Command='Compile ('+fn+'.dss)'
     YZ0 = DSSCircuit.YNodeOrder
     
     # Reproduce delta-y power flow eqns (1)
-    DSSText.command='Compile ('+fn+'.dss)'
+    DSSText.Command='Compile ('+fn+'.dss)'
 
     fix_tap_pos(DSSCircuit, TC_No0)
-    DSSText.command='Set Controlmode=off'
-    DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+    DSSText.Command='Set Controlmode=off'
+    DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
     DSSSolution.Solve()
     # BB00,SS00 = cpf_get_loads(DSSCircuit)
     
@@ -142,10 +147,10 @@ for K in range(len(lin_points)):
         print('\nVoltage error (lin point), Volts:',np.linalg.norm(Vh0-Vh)/np.linalg.norm(Vh))
         print('Voltage error (no load point), Volts:',np.linalg.norm(a-VnoLoad)/np.linalg.norm(VnoLoad),'\n')
     
-    DSSText.command='Compile ('+fn+')'
+    DSSText.Command='Compile ('+fn+')'
     fix_tap_pos(DSSCircuit, TC_No0)
-    DSSText.command='Set controlmode=off'
-    DSSText.command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+    DSSText.Command='Set controlmode=off'
+    DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
 
     # NB!!! -3 required for models which have the first three elements chopped off!
     v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]

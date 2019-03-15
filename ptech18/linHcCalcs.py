@@ -23,13 +23,13 @@ import dss_stats_funcs as dsf
 WD = os.path.dirname(sys.argv[0])
 
 # CHOOSE Network
-fdr_i = 5
+fdr_i = 14
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder = fdrs[fdr_i]
 # feeder = '213'
 
 netModel=0 # none
-netModel=1 # ltc
+# netModel=1 # ltc
 # netModel=2 # fixed
 
 lp_taps='Lpt'
@@ -50,15 +50,15 @@ nMc = int(1e2)
 nMc = int(3e1)
 
 if netModel==0:
-    circuitK = {'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':1.3,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
+    circuitK = {'eulv':1.8,'usLv':5.0,'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':2.0,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
 elif netModel==1:
-    circuitK = {'13bus':7.2,'34bus':5.4,'123bus':3.6}
+    circuitK = {'13bus':6.0,'34bus':8.0,'123bus':3.6}
 elif netModel==2:
-    circuitK = {'8500node':1.2,'epriJ1':3.6,'epriK1':1.5,'epriM1':1.8,'epri24':1.5}
+    circuitK = {'8500node':1.5,'epriJ1':3.6,'epriK1':1.5,'epriM1':1.8,'epri24':1.5}
 
 # PDF options
 dMu = 0.01
-dMu = 0.025
+# dMu = 0.025
 mu_k = circuitK[feeder]*np.arange(dMu,1.0,dMu) # NB this is as a PERCENTAGE of the chosen nominal powers.
 
 pdfName = 'gamma'
@@ -99,7 +99,12 @@ ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
 fn = ckt[1]
 
+# 
+from win32com.client import makepy
+sys.argv=["makepy","OpenDSSEngine.DSS"]
+makepy.main()
 DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
+
 DSSText = DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution = DSSCircuit.Solution
@@ -137,7 +142,7 @@ elif netModel>0:
     
     Ktot = np.concatenate((KyP,KdP),axis=1)
 
-KtotCheck = np.sum(Ktot==0,axis=1)!=Ktot.shape[1] # [can't remember what this is for...]
+KtotCheck = np.sum(Ktot==0,axis=1)!=Ktot.shape[1] # [this seems to get rid of fixed regulated buses]
 Ktot = Ktot[KtotCheck]
 b0 = b0[KtotCheck]
 vBase = vBase[KtotCheck]
@@ -154,8 +159,9 @@ dvBase = LMfix['vKvbase'] # NB: this is different to vBase for ltc/regulator mod
 KyPfix = Kyfix[:,:Kyfix.shape[1]//2]
 KdPfix = Kdfix[:,:Kdfix.shape[1]//2]
 Kfix = np.concatenate((KyPfix,KdPfix),axis=1)
-Kfix = Kfix[KtotCheck]
-
+KfixCheck = np.sum(Kfix==0,axis=1)!=Kfix.shape[1] # [can't remember what this is for...]
+Kfix = Kfix[KfixCheck]
+dvBase = dvBase[KfixCheck]
 
 # REDUCE THE LINEAR MODEL to a nice form for multiplication
 KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
@@ -164,18 +170,18 @@ KfixPu = dsf.vmM(1/dvBase,Kfix)
 
 # OPENDSS ADMIN =======================================
 # B1. load the appropriate model/DSS
-DSSText.command='Compile ('+fn+'.dss)'
+DSSText.Command='Compile ('+fn+'.dss)'
 BB0,SS0 = cpf_get_loads(DSSCircuit)
 
 cpf_set_loads(DSSCircuit,BB0,SS0,load_point)
 DSSSolution.Solve()
 
 if not netModel:
-    DSSText.command='set controlmode=off'
+    DSSText.Command='set controlmode=off'
 elif netModel:
-    DSSText.command='set maxcontroliter=300'
+    DSSText.Command='set maxcontroliter=300'
     DSSObj.AllowForms=False
-DSSText.command='set maxiterations=100'
+DSSText.Command='set maxiterations=100'
 
 YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 YZ = DSSCircuit.YNodeOrder
@@ -237,27 +243,28 @@ for i in range(pdfData['nP'][0]):
             dvOut = np.zeros((nMc,len(v_idx)))
             conv = []
             DVconv = []
+            print('\nRun:',jj,'/',pdfData['nP'][-1])
             for j in range(nMc):
                 if j%(nMc//4)==0:
                     print(j,'/',nMc)
                 set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
                 
-                DSSText.command='Batchedit load..* vmin=0.33 vmax=3.0 model=1'
-                DSSText.command='Batchedit generator..* vmin=0.33 vmax=3.0'
-                DSSText.command='Batchedit regcontrol..* band=1.0' # seems to be as low as we can set without bit problems
+                DSSText.Command='Batchedit load..* vmin=0.33 vmax=3.0 model=1'
+                DSSText.Command='Batchedit generator..* vmin=0.33 vmax=3.0'
+                DSSText.Command='Batchedit regcontrol..* band=1.0' # seems to be as low as we can set without bit problems
                 
                 DSSSolution.Solve()
                 conv = conv+[DSSSolution.Converged]
                 v00 = tp_2_ar(DSSCircuit.YNodeVarray)
                 
-                DSSText.command='Batchedit generator..* kW=0.001'
-                DSSText.command='set controlmode=off'
+                DSSText.Command='Batchedit generator..* kW=0.001'
+                DSSText.Command='set controlmode=off'
                 DSSSolution.Solve()
 
                 DVconv = DVconv+[DSSSolution.Converged]
                 DV00 = tp_2_ar(DSSCircuit.YNodeVarray)
                 
-                DSSText.command='set controlmode=static'
+                DSSText.Command='set controlmode=static'
                 
                 vOut[j,:] = abs(v00)[3:][v_idx]/vBase
                 dvOut[j,:] = abs(abs(v00) - abs(DV00))[3:][v_idx]/vBase
@@ -370,12 +377,15 @@ if mcDssOn:
 if pltCns:
     fig, ax = plt.subplots()
     ax.set_prop_cycle(color=['red', 'blue', 'green'])
-    plt.plot(pdfData['mu_k'],Cns_pct_dss[0]);
+    if mcDssOn:
+        plt.plot(pdfData['mu_k'],Cns_pct_dss[0])
     plt.plot(pdfData['mu_k'],Cns_pct_lin[0],'--')
     plt.xlabel('Scale factor');
-    plt.ylabel('P(.)');
+    plt.ylabel('P(.), %');
     plt.title('Constraints')
     plt.legend(('Voltage deviation','Overvoltage','Undervoltage'))
+    if mcDssOn:
+        plt.savefig(os.path.join(SD,'pltCns.png'))
     plt.show()
 
 
