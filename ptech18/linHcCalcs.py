@@ -23,14 +23,14 @@ import dss_stats_funcs as dsf
 WD = os.path.dirname(sys.argv[0])
 
 # CHOOSE Network
-fdr_i = 22
+fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder = fdrs[fdr_i]
 # feeder = '213'
 
 netModel=0 # none
 netModel=1 # ltc
-netModel=2 # fixed
+# netModel=2 # fixed
 
 lp_taps='Lpt'
 
@@ -50,7 +50,6 @@ nMc = int(1e2)
 nMc = int(3e1)
 
 if netModel==0:
-    # circuitK = {'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':0.9,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
     circuitK = {'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':1.3,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
 elif netModel==1:
     circuitK = {'13bus':7.2,'34bus':5.4,'123bus':3.6}
@@ -59,7 +58,7 @@ elif netModel==2:
 
 # PDF options
 dMu = 0.01
-# dMu = 0.025
+dMu = 0.025
 mu_k = circuitK[feeder]*np.arange(dMu,1.0,dMu) # NB this is as a PERCENTAGE of the chosen nominal powers.
 
 pdfName = 'gamma'
@@ -81,12 +80,16 @@ pltHcGen = True
 # pltHcGen = False
 pltPwrCdf = True
 # pltPwrCdf = False
+pltCns = True
+# pltCns = False
 
 pltBoxDss = True
 pltBoxDss = False
 
 pltSave = True
 pltSave = False
+
+DVmax = 0.06 # percent
 # ADMIN =============================================
 SD = os.path.join(WD,'hcResults',feeder)
 SN = os.path.join(SD,'linHcCalcsRslt.pkl')
@@ -103,7 +106,7 @@ DSSSolution = DSSCircuit.Solution
 
 print('Start. \nFeeder:',feeder,'\nLinpoint:',lin_point,'\nLoad Point:',load_point,'\nTap Model:',netModel)
 
-# PART A.1 - load model ===========================
+# PART A.1 - load models ===========================
 if not netModel:
     # IF using the FIXED model:
     LM = loadLinMagModel(feeder,lin_point,WD,'Lpt')
@@ -121,7 +124,7 @@ if not netModel:
 elif netModel>0:
     # IF using the LTC model:
     LM = loadNetModel(feeder,lin_point,WD,'Lpt',netModel)
-    A=LM['A'];bV=LM['B'];xhy0=LM['xhy0'];xhd0=LM['xhd0']; 
+    A=LM['A'];bV=LM['B'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
     vBase = LM['Vbase']
     
     xhyN = xhy0/lin_point # needed seperately for lower down
@@ -134,7 +137,7 @@ elif netModel>0:
     
     Ktot = np.concatenate((KyP,KdP),axis=1)
 
-KtotCheck = np.sum(Ktot==0,axis=1)!=Ktot.shape[1]
+KtotCheck = np.sum(Ktot==0,axis=1)!=Ktot.shape[1] # [can't remember what this is for...]
 Ktot = Ktot[KtotCheck]
 b0 = b0[KtotCheck]
 vBase = vBase[KtotCheck]
@@ -143,8 +146,21 @@ v_idx=LM['v_idx'][KtotCheck]
 YZp = LM['SyYNodeOrder']
 YZd = LM['SdYNodeOrder']
 
+# NOW load the fixed model for calculating voltage deviations
+LMfix = loadLinMagModel(feeder,lin_point,WD,'Lpt')
+Kyfix=LMfix['Ky'];Kdfix=LMfix['Kd']
+dvBase = LMfix['vKvbase'] # NB: this is different to vBase for ltc/regulator models!
+
+KyPfix = Kyfix[:,:Kyfix.shape[1]//2]
+KdPfix = Kdfix[:,:Kdfix.shape[1]//2]
+Kfix = np.concatenate((KyPfix,KdPfix),axis=1)
+Kfix = Kfix[KtotCheck]
+
+
 # REDUCE THE LINEAR MODEL to a nice form for multiplication
 KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
+KfixPu = dsf.vmM(1/dvBase,Kfix)
+
 
 # OPENDSS ADMIN =======================================
 # B1. load the appropriate model/DSS
@@ -173,9 +189,9 @@ DSSSolution.Solve()
 genNames = genNamesY+genNamesD
 
 Vp_pct_dss = np.zeros(pdfData['nP'])
+Cns_pct_dss = np.zeros(list(pdfData['nP'])+[3])
 Vp_pct_lin = np.zeros(pdfData['nP'])
-Vp_pct_linU = np.zeros(pdfData['nP'])
-Vp_pct_linS = np.zeros(pdfData['nP'])
+Cns_pct_lin = np.zeros(list(pdfData['nP'])+[3])
 
 hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
 hcGenSetLin = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
@@ -209,14 +225,18 @@ for i in range(pdfData['nP'][0]):
     genTotAll = np.outer(genTot0,pdfData['mu_k'])
     genTotAll = genTotAll.flatten()
     
-    DvOutLin = (KtotPu.dot(pdfGen).T)*1e3
+    DelVoutLin = (KtotPu.dot(pdfGen).T)*1e3
+    ddVoutLin = abs((KfixPu.dot(pdfGen).T)*1e3) # just get abs change
+    
     
     for jj in range(pdfData['nP'][-1]):
         genTot = genTot0*pdfData['mu_k'][jj]
         
         if mcDssOn:
             vOut = np.zeros((nMc,len(v_idx)))
+            dvOut = np.zeros((nMc,len(v_idx)))
             conv = []
+            DVconv = []
             for j in range(nMc):
                 if j%(nMc//4)==0:
                     print(j,'/',nMc)
@@ -228,34 +248,59 @@ for i in range(pdfData['nP'][0]):
                 
                 DSSSolution.Solve()
                 conv = conv+[DSSSolution.Converged]
+                v00 = tp_2_ar(DSSCircuit.YNodeVarray)
                 
-                v00 = abs(tp_2_ar(DSSCircuit.YNodeVarray))
-                # v00[(v00/vBase)<0.5] = 1.0
-                vOut[j,:] = v00[3:][v_idx]/vBase
+                DSSText.command='Batchedit generator..* kW=0.001'
+                DSSText.command='set controlmode=off'
+                DSSSolution.Solve()
+
+                DVconv = DVconv+[DSSSolution.Converged]
+                DV00 = tp_2_ar(DSSCircuit.YNodeVarray)
+                
+                DSSText.command='set controlmode=static'
+                
+                vOut[j,:] = abs(v00)[3:][v_idx]/vBase
+                dvOut[j,:] = abs(abs(v00) - abs(DV00))[3:][v_idx]/vBase
+                dvOut[j,:] = abs(abs(v00) - abs(DV00))[3:][v_idx]/vBase
+                
+                # plt.plot(abs(v00)); plt.plot(abs(DV00)); plt.show()
+                # plt.plot(abs(v00)[3:][v_idx]/vBase,'x-'); plt.plot(vOutLin[-1],'x-'); plt.show()
+                # YZ
+                
             vOut[vOut<0.5] = 1.0
             
             if sum(conv)!=len(conv):
                 print('\nNo. Converged:',sum(conv),'/',nMc)
             
             # NOW: calculate the HC value:
-            dsf.mcErrorAnalysis(vOut,Vmax)
+            # dsf.mcErrorAnalysis(vOut,Vmax)
             maxV = np.max(vOut,axis=1)
             minV = np.min(vOut,axis=1)
+            maxDv = np.max(dvOut,axis=1)
             
-            inBounds = np.any(np.array([maxV>Vmax,minV<Vmin]),axis=0)
+            
+            Cns_pct_dss[i,jj] = 100*np.array([sum(maxDv>DVmax),sum(maxV>Vmax),sum(minV<Vmin)])/nMc
+            # Vhi_pct_dss[i,jj] = 100*/nMc
+            # Vlo_pct_dss[i,jj] = 100*/nMc
+            
+            inBounds = np.any(np.array([maxV>Vmax,minV<Vmin,maxDv>DVmax]),axis=0)
+
             Vp_pct_dss[i,jj] = 100*sum(inBounds)/nMc
             hcGen = genTot[inBounds]
         
         if mcLinOn:
-            vOutLin = (DvOutLin*pdfData['mu_k'][jj]) + b0
+            vOutLin = (DelVoutLin*pdfData['mu_k'][jj]) + b0
+            DvOutLin = ddVoutLin*pdfData['mu_k'][jj]
             vOutLin[vOutLin<0.5] = 1.0
             maxVlin = np.max(vOutLin,axis=1)
             minVlin = np.min(vOutLin,axis=1)
+            maxDvLin = np.max(DvOutLin,axis=1)
             
             # print('Overvoltage:',100*(sum(maxVlin>Vmax)/nMc))
             # print('V. Violation:',100*sum(np.any(np.array([maxVlin>Vmax,minVlin<Vmin]),axis=0))/nMc)
             
-            inBoundsLin = np.any(np.array([maxVlin>Vmax,minVlin<Vmin]),axis=0)
+            Cns_pct_lin[i,jj] = 100*np.array([sum(maxDvLin>DVmax),sum(maxVlin>Vmax),sum(minVlin<Vmin)])/nMc
+            inBoundsLin = np.any(np.array([maxVlin>Vmax,minVlin<Vmin,maxDvLin>DVmax]),axis=0)
             Vp_pct_lin[i,jj] = 100*sum(inBoundsLin)/nMc
             hcGenLin = genTot[inBoundsLin]
 
@@ -284,9 +329,10 @@ for i in range(pdfData['nP'][0]):
         genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
     print('MC complete.',time.process_time())
 
+# colors=[#1f77b4,#ff7f0e,#2ca02c]
 
 # NOW: calculate the statistics we want.
-    
+
 binNo = int(0.5//dMu)
 # binNo = int(1.0//dMu)
 hist1 = plt.hist(genTotAll,bins=binNo,range=(0,max(genTotAll)))
@@ -321,6 +367,18 @@ if mcDssOn:
     
 
 # ================ PLOTTING FUNCTIONS FROM HERE
+if pltCns:
+    fig, ax = plt.subplots()
+    ax.set_prop_cycle(color=['red', 'blue', 'green'])
+    plt.plot(pdfData['mu_k'],Cns_pct_dss[0]);
+    plt.plot(pdfData['mu_k'],Cns_pct_lin[0],'--')
+    plt.xlabel('Scale factor');
+    plt.ylabel('P(.)');
+    plt.title('Constraints')
+    plt.legend(('Voltage deviation','Overvoltage','Undervoltage'))
+    plt.show()
+
+
 if pltPwrCdf:
     plt.plot(pp,ppPdfLin)
     if mcDssOn:
@@ -346,16 +404,20 @@ if pltHcBoth:
         plt.legend(('VpDss','VpNom','VpSvd'))
         # plt.ylim((1e-3,50))
     plt.xlabel('Scale factor');
-    plt.title('Prob. of overvoltage (logscale)');
+    plt.title('Prob. of violation (logscale)');
     plt.grid(True)
+    plt.ylabel('P(.), %')
     plt.subplot(122)
     
     if mcDssOn:
         plt.plot(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
     plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
-    plt.title('Prob. of overvoltage');
+    plt.title('Prob. of violation');
+    plt.xlabel('Scale factor');
+    plt.ylabel('P(.), %')
     
     plt.grid(True)
+    plt.tight_layout()
     if mcDssOn:
         plt.savefig(os.path.join(SD,'pltHcBoth.png'))
     plt.show()
