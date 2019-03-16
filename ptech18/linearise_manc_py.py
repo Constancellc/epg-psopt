@@ -29,10 +29,10 @@ saveModel = False
 saveCc = True
 saveCc = False
 verbose=True
-fdr_i = 20
+fdr_i = 0
 fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']; lp_taps='Nmt'
-# feeder='021'
+# feeder='213'
 feeder=fdrs[fdr_i]
 lp_taps='Lpt'
 
@@ -56,7 +56,7 @@ fn_y = fn+'_y'
 dir0 = WD + '\\lin_models\\' + feeder
 sn0 = dir0 + '\\' + feeder + lp_taps
 
-print('Start, feeder:',feeder,'\nSaving:',saveModel,'\nLin Points:',lin_points,'\n',time.process_time())
+print('Start, feeder:',feeder,'\nSaving nom:',saveModel,'\nSaving cc:',saveCc,'\nLin Points:',lin_points,'\n',time.process_time())
 
 # ve=np.zeros([k.size,lin_points.size])
 vve=np.zeros([k.size,lin_points.size])
@@ -277,11 +277,18 @@ if test_model:
     # # plt.savefig('figE')
 
 if saveCc:
+    lp_str = str(round(lin_point*100).astype(int)).zfill(3)
     MyCC = My[:,s_idx]
     xhyCC = xhy0[s_idx]
     aCC = a
     V0CC = V0
     YbusCC = Ybus
+    
+    allLds = DSSCircuit.Loads.AllNames
+    loadBuses = {}
+    for ld in allLds:
+        DSSCircuit.SetActiveElement('Load.'+ld)
+        loadBuses[ld]=DSSCircuit.ActiveElement.BusNames[0]
 
     dirCC = WD + '\\lin_models\\ccModels\\' + feeder
     snCC = dirCC + '\\' + feeder + lp_taps
@@ -294,11 +301,9 @@ if saveCc:
     np.save(snCC+'aCc'+lp_str+'.npy',aCC)
     np.save(snCC+'V0Cc'+lp_str+'.npy',V0CC)
     np.save(snCC+'YbusCc'+lp_str+'.npy',YbusCC)
-    np.save(snCC+'YNodeOrderCc'+lp_str+'.npy',YNodeOrder) 
-    
-    
-
-
+    np.save(snCC+'YNodeOrderCc'+lp_str+'.npy',YNodeOrder)
+    np.save(snCC+'loadBusesCc'+lp_str+'.npy',[loadBuses]) # nb likely to be similar to vecSlc(YNodeOrder[3:],p_idx)?
+    # loadsDict = np.load(snCC+'loadBusesCc'+lp_str+'.npy')[0]
 
 if test_model_bus:
 
