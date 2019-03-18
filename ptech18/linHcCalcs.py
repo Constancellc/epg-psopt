@@ -23,13 +23,13 @@ import dss_stats_funcs as dsf
 WD = os.path.dirname(sys.argv[0])
 
 # CHOOSE Network
-fdr_i = 5
+fdr_i = 18
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder = fdrs[fdr_i]
 # feeder = '213'
 
 netModel=0 # none
-netModel=1 # ltc
+# netModel=1 # ltc
 # netModel=2 # fixed
 
 lp_taps='Lpt'
@@ -41,6 +41,8 @@ loadPointHi = lp0data['kHi']
 ld2mean = loadPointLo - lp0data['k']
 Vmax = lp0data['Vp']
 Vmin = lp0data['Vm']
+if fdr_i == 22:
+    Vmin = 0.90
 lin_point=lp0data['k']
 
 nMc = int(1e4)
@@ -55,7 +57,7 @@ if netModel==0:
 elif netModel==1:
     circuitK = {'13bus':6.0,'34bus':8.0,'123bus':3.6}
 elif netModel==2:
-    circuitK = {'8500node':1.5,'epriJ1':3.6,'epriK1':1.5,'epriM1':1.8,'epri24':1.5}
+    circuitK = {'8500node':2.5,'epriJ1':5.0,'epriK1':1.5,'epriM1':1.8,'epri24':1.5}
 
 # PDF options
 dMu = 0.01
@@ -88,7 +90,7 @@ pltBoxDss = True
 pltBoxDss = False
 
 pltSave = True # for saving both plots and results
-pltSave = False
+# pltSave = False
 
 DVmax = 0.06 # percent
 # ADMIN =============================================
@@ -184,7 +186,7 @@ if not netModel:
     DSSText.Command='set controlmode=off'
 elif netModel:
     DSSText.Command='set maxcontroliter=300'
-    DSSObj.AllowForms=False
+DSSObj.AllowForms=False
 DSSText.Command='set maxiterations=100'
 
 YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
@@ -243,9 +245,9 @@ for i in range(pdfData['nP'][0]):
         genTot = genTot0*pdfData['mu_k'][jj]
         
         if mcDssOn:
-            vLo_dss = np.zeros((nMc,len(v_idx)))
-            vHi_dss = np.zeros((nMc,len(v_idx)))
-            vDv_dss = np.zeros((nMc,len(v_idx)))
+            vLo_dss = np.ones((nMc,len(v_idx)))
+            vHi_dss = np.ones((nMc,len(v_idx)))
+            vDv_dss = np.ones((nMc,len(v_idx)))
             convLo = []; convDv = []; convHi = []
             print('\nRun:',jj,'/',pdfData['nP'][-1])
             
@@ -253,7 +255,10 @@ for i in range(pdfData['nP'][0]):
                 if j%(nMc//4)==0:
                     print(j,'/',nMc)
                 set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
-                DSSText.Command='Batchedit load..* vmin=0.33 vmax=3.0 model=1'
+                
+                if fdr_i != 6:
+                    DSSText.Command='Batchedit load..* vmin=0.33 vmax=3.0 model=1'
+                
                 DSSText.Command='Batchedit generator..* vmin=0.33 vmax=3.0'
                 DSSText.Command='Batchedit regcontrol..* band=1.0' # seems to be as low as we can set without bit problems
                 
@@ -281,9 +286,10 @@ for i in range(pdfData['nP'][0]):
                 
                 DSSText.Command='set controlmode=static'
                 
-                vLo_dss[j,:] = abs(vLo0)[3:][v_idx]/vBase
-                vHi_dss[j,:] = abs(vHi0)[3:][v_idx]/vBase
-                vDv_dss[j,:] = abs(abs(vLo0) - abs(vDv0))[3:][v_idx]/vBase
+                if convLo and convHi and convDv:
+                    vLo_dss[j,:] = abs(vLo0)[3:][v_idx]/vBase
+                    vHi_dss[j,:] = abs(vHi0)[3:][v_idx]/vBase
+                    vDv_dss[j,:] = abs(abs(vLo0) - abs(vDv0))[3:][v_idx]/vBase
                 
                 # plt.plot(abs(vLo0)); plt.plot(abs(vDv0)); plt.show()
                 # plt.plot(abs(vLo0)[3:][v_idx]/vBase,'x-'); plt.plot(vLo_lin[-1],'x-'); plt.show()
@@ -302,6 +308,8 @@ for i in range(pdfData['nP'][0]):
             minVhiDss = np.min(vHi_dss,axis=1)
             maxDvDss = np.max(vDv_dss,axis=1)
             
+            # print('Min, full load:', min(minVhiDss))
+            # print('Min, low load:', min(minVloDss))
             
             Cns_pct_dss[i,jj] = 100*np.array([sum(maxDvDss>DVmax),sum(maxVhiDss>Vmax),sum(minVhiDss<Vmin),sum(maxVloDss>Vmax),sum(minVloDss<Vmin)])/nMc
             inBounds = np.any(np.array([maxVhiDss>Vmax,minVhiDss<Vmin,maxVloDss>Vmax,minVloDss<Vmin,maxDvDss>DVmax]),axis=0)
@@ -398,6 +406,7 @@ if pltCns:
     ax.set_prop_cycle(color=clrs)
     if mcDssOn:
         plt.plot(pdfData['mu_k'],Cns_pct_dss[0])
+
     plt.plot(pdfData['mu_k'],Cns_pct_lin[0],'--')
     plt.xlabel('Scale factor');
     plt.ylabel('P(.), %');
@@ -405,13 +414,15 @@ if pltCns:
     plt.legend(('Voltage deviation','Overvoltage (hi ld)','Undervoltage (hi ld)','Overvoltage (lo ld)','Undervoltage (lo ld)'))
     if mcDssOn and pltSave:
         plt.savefig(os.path.join(SD,'pltCns.png'))
+    
     plt.show()
 
 
 if pltPwrCdf:
     plt.plot(pp,ppPdfLin)
     if mcDssOn:
-        plt.plot(pp,ppPdf)        
+        plt.plot(pp,ppPdf)
+
     plt.legend(('Lin model','OpenDSS'))
     plt.xlabel('Power');
     plt.ylabel('P(.)');
@@ -424,36 +435,33 @@ if pltPwrCdf:
 if pltHcBoth:
     plt.subplot(121)
     for i in range(pdfData['nP'][0]):
-        # plt.plot(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
-        # plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
-        # plt.ylim((0,20))
-        if mcDssOn:
-            plt.semilogy(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
+        # if mcDssOn:
+        plt.semilogy(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
         plt.semilogy(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
         plt.legend(('VpDss','VpNom','VpSvd'))
-        # plt.ylim((1e-3,50))
+
     plt.xlabel('Scale factor');
     plt.title('Prob. of violation (logscale)');
     plt.grid(True)
     plt.ylabel('P(.), %')
     plt.subplot(122)
-    
+
     if mcDssOn:
         plt.plot(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
+
     plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
     plt.title('Prob. of violation');
     plt.xlabel('Scale factor');
     plt.ylabel('P(.), %')
-    
+
     plt.grid(True)
     plt.tight_layout()
     if mcDssOn and pltSave:
         plt.savefig(os.path.join(SD,'pltHcBoth.png'))
+
     plt.show()
     
 if pltHcGen:
-    # for i in range(pdfData['nP'][0]):
-        # plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'ro')
     i=0
     plt.plot(pdfData['mu_k'],genTotSet[i,:,0],'b-'); 
     plt.plot(pdfData['mu_k'],genTotSet[i,:,2],'b_'); 
@@ -463,18 +471,13 @@ if pltHcGen:
         plt.plot(pdfData['mu_k'],hcGenSet[i,:,2],'r_'); 
         plt.plot(pdfData['mu_k'],hcGenSet[i,:,4],'r-');        
 
-    plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,0],'g-'); 
-    plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,2],'g_'); 
-    plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,4],'g-');
-
-                
+    plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,0],'g-') 
+    plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,2],'g_') 
+    plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,4],'g-') 
     xlm = plt.xlim()
     plt.xlim((-dsf.get_dx(pdfData['mu_k']),xlm[1]))
     plt.xlabel('Scale factor');
     plt.title('Hosting Capacity (kW)');
-
-    # ylm = plt.ylim()
-    # plt.ylim((0,ylm[1]))
     plt.grid(True)
     if mcDssOn and pltSave:
         plt.savefig(os.path.join(SD,'pltHcGen.png'))

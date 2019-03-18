@@ -17,7 +17,7 @@ DSSSolution=DSSCircuit.Solution
 
 # Things to do: 
 # 1. load a circuit;
-fdr_i = 5
+fdr_i = 6
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder=fdrs[fdr_i]
 ckt=get_ckt(WD,feeder)
