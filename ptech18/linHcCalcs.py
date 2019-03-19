@@ -23,13 +23,13 @@ import dss_stats_funcs as dsf
 WD = os.path.dirname(sys.argv[0])
 
 # CHOOSE Network
-fdr_i = 18
+fdr_i = 5
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder = fdrs[fdr_i]
 # feeder = '213'
 
 netModel=0 # none
-# netModel=1 # ltc
+netModel=1 # ltc
 # netModel=2 # fixed
 
 lp_taps='Lpt'
@@ -57,7 +57,7 @@ if netModel==0:
 elif netModel==1:
     circuitK = {'13bus':6.0,'34bus':8.0,'123bus':3.6}
 elif netModel==2:
-    circuitK = {'8500node':2.5,'epriJ1':5.0,'epriK1':1.5,'epriM1':1.8,'epri24':1.5}
+    circuitK = {'8500node':2.5,'epriJ1':6.0,'epriK1':1.5,'epriM1':1.8,'epri24':1.5}
 
 # PDF options
 dMu = 0.01
@@ -74,23 +74,23 @@ pdfData = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))
 mcLinOn = True
 # mcLinOn = False
 mcDssOn = True
-# mcDssOn = False
+mcDssOn = False
 
 # PLOTTING options:
 pltHcBoth = True
-# pltHcBoth = False
+pltHcBoth = False
 pltHcGen = True
-# pltHcGen = False
+pltHcGen = False
 pltPwrCdf = True
-# pltPwrCdf = False
+pltPwrCdf = False
 pltCns = True
-# pltCns = False
+pltCns = False
 
 pltBoxDss = True
 pltBoxDss = False
 
 pltSave = True # for saving both plots and results
-# pltSave = False
+pltSave = False
 
 DVmax = 0.06 # percent
 # ADMIN =============================================
@@ -99,7 +99,6 @@ SN = os.path.join(SD,'linHcCalcsRslt.pkl')
 # sn0 = SD + str(int(lin_point*1e2)) + 'net' + str(int(netModel)) + 'ld' + str(int(ld2mean*1e2))
 
 ckt = get_ckt(WD,feeder)
-fn_ckt = ckt[0]
 fn = ckt[1]
 
 # opendss with 'early bindings'

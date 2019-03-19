@@ -524,3 +524,46 @@ def getMu_Kk(feeder,tapOn):
     if feeder=='epri5':
         mu_kk = 0.7
     return mu_kk
+    
+def getBusCoords(DSSCircuit,DSSText):
+    DSSCircuit.Lines.First
+    lineName = DSSCircuit.Lines.Name
+    
+    nM = len(DSSCircuit.Meters.AllNames)
+    if nM > 0:
+        Mel = []
+        i = DSSCircuit.Meters.First
+        while i:
+            Mel = Mel + [DSSCircuit.Meters.MeteredElement]
+            DSSCircuit.Meters.MeteredElement='line.'+lineName
+            i = DSSCircuit.Meters.Next
+    else:
+        DSSText.Command='new energymeter.srcEM element=line.'+lineName
+    DSSCircuit.Solution.Solve()
+    DSSText.Command='interpolate'
+    ABN = DSSCircuit.AllBusNames
+    busCoords = {}
+    
+    for bus in ABN:
+        DSSCircuit.SetActiveBus(bus)
+        if DSSCircuit.ActiveBus.Coorddefined:
+            busCoords[bus] = (DSSCircuit.ActiveBus.x,DSSCircuit.ActiveBus.y)
+        else:
+            busCoords[bus] = (np.nan,np.nan)
+    
+    if nM > 0:
+        i = DSSCircuit.Meters.First
+        while i:
+            DSSCircuit.Meters.MeteredElement=Mel[i-1]
+            i = DSSCircuit.Meters.Next
+    return busCoords
+    
+def getBranchBuses(DSSCircuit,DSSText):
+    i = DSSCircuit.PDElements.First
+    branches = {}
+    while i:
+        if not DSSCircuit.PDElements.IsShunt:
+            DSSCircuit.SetActiveElement(DSSCircuit.PDElements.Name)
+            branches[DSSCircuit.PDElements.Name]=DSSCircuit.ActiveElement.BusNames
+        i = DSSCircuit.PDElements.Next
+    return branches

@@ -199,7 +199,6 @@ New Transformer.XFM1  Phases=3   Windings=2 Xhl=2.72
 
 !Redirect IEEE123Regulators.DSS
 Redirect IEEE123Regulators_z.DSS
-
 ! CAPACITORS
 ! Capacitors are 2-terminal devices. The 2nd terminal (Bus2=...) defaults to all phases
 ! connected to ground (Node 0). Thus, it need not be specified if a Y-connected or L-N connected
@@ -225,23 +224,12 @@ Set VoltageBases = [4.16, 0.48]    ! ARRAY OF VOLTAGES IN KV
 CalcVoltageBases  ! PERFORMS ZERO LOAD POWER FLOW TO ESTIMATE VOLTAGE BASES
 
 new energymeter.msub element=transformer.sub
-new energymeter.mreg1g element=line.reg1a
+new energymeter.mreg1a element=line.reg1a
 new energymeter.mreg2a element=line.reg2a
 new energymeter.mreg3 element=line.reg3
 new energymeter.mreg4 element=line.reg4
 
 !New EnergyMeter.Feeder Line.L115 1
 solve
-
-!set loadmult=0.6
-!edit Capacitor.C83       Bus1=83      Phases=3     kVAR=360     kV=4.16
-!edit Capacitor.C88a      Bus1=88.1    Phases=1     kVAR=30      kV=2.402
-!edit Capacitor.C90b      Bus1=90.2    Phases=1     kVAR=30      kV=2.402
-!edit Capacitor.C92c      Bus1=92.3    Phases=1     kVAR=30      kV=2.402
-
-!solve
-!show powers kva elem
-
-!Buscoords Buscoords.dat   ! load in bus coordinates
-!plot profile phsaes=all
-!show taps
+Buscoords Buscoords.dat   ! load in bus coordinates
+!plot profile

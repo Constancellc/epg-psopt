@@ -270,4 +270,6 @@ new energymeter.msub element=transformer.subXF
 new energymeter.mreg1 element=line.reg1
 new energymeter.mreg2 element=line.reg2
 
+buscoords IEEE34_BusXY.csv
+
 Solve
