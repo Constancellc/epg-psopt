@@ -14,17 +14,15 @@ q3 = []
 u = []
 l = []
 
-
-
-ls = {0:[],1:[],2:[],3:[]}
+ls = {0:[],1:[],2:[],3:[],4:[]}
 with open(stem+'1-losses.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     next(reader)
     for row in reader:
-        for i in range(4):
+        for i in range(5):
             ls[i].append(float(row[i]))
                              
-for i in range(4):
+for i in range(5):
     diff = sorted(ls[i])
     m.append(1000*diff[int(len(diff)/2)]/55)
     q1.append(1000*diff[int(len(diff)*0.25)]/55)
@@ -42,14 +40,15 @@ for i in range(len(m)):
     plt.plot([i+1,i+1],[l[i],q1[i]],c='gray')
     plt.plot([i+1,i+1],[q3[i],u[i]],c='gray')
 
-x_ticks = ['No EVs','Uncontrolled','Load Flattening','Loss Minimizing']
+x_ticks = ['No EVs','Uncontrolled','Load\nFlattening','Loss\nMinimizing','LF+Phase\nBalancing']
 # box
+plt.plot([0.7,5.3],[m[3],m[3]],ls=':',c='r')
 for i in range(len(m)):
-    plt.plot([i+0.61,i+1.39],[m[i],m[i]],c='b',lw='2')
-    plt.plot([i+0.6,i+1.4],[q1[i],q1[i]],c='k')
-    plt.plot([i+0.6,i+1.4],[q3[i],q3[i]],c='k')
-    plt.plot([i+1.4,i+1.4],[q1[i],q3[i]],c='k')
-    plt.plot([i+0.6,i+0.6],[q1[i],q3[i]],c='k')
+    plt.plot([i+0.71,i+1.29],[m[i],m[i]],c='b')
+    plt.plot([i+0.7,i+1.3],[q1[i],q1[i]],c='k')#,lw=0.9)
+    plt.plot([i+0.7,i+1.3],[q3[i],q3[i]],c='k')#,lw=0.9)
+    plt.plot([i+1.3,i+1.3],[q1[i],q3[i]],c='k')#,lw=0.9)
+    plt.plot([i+0.7,i+0.7],[q1[i],q3[i]],c='k')#,lw=0.9)
 plt.xticks(range(1,len(m)+1),x_ticks)
 plt.ylabel('Losses (Wh per household)')
 plt.grid(linestyle=':')

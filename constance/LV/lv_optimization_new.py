@@ -5,20 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cvxopt import matrix, spdiag, sparse, solvers, spmatrix
 
-solvers.options['maxiters'] = 30
-#solvers.options['show_progress'] = False
+solvers.options['maxiters'] = 40
+solvers.options['show_progress'] = False
 
-'''
-
-Currently working on the load flattening function
-
-It's not currently converging, I need to check how I got the MEA kWh because
-often it says that the vehicle is not there for very long, and the value of
-kWh exceeds what is possible on full charge
-
-Also, I should add the efficiency term.
-
-'''
 
 class LVTestFeeder:
 
@@ -484,7 +473,7 @@ class LVTestFeeder:
 
         sol=solvers.qp(P*2,q,G,h,A,b)
         x = sol['x']
-        print(sum(x))
+        
         self.status = sol['status'] 
         
         del P
@@ -598,7 +587,7 @@ class LVTestFeeder:
 
         sol=solvers.qp(P,q,G,h,A,b)
         x = sol['x']
-        print(sum(x))
+        
         self.status = sol['status'] 
         
         del P
@@ -664,7 +653,7 @@ class LVTestFeeder:
 
         sol=solvers.qp(P,q,G,h,A,b)
         x = sol['x']
-        print(sum(x))
+        
         self.status = sol['status'] 
         
         del P
