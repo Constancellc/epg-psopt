@@ -5,16 +5,33 @@ import numpy as np
 import matplotlib.pyplot as plt
 from lv_optimization_new import LVTestFeeder
 
-fdr = '1'
+fdr = '074'
 runs = 100
 
 tr = 1
-nEVs = 55
 
-phase = ['A','B','A','A','A','B','B','C','A','B','B','C','B','A','B','C','C',
-         'C','C','A','A','A','B','C','A','B','C','C','A','A','A','C','C','A',
-         'B','B','B','B','C','B','B','C','C','B','B','A','C','A','A','B','A',
-         'A','B','A','A']
+phaseInfo = {'1':'eulvLptloadBusesCc-24','2':'021LptloadBusesCc-15',
+             '3':'031LptloadBusesCc-15','4':'041LptloadBusesCc-82',
+             '024':'024LptloadBusesCc-05','041':'041LptloadBusesCc-82',
+             '074':'074LptloadBusesCc-15','162':'162LptloadBusesCc-24',
+             '193':'193LptloadBusesCc-24','213':'213LptloadBusesCc-44'}
+
+# first get phases
+lds = np.load('../../../Documents/ccModels/loadBuses/'+phaseInfo[fdr]+'.npy')
+lds = lds.flatten()[0]
+
+
+nEVs = len(lds)
+
+phase = []
+for i in range(len(lds)):
+    bus = lds['load'+str(i+1)]
+    if bus[-1] == '1':
+        phase.append('A')
+    elif bus[-1] == '2':
+        phase.append('B')
+    elif bus[-1] == '3':
+        phase.append('C')
 
 network = LVTestFeeder('manc_models/'+fdr,t_res=tr)
 
@@ -52,11 +69,8 @@ for mc in range(runs):
     p3 = network.get_feeder_load()
     l_m = network.predict_losses()
 
-    try:
-        network.balance_phase2(phase)
-    except:
-        continue
-    
+    network.balance_phase2(phase)
+
     p4 = network.get_feeder_load()
     l_p = network.predict_losses()
 
@@ -79,61 +93,133 @@ with open('../../../Documents/simulation_results/LV/varying-pen/'+str(nEVs)+\
     for s in range(len(lss['b'])):
         writer.writerow([lss['b'][s],lss['u'][s],lss['f'][s],lss['m'][s]])
         
-'''                       
+'''
+existing = []
+try:
+    with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
+              '-loads-b.csv','rU') as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader)
+        for row in reader:
+            existing.append(row)
+except:
+    existing = []
 with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
           '-loads-b.csv','w') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(['t','runs'])
+    for row in existing:
+        writer.writerow(row)
     for t in range(int(1440/tr)):
         row = [t]
         for s in range(len(lss['b'])):
             row.append(lds['b'][s][t])
         writer.writerow(row)
-        
+
+existing = []
+try:
+    with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
+              '-loads-u.csv','rU') as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader)
+        for row in reader:
+            existing.append(row)
+except:
+    existing = []
 with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
           '-loads-u.csv','w') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(['t','runs'])
+    for row in existing:
+        writer.writerow(row)
     for t in range(int(1440/tr)):
         row = [t]
         for s in range(len(lss['u'])):
             row.append(lds['u'][s][t])
         writer.writerow(row)
-        
+
+existing = []
+try:
+    with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
+              '-loads-f.csv','rU') as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader)
+        for row in reader:
+            existing.append(row)
+except:
+    existing = []
 with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
           '-loads-f.csv','w') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(['t','runs'])
+    for row in existing:
+        writer.writerow(row)
     for t in range(int(1440/tr)):
         row = [t]
         for s in range(len(lss['f'])):
             row.append(lds['f'][s][t])
         writer.writerow(row)
-        
+
+existing = []
+try:
+    with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
+              '-loads-m.csv','rU') as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader)
+        for row in reader:
+            existing.append(row)
+except:
+    existing = []
 with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
           '-loads-m.csv','w') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(['t','runs'])
+    for row in existing:
+        writer.writerow(row)
     for t in range(int(1440/tr)):
         row = [t]
         for s in range(len(lss['m'])):
             row.append(lds['m'][s][t])
         writer.writerow(row)
-        
+
+existing = []
+try:
+    with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
+              '-loads-p.csv','rU') as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader)
+        for row in reader:
+            existing.append(row)
+except:
+    existing = []
 with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
           '-loads-p.csv','w') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(['t','runs'])
+    for row in existing:
+        writer.writerow(row)
     for t in range(int(1440/tr)):
         row = [t]
         for s in range(len(lss['p'])):
             row.append(lds['p'][s][t])
         writer.writerow(row)
 
+existing = []
+try:
+    with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
+              '-losses.csv','rU') as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader)
+        for row in reader:
+            existing.append(row)
+except:
+    existing = []
 with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
           '-losses.csv','w') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(['Base','Unc','LF','LM','LF+P'])
+    for row in existing:
+        writer.writerow(row)
     for s in range(len(lss['b'])):
         writer.writerow([lss['b'][s],lss['u'][s],lss['f'][s],lss['m'][s],
                          lss['p'][s]])

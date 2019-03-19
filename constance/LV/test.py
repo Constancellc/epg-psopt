@@ -3,129 +3,57 @@ import random
 import copy
 import numpy as np
 import matplotlib.pyplot as plt
-from lv_optimization_new import LVTestFeeder
-
-fdr = '1'
-runs = 1
-
-tr = 1
-nEVs = 55
-
-phase = ['A','B','A','A','A','B','B','C','A','B','B','C','B','A','B','C','C',
-         'C','C','A','A','A','B','C','A','B','C','C','A','A','A','C','C','A',
-         'B','B','B','B','C','B','B','C','C','B','B','A','C','A','A','B','A',
-         'A','B','A','A']
-
-network = LVTestFeeder('manc_models/'+fdr,t_res=tr)
-
-lds = {'b':[],'u':[],'m':[],'f':[]}
-lss = {'b':[],'u':[],'m':[],'f':[]}
-
-for mc in range(runs):
-    print(mc)
-    '''
-    network.set_households_NR('../../../Documents/netrev/TC2a/03-Dec-2013.csv')
-    network.set_evs_MEA('../../../Documents/My_Electric_Avenue_Technical_Data/'+
-                        'constance/ST1charges/',nEVs=nEVs)'''
-    network.set_households_synthetic(5)
-    network.set_evs_synthetic(5,nTrips=1)
-    network.balance_phase2(phase)
-    b = network.get_feeder_load()
-    l_b = network.predict_losses()
 
 
-    network.uncontrolled()
-    p = network.get_feeder_load()
-    l_u = network.predict_losses()
+stem = '../../../Documents/simulation_results/LV/manc-models/'
 
-    try:
-        network.load_flatten()
-    except:
-        continue
-    
-    p2 = network.get_feeder_load()
-    l_f = network.predict_losses()
+m = []
+q1 = []
+q3 = []
+u = []
+l = []
 
-    try:
-        network.loss_minimise()
-    except:
-        continue
 
-    if network.status != 'optimal':
-        print(network.status)
-        continue
-    p3 = network.get_feeder_load()
-    l_m = network.predict_losses()
+diff1 = []
+diff2 = []
+with open(stem+'2-losses.csv','rU') as csvfile:
+    reader = csv.reader(csvfile)
+    next(reader)
+    for row in reader:
+        diff1.append(1000*(float(row[2])-float(row[3]))/55)
+        diff2.append(1000*(float(row[2])-float(row[4]))/55)
 
-    print(l_b)
-    print(l_u)
-    print(l_f)
-    print(l_m)
 
-    plt.figure()
-    plt.subplot(2,1,1)
-    plt.plot(b)
-    #plt.plot(p)
-    plt.subplot(2,1,2)
-    plt.plot(p2)
-    #plt.plot(p3)
-    plt.show()
+d = [diff1,diff2]                           
+for i in range(2):
+    diff = sorted(d[i])
+    m.append(diff[int(len(diff)/2)])
+    q1.append(diff[int(len(diff)*0.25)])
+    q3.append(diff[int(len(diff)*0.75)])
+    l.append(diff[0])
+    u.append(diff[-1])
 
-    lds['b'].append(b)
-    lds['u'].append(p)
-    lds['f'].append(p2)
-    lds['m'].append(p3)
-    
-    lss['b'].append(l_b)
-    lss['u'].append(l_u)
-    lss['f'].append(l_f)
-    lss['m'].append(l_m)
-''' 
-with open('../../../Documents/simulation_results/LV/varying-pen/'+str(nEVs)+\
-          '-losses.csv','w') as csvfile:
-    writer = csv.writer(csvfile)
-    writer.writerow(['Base','Unc','LF','LM'])
-    for s in range(len(lss['b'])):
-        writer.writerow([lss['b'][s],lss['u'][s],lss['f'][s],lss['m'][s]])
-        
-                      
-with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
-          '-loads-b.csv','w') as csvfile:
-    writer = csv.writer(csvfile)
-    writer.writerow(['t','runs'])
-    for t in range(int(1440/tr)):
-        row = [t]
-        for s in range(len(lss['b'])):
-            row.append(lds['b'][s][t])
-        writer.writerow(row)
-        
-with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
-          '-loads-u.csv','w') as csvfile:
-    writer = csv.writer(csvfile)
-    writer.writerow(['t','runs'])
-    for t in range(int(1440/tr)):
-        row = [t]
-        for s in range(len(lss['u'])):
-            row.append(lds['u'][s][t])
-        writer.writerow(row)
-        
-with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
-          '-loads-f.csv','w') as csvfile:
-    writer = csv.writer(csvfile)
-    writer.writerow(['t','runs'])
-    for t in range(int(1440/tr)):
-        row = [t]
-        for s in range(len(lss['f'])):
-            row.append(lds['f'][s][t])
-        writer.writerow(row)
-        
-with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
-          '-loads-m.csv','w') as csvfile:
-    writer = csv.writer(csvfile)
-    writer.writerow(['t','runs'])
-    for t in range(int(1440/tr)):
-        row = [t]
-        for s in range(len(lss['m'])):
-            row.append(lds['m'][s][t])
-        writer.writerow(row)
-'''
+
+plt.figure()
+plt.rcParams["font.family"] = 'serif'
+plt.rcParams['font.size'] = 12
+# whiskers
+plt.scatter(range(1,len(m)+1),l,marker='_',c='gray')
+plt.scatter(range(1,len(m)+1),u,marker='_',c='gray')
+for i in range(len(m)):
+    plt.plot([i+1,i+1],[l[i],q1[i]],c='gray')
+    plt.plot([i+1,i+1],[q3[i],u[i]],c='gray')
+
+x_ticks = ['Loss\nMinimizing','Phase Balance\nRegularization']
+# box
+for i in range(len(m)):
+    plt.plot([i+0.705,i+1.295],[m[i],m[i]],c='b',lw='2')
+    plt.plot([i+0.7,i+1.3],[q1[i],q1[i]],c='k')
+    plt.plot([i+0.7,i+1.3],[q3[i],q3[i]],c='k')
+    plt.plot([i+1.3,i+1.3],[q1[i],q3[i]],c='k')
+    plt.plot([i+0.7,i+0.7],[q1[i],q3[i]],c='k')
+plt.xticks(range(1,len(m)+1),x_ticks)
+plt.grid(linestyle=':')
+plt.ylabel('Additional Savings\n(Wh per household)')
+plt.tight_layout()
+plt.show()

@@ -4,7 +4,7 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 
-fds = ['041','4','213','162','1','3','2','193','074','024']
+fds = ['041','213','162','1','3','2','193','074','024']
 
 hhs = {'1':55,'2':175,'3':94,'4':24,'024':115,'041':24,'074':186,'162':73,
        '193':65,'213':67}
@@ -88,7 +88,7 @@ for i in range(len(m)):
     plt.plot([i+1.4,i+1.4],[q1[i],q3[i]],c='k')
     plt.plot([i+0.6,i+0.6],[q1[i],q3[i]],c='k')
 plt.xticks(range(1,len(m)+1),x_ticks)
-plt.ylabel('ADMD increase (kW)')
+plt.ylabel('30 min Peak Demand Increase\n(kW per household)')
 plt.grid(linestyle=':')
 plt.tight_layout()
 plt.savefig('../../../Dropbox/papers/losses/img/admd_comp.eps', format='eps',
