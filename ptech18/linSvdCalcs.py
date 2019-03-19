@@ -83,7 +83,10 @@ class linModel:
             KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
             
             Ktot = np.concatenate((KyP,KdP),axis=1)
-            vYZ = LM['YZ'][LM['v_idx']]
+            
+            # vYZ = LM['YZ'][LM['v_idx']]
+            vYZ = LM['vYNodeOrder']
+            
         KtotCheck = np.sum(Ktot==0,axis=1)!=Ktot.shape[1] # [this seems to get rid of fixed regulated buses]
         Ktot = Ktot[KtotCheck]
         
@@ -95,54 +98,91 @@ class linModel:
         self.KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
         self.vTotYNodeOrder = vYZ[KtotCheck]
         
-    # def plotNetworkLines(self):
-        
-    
     def plotFlatVoltage(self):
         Voltages = self.b0hi
+        Voltages = self.b0lo
         busCoords = self.busCoords
         vYZ = self.vTotYNodeOrder
         branches = self.branches
 
         bus0 = []
+        phs0 = []
         for yz in vYZ:
-            bus0 = bus0+[yz.split('.')[0].lower()]
+            fullBus = yz.split('.')
+            bus0 = bus0+[fullBus[0].lower()]
+            if len(fullBus)>1:
+                phs0 = phs0+[fullBus[1::]]
+            else:
+                phs0 = phs0+[['1','2','3']]
         bus0 = np.array(bus0)
+        phs0 = np.array(phs0)
+        
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        
+        busVoltages = {}
+        vmax = 0.95
+        vmin = 1.05
+        print('Finding voltages...')
+        for bus in busCoords:
+            if not np.isnan(busCoords[bus][0]):
+                voltage = Voltages[bus0==bus.lower()]
+                phses = phs0[bus0==bus.lower()].flatten()
+                
+                if not len(voltage):
+                    busVoltages[bus] = np.nan
+                else:
+                    busVoltages[bus] = np.mean(voltage)
+                    vmax = max(vmax,np.mean(voltage))
+                    vmin = min(vmin,np.mean(voltage))
+            else:
+                busVoltages[bus] = np.nan
 
+        print('Plotting branches...')
         for branch in branches:
             bus1 = branches[branch][0].split('.')[0]
             bus2 = branches[branch][1].split('.')[0]
             if branch.split('.')[0]=='Transformer':
-                plt.plot((busCoords[bus1][0],busCoords[bus2][0]),(busCoords[bus1][1],busCoords[bus2][1]),Color='#777777')
+                ax.plot((busCoords[bus1][0],busCoords[bus2][0]),(busCoords[bus1][1],busCoords[bus2][1]),Color='#777777')
             else:
-                plt.plot((busCoords[bus1][0],busCoords[bus2][0]),(busCoords[bus1][1],busCoords[bus2][1]),Color='#cccccc')
+                ax.plot((busCoords[bus1][0],busCoords[bus2][0]),(busCoords[bus1][1],busCoords[bus2][1]),Color='#cccccc')
+        
+        print('Plotting voltages...')
+        for bus in busCoords:
+            if not np.isnan(busCoords[bus][0]):
+                if np.isnan(busVoltages[bus]):
+                    ax.plot(busCoords[bus][0],busCoords[bus][1],'.',Color='#cccccc')
+                else:
+                    score = (busVoltages[bus]-vmin)/(vmax-vmin)
+                    ax.plot(busCoords[bus][0],busCoords[bus][1],'.',Color=cm.viridis(score),zorder=+10)
+        print('Complete')
+        plt.title(self.feeder)
+        
+        
+        # Put in Colorbar
+        xlm = plt.xlim()
+        ylm = plt.ylim()
+        top = ylm[1]
+        btm = ylm[1] - np.diff(ylm)*0.25
+        
+        xcrd = xlm[1] - np.diff(xlm)*0.25
 
-        busVoltages = {}
-        vmax = 0.95
-        vmin = 1.05
-        Vmax = [vmax]
-        Vmin = [vmin]
-        for bus in busCoords:
-            voltage = Voltages[bus0==bus.lower()]
-            if not len(voltage):
-                busVoltages[bus] = np.nan
-            else:
-                busVoltages[bus] = np.mean(voltage)
-                vmax = max(vmax,np.mean(voltage))
-                vmin = min(vmin,np.mean(voltage))
-                
-                Vmax = Vmax + [vmax]
-                Vmin = Vmin + [vmin]
+        for i in range(100):
+            y1 = btm+(top-btm)*(i/100)
+            y2 = btm+(top-btm)*((i+1)/100)
+            plt.plot([xcrd,xcrd],[y1,y2],lw=6,c=cm.viridis(i/100))
+
+        print(vmax)
+        print(round(vmax,3))
+        print(vmin)
+        print(round(vmin,3))
+        tcks = [str(round(vmin,3)),str(round(np.mean((vmin,vmax)),3)),str(round(vmax,3))]
+        for i in range(3):
+            y_ = btm+(top-btm)*(i/2)-2
+            # plt.annotate('  '+tcks[i]+' pu',(xcrd+10,y_))
+            plt.annotate('  '+tcks[i]+' pu',(xcrd,y_))
         
-        for bus in busCoords:
-            if np.isnan(busVoltages[bus]):
-                plt.plot(busCoords[bus][0],busCoords[bus][1],'.',Color='#cccccc')
-            else:
-                score = (busVoltages[bus]-vmin)/(vmax-vmin)
-                plt.plot(busCoords[bus][0],busCoords[bus][1],'.',Color=cm.viridis(score))
+        
         plt.gca().set_aspect('equal', adjustable='box')
+        plt.tight_layout()
         plt.show()
-        
-        # plt.plot(Vmax)
-        # plt.plot(Vmin)
-        # plt.show()

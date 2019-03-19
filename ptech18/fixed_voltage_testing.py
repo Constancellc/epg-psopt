@@ -35,8 +35,10 @@ test_model_bus = True
 test_model_bus = False
 test_model_dff = True
 test_model_dff = False
+save_model=True
+# save_model=False
 
-fdr_i = 6
+fdr_i = 22
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder=fdrs[fdr_i]
 
@@ -87,7 +89,7 @@ regZonIdx = (np.array(regZonIdx0[3:])-3).tolist()
 
 regIdx = get_regIdx(DSSCircuit)
 reIdx = (np.array(get_reIdx(regIdx,len(YZ))[3:])-3).tolist()
-YZnew = vecSlc(YZ[3:],reIdx) # checksum
+
 
 # 3. get index shifts using zone info
 v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
@@ -123,6 +125,9 @@ regVreg = get_regVreg(DSSCircuit)
 
 print('Start Kron Red...',time.process_time())
 Anew,Bnew = kron_red(KyR,KdR,KtR,bVR,regVreg)
+
+Asave = np.concatenate(( Anew,np.zeros((len(regVreg),Anew.shape[1])) ))
+Bsave = np.concatenate((Bnew,np.array(regVreg)))
 
 # 5. Test if these are working
 
@@ -161,7 +166,8 @@ if test_model_plt or test_model_bus or test_model_dff:
         
         v_0[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray))
         vv_0[i,:] = v_0[i,3:][v_idx]
-        vv_0R[i,:] = vv_0[i,:][v_idx_shf]
+        # vv_0R[i,:] = vv_0[i,:][v_idx_shf]
+        vv_0R[i,:] = v_0[i,3:][v_idx_new]
         
         sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
         xhy = -1e3*s_2_x(sY[3:])
@@ -205,7 +211,7 @@ if test_model_plt or test_model_bus or test_model_dff:
             vv_l_ctr[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
             
             xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
-            vv_lN_ctr[i,:] = np.concatenate((Anew.dot(xnew) + Bnew,np.array(regVreg)))
+            vv_lN_ctr[i,:] = Asave.dot(xnew) + Bsave
             
         ve_ctl[i] = np.linalg.norm( vv_l_ctr[i,:] - vv_0_ctl[i,:] )/np.linalg.norm(vv_0_ctl[i,:])
         veN_ctl[i] = np.linalg.norm( vv_lN_ctr[i,:] - vv_0R_ctl[i,:] )/np.linalg.norm(vv_0R_ctl[i,:])
@@ -213,29 +219,27 @@ if test_model_plt or test_model_bus or test_model_dff:
 
 unSat = RegSat.min(axis=1)==1
 sat = RegSat.min(axis=1)==0
-Yvbase = get_Yvbase(DSSCircuit)[3:][v_idx]
-
-Asave = np.concatenate(( Anew,np.zeros((len(regVreg),Anew.shape[1])) ))
-Bsave = np.concatenate((Bnew,np.array(regVreg)))
+# Yvbase = get_Yvbase(DSSCircuit)[3:][v_idx]
 
 # SAVE MODEL ============
-dir0 = WD + '\\lin_models\\' + feeder + '\\fxd_model'
-sn0 = dir0 + '\\' + feeder + lp_taps + 'Fxd'
-lp_str = str(round(lin_point*100).astype(int)).zfill(3)
-if not os.path.exists(dir0):
-        os.makedirs(dir0)
+if save_model:
+    dir0 = WD + '\\lin_models\\' + feeder + '\\fxd_model'
+    sn0 = dir0 + '\\' + feeder + lp_taps + 'Fxd'
+    lp_str = str(round(lin_point*100).astype(int)).zfill(3)
+    if not os.path.exists(dir0):
+            os.makedirs(dir0)
 
-np.save(sn0+'A'+lp_str+'.npy',Asave)
-np.save(sn0+'B'+lp_str+'.npy',Bsave)
-np.save(sn0+'s_idx'+lp_str+'.npy',s_idx_new)
-np.save(sn0+'v_idx'+lp_str+'.npy',v_idx_new)
-np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx_shf])
-np.save(sn0+'xhd0'+lp_str+'.npy',xhd0[sD_idx_shf])
-np.save(sn0+'YZ'+lp_str+'.npy',YZnew)
-np.save(sn0+'Vbase'+lp_str+'.npy',Yvbase_new)
+    np.save(sn0+'A'+lp_str+'.npy',Asave)
+    np.save(sn0+'B'+lp_str+'.npy',Bsave)
+    np.save(sn0+'s_idx'+lp_str+'.npy',s_idx_new)
+    np.save(sn0+'v_idx'+lp_str+'.npy',v_idx_new)
+    np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx_shf])
+    np.save(sn0+'xhd0'+lp_str+'.npy',xhd0[sD_idx_shf])
+    np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vecSlc(YZ[3:],v_idx_new))
+    np.save(sn0+'Vbase'+lp_str+'.npy',Yvbase_new)
 
-np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',YZp)
-np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',YZd)
+    np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',YZp)
+    np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',YZd)
 
 
 if test_model_plt:

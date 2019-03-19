@@ -33,10 +33,13 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-test_model_plt = False
+# test_model_plt = False
 test_model_bus = True
 test_model_bus = False
-fdr_i = 6
+save_model = True
+save_model = False
+
+fdr_i = 8
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 feeder=fdrs[fdr_i]
 
@@ -79,7 +82,6 @@ regZonIdx = (np.array(regZonIdx0[3:])-3).tolist()
 
 regIdx = get_regIdx(DSSCircuit)
 reIdx = (np.array(get_reIdx(regIdx,len(YZ))[3:])-3).tolist()
-YZnew = vecSlc(YZ[3:],reIdx) # checksum
 
 # get index shifts
 v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
@@ -195,9 +197,7 @@ if test_model_plt or test_model_bus:
         vv_lR[i,:] = vv_l[i,:][v_idx_shf]
         xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
         vv_lN[i,:] = np.concatenate((Anew.dot(xnew) + Bnew,np.array(regVreg)))
-        # vv_lL[i,:] = np.concatenate((Altc.dot(xnew) + Bltc,np.array(regVreg) + regIdxMatVlts.dot(xnew) ))
         vv_lL[i,:] = Altc.dot(xnew) + Bltc # NB note no need to append regVreg
-        # end ifelse
         
         veR[i] = np.linalg.norm( vv_lR[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
         veN[i] = np.linalg.norm( vv_lN[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
@@ -207,27 +207,25 @@ if test_model_plt or test_model_bus:
     sat = RegSat.min(axis=1)==0
 
 # SAVE MODEL ============
-dir0 = WD + '\\lin_models\\' + feeder + '\\ltc_model'
-sn0 = dir0 + '\\' + feeder + lp_taps + 'Ltc'
-lp_str = str(round(lin_point*100).astype(int)).zfill(3)
+if save_model:
+    dir0 = WD + '\\lin_models\\' + feeder + '\\ltc_model'
+    sn0 = dir0 + '\\' + feeder + lp_taps + 'Ltc'
+    lp_str = str(round(lin_point*100).astype(int)).zfill(3)
 
-if not os.path.exists(dir0):
-        os.makedirs(dir0)
+    if not os.path.exists(dir0):
+            os.makedirs(dir0)
 
-np.save(sn0+'A'+lp_str+'.npy',Altc)
-np.save(sn0+'B'+lp_str+'.npy',Bltc)
-np.save(sn0+'s_idx'+lp_str+'.npy',s_idx_new)
-np.save(sn0+'v_idx'+lp_str+'.npy',v_idx_new)
-np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx_shf])
-np.save(sn0+'xhd0'+lp_str+'.npy',xhd0[sD_idx_shf])
-np.save(sn0+'YZ'+lp_str+'.npy',YZnew)
-np.save(sn0+'Vbase'+lp_str+'.npy',Yvbase_new)
+    np.save(sn0+'A'+lp_str+'.npy',Altc)
+    np.save(sn0+'B'+lp_str+'.npy',Bltc)
+    np.save(sn0+'s_idx'+lp_str+'.npy',s_idx_new)
+    np.save(sn0+'v_idx'+lp_str+'.npy',v_idx_new)
+    np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx_shf])
+    np.save(sn0+'xhd0'+lp_str+'.npy',xhd0[sD_idx_shf])
+    np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vecSlc(YZ[3:],v_idx_new))
+    np.save(sn0+'Vbase'+lp_str+'.npy',Yvbase_new)
 
-np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',YZp)
-np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',YZd)
-
-# np.save(sn0+'Avreg'+lp_str+'.npy',regIdxMatVlts)
-# np.save(sn0+'Bvreg'+lp_str+'.npy',regVreg)
+    np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',YZp)
+    np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',YZd)
 
 # PLOTTING ============
 if test_model_plt:

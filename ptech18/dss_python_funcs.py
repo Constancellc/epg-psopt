@@ -455,12 +455,12 @@ def loadLtcModel(feeder,lin_point,WD,lp_taps):
     LM = {}
     LM['A'] = np.load(stt+'A'+end)
     LM['B'] = np.load(stt+'B'+end)
-    LM['s_idx'] = np.load(stt+'s_idx'+end)
+    # LM['s_idx'] = np.load(stt+'s_idx'+end)
     LM['v_idx'] = np.load(stt+'v_idx'+end)
     LM['Vbase'] = np.load(stt+'Vbase'+end)
     LM['xhy0'] = np.load(stt+'xhy0'+end)
     LM['xhd0'] = np.load(stt+'xhd0'+end)
-    LM['YZ'] = np.load(stt+'YZ'+end)
+    LM['vYNodeOrder'] = np.load(stt+'vYNodeOrder'+end)
     LM['SyYNodeOrder'] = np.load(stt+'SyYNodeOrder'+end)
     LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)
     return LM
@@ -480,7 +480,7 @@ def loadNetModel(feeder,lin_point,WD,lp_taps,netModel):
     LM['Vbase'] = np.load(stt+'Vbase'+end)
     LM['xhy0'] = np.load(stt+'xhy0'+end)
     LM['xhd0'] = np.load(stt+'xhd0'+end)
-    LM['YZ'] = np.load(stt+'YZ'+end)
+    LM['vYNodeOrder'] = np.load(stt+'vYNodeOrder'+end)
     LM['SyYNodeOrder'] = np.load(stt+'SyYNodeOrder'+end)
     LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)
     return LM
