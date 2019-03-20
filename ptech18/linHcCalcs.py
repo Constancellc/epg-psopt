@@ -161,7 +161,7 @@ for i in range(pdfData['nP'][0]):
     # PART B FROM HERE ==============================
     print('---- Start MC ----',time.process_time())
     Mu0 = pdf.halfLoadMean(LM.loadScaleNom,xhyN,xhdN)
-    pdfGen = pdf.genPdfMcSet(nMc,Mu0)
+    pdfGen = pdf.genPdfMcSet(nMc,Mu0)[0]
     
     genTot0 = np.sum(pdfGen,axis=0)
     genTotSort = genTot0.copy()
