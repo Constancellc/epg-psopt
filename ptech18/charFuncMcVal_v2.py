@@ -13,7 +13,7 @@
 # 2. sample distibution appropriately and run load flow
 # 3. Compare results.
 
-import pickle, os, sys, win32com.client, time, getpass, scipy.stats
+import pickle, os, sys, win32com.client, time, scipy.stats
 import numpy as np
 from dss_python_funcs import *
 import numpy.random as rnd
@@ -112,11 +112,6 @@ pltSave = False
 if not lin_point:
     lin_point=lp0data['k']
 
-if getpass.getuser()=='chri3793':
-    sn = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190204\\charFuncMcVal_"
-elif getpass.getuser()=='Matt':
-    sn = r"C:\Users\Matt\Documents\DPhil\malcolm_updates\wc190204\\charFuncMcVal_"
-
 ckt = get_ckt(WD,feeder)
 fn_ckt = ckt[0]
 fn = ckt[1]
@@ -125,7 +120,6 @@ DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText = DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution = DSSCircuit.Solution
-# sn0 = sn +  feeder + str(int(lin_point*1e2)) + 'ltc' + str(int(netModel)) + 'ld' + str(int(ld2mean*1e2))
 
 svd = TruncatedSVD(n_components=nSvdMax,algorithm='arpack') # see: https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html#sklearn.decomposition.TruncatedSVD
 

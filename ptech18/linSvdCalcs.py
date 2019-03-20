@@ -6,9 +6,16 @@ import matplotlib.pyplot as plt
 from math import gamma
 import dss_stats_funcs as dsf
 from matplotlib import cm
+from sklearn.decomposition import TruncatedSVD
 
 
-
+def calcVar(X):
+    i=0
+    var = np.zeros(len(X))
+    for x in X:
+        var[i] = x.dot(x)
+        i+=1
+    return var
 
 class exampleClass:
     """A simple example class"""
@@ -19,9 +26,17 @@ class exampleClass:
 class linModel:
     """Linear model class with a whole bunch of useful things that we can do with it."""
     
-    def __init__(self,feeder,WD):
+    def __init__(self,fdr_i,WD):
+        
+        fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
+        fdrNetModels = [0,0,0,0,0,1,1,0,1,2,-1,-1,-1,-1,0,-1,-1,0,0,2,2,2,2]
+        
+        feeder = fdrs[fdr_i]
+        
         self.feeder = feeder
         self.WD = WD # for debugging
+        
+        self.netModelNom = fdrNetModels[fdr_i]
         
         with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
             lp0data = pickle.load(handle)
@@ -29,6 +44,10 @@ class linModel:
         self.linPoint = lp0data['k']
         self.loadPointLo = lp0data['kLo']
         self.loadPointHi = lp0data['kHi']
+        self.loadScaleNom = lp0data['kLo'] - lp0data['k']
+        self.Vmax = lp0data['Vp']
+        self.Vmin = lp0data['Vm']
+        self.DVmax = 0.06 # pu
         
         with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','busCoords.pkl'),'rb') as handle:
             self.busCoords = pickle.load(handle)
@@ -47,10 +66,15 @@ class linModel:
         Kfix = Kfix[KfixCheck]
         dvBase = dvBase[KfixCheck]
         
+        self.dvBase = dvBase
         self.KfixPu = dsf.vmM(1/dvBase,Kfix)
         self.vFixYNodeOrder = LMfix['vYNodeOrder']
+        self.v_idx_fix = LMfix['v_idx']
     
-    def loadNetModel(self,netModel):
+    def loadNetModel(self,netModel=None):
+        if netModel==None:
+            netModel = self.netModelNom
+        
         if not netModel:
             # IF using the FIXED model:
             LM = loadLinMagModel(self.feeder,self.linPoint,self.WD,'Lpt')
@@ -84,27 +108,29 @@ class linModel:
             
             Ktot = np.concatenate((KyP,KdP),axis=1)
             
-            # vYZ = LM['YZ'][LM['v_idx']]
             vYZ = LM['vYNodeOrder']
             
         KtotCheck = np.sum(Ktot==0,axis=1)!=Ktot.shape[1] # [this seems to get rid of fixed regulated buses]
         Ktot = Ktot[KtotCheck]
         
+        self.xhyNtot = xhyN
+        self.xhdNtot = xhdN
         self.xNom = xNom
         self.b0lo = b0lo[KtotCheck]
         self.b0hi = b0hi[KtotCheck]
         vBase = vBase[KtotCheck]
         
+        self.vTotBase = vBase
         self.KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
         self.vTotYNodeOrder = vYZ[KtotCheck]
+        self.v_idx_tot = LM['v_idx']
         
-    def plotFlatVoltage(self):
-        Voltages = self.b0hi
-        Voltages = self.b0lo
-        busCoords = self.busCoords
+        self.SyYNodeOrderTot = LM['SyYNodeOrder']
+        self.SdYNodeOrderTot = LM['SdYNodeOrder']
+        
+    def getBusPhs(self):
         vYZ = self.vTotYNodeOrder
-        branches = self.branches
-
+        
         bus0 = []
         phs0 = []
         for yz in vYZ:
@@ -114,30 +140,12 @@ class linModel:
                 phs0 = phs0+[fullBus[1::]]
             else:
                 phs0 = phs0+[['1','2','3']]
-        bus0 = np.array(bus0)
-        phs0 = np.array(phs0)
+        self.bus0 = np.array(bus0)
+        self.phs0 = np.array(phs0)
         
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        
-        busVoltages = {}
-        vmax = 0.95
-        vmin = 1.05
-        print('Finding voltages...')
-        for bus in busCoords:
-            if not np.isnan(busCoords[bus][0]):
-                voltage = Voltages[bus0==bus.lower()]
-                phses = phs0[bus0==bus.lower()].flatten()
-                
-                if not len(voltage):
-                    busVoltages[bus] = np.nan
-                else:
-                    busVoltages[bus] = np.mean(voltage)
-                    vmax = max(vmax,np.mean(voltage))
-                    vmin = min(vmin,np.mean(voltage))
-            else:
-                busVoltages[bus] = np.nan
-
+    def plotBranches(self,ax,scores=None):
+        branches = self.branches
+        busCoords = self.busCoords
         print('Plotting branches...')
         for branch in branches:
             bus1 = branches[branch][0].split('.')[0]
@@ -147,42 +155,231 @@ class linModel:
             else:
                 ax.plot((busCoords[bus1][0],busCoords[bus2][0]),(busCoords[bus1][1],busCoords[bus2][1]),Color='#cccccc')
         
-        print('Plotting voltages...')
+    def plotBuses(self,ax,scores,minMax):
+        
+        busCoords = self.busCoords
+        print('Plotting buses...')
         for bus in busCoords:
             if not np.isnan(busCoords[bus][0]):
-                if np.isnan(busVoltages[bus]):
+                if np.isnan(scores[bus]):
                     ax.plot(busCoords[bus][0],busCoords[bus][1],'.',Color='#cccccc')
                 else:
-                    score = (busVoltages[bus]-vmin)/(vmax-vmin)
+                    score = (scores[bus]-minMax[0])/(minMax[1]-minMax[0])
                     ax.plot(busCoords[bus][0],busCoords[bus][1],'.',Color=cm.viridis(score),zorder=+10)
-        print('Complete')
-        plt.title(self.feeder)
         
+    def getSetMean(self,Set):
+        busCoords = self.busCoords
+        phs0 = self.phs0
+        bus0 = self.bus0
         
-        # Put in Colorbar
+        setMean = {}
+        setMin = 1e100
+        setMax = -1e100
+        
+        for bus in busCoords:
+            if not np.isnan(busCoords[bus][0]):
+                vals = Set[bus0==bus.lower()]
+                phses = phs0[bus0==bus.lower()].flatten()
+                
+                if not len(vals):
+                    setMean[bus] = np.nan
+                else:
+                    setMean[bus] = np.mean(vals)
+                    setMax = max(setMax,np.mean(vals))
+                    setMin = min(setMin,np.mean(vals))
+            else:
+                setMean[bus] = np.nan
+        
+        setMinMax = [setMin,setMax]
+        return setMean, setMinMax
+        
+    def ccColorbar(self,plt,minMax):
         xlm = plt.xlim()
         ylm = plt.ylim()
         top = ylm[1]
         btm = ylm[1] - np.diff(ylm)*0.25
-        
         xcrd = xlm[1] - np.diff(xlm)*0.25
 
         for i in range(100):
             y1 = btm+(top-btm)*(i/100)
             y2 = btm+(top-btm)*((i+1)/100)
             plt.plot([xcrd,xcrd],[y1,y2],lw=6,c=cm.viridis(i/100))
-
-        print(vmax)
-        print(round(vmax,3))
-        print(vmin)
-        print(round(vmin,3))
-        tcks = [str(round(vmin,3)),str(round(np.mean((vmin,vmax)),3)),str(round(vmax,3))]
+        tcks = [str(round(minMax[0],3)),str(round(np.mean(minMax),3)),str(round(minMax[1],3))]
         for i in range(3):
             y_ = btm+(top-btm)*(i/2)-2
-            # plt.annotate('  '+tcks[i]+' pu',(xcrd+10,y_))
             plt.annotate('  '+tcks[i]+' pu',(xcrd,y_))
         
+    def plotNetBuses(self,type):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        self.getBusPhs()
+
+        self.plotBranches(ax)
+        if type=='vLo':
+            setMean, setMeanMinMax = self.getSetMean(self.b0lo)
+        elif type=='vHi':
+            setMean, setMeanMinMax = self.getSetMean(self.b0hi)
+        elif type=='logVar':
+            setMean, setMeanMinMax = self.getSetMean(np.log10(self.KtotVar))
+        
+        self.plotBuses(ax,setMean,setMeanMinMax)
+
+        plt.title(self.feeder)
+        self.ccColorbar(plt,setMeanMinMax)
         
         plt.gca().set_aspect('equal', adjustable='box')
         plt.tight_layout()
+        print('Complete')
         plt.show()
+        
+    
+    def runLinHc(self,nMc,pdfData):
+        Vp_pct = np.zeros(pdfData['nP'])
+        Cns_pct = np.zeros(list(pdfData['nP'])+[5])
+        hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
+        hcGenAll = np.array([])
+        genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
+        
+        for i in range(pdfData['nP'][0]):
+            pdf = hcPdfs(self.feeder,netModel=self.netModelNom)
+            Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot)
+            pdfGen = pdf.genPdfMcSet(nMc,Mu)
+            
+            genTot0 = np.sum(pdfGen,axis=0)
+            genTotSort = genTot0.copy()
+            genTotSort.sort()
+            
+            DelVoutLin = (self.KtotPu.dot(pdfGen).T)*1e3
+            ddVoutLin = abs((self.KfixPu.dot(pdfGen).T)*1e3) # just get abs change
+            
+            for jj in range(pdfData['nP'][-1]):
+                genTot = genTot0*pdfData['mu_k'][jj]
+                
+                vLo = (DelVoutLin*pdfData['mu_k'][jj]) + self.b0lo
+                vHi = (DelVoutLin*pdfData['mu_k'][jj]) + self.b0hi
+                vDv = ddVoutLin*pdfData['mu_k'][jj]
+                
+                vLo[vLo<0.5] = 1.0
+                vHi[vHi<0.5] = 1.0
+                
+                maxVlo = np.max(vLo,axis=1)
+                minVlo = np.min(vLo,axis=1)
+                maxVhi = np.max(vHi,axis=1)
+                minVhi = np.min(vHi,axis=1)
+                maxDv = np.max(vDv,axis=1)
+                
+                Cns_pct[i,jj] = 100*np.array([sum(maxDv>self.DVmax),sum(maxVhi>self.Vmax),sum(minVhi<self.Vmin),sum(maxVlo>self.Vmax),sum(minVlo<self.Vmin)])/nMc
+                inBounds = np.any(np.array([maxVhi>self.Vmax,minVhi<self.Vmin,maxVlo>self.Vmax,minVlo<self.Vmin,maxDv>self.DVmax]),axis=0)
+                Vp_pct[i,jj] = 100*sum(inBounds)/nMc
+                hcGen = genTot[inBounds]
+                
+                if len(hcGen)!=0:
+                    hcGenAll = np.concatenate((hcGenAll,hcGen))
+                    hcGen.sort()
+                    hcGenSet[i,jj,0] = hcGen[0]
+                    hcGenSet[i,jj,1] = hcGen[np.floor(len(hcGen)*1.0/4.0).astype(int)]
+                    hcGenSet[i,jj,2] = hcGen[np.floor(len(hcGen)*1.0/2.0).astype(int)]
+                    hcGenSet[i,jj,3] = hcGen[np.floor(len(hcGen)*3.0/4.0).astype(int)]
+                    hcGenSet[i,jj,4] = hcGen[-1]
+                genTotSet[i,jj,0] = genTotSort[0]*pdfData['mu_k'][jj]
+                genTotSet[i,jj,1] = genTotSort[np.floor(len(genTotSort)*1.0/4.0).astype(int)]*pdfData['mu_k'][jj]
+                genTotSet[i,jj,2] = genTotSort[np.floor(len(genTotSort)*1.0/2.0).astype(int)]*pdfData['mu_k'][jj]
+                genTotSet[i,jj,3] = genTotSort[np.floor(len(genTotSort)*3.0/4.0).astype(int)]*pdfData['mu_k'][jj]
+                genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
+        self.linHcRsl = {}
+        self.linHcRsl['hcGenSet'] = hcGenSet
+        self.linHcRsl['Vp_pct'] = Vp_pct
+        self.linHcRsl['Cns_pct'] = Cns_pct
+        self.linHcRsl['hcGenAll'] = hcGenAll
+        self.linHcRsl['genTotSet'] = genTotSet
+    
+    
+    
+    def busViolationVar(self,Sgm):
+        limA0 =   self.Vmax - self.b0lo
+        limB0 =   self.Vmax - self.b0hi
+        limC0 = -(self.Vmin - self.b0lo)
+        limD0 = -(self.Vmin - self.b0hi)
+        lim = np.min(np.array([limA0,limB0,limC0,limD0]),axis=0)
+    
+        self.KtotU = dsf.vmvM(lim,self.KtotPu,Sgm)
+        self.KtotVar = calcVar(self.KtotU)
+    
+    # def busViolationVar(self,Sgm):
+        # # method:
+        # # 1. take in voltage that can occur
+        # # 2. take in the mean and variance of the input
+        # # 3. pre and postmultiply to normalise
+        # # 4. calculate variance of the matrix
+        # # 
+        # # we generally use the ZERO MEAN version for simplicity
+        
+        # # evSvdLim = 0.999
+        # # nSvdMax = 300
+        # evSvdLim = 0.99
+        # nSvdMax = 30
+        
+        # svd = TruncatedSVD(n_components=nSvdMax,algorithm='arpack') # see: https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html#sklearn.decomposition.TruncatedSVD
+        
+        # # muX = self.KtotPu.dot(Mu)
+        
+        
+        # limA0 =   self.Vmax - self.b0lo
+        # limB0 =   self.Vmax - self.b0hi
+        # limC0 = -(self.Vmin - self.b0lo)
+        # limD0 = -(self.Vmin - self.b0hi)
+        
+        # lim = np.min(np.array([limA0,limB0,limC0,limD0]),axis=0)
+        # print('Lim shape:',lim.shape)
+        
+        
+        # Us,Ss,Vhs,evS = dsf.trunc_svd(svd,self.KtotU)
+        
+        # nSvd = np.argmax(evS>evSvdLim)
+        # print('Number of Components:',nSvd)
+        # print('Computational effort saved (%):',100*(1-(nSvd*(self.KtotU.shape[0] + self.KtotU.shape[1])/(self.KtotU.shape[0]*self.KtotU.shape[1]) )))
+        
+        # UsSvd = Us[:,:nSvd]
+        
+        # self.KtotSvd = UsSvd.T.dot(self.KtotU)
+        # self.KtotUsSvd = UsSvd
+        
+        
+    
+class hcPdfs:
+    def __init__(self,feeder,netModel=0,dMu=0.01,pdf=None):
+        if netModel==0:
+            circuitK = {'eulv':1.8,'usLv':5.0,'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':2.0,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
+        elif netModel==1:
+            circuitK = {'13bus':6.0,'34bus':8.0,'123bus':3.6}
+        elif netModel==2:
+            circuitK = {'8500node':2.5,'epriJ1':6.0,'epriK1':1.5,'epriM1':1.8,'epri24':1.5}
+        
+        self.dMu = dMu
+        mu_k = circuitK[feeder]*np.arange(dMu,1.0,dMu) # NB this is as a PERCENTAGE of the chosen nominal powers.
+        if pdf==None:
+            pdfName = 'gammaFlat'
+            k = np.array([3.0]) # we do not know th, sigma until we know the scaling from mu0.
+            params = k
+            self.pdf = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))}
+    
+    
+    def halfLoadMean(self,scale,xhyN,xhdN):
+        # scale suggested as: LM.scaleNom = lp0data['kLo'] - lp0data['k']
+        
+        roundI = 1e0
+        Mu0_y = -scale*roundI*np.round(xhyN[:xhyN.shape[0]//2]/roundI  - 1e6*np.finfo(np.float64).eps) # latter required to make sure that this is negative
+        Mu0_d = -scale*roundI*np.round(xhdN[:xhdN.shape[0]//2]/roundI - 1e6*np.finfo(np.float64).eps)
+        Mu0 = np.concatenate((Mu0_y,Mu0_d))
+        
+        Mu0[Mu0>(10*Mu0.mean())] = Mu0.mean()
+        Mu0[Mu0>(10*Mu0.mean())] = Mu0.mean()
+        return Mu0
+        
+    def genPdfMcSet(self,nMc,Mu0):
+        if self.pdf['name']=='gammaFlat':
+            k = self.pdf['prms']
+            np.random.seed(0)
+            pdfMc0 = (np.random.gamma(k,1/np.sqrt(k),(len(Mu0),nMc)))
+            pdfMc = dsf.vmM( 1e-3*Mu0/np.sqrt(k),pdfMc0 )
+        return pdfMc

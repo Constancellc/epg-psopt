@@ -6,18 +6,31 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from math import gamma
 import dss_stats_funcs as dsf
-from linSvdCalcs import exampleClass, linModel
+from linSvdCalcs import exampleClass, linModel, calcVar, hcPdfs
 
 WD = os.path.dirname(sys.argv[0])
 
 fdr_i = 22
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
-feeder = fdrs[fdr_i]
 
-netModel = 0 # no taps
-netModel = 1 # LDC
-netModel = 2 # fixed reg
+LM = linModel(fdr_i,WD)
+LM.loadNetModel(LM.netModelNom)
 
-qwe = linModel(feeder,WD)
-qwe.loadNetModel(netModel)
-qwe.plotFlatVoltage()
+
+pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom)
+Mu0 = pdf.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot)
+Sgm = Mu0/np.sqrt(pdf.pdf['prms'])
+LM.busViolationVar(Sgm)
+
+# LM.plotNetBuses('logVar')
+LM.plotNetBuses('vLo')
+
+
+# LM.runLinHc(30,pdf.pdf)
+
+# Mu = pdf.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot)
+
+# nMc = 100
+# X = pdf.genPdfMcSet(nMc,Mu)
+
+

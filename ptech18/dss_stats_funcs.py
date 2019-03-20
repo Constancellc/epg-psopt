@@ -164,6 +164,11 @@ def mvM(Mat,vec): # Columnwise multiplication, i.e. Mat.dot(np.diag(vec))
         MatOut[:,i] = Mat[:,i]*vec[i]; i+=1
     return MatOut
 
+def vmvM(vec0,Mat,vec1):
+    mat0 = mvM(Mat,vec1)
+    MatOut = vmM(vec0,mat0)
+    return MatOut
+
 # BUS SENSITIVITIES for the normal assumption analysis.
 def getBusSens(b0,Vp,Mm,Kk,Scl=np.arange(0.05,3.05,0.05)): # get the sensitivity of buses to changes in scaling
     a = np.zeros((len(Scl),len(b0))); i = 0

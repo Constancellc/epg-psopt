@@ -19,6 +19,7 @@ import numpy.random as rnd
 import matplotlib.pyplot as plt
 from math import gamma
 import dss_stats_funcs as dsf
+from linSvdCalcs import hcPdfs, linModel
 
 WD = os.path.dirname(sys.argv[0])
 
@@ -28,17 +29,13 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 feeder = fdrs[fdr_i]
 # feeder = '213'
 
-netModel=0 # none
-netModel=1 # ltc
-# netModel=2 # fixed
 
-lp_taps='Lpt'
 
 with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
     lp0data = pickle.load(handle)
 loadPointLo = lp0data['kLo']
 loadPointHi = lp0data['kHi']
-ld2mean = loadPointLo - lp0data['k']
+
 Vmax = lp0data['Vp']
 Vmin = lp0data['Vm']
 if fdr_i == 22:
@@ -52,24 +49,15 @@ nMc = int(3e2)
 nMc = int(1e2)
 nMc = int(3e1)
 
-if netModel==0:
-    circuitK = {'eulv':1.8,'usLv':5.0,'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':2.0,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
-elif netModel==1:
-    circuitK = {'13bus':6.0,'34bus':8.0,'123bus':3.6}
-elif netModel==2:
-    circuitK = {'8500node':2.5,'epriJ1':6.0,'epriK1':1.5,'epriM1':1.8,'epri24':1.5}
+LM = linModel(fdr_i,WD)
+netModel = LM.netModelNom
 
-# PDF options
-dMu = 0.01
-# dMu = 0.025
-mu_k = circuitK[feeder]*np.arange(dMu,1.0,dMu) # NB this is as a PERCENTAGE of the chosen nominal powers.
+pdf = hcPdfs(LM.feeder,netModel=netModel)
 
-pdfName = 'gamma'
-k = np.array([0.5]) # we do not know th, sigma until we know the scaling from mu0.
-k = np.array([3.0]) # we do not know th, sigma until we know the scaling from mu0.
-# k = np.array([20.0]) # we do not know th, sigma until we know the scaling from mu0.
-params = k
-pdfData = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))}
+k = pdf.pdf['prms']
+mu_k = pdf.pdf['mu_k']
+pdfData = pdf.pdf
+dMu = pdf.dMu
 
 mcLinOn = True
 # mcLinOn = False
@@ -84,7 +72,7 @@ pltHcGen = False
 pltPwrCdf = True
 pltPwrCdf = False
 pltCns = True
-pltCns = False
+# pltCns = False
 
 pltBoxDss = True
 pltBoxDss = False
@@ -96,7 +84,6 @@ DVmax = 0.06 # percent
 # ADMIN =============================================
 SD = os.path.join(WD,'hcResults',feeder)
 SN = os.path.join(SD,'linHcCalcsRslt.pkl')
-# sn0 = SD + str(int(lin_point*1e2)) + 'net' + str(int(netModel)) + 'ld' + str(int(ld2mean*1e2))
 
 ckt = get_ckt(WD,feeder)
 fn = ckt[1]
@@ -113,65 +100,20 @@ DSSSolution = DSSCircuit.Solution
 
 print('Start. \nFeeder:',feeder,'\nLinpoint:',lin_point,'\nLoad Point:',loadPointLo,'\nTap Model:',netModel)
 
-# PART A.1 - load models ===========================
-if not netModel:
-    # IF using the FIXED model:
-    LM = loadLinMagModel(feeder,lin_point,WD,'Lpt')
-    Ky=LM['Ky'];Kd=LM['Kd'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
-    vBase = LM['vKvbase']
+# # PART A.1 - load models ===========================
+LM.loadNetModel()
+KtotPu = LM.KtotPu
+vBase = LM.vTotBase
+v_idx = LM.v_idx_tot
+YZp = LM.SyYNodeOrderTot
+YZd = LM.SdYNodeOrderTot
+xhyN = LM.xhyNtot
+xhdN = LM.xhdNtot 
+b0lo = LM.b0lo
+b0hi = LM.b0hi
 
-    xhyN = xhy0/lin_point # needed seperately for lower down
-    xhdN = xhd0/lin_point
-    
-    b0lo = (Ky.dot(xhyN*loadPointLo) + Kd.dot(xhdN*loadPointLo) + bV)/vBase # in pu
-    b0hi = (Ky.dot(xhyN*loadPointHi) + Kd.dot(xhdN*loadPointHi) + bV)/vBase # in pu
-
-    KyP = Ky[:,:Ky.shape[1]//2]
-    KdP = Kd[:,:Kd.shape[1]//2]
-    Ktot = np.concatenate((KyP,KdP),axis=1)
-elif netModel>0:
-    # IF using the LTC model:
-    LM = loadNetModel(feeder,lin_point,WD,'Lpt',netModel)
-    A=LM['A'];bV=LM['B'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
-    vBase = LM['Vbase']
-    
-    xhyN = xhy0/lin_point # needed seperately for lower down
-    xhdN = xhd0/lin_point
-    xNom = np.concatenate((xhyN,xhdN))
-    b0lo = (A.dot(xNom*loadPointLo) + bV)/vBase # in pu
-    b0hi = (A.dot(xNom*loadPointHi) + bV)/vBase # in pu
-    
-    KyP = A[:,0:len(xhy0)//2] # these might be zero if there is no injection (e.g. only Q)
-    KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
-    
-    Ktot = np.concatenate((KyP,KdP),axis=1)
-
-KtotCheck = np.sum(Ktot==0,axis=1)!=Ktot.shape[1] # [this seems to get rid of fixed regulated buses]
-Ktot = Ktot[KtotCheck]
-b0lo = b0lo[KtotCheck]
-b0hi = b0hi[KtotCheck]
-vBase = vBase[KtotCheck]
-
-v_idx=LM['v_idx'][KtotCheck]
-YZp = LM['SyYNodeOrder']
-YZd = LM['SdYNodeOrder']
-
-# NOW load the fixed model for calculating voltage deviations
-LMfix = loadLinMagModel(feeder,lin_point,WD,'Lpt')
-Kyfix=LMfix['Ky'];Kdfix=LMfix['Kd']
-dvBase = LMfix['vKvbase'] # NB: this is different to vBase for ltc/regulator models!
-
-KyPfix = Kyfix[:,:Kyfix.shape[1]//2]
-KdPfix = Kdfix[:,:Kdfix.shape[1]//2]
-Kfix = np.concatenate((KyPfix,KdPfix),axis=1)
-KfixCheck = np.sum(Kfix==0,axis=1)!=Kfix.shape[1] # [can't remember what this is for...]
-Kfix = Kfix[KfixCheck]
-dvBase = dvBase[KfixCheck]
-
-# REDUCE THE LINEAR MODEL to a nice form for multiplication
-KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
-KfixPu = dsf.vmM(1/dvBase,Kfix)
-
+KfixPu = LM.KfixPu
+dvBase = LM.dvBase
 
 # OPENDSS ADMIN =======================================
 # B1. load the appropriate model/DSS
@@ -211,26 +153,17 @@ genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
 hcGenLinAll = np.array([]); hcGenAll = np.array([])
 hcGen = []; hcGenLin=[]
 # PART A.2 - choose distributions and reduce linear model ===========================
+
+
+
+
 for i in range(pdfData['nP'][0]):
-    roundI = 1e0
-    Mu0_y = -ld2mean*roundI*np.round(xhyN[:xhyN.shape[0]//2]/roundI  - 1e6*np.finfo(np.float64).eps) # latter required to make sure that this is negative
-    Mu0_d = -ld2mean*roundI*np.round(xhdN[:xhdN.shape[0]//2]/roundI - 1e6*np.finfo(np.float64).eps)
-    Mu0 = np.concatenate((Mu0_y,Mu0_d))
-    
-    Mu0[Mu0>(10*Mu0.mean())] = Mu0.mean()
-    Mu0[Mu0>(10*Mu0.mean())] = Mu0.mean()
-    
-    if pdfData['name']=='gamma': # NB: mean of gamma distribution is k*th; variance is k*(th**2)
-        k = pdfData['prms'][i]
-    
     # PART B FROM HERE ==============================
     print('---- Start MC ----',time.process_time())
-
-    pdfGen0 = (np.random.gamma(k,1/np.sqrt(k),(len(genNames),nMc)))
+    Mu0 = pdf.halfLoadMean(LM.loadScaleNom,xhyN,xhdN)
+    pdfGen = pdf.genPdfMcSet(nMc,Mu0)
     
-    pdfGen = dsf.vmM( 1e-3*Mu0/np.sqrt(k),pdfGen0 ) # scale into kW
     genTot0 = np.sum(pdfGen,axis=0)
-    
     genTotSort = genTot0.copy()
     genTotSort.sort()
     genTotAll = np.outer(genTot0,pdfData['mu_k'])
@@ -238,7 +171,6 @@ for i in range(pdfData['nP'][0]):
     
     DelVoutLin = (KtotPu.dot(pdfGen).T)*1e3
     ddVoutLin = abs((KfixPu.dot(pdfGen).T)*1e3) # just get abs change
-    
     
     for jj in range(pdfData['nP'][-1]):
         genTot = genTot0*pdfData['mu_k'][jj]
@@ -359,6 +291,10 @@ for i in range(pdfData['nP'][0]):
         genTotSet[i,jj,3] = genTotSort[np.floor(len(genTotSort)*3.0/4.0).astype(int)]*pdfData['mu_k'][jj]
         genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
     print('MC complete.',time.process_time())
+
+LM.runLinHc(nMc,pdf.pdf) # equivalent at the moment
+
+
 
 # colors=[#1f77b4,#ff7f0e,#2ca02c]
 
