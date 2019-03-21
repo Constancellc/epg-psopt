@@ -5,8 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from lv_optimization_new import LVTestFeeder
 
-fdr = '074'
+fdr = '193'
 runs = 100
+
+# things I have run:
 
 tr = 1
 

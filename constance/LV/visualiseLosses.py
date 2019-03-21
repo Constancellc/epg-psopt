@@ -115,8 +115,8 @@ for i in range(1,3):
     plt.yticks([392740,392890],['',''])
     plt.axis('off')
 plt.tight_layout()
-plt.savefig('../../../Dropbox/papers/losses/img/network_loss_map.eps', format='eps',
-            dpi=1000, bbox_inches='tight', pad_inches=0)
+#plt.savefig('../../../Dropbox/papers/losses/img/network_loss_map.eps', format='eps',
+#            dpi=1000, bbox_inches='tight', pad_inches=0)
 
 
 fig,ax = plt.subplots(1,figsize=(4.8,3.5))
@@ -134,6 +134,8 @@ for l in lines:
 lower = -200
 upper = 200
 for l in lines:
+    if losses[l][4] < 0.1:
+        continue
     ls = lpd[l]
     if ls < lower:
         ls = lower
@@ -161,7 +163,10 @@ for l in lines:
     b = lines[l][1]
     x = [buses[a][0],buses[b][0]]
     y = [buses[a][1],buses[b][1]]
-    plt.plot(x,y,c=cm.coolwarm(ls),lw=2)
+    if abs(ls) < 0.5:
+        plt.plot(x,y,c=cm.coolwarm(ls),lw=4,zorder=0.5)
+    else:
+        plt.plot(x,y,c=cm.coolwarm(ls),lw=4,zorder=2)
     '''lpd = (losses[l][4]-losses[l][3])/linesL[l]
     
     if lpd <= 0:

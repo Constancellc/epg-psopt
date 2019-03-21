@@ -29,12 +29,11 @@ for i in range(len(lds)):
     elif bus[-1] == '3':
         phase.append('C')
 
-network = LVTestFeeder('manc_models/'+fdr,t_res=tr)
-
 lds = {'b':[],'u':[],'m':[],'f':[],'p':[]}
 lss = {'b':[],'u':[],'m':[],'f':[],'p':[]}
 
-for nEVs in np.arange(5,60,5):
+for nEVs in [45]:
+    network = LVTestFeeder('manc_models/'+fdr,t_res=tr)
     for mc in range(runs):
         print(mc)
         network.set_households_NR('../../../Documents/netrev/TC2a/03-Dec-2013.csv')
@@ -66,22 +65,16 @@ for nEVs in np.arange(5,60,5):
         p3 = network.get_feeder_load()
         l_m = network.predict_losses()
 
-        
+        network.balance_phase2(phase)
 
-        try:
-            network.balance_phase2(phase)
-        except:
-            continue
-        
-        if network.status != 'optimal':
-            print(network.status)
-            continue
+        p4 = network.get_feeder_load()
         l_p = network.predict_losses()
 
         lds['b'].append(b)
         lds['u'].append(p)
         lds['f'].append(p2)
         lds['m'].append(p3)
+        lds['p'].append(p4)
         
         lss['b'].append(l_b)
         lss['u'].append(l_u)

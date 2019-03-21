@@ -38,16 +38,20 @@ for p in pens:
                 diff2[-1] = 0
     diff = sorted(diff)
     diff2 = sorted(diff2)
+
+    m.append(1000*sum(diff)/(len(diff)*int(p)))
     
-    m.append(1000*diff[int(len(diff)/2)]/int(p))
-    q1.append(1000*diff[int(len(diff)*0.05)]/int(p))
-    q3.append(1000*diff[int(len(diff)*0.95)]/int(p))
+    #m.append(1000*diff[int(len(diff)/2)]/int(p))
+    q1.append(1000*diff[int(len(diff)*0.25)]/int(p))
+    q3.append(1000*diff[int(len(diff)*0.75)]/int(p))
     l.append(1000*diff[0]/int(p))
     u.append(1000*diff[-1]/int(p))
     
-    _m.append(1000*diff2[int(len(diff)/2)]/int(p))
-    _q1.append(1000*diff2[int(len(diff)*0.05)]/int(p))
-    _q3.append(1000*diff2[int(len(diff)*0.95)]/int(p))
+    _m.append(1000*sum(diff2)/(len(diff)*int(p)))
+    
+    #_m.append(1000*diff2[int(len(diff)/2)]/int(p))
+    _q1.append(1000*diff2[int(len(diff)*0.25)]/int(p))
+    _q3.append(1000*diff2[int(len(diff)*0.75)]/int(p))
     _l.append(1000*diff2[0]/int(p))
     _u.append(1000*diff2[-1]/int(p))
 '''
@@ -71,12 +75,13 @@ plt.xticks(x,x_ticks)
 plt.xlabel('% Households with an EV')
 
 plt.fill_between(range(len(m)),q1,q3,color='#CCCCFF')
-plt.plot(m,c='b')
+plt.plot(m,c='b',label='Loss Minimising')
 
 plt.fill_between(range(len(m)),_q1,_q3,color='#FFCCCC')
-plt.plot(_m,c='r')
+plt.plot(_m,c='r',label='LF+Phase Balancing')
 plt.xlim(0,11)
 plt.ylim(0,35)
+plt.legend(loc=2)
 plt.ylabel('Losses reduction\n(Wh per household)')
 plt.grid(linestyle=':')
 plt.tight_layout()

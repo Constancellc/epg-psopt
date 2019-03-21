@@ -21,39 +21,54 @@ u = []
 l = []
 
 for f in fds:
-    lf = []
-    lm = []
+    print('  -  '+f)
+    lf = {}
+    lm = {}
     diff = []
-    for r in range(100):
-        lf.append([])
-        lm.append([])
     with open(stem+f+'-loads-f.csv','rU') as csvfile:
         reader = csv.reader(csvfile)
         next(reader)
+        t = 0
+        n = 0
         for row in reader:
             for i in range(len(row)-1):
-                lf[i].append(float(row[i+1]))
+                if i+n*(len(row)-1) not in lf:
+                    lf[i+n*(len(row)-1)] = [0.0]*1440
+                    lm[i+n*(len(row)-1)] = [0.0]*1440
+                    #lf[i+n*(len(row)-1)] = [0.0]*1440
+                    #lm[i+n*(len(row)-1)] = [0.0]*1440
+                lf[i+n*(len(row)-1)][t] = float(row[i+1])
+            t += 1
+            if t == 1440:
+                t = 0
+                n += 1
+                #lf[i].append(float(row[i+1]))
     with open(stem+f+'-loads-m.csv','rU') as csvfile:
         reader = csv.reader(csvfile)
         next(reader)
+        t = 0
+        n = 0
         for row in reader:
             for i in range(len(row)-1):
-                lm[i].append(float(row[i+1]))
+                lm[i+n*(len(row)-1)][t] = float(row[i+1])
+            t += 1
+            if t == 1440:
+                t = 0
+                n += 1
+                #lm[i].append(float(row[i+1]))
 
-    r = 0
-    while len(lf[r]) > 0:
-        r += 1
+
     lf30 = []
     lm30 = []
-    for r_ in range(r):
+    for r in lf:
         lf30.append([0.0]*48)
         lm30.append([0.0]*48)
 
         for t in range(int(1440/res[f])):
-            lf30[r_][int(t*res[f]/30)] += lf[r_][t]*res[f]/30
-            lm30[r_][int(t*res[f]/30)] += lm[r_][t]*res[f]/30
+            lf30[-1][int(t*res[f]/30)] += lf[r][t]*res[f]/30
+            lm30[-1][int(t*res[f]/30)] += lm[r][t]*res[f]/30
 
-        diff.append(max(lm30[r_])-max(lf30[r_]))
+        diff.append(max(lm30[-1])-max(lf30[-1]))
 
         if diff[-1] < 0:
             diff[-1] = 0
@@ -88,7 +103,7 @@ for i in range(len(m)):
     plt.plot([i+1.4,i+1.4],[q1[i],q3[i]],c='k')
     plt.plot([i+0.6,i+0.6],[q1[i],q3[i]],c='k')
 plt.xticks(range(1,len(m)+1),x_ticks)
-plt.ylabel('30 min Peak Demand Increase\n(kW per household)')
+plt.ylabel('30 min Peak Demand\nIncrease (kW/household)')
 plt.grid(linestyle=':')
 plt.tight_layout()
 plt.savefig('../../../Dropbox/papers/losses/img/admd_comp.eps', format='eps',
