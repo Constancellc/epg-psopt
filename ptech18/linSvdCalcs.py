@@ -267,22 +267,28 @@ class linModel:
                 
             
             for jj in range(pdfData['nP'][-1]):
-                if model=='nom':
-                    VminKlo = np.ones(nV)*self.Vmin - self.b0lo
-                    VmaxKlo = np.ones(nV)*self.Vmax - self.b0lo
-                    VminKhi = np.ones(nV)*self.Vmin - self.b0hi
-                    VmaxKhi = np.ones(nV)*self.Vmax - self.b0hi
-                    DVmaxK = np.ones(nV)*self.DVmax    
-                elif model=='svd':
-                    dMu0 = DvMu0*pdfData['mu_k'][jj]
+                # if model=='nom':
+                    # # VminKlo = np.ones(nV)*self.Vmin - self.b0lo
+                    # # VmaxKlo = np.ones(nV)*self.Vmax - self.b0lo
+                    # # VminKhi = np.ones(nV)*self.Vmin - self.b0hi
+                    # # VmaxKhi = np.ones(nV)*self.Vmax - self.b0hi
+                    # # DVmaxK = np.ones(nV)*self.DVmax
+
+                    # VminKlo = np.ones(nV)*self.Vmin
+                    # VmaxKlo = np.ones(nV)*self.Vmax
+                    # VminKhi = np.ones(nV)*self.Vmin
+                    # VmaxKhi = np.ones(nV)*self.Vmax
+                    # DVmaxK = np.ones(nV)*self.DVmax
+                # elif model=='svd':
+                    # dMu0 = DvMu0*pdfData['mu_k'][jj]
                     
-                    VminKlo = self.KtotUsvd.dot((np.ones(nV)*self.Vmin - self.b0lo - dMu0)/self.svdLim)
-                    VmaxKlo = self.KtotUsvd.dot((np.ones(nV)*self.Vmax - self.b0lo - dMu0)/self.svdLim)
-                    VminKhi = self.KtotUsvd.dot((np.ones(nV)*self.Vmin - self.b0hi - dMu0)/self.svdLim)
-                    VmaxKhi = self.KtotUsvd.dot((np.ones(nV)*self.Vmax - self.b0hi - dMu0)/self.svdLim)
+                    # VminKlo = self.KtotUsvd.dot((np.ones(nV)*self.Vmin - self.b0lo - dMu0)/self.svdLim)
+                    # VmaxKlo = self.KtotUsvd.dot((np.ones(nV)*self.Vmax - self.b0lo - dMu0)/self.svdLim)
+                    # VminKhi = self.KtotUsvd.dot((np.ones(nV)*self.Vmin - self.b0hi - dMu0)/self.svdLim)
+                    # VmaxKhi = self.KtotUsvd.dot((np.ones(nV)*self.Vmax - self.b0hi - dMu0)/self.svdLim)
                     
 
-                    DVmaxK = np.ones(nV)*self.DVmax
+                    # DVmaxK = np.ones(nV)*self.DVmax
                     
                 genTot = genTot0*pdfData['mu_k'][jj]
 
@@ -290,23 +296,35 @@ class linModel:
                 vDv = ddVout*pdfData['mu_k'][jj]
                 vV = (DelVout*pdfData['mu_k'][jj])
                 
-                # vLo[vLo<0.5] = 1.0
-                # vHi[vHi<0.5] = 1.0
+                vLo = vV + self.b0lo
+                vHi = vV + self.b0hi
+                
+                vLo[vLo<0.5] = 1.0
+                vHi[vHi<0.5] = 1.0
 
-                vLoMax = dsf.mvM(vV,1/VmaxKlo)
-                vLoMin = dsf.mvM(vV,1/VminKlo)
-                vHiMax = dsf.mvM(vV,1/VmaxKhi)
-                vHiMin = dsf.mvM(vV,1/VminKhi)
-                vDvMax = dsf.mvM(vDv,1/DVmaxK)
+                minVlo = np.min(vLo,axis=1)
+                maxVlo = np.max(vLo,axis=1)
+                minVhi = np.min(vHi,axis=1)
+                maxVhi = np.max(vHi,axis=1)
+                maxDv = np.max(abs(vDv),axis=1)
                 
-                minVlo = np.max(vLoMin,axis=1)
-                minVhi = np.max(vHiMin,axis=1)
-                maxVlo = np.max(vLoMax,axis=1)
-                maxVhi = np.max(vHiMax,axis=1)
-                maxDv = np.max(vDvMax,axis=1)
+                # vLoMax = dsf.mvM(vV,1/VmaxKlo)
+                # vLoMin = dsf.mvM(vV,1/VminKlo)
+                # vHiMax = dsf.mvM(vV,1/VmaxKhi)
+                # vHiMin = dsf.mvM(vV,1/VminKhi)
+                # vDvMax = dsf.mvM(vDv,1/DVmaxK)
                 
-                Cns_pct[i,jj] = 100*np.array([sum(maxDv>1),sum(maxVhi>1),sum(minVhi>1),sum(maxVlo>1),sum(minVlo>1)])/nMc
-                inBounds = np.any(np.array([maxVhi>1,minVhi>1,maxVlo>1,minVlo>1,maxDv>1]),axis=0)
+                # minVlo = np.max(vLoMin,axis=1)
+                # minVhi = np.max(vHiMin,axis=1)
+                # maxVlo = np.max(vLoMax,axis=1)
+                # maxVhi = np.max(vHiMax,axis=1)
+                # maxDv = np.max(vDvMax,axis=1)
+                
+                # Cns_pct[i,jj] = 100*np.array([sum(maxDv>1),sum(maxVhi>1),sum(minVhi>1),sum(maxVlo>1),sum(minVlo>1)])/nMc
+                # inBounds = np.any(np.array([maxVhi>1,minVhi>1,maxVlo>1,minVlo>1,maxDv>1]),axis=0)
+                
+                Cns_pct[i,jj] = 100*np.array([sum(maxDv>self.DVmax),sum(maxVhi>self.Vmax),sum(minVhi<self.Vmin),sum(maxVlo>self.Vmax),sum(minVlo<self.Vmin)])/nMc
+                inBounds = np.any(np.array([maxVhi>self.Vmax,minVhi<self.Vmin,maxVlo>self.Vmax,minVlo<self.Vmin,maxDv>self.DVmax]),axis=0)
                 
                 Vp_pct[i,jj] = 100*sum(inBounds)/nMc
                 hcGen = genTot[inBounds]
