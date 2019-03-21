@@ -219,7 +219,7 @@ class linModel:
         elif type=='vHi':
             setMean, setMeanMinMax = self.getSetMean(self.b0hi)
         elif type=='logVar':
-            setMean, setMeanMinMax = self.getSetMean(np.log10(self.KtotVar))
+            setMean, setMeanMinMax = self.getSetMean(np.log10(self.KtotUvar))
         
         self.plotBuses(ax,setMean,setMeanMinMax)
 
@@ -239,7 +239,8 @@ class linModel:
         hcGenAll = np.array([])
         genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
         
-        
+        nV = self.KtotPu.shape[0]
+        nS = self.KtotPu.shape[1]
         
         for i in range(pdfData['nP'][0]):
             pdf = hcPdfs(self.feeder,netModel=self.netModelNom)
@@ -256,9 +257,10 @@ class linModel:
                 Vmax = np.ones(len(DelVout))
                 
             elif model=='svd':
-                DvMu0 = KtotU.dot(np.sqrt(k)*np.ones(len(Mu0)))
                 
-                DelVout = KtotSvd.dot(pdfMcU)
+                DvMu0 = self.KtotU.dot(np.sqrt(pdfData['prms'])*np.ones(nS))
+                
+                DelVout = self.KtotSvd.dot(pdfMcU)
                 ddVout = abs((self.KfixPu.dot(pdfMc).T)*1e3) # just get abs change
                 
                 # vbMu0 = 
@@ -266,35 +268,45 @@ class linModel:
             
             for jj in range(pdfData['nP'][-1]):
                 if model=='nom':
-                    VminK = np.ones(self.KtotPu.shape[0])*self.Vmin
-                    VmaxK = np.ones(self.KtotPu.shape[0])*self.Vmax
-                    DVmaxK = np.ones(self.KtotPu.shape[0])*self.DVmax
+                    VminKlo = np.ones(nV)*self.Vmin - self.b0lo
+                    VmaxKlo = np.ones(nV)*self.Vmax - self.b0lo
+                    VminKhi = np.ones(nV)*self.Vmin - self.b0hi
+                    VmaxKhi = np.ones(nV)*self.Vmax - self.b0hi
+                    DVmaxK = np.ones(nV)*self.DVmax    
                 elif model=='svd':
-                    continue
-            
+                    dMu0 = DvMu0*pdfData['mu_k'][jj]
+                    
+                    VminKlo = self.KtotUsvd.dot((np.ones(nV)*self.Vmin - self.b0lo - dMu0)/self.svdLim)
+                    VmaxKlo = self.KtotUsvd.dot((np.ones(nV)*self.Vmax - self.b0lo - dMu0)/self.svdLim)
+                    VminKhi = self.KtotUsvd.dot((np.ones(nV)*self.Vmin - self.b0hi - dMu0)/self.svdLim)
+                    VmaxKhi = self.KtotUsvd.dot((np.ones(nV)*self.Vmax - self.b0hi - dMu0)/self.svdLim)
+                    
+
+                    DVmaxK = np.ones(nV)*self.DVmax
+                    
                 genTot = genTot0*pdfData['mu_k'][jj]
+
                 
-                vLo = (DelVout*pdfData['mu_k'][jj]) + self.b0lo
-                vHi = (DelVout*pdfData['mu_k'][jj]) + self.b0hi
                 vDv = ddVout*pdfData['mu_k'][jj]
+                vV = (DelVout*pdfData['mu_k'][jj])
                 
-                vLo[vLo<0.5] = 1.0
-                vHi[vHi<0.5] = 1.0
-                
-                vLoMin = dsf.mvM(vLo,1/VminK)
-                vLoMax = dsf.mvM(vLo,1/VmaxK)
-                vHiMin = dsf.mvM(vHi,1/VminK)
-                vHiMax = dsf.mvM(vHi,1/VmaxK)
+                # vLo[vLo<0.5] = 1.0
+                # vHi[vHi<0.5] = 1.0
+
+                vLoMax = dsf.mvM(vV,1/VmaxKlo)
+                vLoMin = dsf.mvM(vV,1/VminKlo)
+                vHiMax = dsf.mvM(vV,1/VmaxKhi)
+                vHiMin = dsf.mvM(vV,1/VminKhi)
                 vDvMax = dsf.mvM(vDv,1/DVmaxK)
                 
+                minVlo = np.max(vLoMin,axis=1)
+                minVhi = np.max(vHiMin,axis=1)
                 maxVlo = np.max(vLoMax,axis=1)
-                minVlo = np.min(vLoMin,axis=1)
                 maxVhi = np.max(vHiMax,axis=1)
-                minVhi = np.min(vHiMin,axis=1)
                 maxDv = np.max(vDvMax,axis=1)
                 
-                Cns_pct[i,jj] = 100*np.array([sum(maxDv>1),sum(maxVhi>1),sum(minVhi<1),sum(maxVlo>1),sum(minVlo<1)])/nMc
-                inBounds = np.any(np.array([maxVhi>1,minVhi<1,maxVlo>1,minVlo<1,maxDv>1]),axis=0)
+                Cns_pct[i,jj] = 100*np.array([sum(maxDv>1),sum(maxVhi>1),sum(minVhi>1),sum(maxVlo>1),sum(minVlo>1)])/nMc
+                inBounds = np.any(np.array([maxVhi>1,minVhi>1,maxVlo>1,minVlo>1,maxDv>1]),axis=0)
                 
                 Vp_pct[i,jj] = 100*sum(inBounds)/nMc
                 hcGen = genTot[inBounds]
@@ -319,7 +331,10 @@ class linModel:
         self.linHcRsl['hcGenAll'] = hcGenAll
         self.linHcRsl['genTotSet'] = genTotSet
     
-    
+    def getCovMat(self):
+        self.KtotUcov = self.KtotU.dot(self.KtotU.T)
+        self.KtotUcorr = dsf.vmvM(1/np.sqrt(np.diag(self.KtotUcov)),self.KtotUcov,1/np.sqrt(np.diag(self.KtotUcov)))
+        
     
     def busViolationVar(self,Sgm):
         limA0 =   self.Vmax - self.b0lo
@@ -327,11 +342,12 @@ class linModel:
         limC0 = -(self.Vmin - self.b0lo)
         limD0 = -(self.Vmin - self.b0hi)
         lim = np.min(np.array([limA0,limB0,limC0,limD0]),axis=0)
-    
+        
         self.KtotU = dsf.vmvM(lim,self.KtotPu,Sgm)
-        self.KtotVar = calcVar(self.KtotU)
+        self.KtotUvar = calcVar(self.KtotU)
+        self.svdLim = lim
     
-    def makeSvdModel(self,Sgm):
+    def makeSvdModel(self,Sgm,evSvdLim=[0.99],nMax=300):
         # method:
         # 1. take in voltage that can occur
         # 2. take in the mean and variance of the input
@@ -340,28 +356,27 @@ class linModel:
         # 
         # we generally use the ZERO MEAN version for simplicity
         
-        # evSvdLim = 0.999
-        
         self.busViolationVar(Sgm)
         
-        nSvdMax = min([300,min(self.KtotPu.shape)]) - 1
-        evSvdLim = 0.99
+        nSvdMax = min([nMax,min(self.KtotPu.shape)]) - 1
         
         svd = TruncatedSVD(n_components=nSvdMax,algorithm='arpack') # see: https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html#sklearn.decomposition.TruncatedSVD
         
-        # muX = self.KtotPu.dot(Mu)
-        
-        limA0 =   self.Vmax - self.b0lo
-        limB0 =   self.Vmax - self.b0hi
-        limC0 = -(self.Vmin - self.b0lo)
-        limD0 = -(self.Vmin - self.b0hi)
-        
-        lim = np.min(np.array([limA0,limB0,limC0,limD0]),axis=0)
-        print('Lim shape:',lim.shape)
-        
         Us,Ss,Vhs,evS = dsf.trunc_svd(svd,self.KtotU)
         
-        nSvd = np.argmax(evS>evSvdLim)
+        if len(evSvdLim)>1:
+            NSvd = []
+            for evsvdlim in evSvdLim:
+                NSvd = NSvd + [np.argmax(evS>evsvdlim)]
+            print('evSvdLim values:',evSvdLim)
+            print('NSvd values:',NSvd)
+            nSvd = NSvd[-1]
+        else:
+            nSvd = np.argmax(evS>evSvdLim)
+        
+        if nSvd==0:
+            print('SVD failed, final evS:',evS[-1])
+        
         print('Number of Components:',nSvd)
         print('Computational effort saved (%):',100*(1-(nSvd*(self.KtotU.shape[0] + self.KtotU.shape[1])/(self.KtotU.shape[0]*self.KtotU.shape[1]) )))
         
@@ -369,9 +384,72 @@ class linModel:
         self.KtotUsSvd = UsSvd
         self.KtotSvd = UsSvd.T.dot(self.KtotU)
         
+    def makeStdModel(self,stdLim = [0.90,0.95,0.98,0.99,0.995,0.999]):
+        # run LM.busViolationVar(Sgm) before running this
+        vars = self.KtotUvar.copy()
         
+        vars.sort()
+        stds = np.sqrt(vars)
+        stds = stds/stds[-1]
         
-    
+        NStd = []
+        N0 = len(stds)
+        
+        for stdlim in stdLim:
+            NStd = NStd + [N0 - np.argmin(abs(stds - (1-stdlim)))]
+        print('\nStdLim:',stdLim)
+        print('NStd:',NStd,', out of ', N0)
+        # LM.plotNetBuses('logVar')
+        
+    def makeCorrModel(self,stdLim=0.99,corrLim=[0.95,0.98,0.99]):
+        vars = self.KtotUvar.copy()
+        varSortN = vars.argsort()[::-1]
+
+        stds = np.sqrt(vars)
+        stds = stds[varSortN]
+
+        stds = stds/stds[0]
+
+        corr = abs(self.KtotUcorr)
+        corr = corr - np.diag(np.ones(len(corr)))
+
+        corr = corr[varSortN][:,varSortN]
+
+        
+        NsetLen = []
+        Nset = []
+        for corrlim in corrLim:
+            nset = [0]
+            i=1
+            while stds[i] > (1-stdLim):
+                maxCorr = max(corr[i,nset])
+                if maxCorr < corrlim:
+                    nset = nset + [i]
+                i+=1
+            Nset = Nset + [nset]
+            NsetLen = NsetLen + [len(nset)]
+        print('\nCorr model stdLim/corrLim:',stdLim,'/',corrLim)
+        print('Corr model nset:',NsetLen)
+
+    def corrPlot(self):
+        vars = self.KtotUvar.copy()
+        varSortN = vars.argsort()[::-1]
+        
+        corrLogAbs = np.log10(abs((1-self.KtotUcorr)) + np.diag(np.ones(len(self.KtotPu))) +1e-14 )
+        corrLogAbs = corrLogAbs[varSortN][:,varSortN]
+
+        wer = corrLogAbs<-1.3 # 95%
+        asd = corrLogAbs<-1.7 # 98%
+        qwe = corrLogAbs<-2. # 99%
+
+        plt.spy(wer,color=cm.viridis(0.),markersize=1,marker='.')
+        plt.spy(asd,color=cm.viridis(0.5),markersize=0.6,marker='.')
+        plt.spy(qwe,color=cm.viridis(1.),markersize=0.4,marker='.')
+        plt.xticks([])
+        plt.yticks([])
+        plt.show()
+
+        
 class hcPdfs:
     def __init__(self,feeder,netModel=0,dMu=0.01,pdf=None):
         if netModel==0:
