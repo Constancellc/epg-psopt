@@ -243,7 +243,7 @@ class linModel:
         nS = self.KtotPu.shape[1]
         
         for i in range(pdfData['nP'][0]):
-            pdf = hcPdfs(self.feeder,netModel=self.netModelNom)
+            pdf = hcPdfs(self.feeder,netModel=self.netModelNom,pdfName=pdfData['name'],prms=pdfData['prms'])
             Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot)
             pdfMc, pdfMcU = pdf.genPdfMcSet(nMc,Mu,i)
             
@@ -338,6 +338,11 @@ class linModel:
         # 4. calculate variance of the matrix
         # 
         # we generally use the ZERO MEAN version for simplicity
+        # 
+        # example:
+        # print('Start Svd calcs...',time.process_time())
+        # LM.makeSvdModel(Sgm,evSvdLim=[0.95,0.98,0.99,0.995,0.999],nMax=3500)
+        
         
         self.busViolationVar(Sgm)
         
@@ -439,6 +444,7 @@ class linModel:
         
 class hcPdfs:
     def __init__(self,feeder,netModel=0,dMu=0.01,pdfName=None,prms=np.array([])):
+        
         if netModel==0:
             circuitK = {'eulv':1.8,'usLv':5.0,'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':2.0,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
         elif netModel==1:
@@ -446,8 +452,12 @@ class hcPdfs:
         elif netModel==2:
             circuitK = {'8500node':2.5,'epriJ1':6.0,'epriK1':1.5,'epriM1':1.8,'epri24':1.5}
         
-        self.dMu = dMu
-        mu_k = circuitK[feeder]*np.arange(dMu,1.0,dMu) # NB this is as a PERCENTAGE of the chosen nominal powers.
+        if pdfName==None or pdfName=='gammaWght' or pdfName=='gammaFlat':
+            self.dMu = dMu
+            mu_k = circuitK[feeder]*np.arange(dMu,1.0,dMu) # NB this is as a PERCENTAGE of the chosen nominal powers.
+        else:
+            self.dMu=1
+            mu_k = circuitK[feeder]*np.array([self.dMu])
         
         self.clfnSolar = {'k':4.21423544,'th_kW':1.2306995} # from plot_california_pv.py
         
