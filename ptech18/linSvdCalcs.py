@@ -245,7 +245,7 @@ class linModel:
         for i in range(pdfData['nP'][0]):
             pdf = hcPdfs(self.feeder,netModel=self.netModelNom)
             Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot)
-            pdfMc, pdfMcU = pdf.genPdfMcSet(nMc,Mu)
+            pdfMc, pdfMcU = pdf.genPdfMcSet(nMc,Mu,i)
             
             genTot0 = np.sum(pdfMc,axis=0)
             genTotSort = genTot0.copy()
@@ -438,7 +438,7 @@ class linModel:
 
         
 class hcPdfs:
-    def __init__(self,feeder,netModel=0,dMu=0.01,pdf=None):
+    def __init__(self,feeder,netModel=0,dMu=0.01,pdfName=None,prms=np.array([])):
         if netModel==0:
             circuitK = {'eulv':1.8,'usLv':5.0,'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':2.0,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
         elif netModel==1:
@@ -448,12 +448,33 @@ class hcPdfs:
         
         self.dMu = dMu
         mu_k = circuitK[feeder]*np.arange(dMu,1.0,dMu) # NB this is as a PERCENTAGE of the chosen nominal powers.
-        if pdf==None:
-            pdfName = 'gammaFlat'
-            k = np.array([3.0]) # we do not know th, sigma until we know the scaling from mu0.
-            params = k
-            self.pdf = {'name':pdfName,'prms':params,'mu_k':mu_k,'nP':(len(params),len(mu_k))}
-    
+        
+        self.clfnSolar = {'k':4.21423544,'th_kW':1.2306995} # from plot_california_pv.py
+        
+        if pdfName==None:
+            pdfName = 'gammaWght'
+            prms = np.array([3.0])
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k))}
+        elif pdfName=='gammaWght':
+            # parameters: np.array([k0,k1,...])
+            if len(prms)==0:
+                prms = np.array([3.0])
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k))}
+        elif pdfName=='gammaFlat':
+            # parameters: np.array([k0,k1,...])
+            if len(prms)==0:
+                prms = np.array([3.0])
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k))}
+        elif pdfName=='gammaFrac':
+            # parameters: np.array([frac0,frac1,...])
+            if len(prms)==0:
+                prms=np.array([0.50])
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k))}
+        elif pdfName=='gammaXoff':
+            # parameters: np.array([[frac0,xOff0],[frac1,xOff1],...])
+            if len(prms)==0:
+                prms=np.array([[0.50,8]])
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k))}
     
     def halfLoadMean(self,scale,xhyN,xhdN):
         # scale suggested as: LM.scaleNom = lp0data['kLo'] - lp0data['k']
@@ -467,14 +488,47 @@ class hcPdfs:
         Mu0[Mu0>(10*Mu0.mean())] = Mu0.mean()
         return Mu0
         
-    def genPdfMcSet(self,nMc,Mu0):
-        if self.pdf['name']=='gammaFlat':
-            k = self.pdf['prms']
-            np.random.seed(0)
-            pdfMc0 = (np.random.gamma(k,1/np.sqrt(k),(len(Mu0),nMc)))
+    def genPdfMcSet(self,nMc,Mu0,prmI):
+        np.random.seed(0)
+        if self.pdf['name']=='gammaWght':
+            k = self.pdf['prms'][prmI]
+            pdfMc0 = np.random.gamma(k,1/np.sqrt(k),(len(Mu0),nMc))
             pdfMc = dsf.vmM( 1e-3*Mu0/np.sqrt(k),pdfMc0 )
             pdfMcU = pdfMc0 - np.sqrt(k) # zero mean, unit variance
+            
+        elif self.pdf['name']=='gammaFlat':
+            k = self.pdf['prms'][prmI]
+            pdfMc0 = np.random.gamma(k,1/np.sqrt(k),(len(Mu0),nMc))
+            pdfMcU = pdfMc0 - np.sqrt(k) # zero mean, unit variance
+            Mu0mean = Mu0.mean()
+            pdfMc = (1e-3*Mu0mean/np.sqrt(k))*pdfMc0
         
+        elif self.pdf['name']=='gammaFrac':
+            clfnSolar = self.clfnSolar
+            frac = self.pdf['prms'][prmI]
+            
+            genIn = np.random.binomial(1,frac,(len(Mu0),nMc))
+            pdfGen = np.random.gamma(shape=clfnSolar['k'],scale=clfnSolar['th_kW'],size=(len(Mu0),nMc))
+            pdfMc = pdfGen*genIn
+            pdfMeans = np.mean(pdfMc) # NB these are uniformly distributed
+            pdfStd = np.std(pdfMc) # NB these are uniformly distributed
+            
+            pdfMcU = (pdfMc - pdfMeans)/pdfStd
+        elif self.pdf['name']=='gammaXoff':
+            clfnSolar = self.clfnSolar
+            
+            frac = self.pdf['prms'][prmI][0]
+            xOff = self.pdf['prms'][prmI][1]
+            
+            genIn = np.random.binomial(1,frac,(len(Mu0),nMc))
+            pdfGen = np.random.gamma(shape=clfnSolar['k'],scale=clfnSolar['th_kW'],size=(len(Mu0),nMc))
+            pdfGen = np.minimum(pdfGen,xOff*np.ones(pdfGen.shape))
+            pdfMc = pdfGen*genIn
+            pdfMeans = np.mean(pdfMc) # NB these are uniformly distributed
+            pdfStd = np.std(pdfMc) # NB these are uniformly distributed
+            
+            pdfMcU = (pdfMc - pdfMeans)/pdfStd
+            
         return pdfMc, pdfMcU
         
         
