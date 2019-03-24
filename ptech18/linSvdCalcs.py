@@ -9,6 +9,41 @@ from matplotlib import cm
 from sklearn.decomposition import TruncatedSVD
 
 
+
+def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,lp0data,DVmax=0.06):
+    nMc = vLsMv.shape[0]
+    
+    vLsMv[vLsMv<0.5] = 1.0
+    vLsLv[vLsLv<0.5] = 1.0
+    vHsMv[vHsMv<0.5] = 1.0
+    vHsLv[vHsLv<0.5] = 1.0
+    
+    VpMv = lp0data['VpMv']
+    VmMv = lp0data['VmMv']
+    VpLv = lp0data['VpLv']
+    VmLv = lp0data['VmLv']
+    
+    vMaxLsMv = np.max(vLsMv,axis=1)
+    vMinLsMv = np.min(vLsMv,axis=1)
+    vMaxHsMv = np.max(vHsMv,axis=1)
+    vMinHsMv = np.min(vHsMv,axis=1)
+    maxDv = np.max(vDv,axis=1)
+    if vLsLv.shape[1]!=0: # some networks do not have low voltage sections e.g. 34 bus
+        vMaxLsLv = np.max(vLsLv,axis=1)
+        vMinLsLv = np.min(vLsLv,axis=1)
+        vMaxHsLv = np.max(vHsLv,axis=1)
+        vMinHsLv = np.min(vHsLv,axis=1)
+    else:
+        vMaxLsLv = np.ones(vMaxLsMv.shape)
+        vMinLsLv = np.ones(vMaxLsMv.shape)
+        vMaxHsLv = np.ones(vMaxLsMv.shape)
+        vMinHsLv = np.ones(vMaxLsMv.shape)
+    
+    cnsPct = 100*np.array([sum(maxDv>DVmax),sum(vMaxLsMv>VpMv),sum(vMinLsMv<VmMv),sum(vMaxLsLv>VpLv),sum(vMinLsLv<VmLv),sum(vMaxHsMv>VpMv),sum(vMinHsMv<VmMv),sum(vMaxHsLv>VpLv),sum(vMinHsLv<VmLv)])/nMc
+    inBounds = np.any(np.array([maxDv>DVmax,vMaxLsMv>VpMv,vMinLsMv<VmMv,vMaxLsLv>VpLv,vMinLsLv<VmLv,vMaxHsMv>VpMv,vMinHsMv<VmMv,vMaxHsLv>VpLv,vMinHsLv<VmLv]),axis=0)
+    return cnsPct, inBounds
+
+
 def calcVar(X):
     i=0
     var = np.zeros(len(X))
@@ -45,8 +80,10 @@ class linModel:
         self.loadPointLo = lp0data['kLo']
         self.loadPointHi = lp0data['kHi']
         self.loadScaleNom = lp0data['kLo'] - lp0data['k']
-        self.Vmax = lp0data['Vp']
-        self.Vmin = lp0data['Vm']
+        self.VpMv = lp0data['VpMv']
+        self.VmMv = lp0data['VmMv']
+        self.VpLv = lp0data['VpLv']
+        self.VmLv = lp0data['VmLv']
         self.DVmax = 0.06 # pu
         
         with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','busCoords.pkl'),'rb') as handle:
@@ -123,7 +160,7 @@ class linModel:
         self.vTotBase = vBase
         self.KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
         self.vTotYNodeOrder = vYZ[KtotCheck]
-        self.v_idx_tot = LM['v_idx']
+        self.v_idx_tot = LM['v_idx'][KtotCheck]
         
         self.SyYNodeOrderTot = LM['SyYNodeOrder']
         self.SdYNodeOrderTot = LM['SdYNodeOrder']

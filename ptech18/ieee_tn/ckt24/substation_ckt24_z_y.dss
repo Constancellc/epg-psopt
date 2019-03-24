@@ -5,9 +5,9 @@
 ~ emergHkva = 75000
 
 new line.regsG bus1=SubXfmr_LSBr0 bus2=SubXfmr_LSB switch=True phases=3
-!New Regcontrol.SubXFMR_Regulator  transformer=SubXFMR  winding=2  vreg=126.0  band=2.0 ptratio=165.9882024 enabled=True debugtrace=yes delay=5 
+!New Regcontrol.SubXFMR_Regulator  transformer=SubXFMR  winding=2  vreg=126.0  band=2.0 ptratio=165.9882024 enabled=True delay=5 !debugtrace=yes
 
-New Regcontrol.regsG  transformer=SubXFMR  winding=2   vreg=123.0 band=3 ptratio=166 ctprim=2000 R=7 X=0 enabled=True debugtrace=yes delay=45 
+New Regcontrol.regsG  transformer=SubXFMR  winding=2   vreg=123.0 band=3 ptratio=166 ctprim=2000 R=7 X=0 enabled=True delay=45 !debugtrace=yes
 
 
 !New line.fdr_05422 bus1=SubXfmr_LSB bus2=05422 linecode=busbar phases=3 length=100 units=ft  !will stub this out later

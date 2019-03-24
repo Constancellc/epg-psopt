@@ -6,7 +6,8 @@ set defaultbasefrequency=60
 New Circuit.IEEE8500u  
 
 ! Make the source stiff with small impedance
-~ pu=1.05  r1=0  x1=0.001  r0=0  x0=0.001 basekv=12.47
+!~ pu=1.05  r1=0  x1=0.001  r0=0  x0=0.001 basekv=12.47
+~ pu=1.025  r1=0  x1=0.001  r0=0  x0=0.001 basekv=12.47
 
 !Redirect  Transformers.dss
 Redirect  Transformers_z.dss
@@ -32,6 +33,7 @@ Calcvoltagebases     ! This also establishes the bus list
 Buscoords  Buscoords.dss
 
 Set Maxiterations=100
+set maxcontroliter=100
 
 New energymeter.msub element=transformer.HVMV_Sub ! not clear right now if this will work with the source reactor...!
 New energymeter.mregf element=line.regf
@@ -39,11 +41,19 @@ New energymeter.mreg2 element=line.reg2
 New energymeter.mreg3 element=line.reg3
 New energymeter.mreg4 element=line.reg4
 
-batchedit line..*_sw length=0.01
+batchedit line..*_sw length=0.001
+!batchedit regcontrol..* vreg=124 band=2.0
 solve
 
+!batchedit load..* vminpu=0.33 vmaxpu=3.0 status=variable
+batchedit load..* status=variable
+
+set loadmult=1.0
+solve
+!summary
+
 !set controlmode=off
-!batchedit load..* vminpu=0.33 vmaxpu=3.0
+!batchedit load..* vminpu=0.33 vmaxpu=3.0 status=variable
 
 !set loadmult=1.2
 !solve

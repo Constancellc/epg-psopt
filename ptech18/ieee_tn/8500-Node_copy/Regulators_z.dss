@@ -13,9 +13,12 @@ New Transformer.reg2_3 phases=1  windings=2  buses=(regxfmr_190-8593.3, 190-8593
 
 new line.reg2 bus1=190-8593r0 bus2=190-8593 phases=3 switch=True
 
-New RegControl.reg2_1 transformer=reg2_1  winding=2 vreg=125  ptratio=60 band=2  
-New RegControl.reg2_2 transformer=reg2_2  winding=2 vreg=125  ptratio=60 band=2  
-New RegControl.reg2_3 transformer=reg2_3  winding=2 vreg=125  ptratio=60 band=2  
+!New RegControl.reg2_1 transformer=reg2_1  winding=2 vreg=125  ptratio=60 band=2  
+!New RegControl.reg2_2 transformer=reg2_2  winding=2 vreg=125  ptratio=60 band=2  
+!New RegControl.reg2_3 transformer=reg2_3  winding=2 vreg=125  ptratio=60 band=2  
+New RegControl.reg2_1 transformer=reg2_1  winding=2 vreg=124  ptratio=60 band=2  
+New RegControl.reg2_2 transformer=reg2_2  winding=2 vreg=124  ptratio=60 band=2  
+New RegControl.reg2_3 transformer=reg2_3  winding=2 vreg=124  ptratio=60 band=2  
 
 ! Regulator No. 3
 
@@ -25,9 +28,12 @@ New Transformer.reg3_3 phases=1  windings=2  buses=(regxfmr_190-8581.3, 190-8581
 
 new line.reg3 bus1=190-8581r0 bus2=190-8581 phases=3 switch=True
 
-New RegControl.reg3_1 transformer=reg3_1  winding=2 vreg=125  ptratio=60 band=2  
-New RegControl.reg3_2 transformer=reg3_2  winding=2 vreg=125  ptratio=60 band=2  
-New RegControl.reg3_3 transformer=reg3_3  winding=2 vreg=125  ptratio=60 band=2  
+!New RegControl.reg3_1 transformer=reg3_1  winding=2 vreg=125  ptratio=60 band=2  
+!New RegControl.reg3_2 transformer=reg3_2  winding=2 vreg=125  ptratio=60 band=2  
+!New RegControl.reg3_3 transformer=reg3_3  winding=2 vreg=125  ptratio=60 band=2  
+New RegControl.reg3_1 transformer=reg3_1  winding=2 vreg=124  ptratio=60 band=2  
+New RegControl.reg3_2 transformer=reg3_2  winding=2 vreg=124  ptratio=60 band=2  
+New RegControl.reg3_3 transformer=reg3_3  winding=2 vreg=124  ptratio=60 band=2  
 
 ! Regulator No. 4
 
@@ -37,6 +43,9 @@ New Transformer.reg4_3 phases=1  windings=2  buses=(regxfmr_190-7361.3, 190-7361
 
 new line.reg4 bus1=190-7361r0 bus2=190-7361 phases=3 switch=True
 
-New RegControl.reg4_1 transformer=reg4_1  winding=2 vreg=125  ptratio=60 band=2  
-New RegControl.reg4_2 transformer=reg4_2  winding=2 vreg=125  ptratio=60 band=2  
-New RegControl.reg4_3 transformer=reg4_3  winding=2 vreg=125  ptratio=60 band=2  
+!New RegControl.reg4_1 transformer=reg4_1  winding=2 vreg=125  ptratio=60 band=2  
+!New RegControl.reg4_2 transformer=reg4_2  winding=2 vreg=125  ptratio=60 band=2  
+!New RegControl.reg4_3 transformer=reg4_3  winding=2 vreg=125  ptratio=60 band=2  
+New RegControl.reg4_1 transformer=reg4_1  winding=2 vreg=124  ptratio=60 band=2  
+New RegControl.reg4_2 transformer=reg4_2  winding=2 vreg=124  ptratio=60 band=2  
+New RegControl.reg4_3 transformer=reg4_3  winding=2 vreg=124  ptratio=60 band=2  

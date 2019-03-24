@@ -6,7 +6,8 @@ set defaultbasefrequency=60
 New Circuit.IEEE8500u  
 
 ! Make the source stiff with small impedance
-~ pu=1.05  r1=0  x1=0.001  r0=0  x0=0.001 basekv=12.47
+!~ pu=1.05  r1=0  x1=0.001  r0=0  x0=0.001 basekv=12.47
+~ pu=1.025  r1=0  x1=0.001  r0=0  x0=0.001 basekv=12.47
 
 !Redirect  Transformers.dss
 Redirect  Transformers_z_y.dss
@@ -39,6 +40,6 @@ New energymeter.mreg2 element=line.reg2
 New energymeter.mreg3 element=line.reg3
 New energymeter.mreg4 element=line.reg4
 
-batchedit line..*_sw length=0.01
+batchedit line..*_sw length=0.001
 solve
 !plot profile phases=all

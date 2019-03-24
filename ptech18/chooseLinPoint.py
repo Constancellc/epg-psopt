@@ -30,13 +30,13 @@ load2 = 0.66
 # Vm0 = 0.95 # pu
 roundInt = 5000.
 
-VpHi = 1.055
-VpLo = 1.055
-VmHi = 0.95
-VmLo = 0.92
+VpMv = 1.055
+VpLv = 1.055
+VmMv = 0.95
+VmLv = 0.92
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-# fdr_i_set = [0]
+# fdr_i_set = [20]
 for fdr_i in fdr_i_set:
     # fdr_i = 17
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -69,7 +69,7 @@ for fdr_i in fdr_i_set:
         loadMults = np.concatenate([np.linspace(-0.4,1.5,21+1),np.linspace(1.5,-0.4,21+1)])
     elif feeder=='8500node':
         # required for IEEE 8500
-        loadMults = np.concatenate([np.linspace(-0.2,1.3,16+1),np.linspace(1.3,-0.2,16+1)])
+        loadMults = np.concatenate([np.linspace(-0.2,1.0,13+1),np.linspace(1.0,-0.2,13+1)])
 
     vmax = []
     vmin = []
@@ -81,13 +81,20 @@ for fdr_i in fdr_i_set:
     VmagPu = np.array(DSSCircuit.AllBusVmagPu)#
     # Vpu = Vmag/VmagPu
     
-    hiVidx = np.where(Vmag0[VmagPu>0.5]>1000)
-    loVidx = np.where(Vmag0[VmagPu>0.5]<=1000)
-
-    hiVmax = []
-    hiVmin = []
-    loVmax = []
-    loVmin = []
+    DSSSolutionLoadMult = 2.0
+    DSSSolution.Solve()
+    
+    mvIdx = np.where(Vmag0[VmagPu>0.5]>1000)
+    lvIdx = np.where(Vmag0[VmagPu>0.5]<=1000)
+    
+    VmagYz = abs(tp_2_ar(DSSCircuit.YNodeVarray))
+    mvIdxYz = np.where(VmagYz>1000)
+    lvIdxYz = np.where(VmagYz<=1000)
+    
+    mvMax = []
+    mvMin = []
+    lvMax = []
+    lvMin = []
     
     # VlimMax = 1.06*(Vpu>1000) + 1.05*(Vpu<=1000)
     # VlimMin = 0.95*(Vpu>1000) + 0.92*(Vpu<=1000)
@@ -98,14 +105,14 @@ for fdr_i in fdr_i_set:
         VmagPu = np.array(DSSCircuit.AllBusVmagPu)#
         VmagPu = VmagPu[VmagPu>0.5] # get rid of outliers
         
-        hiVmax = hiVmax + [VmagPu[hiVidx].max()]
-        hiVmin = hiVmin + [VmagPu[hiVidx].min()]
-        if len(loVidx[0])>0:
-            loVmax = loVmax + [VmagPu[loVidx].max()]
-            loVmin = loVmin + [VmagPu[loVidx].min()]
+        mvMax = mvMax + [VmagPu[mvIdx].max()]
+        mvMin = mvMin + [VmagPu[mvIdx].min()]
+        if len(lvIdx[0])>0:
+            lvMax = lvMax + [VmagPu[lvIdx].max()]
+            lvMin = lvMin + [VmagPu[lvIdx].min()]
         else:
-            loVmax = loVmax + [np.nan]
-            loVmin = loVmin + [np.nan]
+            lvMax = lvMax + [np.nan]
+            lvMin = lvMin + [np.nan]
         
         # vmax = vmax + [VmagPu.max()]
         # vmin = vmin + [VmagPu.min()]
@@ -139,65 +146,65 @@ for fdr_i in fdr_i_set:
     # else:
         # kOut = kOut1
     
-    idxK1hi = abs(np.array(hiVmax)[loadMults<load1]-VpHi).argmin()
-    idxK2hi = abs(np.array(hiVmin)[loadMults<load1]-VmHi).argmin()
-    idxK1lo = abs(np.array(loVmax)[loadMults<load1]-VpLo).argmin()
-    idxK2lo = abs(np.array(loVmin)[loadMults<load1]-VmLo).argmin()
+    idxVpMv = abs(np.array(mvMax)[loadMults<load1]-VpMv).argmin()
+    idxVmMv = abs(np.array(mvMin)[loadMults<load1]-VmMv).argmin()
+    idxVpLv = abs(np.array(lvMax)[loadMults<load1]-VpLv).argmin()
+    idxVmLv = abs(np.array(lvMin)[loadMults<load1]-VmLv).argmin()
     
-    if idxK1hi*2>=sum(loadMults<load1):
-        idxK1hi = (sum(loadMults<load1) - 1 - idxK1hi)
-    if idxK2hi*2>=sum(loadMults<load1):
-        idxK2hi = (sum(loadMults<load1) - 1 - idxK2hi)
-    if idxK1lo*2>=sum(loadMults<load1):
-        idxK1lo = (sum(loadMults<load1) - 1 - idxK1lo)
-    if idxK2lo*2>=sum(loadMults<load1):
-        idxK2lo = (sum(loadMults<load1) - 1 - idxK2lo)
+    if idxVpMv*2>=sum(loadMults<load1):
+        idxVpMv = (sum(loadMults<load1) - 1 - idxVpMv)
+    if idxVmMv*2>=sum(loadMults<load1):
+        idxVmMv = (sum(loadMults<load1) - 1 - idxVmMv)
+    if idxVpLv*2>=sum(loadMults<load1):
+        idxVpLv = (sum(loadMults<load1) - 1 - idxVpLv)
+    if idxVmLv*2>=sum(loadMults<load1):
+        idxVmLv = (sum(loadMults<load1) - 1 - idxVmLv)
 
-    chkBndK1hi = np.array(hiVmax)[loadMults<load1]<VpHi
-    chkBndK2hi = np.array(hiVmin)[loadMults<load1]<VmHi
-    if len(loVidx[0])>0:
-        chkBndK1lo = np.array(loVmax)[loadMults<load1]<VpLo
-        chkBndK2lo = np.array(loVmin)[loadMults<load1]<VmLo
+    chkBndVpMv = np.array(mvMax)[loadMults<load1]<VpMv
+    chkBndVmMv = np.array(mvMin)[loadMults<load1]<VmMv
+    if len(lvIdx[0])>0:
+        chkBndVpLv = np.array(lvMax)[loadMults<load1]<VpLv
+        chkBndVmLv = np.array(lvMin)[loadMults<load1]<VmLv
     else:
-        chkBndK1lo = np.array([0])
-        chkBndK2lo = np.array([0])
+        chkBndVpLv = np.array([0])
+        chkBndVmLv = np.array([0])
     
-    if not chkBndK1hi.any():
-        idxK1hi = 0
-    if not chkBndK2hi.any():
-        idxK2hi = 0
-    if not chkBndK1lo.any():
-        idxK1lo = 0
-    if not chkBndK2lo.any():
-        idxK2lo = 0
+    if not chkBndVpMv.any():
+        idxVpMv = 0
+    if not chkBndVmMv.any():
+        idxVmMv = 0
+    if not chkBndVpLv.any():
+        idxVpLv = 0
+    if not chkBndVmLv.any():
+        idxVmLv = 0
     
-    kOut1hi = loadMults[idxK1hi]
-    kOut2hi = loadMults[idxK2hi]
-    kOut1lo = loadMults[idxK1lo]
-    kOut2lo = loadMults[idxK2lo]
+    kOutVpMv = loadMults[idxVpMv]
+    kOutVmMv = loadMults[idxVmMv]
+    kOutVpLv = loadMults[idxVpLv]
+    kOutVmLv = loadMults[idxVmLv]
     
-    if idxK1hi + idxK2hi + idxK1lo + idxK2lo==0:
+    if idxVpMv + idxVmMv + idxVpLv + idxVmLv==0:
         kOut = loadMults[(loadMults>load1).argmax() - 1]
     else:
-        kOut = max([kOut1hi,kOut1lo,kOut2hi,kOut2lo])
+        kOut = max([kOutVpMv,kOutVpLv,kOutVmMv,kOutVmLv])
 
-    dataOut = {'Feeder':feeder,'Vp':np.nan,'Vm':np.nan,'k':kOut,'kLo':load1,'kHi':load2,'VpHi':VpHi,'VpLo':VpLo,'VmHi':VmHi,'VmLo':VmLo}
+    dataOut = {'Feeder':feeder,'k':kOut,'kLo':load1,'kHi':load2,'VpMv':VpMv,'VpLv':VpLv,'VmMv':VmMv,'VmLv':VmLv,'mvIdxYz':mvIdxYz,'lvIdxYz':lvIdxYz}
 
     if pltVxtrm:
         # plt.plot(loadMults,vmax,'x-')
         # plt.plot(loadMults,vmin,'x-')
-        plt.plot(loadMults,hiVmax,'x-')
-        plt.plot(loadMults,hiVmin,'x-')
-        plt.plot(loadMults,loVmax,'.-')
-        plt.plot(loadMults,loVmin,'.-')
+        plt.plot(loadMults,mvMax,'x-')
+        plt.plot(loadMults,mvMin,'x-')
+        plt.plot(loadMults,lvMax,'.-')
+        plt.plot(loadMults,lvMin,'.-')
         xlm = plt.xlim()
         ylm = plt.ylim()
         # plt.plot(xlm,[Vp,Vp],'k--')
         # plt.plot(xlm,[Vm,Vm],'k--')
-        plt.plot(xlm,[VpHi,VpHi],'k--')
-        plt.plot(xlm,[VmHi,VmHi],'k--')
-        plt.plot(xlm,[VpLo,VpLo],'k:')
-        plt.plot(xlm,[VmLo,VmLo],'k:')
+        plt.plot(xlm,[VpMv,VpMv],'k--')
+        plt.plot(xlm,[VmMv,VmMv],'k--')
+        plt.plot(xlm,[VpLv,VpLv],'k:')
+        plt.plot(xlm,[VmLv,VmLv],'k:')
         plt.plot([kOut,kOut],ylm,'k')
         plt.plot([load1,load1],ylm,'k:')
         plt.plot([load2,load2],ylm,'k:')
@@ -208,10 +215,11 @@ for fdr_i in fdr_i_set:
         plt.xlabel('Continuation factor, $\kappa$')
         plt.ylabel('Voltage (pu)')
         # plt.legend(('Vmax','Vmin'))
-        plt.legend(('hiVmax','hiVmin','loVmax','loVmin'))
+        plt.legend(('mvMax','mvMin','lvMax','lvMin'))
+        plt.title(feeder)
         plt.show()
 
-    print('Feeder:',feeder)
+    print('\nFeeder:',feeder)
     print('No. converged:',sum(cnvg),'/',len(cnvg))
     # print('Vmax:',Vp,'pu\nVmin:',Vm,'pu')
     print('Kout:',kOut)
