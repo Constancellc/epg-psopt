@@ -23,7 +23,8 @@ Set voltagebases=[345, 115, 13.8, 12.47, 4.16, 0.48, 0.415, 0.208]
 Calcvoltagebases
 
 ! Define bus coordinates
-Buscoords  Buscoords_ckt5.dss
+!Buscoords  Buscoords_ckt5.dss
+Buscoords  Buscoords_ckt5_src.dss
 
 New EnergyMeter.sub element=Line.MDV201_connector terminal=1
 solve

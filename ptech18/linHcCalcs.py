@@ -27,7 +27,7 @@ WD = os.path.dirname(sys.argv[0])
 mcLinOn = True
 # mcLinOn = False
 mcDssOn = True
-# mcDssOn = False
+mcDssOn = False
 
 # PLOTTING options:
 pltHcBoth = True
@@ -43,15 +43,16 @@ pltBoxDss = True
 pltBoxDss = False
 
 pltSave = True # for saving both plots and results
-# pltSave = False
+pltSave = False
 
 # CHOOSE Network
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i_set = [5,6,8,0,14] # fastest few
-fdr_i_set = [17,18] # medium length 1
-fdr_i_set = [19,20,21] # medium length 2
-fdr_i_set = [9] # slow
-fdr_i_set = [22] # slowest
+fdr_i_set = [5]
+# fdr_i_set = [5,6,8,0,14] # fastest few
+# fdr_i_set = [17,18] # medium length 1
+# fdr_i_set = [19,20,21] # medium length 2
+# fdr_i_set = [9] # slow
+# fdr_i_set = [22] # slowest
 
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 
@@ -112,8 +113,8 @@ for fdr_i in fdr_i_set:
     YZd = LM.SdYNodeOrderTot
     xhyN = LM.xhyNtot
     xhdN = LM.xhdNtot 
-    b0ls = LM.b0lo
-    b0hs = LM.b0hi
+    b0ls = LM.b0ls
+    b0hs = LM.b0hs
 
     KfixPu = LM.KfixPu
     dvBase = LM.dvBase
@@ -122,9 +123,9 @@ for fdr_i in fdr_i_set:
     VmMv = lp0data['VmMv']
     VpLv = lp0data['VpLv']
     VmLv = lp0data['VmLv']
+    mvIdx = LM.mvIdx
+    lvIdx = LM.lvIdx
     
-    mvIdx = np.where(vBase>1000)
-    lvIdx = np.where(vBase<=1000)
     vBaseMv = vBase[mvIdx]
     vBaseLv = vBase[lvIdx]
     
@@ -194,10 +195,10 @@ for fdr_i in fdr_i_set:
             if mcDssOn:
                 # vLsDss = np.ones((nMc,len(v_idx)))
                 # vHsDss = np.ones((nMc,len(v_idx)))
-                vLsMvDss = np.ones((nMc,len(mvIdx[0])))
-                vHsMvDss = np.ones((nMc,len(mvIdx[0])))
-                vLsLvDss = np.ones((nMc,len(lvIdx[0])))
-                vHsLvDss = np.ones((nMc,len(lvIdx[0])))
+                vLsMvDss = np.ones((nMc,len(mvIdx)))
+                vHsMvDss = np.ones((nMc,len(mvIdx)))
+                vLsLvDss = np.ones((nMc,len(lvIdx)))
+                vHsLvDss = np.ones((nMc,len(lvIdx)))
                 vDvDss = np.ones((nMc,len(v_idx)))
                 convLo = []; convDv = []; convHi = []
                 print('\nDSS MC Run:',jj,'/',pdfData['nP'][-1])
@@ -240,10 +241,10 @@ for fdr_i in fdr_i_set:
                     if convLo and convHi and convDv:
                         # vLsDss[j,:] = abs(vLsDss0)[3:][v_idx]/vBase
                         # vHsDss[j,:] = abs(vHsDss0)[3:][v_idx]/vBase
-                        vLsMvDss[j,:] = abs(vLsDss0)[3:][v_idx][mvIdx[0]]/vBaseMv
-                        vLsLvDss[j,:] = abs(vLsDss0)[3:][v_idx][lvIdx[0]]/vBaseLv
-                        vHsMvDss[j,:] = abs(vHsDss0)[3:][v_idx][mvIdx[0]]/vBaseMv
-                        vHsLvDss[j,:] = abs(vHsDss0)[3:][v_idx][lvIdx[0]]/vBaseLv
+                        vLsMvDss[j,:] = abs(vLsDss0)[3:][v_idx][mvIdx]/vBaseMv
+                        vLsLvDss[j,:] = abs(vLsDss0)[3:][v_idx][lvIdx]/vBaseLv
+                        vHsMvDss[j,:] = abs(vHsDss0)[3:][v_idx][mvIdx]/vBaseMv
+                        vHsLvDss[j,:] = abs(vHsDss0)[3:][v_idx][lvIdx]/vBaseLv
                         vDvDss[j,:] = abs(abs(vLsDss0) - abs(vDv0))[3:][v_idx]/vBase
                     
                 if sum(convLo+convHi+convDv)!=len(convLo+convHi+convDv):
@@ -255,10 +256,10 @@ for fdr_i in fdr_i_set:
                 hcGen = genTot[inBoundsDss]
             
             if mcLinOn:
-                vLsMvLin = ((DelVoutLin*pdfData['mu_k'][jj]) + b0ls)[:,mvIdx[0]]
-                vLsLvLin = ((DelVoutLin*pdfData['mu_k'][jj]) + b0ls)[:,lvIdx[0]]
-                vHsMvLin = ((DelVoutLin*pdfData['mu_k'][jj]) + b0hs)[:,mvIdx[0]]
-                vHsLvLin = ((DelVoutLin*pdfData['mu_k'][jj]) + b0hs)[:,lvIdx[0]]
+                vLsMvLin = ((DelVoutLin*pdfData['mu_k'][jj]) + b0ls)[:,mvIdx]
+                vLsLvLin = ((DelVoutLin*pdfData['mu_k'][jj]) + b0ls)[:,lvIdx]
+                vHsMvLin = ((DelVoutLin*pdfData['mu_k'][jj]) + b0hs)[:,mvIdx]
+                vHsLvLin = ((DelVoutLin*pdfData['mu_k'][jj]) + b0hs)[:,lvIdx]
                 vDvLin = ddVoutLin*pdfData['mu_k'][jj]
                 
                 Cns_pct_lin[i,jj], inBoundsLin = cnsBdsCalc(vLsMvLin,vLsLvLin,vHsMvLin,vHsLvLin,vDvLin,lp0data)

@@ -52,12 +52,6 @@ def calcVar(X):
         i+=1
     return var
 
-class exampleClass:
-    """A simple example class"""
-    i = 12345
-    def f(self):
-        return 'hello world'
-
 class linModel:
     """Linear model class with a whole bunch of useful things that we can do with it."""
     
@@ -84,6 +78,10 @@ class linModel:
         self.VmMv = lp0data['VmMv']
         self.VpLv = lp0data['VpLv']
         self.VmLv = lp0data['VmLv']
+        self.nRegs = lp0data['nRegs']
+        self.vSrcBus = lp0data['vSrcBus']
+        self.srcReg = lp0data['srcReg']
+        self.legLoc = lp0data['legLoc']
         self.DVmax = 0.06 # pu
         
         with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','busCoords.pkl'),'rb') as handle:
@@ -121,13 +119,14 @@ class linModel:
             xhyN = xhy0/self.linPoint # needed seperately for lower down
             xhdN = xhd0/self.linPoint
             xNom = np.concatenate((xhyN,xhdN))
-            b0lo = (Ky.dot(xhyN*self.loadPointLo) + Kd.dot(xhdN*self.loadPointLo) + bV)/vBase # in pu
-            b0hi = (Ky.dot(xhyN*self.loadPointHi) + Kd.dot(xhdN*self.loadPointHi) + bV)/vBase # in pu
+            b0ls = (Ky.dot(xhyN*self.loadPointLo) + Kd.dot(xhdN*self.loadPointLo) + bV)/vBase # in pu
+            b0hs = (Ky.dot(xhyN*self.loadPointHi) + Kd.dot(xhdN*self.loadPointHi) + bV)/vBase # in pu
 
             KyP = Ky[:,:Ky.shape[1]//2]
             KdP = Kd[:,:Kd.shape[1]//2]
             Ktot = np.concatenate((KyP,KdP),axis=1)
             vYZ = LM['vYNodeOrder']
+            
         elif netModel>0:
             # IF using the LTC model:
             LM = loadNetModel(self.feeder,self.linPoint,self.WD,'Lpt',netModel)
@@ -137,8 +136,8 @@ class linModel:
             xhyN = xhy0/self.linPoint # needed seperately for lower down
             xhdN = xhd0/self.linPoint
             xNom = np.concatenate((xhyN,xhdN))
-            b0lo = (A.dot(xNom*self.loadPointLo) + bV)/vBase # in pu
-            b0hi = (A.dot(xNom*self.loadPointHi) + bV)/vBase # in pu
+            b0ls = (A.dot(xNom*self.loadPointLo) + bV)/vBase # in pu
+            b0hs = (A.dot(xNom*self.loadPointHi) + bV)/vBase # in pu
             
             KyP = A[:,0:len(xhy0)//2] # these might be zero if there is no injection (e.g. only Q)
             KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
@@ -146,21 +145,25 @@ class linModel:
             Ktot = np.concatenate((KyP,KdP),axis=1)
             
             vYZ = LM['vYNodeOrder']
-            
-        KtotCheck = np.sum(Ktot==0,axis=1)!=Ktot.shape[1] # [this seems to get rid of fixed regulated buses]
+        
+        # KtotCheck = np.sum(Ktot==0,axis=1)!=Ktot.shape[1] # [this seems to get rid of fixed regulated buses]
+        KtotCheck = np.ones((int(Ktot.shape[0])),dtype=bool)
         Ktot = Ktot[KtotCheck]
         
         self.xhyNtot = xhyN
         self.xhdNtot = xhdN
         self.xNom = xNom
-        self.b0lo = b0lo[KtotCheck]
-        self.b0hi = b0hi[KtotCheck]
+        self.b0ls = b0ls[KtotCheck]
+        self.b0hs = b0hs[KtotCheck]
         vBase = vBase[KtotCheck]
         
         self.vTotBase = vBase
         self.KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
         self.vTotYNodeOrder = vYZ[KtotCheck]
         self.v_idx_tot = LM['v_idx'][KtotCheck]
+        
+        self.mvIdx = np.where(vBase>1000)[0]
+        self.lvIdx = np.where(vBase<=1000)[0]
         
         self.SyYNodeOrderTot = LM['SyYNodeOrder']
         self.SdYNodeOrderTot = LM['SdYNodeOrder']
@@ -188,7 +191,7 @@ class linModel:
             bus1 = branches[branch][0].split('.')[0]
             bus2 = branches[branch][1].split('.')[0]
             if branch.split('.')[0]=='Transformer':
-                ax.plot((busCoords[bus1][0],busCoords[bus2][0]),(busCoords[bus1][1],busCoords[bus2][1]),Color='#777777')
+                ax.plot((busCoords[bus1][0],busCoords[bus2][0]),(busCoords[bus1][1],busCoords[bus2][1]),'--',Color='#777777')
             else:
                 ax.plot((busCoords[bus1][0],busCoords[bus2][0]),(busCoords[bus1][1],busCoords[bus2][1]),Color='#cccccc')
         
@@ -202,6 +205,31 @@ class linModel:
                 else:
                     score = (scores[bus]-minMax[0])/(minMax[1]-minMax[0])
                     ax.plot(busCoords[bus][0],busCoords[bus][1],'.',Color=cm.viridis(score),zorder=+10)
+    
+    def plotRegs(self,ax):
+        if self.nRegs>0:
+            regBuses = self.vTotYNodeOrder[-self.nRegs:]
+            for regBus in regBuses:
+                regCoord = self.busCoords[regBus.split('.')[0].lower()]
+                if not np.isnan(regCoord[0]):
+                    # ax.plot(regCoord[0],regCoord[1],'r',marker='o',zorder=+20)
+                    ax.plot(regCoord[0],regCoord[1],'r',marker=(6,1,0),zorder=+20)
+                else:
+                    print('Could not plot regulator bus'+regBus+', no coordinate')
+        else:
+            print('No regulators to plot.')
+    
+    def plotSub(self,ax):
+        srcCoord = self.busCoords[self.vSrcBus]
+        if not np.isnan(srcCoord[0]):
+            ax.plot(srcCoord[0],srcCoord[1],'k',marker='H',markersize=8,zorder=+20)
+            if self.srcReg:
+                ax.plot(srcCoord[0],srcCoord[1],'r',marker='H',markersize=3,zorder=+21)
+            else:
+                ax.plot(srcCoord[0],srcCoord[1],'w',marker='H',markersize=3,zorder=+21)
+        else:
+            print('Could not plot source bus'+self.vSrcBus+', no coordinate')
+        
         
     def getSetMean(self,Set):
         busCoords = self.busCoords
@@ -229,44 +257,64 @@ class linModel:
         setMinMax = [setMin,setMax]
         return setMean, setMinMax
         
-    def ccColorbar(self,plt,minMax):
+    def ccColorbar(self,plt,minMax,roundNo=2,units='',loc='NorthEast'):
         xlm = plt.xlim()
         ylm = plt.ylim()
-        top = ylm[1]
-        btm = ylm[1] - np.diff(ylm)*0.25
-        xcrd = xlm[1] - np.diff(xlm)*0.25
+        if loc=='NorthEast':
+            top = ylm[1] - np.diff(ylm)*0.025
+            btm = ylm[1] - np.diff(ylm)*0.2
+            xcrd = xlm[1] - np.diff(xlm)*0.2
+        elif loc=='NorthWest':
+            top = ylm[1]
+            btm = ylm[1] - np.diff(ylm)*0.25
+            xcrd = xlm[1] - np.diff(xlm)*0.9
+        elif loc=='SouthEast':
+            top = ylm[1] - np.diff(ylm)*0.75
+            btm = ylm[0] 
+            xcrd = xlm[1] - np.diff(xlm)*0.25
+            
 
         for i in range(100):
             y1 = btm+(top-btm)*(i/100)
             y2 = btm+(top-btm)*((i+1)/100)
             plt.plot([xcrd,xcrd],[y1,y2],lw=6,c=cm.viridis(i/100))
-        tcks = [str(round(minMax[0],3)),str(round(np.mean(minMax),3)),str(round(minMax[1],3))]
+        tcks = [str(round(minMax[0],roundNo)),str(round(np.mean(minMax),roundNo)),str(round(minMax[1],roundNo))]
         for i in range(3):
-            y_ = btm+(top-btm)*(i/2)-2
-            plt.annotate('  '+tcks[i]+' pu',(xcrd,y_))
+            y_ = btm+(top-btm)*(i/2)-((top-btm)*0.075)
+            plt.annotate('  '+tcks[i]+units,(xcrd,y_))
         
-    def plotNetBuses(self,type):
+    def plotNetBuses(self,type,regsOn=True,pltShow=True):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         self.getBusPhs()
 
         self.plotBranches(ax)
         if type=='vLo':
-            setMean, setMeanMinMax = self.getSetMean(self.b0lo)
+            setMean, setMeanMinMax = self.getSetMean(self.b0ls)
         elif type=='vHi':
-            setMean, setMeanMinMax = self.getSetMean(self.b0hi)
+            setMean, setMeanMinMax = self.getSetMean(self.b0hs)
         elif type=='logVar':
-            setMean, setMeanMinMax = self.getSetMean(np.log10(self.KtotUvar))
+            if self.nRegs > 0:
+                setMean, setMeanMinMax = self.getSetMean(np.log10(self.KtotUvar + min(self.KtotUvar[:-self.nRegs])))
+            else:
+                setMean, setMeanMinMax = self.getSetMean(np.log10(self.KtotUvar))
         
         self.plotBuses(ax,setMean,setMeanMinMax)
+        self.plotRegs(ax)
+        self.plotSub(ax)
 
         plt.title(self.feeder)
-        self.ccColorbar(plt,setMeanMinMax)
         
         plt.gca().set_aspect('equal', adjustable='box')
         plt.tight_layout()
+        if type=='vLo' or type=='vHi':
+            self.ccColorbar(plt,setMeanMinMax,loc=self.legLoc,units=' pu',roundNo=3)
+        else:
+            self.ccColorbar(plt,setMeanMinMax,loc=self.legLoc)
+            
         print('Complete')
-        plt.show()
+        if pltShow:
+            plt.show()
         
     
     def runLinHc(self,nMc,pdfData,model='nom'):
@@ -304,8 +352,8 @@ class linModel:
             ddVout = abs((self.KfixPu.dot(pdfMc).T)*1e3) # just get abs change
             Vmax = np.ones(len(DelVout))
             
-            b0lo = self.b0lo[NSet]
-            b0hi = self.b0hi[NSet]
+            b0ls = self.b0ls[NSet]
+            b0hs = self.b0hs[NSet]
                 
             for jj in range(pdfData['nP'][-1]):
                 genTot = genTot0*pdfData['mu_k'][jj]
@@ -313,8 +361,8 @@ class linModel:
                 vDv = ddVout*pdfData['mu_k'][jj]
                 vV = (DelVout*pdfData['mu_k'][jj])
                 
-                vLo = vV + b0lo
-                vHi = vV + b0hi
+                vLo = vV + b0ls
+                vHi = vV + b0hs
                 
                 vLo[vLo<0.5] = 1.0
                 vHi[vHi<0.5] = 1.0
@@ -353,15 +401,36 @@ class linModel:
     
     def getCovMat(self):
         self.KtotUcov = self.KtotU.dot(self.KtotU.T)
-        self.KtotUcorr = dsf.vmvM(1/np.sqrt(np.diag(self.KtotUcov)),self.KtotUcov,1/np.sqrt(np.diag(self.KtotUcov)))
+        covScaling = np.sqrt(np.diag(self.KtotUcov))
+        covScaling[covScaling==0] = np.inf # avoid divide by zero complaint
+        self.KtotUcorr = dsf.vmvM(1/covScaling,self.KtotUcov,1/covScaling)
         
     
-    def busViolationVar(self,Sgm):
-        limA0 =   self.Vmax - self.b0lo
-        limB0 =   self.Vmax - self.b0hi
-        limC0 = -(self.Vmin - self.b0lo)
-        limD0 = -(self.Vmin - self.b0hi)
-        lim = np.min(np.array([limA0,limB0,limC0,limD0]),axis=0)
+    def busViolationVar(self,Sgm,lim='all'):
+        if lim=='all':
+            limA =   self.VpMv - self.b0ls
+            limB =   self.VpLv - self.b0ls
+            limC =   -(self.VmMv - self.b0ls)
+            limD =   -(self.VmLv - self.b0ls)
+            limE =   self.VpMv - self.b0hs
+            limF =   self.VpLv - self.b0hs
+            limG =   -(self.VmMv - self.b0hs)
+            limH =   -(self.VmLv - self.b0hs)
+            
+            limA[self.lvIdx] = 1.0
+            limB[self.mvIdx] = 1.0
+            limC[self.lvIdx] = 1.0
+            limD[self.mvIdx] = 1.0
+            limE[self.lvIdx] = 1.0
+            limF[self.mvIdx] = 1.0
+            limG[self.lvIdx] = 1.0
+            limH[self.mvIdx] = 1.0
+            
+            # limA0 =   self.Vmax - self.b0ls
+            # limB0 =   self.Vmax - self.b0hs
+            # limC0 = -(self.Vmin - self.b0ls)
+            # limD0 = -(self.Vmin - self.b0hs)
+            lim = np.min(np.array([limA,limB,limC,limD,limE,limF,limG,limH]),axis=0)
         
         self.KtotU = dsf.vmvM(lim,self.KtotPu,Sgm)
         self.KtotUvar = calcVar(self.KtotU)

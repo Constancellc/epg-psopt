@@ -20,7 +20,7 @@ pltVxtrm = False
 savePts = True
 # savePts = False
 saveBusCoords = True
-saveBusCoords = False
+# saveBusCoords = False
 saveBrchBuses = True
 saveBrchBuses = False
 
@@ -36,7 +36,7 @@ VmMv = 0.95
 VmLv = 0.92
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-# fdr_i_set = [20]
+# fdr_i_set = [5]
 for fdr_i in fdr_i_set:
     # fdr_i = 17
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -187,8 +187,17 @@ for fdr_i in fdr_i_set:
         kOut = loadMults[(loadMults>load1).argmax() - 1]
     else:
         kOut = max([kOutVpMv,kOutVpLv,kOutVmMv,kOutVmLv])
-
-    dataOut = {'Feeder':feeder,'k':kOut,'kLo':load1,'kHi':load2,'VpMv':VpMv,'VpLv':VpLv,'VmMv':VmMv,'VmLv':VmLv,'mvIdxYz':mvIdxYz,'lvIdxYz':lvIdxYz}
+    
+    DSSCircuit.Vsources.First
+    vSrcBuses = DSSCircuit.ActiveElement.BusNames
+    
+    if feeder=='123bus' or feeder=='epriJ1' or feeder=='epriK1' or feeder=='epriM1': # if there is a regulator 'on' the source bus
+        srcReg = 1
+    else:
+        srcReg = 0
+    legLoc = {'eulv':'NorthEast','13bus':'NorthEast','34bus':'NorthWest','123bus':'NorthEast','8500node':None,'usLv':None,'epri5':'NorthWest','epri7':'NorthWest','epriJ1':'SouthEast','epriK1':'NorthWest','epriM1':'NorthWest','epri24':None}
+    
+    dataOut = {'Feeder':feeder,'k':kOut,'kLo':load1,'kHi':load2,'VpMv':VpMv,'VpLv':VpLv,'VmMv':VmMv,'VmLv':VmLv,'mvIdxYz':mvIdxYz,'lvIdxYz':lvIdxYz,'nRegs':DSSCircuit.RegControls.Count,'vSrcBus':vSrcBuses[0],'srcReg':srcReg,'legLoc':legLoc[feeder]}
 
     if pltVxtrm:
         # plt.plot(loadMults,vmax,'x-')

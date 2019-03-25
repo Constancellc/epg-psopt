@@ -49,6 +49,6 @@ new energymeter.mT2 element=line.T2
 solve mode=snap
 
 
-Buscoords Buscoords.dss
+Buscoords Buscoords_src.dss
 
 !Plot Profile Phases=ALL
