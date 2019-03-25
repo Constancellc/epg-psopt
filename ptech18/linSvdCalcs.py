@@ -295,9 +295,11 @@ class linModel:
             setMean, setMeanMinMax = self.getSetMean(self.b0hs)
         elif type=='logVar':
             if self.nRegs > 0:
-                setMean, setMeanMinMax = self.getSetMean(np.log10(self.KtotUvar + min(self.KtotUvar[:-self.nRegs])))
+                logVar = np.log10(self.KtotUvar + min(self.KtotUvar[:-self.nRegs]))
             else:
-                setMean, setMeanMinMax = self.getSetMean(np.log10(self.KtotUvar))
+                logVar = np.log10(self.KtotUvar)
+            logVar[(logVar - np.mean(logVar))/np.std(logVar) < -3] = np.nan
+            setMean, setMeanMinMax = self.getSetMean(logVar)
         
         self.plotBuses(ax,setMean,setMeanMinMax)
         self.plotRegs(ax)

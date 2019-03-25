@@ -11,6 +11,8 @@ from scipy.stats.stats import pearsonr
 
 WD = os.path.dirname(sys.argv[0])
 
+fn0 = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190325\\"
+
 nMc = 30
 nMc = 1000
 prmI = 0
@@ -58,7 +60,8 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 # # plt.show()
 
 fdr_i_set = [5,6,8,0,17,18,19,20,21]
-# fdr_i_set = [19]
+fdr_i_set = [5,6,8]
+# fdr_i_set = [8]
 for fdr_i in fdr_i_set:
     print('\n==== Start Feeder:',fdrs[fdr_i])
     LM = linModel(fdr_i,WD)
@@ -72,7 +75,9 @@ for fdr_i in fdr_i_set:
     LM.makeStdModel()
     LM.getCovMat()
     
-    LM.plotNetBuses('logVar')
+    LM.plotNetBuses('logVar',pltShow=False)
+    plt.savefig(fn0+'logVar_'+fdrs[fdr_i]+'.png')
+    plt.close()
 
 # # for fdr_i in fdr_i_set:
     # # print('\n==== Start Feeder:',fdrs[fdr_i])

@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
 from dss_vlin_funcs import *
+from matplotlib import cm
 
 WD = os.path.dirname(sys.argv[0])
 sys.argv=["makepy","OpenDSSEngine.DSS"]
@@ -16,13 +17,17 @@ DSSSolution=DSSCircuit.Solution
 DSSSolution.Tolerance=1e-7
 
 pltVxtrm = True
-pltVxtrm = False
+# pltVxtrm = False
 savePts = True
-# savePts = False
+savePts = False
 saveBusCoords = True
-# saveBusCoords = False
+saveBusCoords = False
 saveBrchBuses = True
 saveBrchBuses = False
+pltVxtrmSave = True
+# pltVxtrmSave = False
+
+fn0 = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190325\\"
 
 load1 = 0.2
 load2 = 0.66
@@ -36,7 +41,7 @@ VmMv = 0.95
 VmLv = 0.92
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-# fdr_i_set = [5]
+fdr_i_set = [5]
 for fdr_i in fdr_i_set:
     # fdr_i = 17
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -96,8 +101,6 @@ for fdr_i in fdr_i_set:
     lvMax = []
     lvMin = []
     
-    # VlimMax = 1.06*(Vpu>1000) + 1.05*(Vpu<=1000)
-    # VlimMin = 0.95*(Vpu>1000) + 0.92*(Vpu<=1000)
     for lm in loadMults:
         DSSSolution.LoadMult = lm
         DSSSolution.Solve()
@@ -114,9 +117,6 @@ for fdr_i in fdr_i_set:
             lvMax = lvMax + [np.nan]
             lvMin = lvMin + [np.nan]
         
-        # vmax = vmax + [VmagPu.max()]
-        # vmin = vmin + [VmagPu.min()]
-        
         cnvg = cnvg + [DSSSolution.Converged]
 
     dV = 1e-5 # get rid of pesky cases just below 1.05
@@ -128,24 +128,6 @@ for fdr_i in fdr_i_set:
     idx2 = abs(loadMults-load2).argmin()
     idx22 = len(loadMults) - idx2 - 1 # by symmetry
 
-    # Vp = max([Vp0,vmaxCl[idx1],vmaxCl[idx2],vmaxCl[idx11],vmaxCl[idx22]])
-    # Vm = min([Vm0,vminFl[idx1],vminFl[idx2],vminFl[idx11],vminFl[idx22]])
-
-    # idxK1 = abs(np.array(vmax)[loadMults<load1]-Vp).argmin()
-    # idxK2 = abs(np.array(vmin)[loadMults<load1]-Vm).argmin()
-    # if idxK1*2>=sum(loadMults<load1):
-        # idxK1 = (sum(loadMults<load1) - 1 - idxK1)
-    # if idxK2*2>=sum(loadMults<load1):
-        # idxK2 = (sum(loadMults<load1) - 1 - idxK2)
-    
-    # kOut2 = loadMults[idxK2]
-    # kOut1 = loadMults[idxK1]
-    # checkVminBounds = np.array(vmin)[loadMults<load1]<Vm
-    # if checkVminBounds.any():
-        # kOut = max([kOut1,kOut2])
-    # else:
-        # kOut = kOut1
-    
     idxVpMv = abs(np.array(mvMax)[loadMults<load1]-VpMv).argmin()
     idxVmMv = abs(np.array(mvMin)[loadMults<load1]-VmMv).argmin()
     idxVpLv = abs(np.array(lvMax)[loadMults<load1]-VpLv).argmin()
@@ -200,33 +182,42 @@ for fdr_i in fdr_i_set:
     dataOut = {'Feeder':feeder,'k':kOut,'kLo':load1,'kHi':load2,'VpMv':VpMv,'VpLv':VpLv,'VmMv':VmMv,'VmLv':VmLv,'mvIdxYz':mvIdxYz,'lvIdxYz':lvIdxYz,'nRegs':DSSCircuit.RegControls.Count,'vSrcBus':vSrcBuses[0],'srcReg':srcReg,'legLoc':legLoc[feeder]}
 
     if pltVxtrm:
-        # plt.plot(loadMults,vmax,'x-')
-        # plt.plot(loadMults,vmin,'x-')
+        fix,ax = plt.subplots()
+        clrs = cm.tab10([0,1])
+        ax.set_prop_cycle(color=clrs)
+        
         plt.plot(loadMults,mvMax,'x-')
         plt.plot(loadMults,mvMin,'x-')
-        plt.plot(loadMults,lvMax,'.-')
-        plt.plot(loadMults,lvMin,'.-')
+        if not pltVxtrmSave:
+            plt.plot(loadMults,lvMax,'.-')
+            plt.plot(loadMults,lvMin,'.-')
         xlm = plt.xlim()
         ylm = plt.ylim()
-        # plt.plot(xlm,[Vp,Vp],'k--')
-        # plt.plot(xlm,[Vm,Vm],'k--')
         plt.plot(xlm,[VpMv,VpMv],'k--')
         plt.plot(xlm,[VmMv,VmMv],'k--')
-        plt.plot(xlm,[VpLv,VpLv],'k:')
-        plt.plot(xlm,[VmLv,VmLv],'k:')
-        plt.plot([kOut,kOut],ylm,'k')
-        plt.plot([load1,load1],ylm,'k:')
-        plt.plot([load2,load2],ylm,'k:')
         
+        if not pltVxtrmSave:
+            plt.plot(xlm,[VpLv,VpLv],'k:')
+            plt.plot(xlm,[VmLv,VmLv],'k:')
+        
+        plt.plot([kOut,kOut],ylm,'k')
         plt.xlim(xlm)
         plt.ylim(ylm)
         plt.grid(True)
         plt.xlabel('Continuation factor, $\kappa$')
         plt.ylabel('Voltage (pu)')
-        # plt.legend(('Vmax','Vmin'))
-        plt.legend(('mvMax','mvMin','lvMax','lvMin'))
-        plt.title(feeder)
-        plt.show()
+        if pltVxtrmSave:
+            plt.annotate('$\kappa_{\mathrm{Lin}}$',(kOut-0.13,ylm[1] - 0.025),rotation=90,fontsize=13)
+            plt.savefig(fn0+'pltVxtrm_'+feeder)
+            plt.legend(('$\max|V_{\mathrm{MV}}|$','$\min|V_{\mathrm{MV}}|$'),loc='upper right')
+        else:
+            plt.plot([load1,load1],ylm,'k:')
+            plt.plot([load2,load2],ylm,'k:')
+            plt.legend(('$\max|V_{\mathrm{MV}}|$','$\min|V_{\mathrm{MV}}|$','$\max|V_{\mathrm{LV}}|$','$\min|V_{\mathrm{LV}}|$'),loc='upper right')
+            plt.title(feeder)
+            plt.show()
+            
+        
 
     print('\nFeeder:',feeder)
     print('No. converged:',sum(cnvg),'/',len(cnvg))

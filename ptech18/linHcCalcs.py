@@ -48,7 +48,7 @@ pltSave = False
 # CHOOSE Network
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 fdr_i_set = [5]
-# fdr_i_set = [5,6,8,0,14] # fastest few
+fdr_i_set = [5,6,8,0,14] # fastest few
 # fdr_i_set = [17,18] # medium length 1
 # fdr_i_set = [19,20,21] # medium length 2
 # fdr_i_set = [9] # slow
@@ -173,7 +173,7 @@ for fdr_i in fdr_i_set:
     hcGen = []; hcGenLin=[]
     # PART A.2 - choose distributions and reduce linear model ===========================
 
-
+    tStart = time.process_time()
     for i in range(pdfData['nP'][0]):
         # PART B FROM HERE ==============================
         print('---- Start MC ----',time.process_time())
@@ -291,7 +291,7 @@ for fdr_i in fdr_i_set:
             genTotSet[i,jj,3] = genTotSort[np.floor(len(genTotSort)*3.0/4.0).astype(int)]*pdfData['mu_k'][jj]
             genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
         print('MC complete.',time.process_time())
-
+    tEnd = time.process_time()
     # LM.runLinHc(nMc,pdf.pdf) # equivalent at the moment
 
 
@@ -328,12 +328,11 @@ for fdr_i in fdr_i_set:
         
         if not os.path.exists(SD):
             os.makedirs(SD)
-        rslt = {'p0lin':p0lin,'p10lin':p10lin,'k0lin':k0lin,'k10lin':k10lin,'p0':p0,'p10':p10,'k0':k0,'k10':k10,'netModel':netModel,'nMc':nMc,'dMu':dMu,'feeder':feeder,'time2run':time.process_time()}
+        rslt = {'p0lin':p0lin,'p10lin':p10lin,'k0lin':k0lin,'k10lin':k10lin,'p0':p0,'p10':p10,'k0':k0,'k10':k10,'netModel':netModel,'nMc':nMc,'dMu':dMu,'feeder':feeder,'time2run':tStart-tEnd}
         if pltSave:
             with open(SN,'wb') as file:
                 pickle.dump([rslt],file)
         
-
     # ================ PLOTTING FUNCTIONS FROM HERE
     if pltCns:
         fig, ax = plt.subplots()
