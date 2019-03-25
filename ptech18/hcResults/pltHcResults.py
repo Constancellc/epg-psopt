@@ -6,8 +6,8 @@ WD = os.path.dirname(sys.argv[0])
 
 feeders = ['epriJ1','epriK1','epriM1','epri5','epri7','epri24','8500node','eulv','usLv','13bus','34bus','123bus']
 pLoad = 1000*np.array([11.6,12.74,15.67,16.3,19.3,28.8,12.05,0.055,42.8,3.6,2.0,3.6])
-feeders = ['epriJ1','epriK1','epriM1','epri5','epri7','8500node','eulv','usLv','13bus','34bus','123bus']
-pLoad = 1000*np.array([11.6,12.74,15.67,16.3,19.3,12.05,0.055,42.8,3.6,2.0,3.6])
+# feeders = ['epriJ1','epriK1','epriM1','epri5','epri7','8500node','eulv','usLv','13bus','34bus','123bus']
+# pLoad = 1000*np.array([11.6,12.74,15.67,16.3,19.3,12.05,0.055,42.8,3.6,2.0,3.6])
 
 rslts = {}
 
