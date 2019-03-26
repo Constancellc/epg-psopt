@@ -23,7 +23,7 @@ pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
 # pdfName = 'gammaXoff'; prms=(np.concatenate((0.33*np.ones((1,19)),np.array([30*np.arange(0.05,1.0,0.05)])),axis=0)).T
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i = 20
+fdr_i = 9
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 
 print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
@@ -40,9 +40,8 @@ LM.makeStdModel()
 LM.getCovMat()
 
 # LM.makeCorrModel()
-
-# # LM.corrPlot()
-# LM.plotNetBuses('logVar')
+# LM.corrPlot()
+# LM.plotNetBuses('vLo')
 
 
 # # # print('Minimum HC:',np.nanmin(LM.linHcRsl['hcGenSet']))
@@ -58,25 +57,27 @@ LM.getCovMat()
 # # plt.legend(('Voltage deviation','Overvoltage (hi ld)','Undervoltage (hi ld)','Overvoltage (lo ld)','Undervoltage (lo ld)'))
 # # plt.show()
 
-LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
-plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
-plotHcVltn(pdfData['mu_k'],Vp_pct_lin[0],ax=ax1,pltShow=False,feeder=feeder,logScale=True)
 
-
-# LM.plotNetBuses('logVar',pltShow=True)
-
+# example: change Vreg ==============
+LM.plotNetBuses('logVar',pltShow=True)
 # # plt.plot(prms[:,1],LM.linHcRsl['Cns_pct'][:,0])
-LM.updateDcpleModel(LM.regVreg0*0.98)
-LM.busViolationVar(Sgm)
-LM.makeStdModel()
-LM.getCovMat()
-# LM.plotNetBuses('logVar',pltShow=True)
 
-LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
-plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+# LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
+# plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+# plotHcVltn(pdfData['mu_k'],Vp_pct_lin[0],ax=ax1,pltShow=False,feeder=feeder,logScale=True)
+
+# LM.updateDcpleModel(LM.regVreg0*0.98)
+# LM.busViolationVar(Sgm)
+# LM.makeStdModel()
+# LM.getCovMat()
+
+# LM.plotNetBuses('logVar',pltShow=True)
+# LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
+# plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 
 # plt.plot(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'][0])
 # plt.show()
+# ====================================
 
 
 # fdr_i_set = [5,6,8,0,17,18,19,20,21]

@@ -46,7 +46,7 @@ new energymeter.msub element=transformer.SubXFMR
 new energymeter.mregsG element=line.regsG
 
 ! now that we have buses defined, define the bus coordinates so we can draw pictures
-Buscoords buscoords_ckt24.dss
+Buscoords buscoords_ckt24_src.dss
 
 solve
 

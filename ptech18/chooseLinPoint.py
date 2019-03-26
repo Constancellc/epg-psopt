@@ -17,15 +17,15 @@ DSSSolution=DSSCircuit.Solution
 DSSSolution.Tolerance=1e-7
 
 pltVxtrm = True
-# pltVxtrm = False
+pltVxtrm = False
 savePts = True
-savePts = False
+# savePts = False
 saveBusCoords = True
-saveBusCoords = False
+# saveBusCoords = False
 saveBrchBuses = True
 saveBrchBuses = False
 pltVxtrmSave = True
-# pltVxtrmSave = False
+pltVxtrmSave = False
 
 fn0 = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190325\\"
 
@@ -41,7 +41,7 @@ VmMv = 0.95
 VmLv = 0.92
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i_set = [5]
+fdr_i_set = [22]
 for fdr_i in fdr_i_set:
     # fdr_i = 17
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -173,11 +173,11 @@ for fdr_i in fdr_i_set:
     DSSCircuit.Vsources.First
     vSrcBuses = DSSCircuit.ActiveElement.BusNames
     
-    if feeder=='123bus' or feeder=='epriJ1' or feeder=='epriK1' or feeder=='epriM1': # if there is a regulator 'on' the source bus
+    if feeder=='epri24' or feeder=='8500node' or feeder=='123bus' or feeder=='epriJ1' or feeder=='epriK1' or feeder=='epriM1': # if there is a regulator 'on' the source bus
         srcReg = 1
     else:
         srcReg = 0
-    legLoc = {'eulv':'NorthEast','13bus':'NorthEast','34bus':'NorthWest','123bus':'NorthEast','8500node':None,'usLv':None,'epri5':'NorthWest','epri7':'NorthWest','epriJ1':'SouthEast','epriK1':'NorthWest','epriM1':'NorthWest','epri24':None}
+    legLoc = {'eulv':'NorthEast','13bus':'NorthEast','34bus':'NorthWest','123bus':'NorthEast','8500node':'SouthEast','usLv':None,'epri5':'NorthWest','epri7':'NorthWest','epriJ1':'SouthEast','epriK1':'NorthWest','epriM1':'NorthWest','epri24':'NorthWest'}
     
     dataOut = {'Feeder':feeder,'k':kOut,'kLo':load1,'kHi':load2,'VpMv':VpMv,'VpLv':VpLv,'VmMv':VmMv,'VmLv':VmLv,'mvIdxYz':mvIdxYz,'lvIdxYz':lvIdxYz,'nRegs':DSSCircuit.RegControls.Count,'vSrcBus':vSrcBuses[0],'srcReg':srcReg,'legLoc':legLoc[feeder]}
 
