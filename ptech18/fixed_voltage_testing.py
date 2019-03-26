@@ -42,6 +42,7 @@ fdr_i_set = [5,6,8,9,22,19,20,21]
 fdr_i_set = [5,6,8,9,19,20,21,22]
 fdr_i_set = [19,20,21]
 # fdr_i_set = [20]
+# fdr_i_set = [6]
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
     feeder=fdrs[fdr_i]
@@ -87,19 +88,14 @@ for fdr_i in fdr_i_set:
     LM = loadLinMagModel(feeder,lin_point,WD,lp_taps)
     Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
 
+    
+    print('Get zone list...',time.process_time())
     # 2. get the regulator zones for each regulator. (I think this still needs work?)
-    zoneList, regZonIdx0, zoneTree = get_regZneIdx(DSSCircuit)
-    regZonIdx = (np.array(regZonIdx0[3:])-3).tolist()
-
     regIdx = get_regIdx(DSSCircuit)
     reIdx = (np.array(get_reIdx(regIdx,len(YZ))[3:])-3).tolist()
 
-
     # 3. get index shifts using zone info
-    v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
-    v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3
-    v_idx = v_idx[v_idx>=0]
-
+    v_idx = LM['v_idx']
     v_idx_shf,v_idx_new = idx_shf(v_idx,reIdx)
 
     sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
@@ -107,7 +103,7 @@ for fdr_i in fdr_i_set:
     p_idx_yz = np.array(sY[3:].nonzero())
     p_idx_shf,p_idx_new = idx_shf(p_idx_yz[0],reIdx)
     s_idx_shf = np.concatenate((p_idx_shf,p_idx_shf+len(p_idx_shf)))
-    s_idx = np.concatenate((p_idx_yz,p_idx_yz+len(sY)-3),axis=1)[0]
+    s_idx = np.concatenate((p_idx_yz,p_idx_yz+len(sY)-3),axis=1)[0] # used for comparison with 'before'
     s_idx_new = np.concatenate((p_idx_new,p_idx_new+len(sY)-3))
 
     yzI = yzD2yzI(yzD,node_to_YZ(DSSCircuit))
@@ -118,23 +114,13 @@ for fdr_i in fdr_i_set:
     YZd = vecSlc(YZ,yzI_new) 
     Yvbase_new = get_Yvbase(DSSCircuit)[3:][v_idx_new]
     sD_idx_shf = np.concatenate((yzI_shf,yzI_shf+len(yzI_shf)))
-
-
-    # 4. Perform Kron reduction.
-    KyR = Ky[v_idx_shf,:][:,s_idx_shf] # not completely clear if s_idx_shf required?
-    KdR = Kd[v_idx_shf,:][:,sD_idx_shf] # not completely clear if sD_idx_shf required?
-    bVR = bV[v_idx_shf]
-    KtR = Kt[v_idx_shf,:]
+    
     regVreg = get_regVreg(DSSCircuit)
-
-    print('Start Kron Red...',time.process_time())
-    Anew,Bnew = kron_red(KyR,KdR,KtR,bVR,regVreg)
-
-    Asave = np.concatenate(( Anew,np.zeros((len(regVreg),Anew.shape[1])) ))
-    Bsave = np.concatenate((Bnew,np.array(regVreg)))
-
+    # 4. Perform Kron reduction with these indices
+    idxShf = [v_idx_shf,s_idx_shf,sD_idx_shf]
+    Akron, Bkron = lmKronRed(LM,idxShf,regVreg)
+    
     # 5. Test if these are working
-
     ve=np.zeros([k.size])
     veN=np.zeros([k.size])
 
@@ -170,7 +156,6 @@ for fdr_i in fdr_i_set:
             
             v_0[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray))
             vv_0[i,:] = v_0[i,3:][v_idx]
-            # vv_0R[i,:] = vv_0[i,:][v_idx_shf]
             vv_0R[i,:] = v_0[i,3:][v_idx_new]
             
             sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
@@ -178,13 +163,13 @@ for fdr_i in fdr_i_set:
             
             if len(H)==0:
                 vv_l[i,:] = Ky.dot(xhy[s_idx]) + bV
-                vv_lN[i,:] = np.concatenate((Anew.dot(xhy[s_idx_new]) + Bnew,np.array(regVreg)))
+                vv_lN[i,:] = Akron.dot(xnew) + Bkron
             else:
                 xhd = -1e3*s_2_x(sD) # not [3:] like sY
                 vv_l[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
                 
                 xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
-                vv_lN[i,:] = np.concatenate((Anew.dot(xnew) + Bnew,np.array(regVreg)))
+                vv_lN[i,:] = Akron.dot(xnew) + Bkron
             
             ve[i] = np.linalg.norm( vv_l[i,:] - vv_0[i,:] )/np.linalg.norm(vv_0[i,:])
             veN[i] = np.linalg.norm( vv_lN[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
@@ -209,13 +194,13 @@ for fdr_i in fdr_i_set:
 
             if len(H)==0:
                 vv_l_ctr[i,:] = Ky.dot(xhy[s_idx]) + bV
-                vv_lN_ctr[i,:] = np.concatenate((Anew.dot(xhy[s_idx_new]) + Bnew,np.array(regVreg)))
+                vv_lN_ctr[i,:] = Akron.dot(xhy[s_idx_new]) + Bkron
             else:
                 xhd = -1e3*s_2_x(sD) # not [3:] like sY
                 vv_l_ctr[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
                 
                 xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
-                vv_lN_ctr[i,:] = Asave.dot(xnew) + Bsave
+                vv_lN_ctr[i,:] = Akron.dot(xnew) + Bkron
                 
             ve_ctl[i] = np.linalg.norm( vv_l_ctr[i,:] - vv_0_ctl[i,:] )/np.linalg.norm(vv_0_ctl[i,:])
             veN_ctl[i] = np.linalg.norm( vv_lN_ctr[i,:] - vv_0R_ctl[i,:] )/np.linalg.norm(vv_0R_ctl[i,:])
@@ -233,8 +218,8 @@ for fdr_i in fdr_i_set:
         if not os.path.exists(dir0):
                 os.makedirs(dir0)
 
-        np.save(sn0+'A'+lp_str+'.npy',Asave)
-        np.save(sn0+'B'+lp_str+'.npy',Bsave)
+        np.save(sn0+'A'+lp_str+'.npy',Akron)
+        np.save(sn0+'B'+lp_str+'.npy',Bkron)
         np.save(sn0+'s_idx'+lp_str+'.npy',s_idx_new)
         np.save(sn0+'v_idx'+lp_str+'.npy',v_idx_new)
         np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx_shf])
@@ -244,6 +229,9 @@ for fdr_i in fdr_i_set:
 
         np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',YZp)
         np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',YZd)
+        
+        np.save(sn0+'regVreg'+lp_str+'.npy',regVreg)
+        np.save(sn0+'idxShf'+lp_str+'.npy',idxShf)
 
 
     if test_model_plt:

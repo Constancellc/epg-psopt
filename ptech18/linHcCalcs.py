@@ -19,7 +19,7 @@ import numpy.random as rnd
 import matplotlib.pyplot as plt
 from math import gamma
 import dss_stats_funcs as dsf
-from linSvdCalcs import hcPdfs, linModel, cnsBdsCalc
+from linSvdCalcs import hcPdfs, linModel, cnsBdsCalc, plotCns, plotHcVltn
 from matplotlib import cm
 
 WD = os.path.dirname(sys.argv[0])
@@ -27,11 +27,11 @@ WD = os.path.dirname(sys.argv[0])
 mcLinOn = True
 # mcLinOn = False
 mcDssOn = True
-mcDssOn = False
+# mcDssOn = False
 
 # PLOTTING options:
 pltHcBoth = True
-pltHcBoth = False
+# pltHcBoth = False
 pltHcGen = True
 pltHcGen = False
 pltPwrCdf = True
@@ -48,7 +48,7 @@ pltSave = False
 # CHOOSE Network
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 fdr_i_set = [5]
-fdr_i_set = [5,6,8,0,14] # fastest few
+# fdr_i_set = [5,6,8,0,14] # fastest few
 # fdr_i_set = [17,18] # medium length 1
 # fdr_i_set = [19,20,21] # medium length 2
 # fdr_i_set = [9] # slow
@@ -336,20 +336,13 @@ for fdr_i in fdr_i_set:
     # ================ PLOTTING FUNCTIONS FROM HERE
     if pltCns:
         fig, ax = plt.subplots()
-        # clrs = ['#1f77b4','#ff7f0e','red','#2ca02c','green','black','blue']
-        clrs = cm.nipy_spectral(np.linspace(0,1,9))
-        ax.set_prop_cycle(color=clrs)
+        plotCns(pdfData['mu_k'],Cns_pct_lin,feeder=feeder,lineStyle='--',ax=ax,pltShow=False)
         if mcDssOn:
-            plt.plot(pdfData['mu_k'],Cns_pct_dss[0])
-
-        plt.plot(pdfData['mu_k'],Cns_pct_lin[0],'--')
-        plt.xlabel('Scale factor');
-        plt.ylabel('P(.), %');
-        plt.title('Constraints, '+feeder)
-        plt.legend(('$\Delta V$','$V^{+}_{\mathrm{MV,LS}}$','$V^{-}_{\mathrm{MV,LS}}$','$V^{+}_{\mathrm{LV,LS}}$','$V^{-}_{\mathrm{LV,LS}}$','$V^{+}_{\mathrm{MV,HS}}$','$V^{-}_{\mathrm{MV,HS}}$','$V^{+}_{\mathrm{LV,HS}}$','$V^{-}_{\mathrm{LV,HS}}$'))
+            plotCns(pdfData['mu_k'],Cns_pct_dss,feeder=feeder,lineStyle='-',ax=ax,pltShow=False)
+        # if mcDssOn:
+            # plt.plot(pdfData['mu_k'],Cns_pct_dss[0])
         if mcDssOn and pltSave:
             plt.savefig(os.path.join(SD,'pltCns.png'))
-        
         plt.show()
 
 
@@ -368,32 +361,22 @@ for fdr_i in fdr_i_set:
         plt.show()
 
     if pltHcBoth:
-        plt.subplot(121)
-        for i in range(pdfData['nP'][0]):
-            # if mcDssOn:
-            plt.semilogy(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
-            plt.semilogy(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
-            plt.legend(('VpDss','VpNom','VpSvd'))
+        fig = plt.subplot()
+        ax1 = plt.subplot(121)
+        ax2 = plt.subplot(122)
 
-        plt.xlabel('Scale factor');
-        plt.title('Prob. of violation (logscale)');
-        plt.grid(True)
-        plt.ylabel('P(.), %')
-        plt.subplot(122)
+        plotHcVltn(pdfData['mu_k'],Vp_pct_lin[0],ax=ax1,pltShow=False,feeder=feeder,logScale=True)
+        plotHcVltn(pdfData['mu_k'],Vp_pct_lin[0],ax=ax2,pltShow=False,feeder=feeder,logScale=False)
 
         if mcDssOn:
-            plt.plot(pdfData['mu_k'],Vp_pct_dss[i],'ro-')
+            plotHcVltn(pdfData['mu_k'],Vp_pct_dss[0],ax=ax1,pltShow=False,feeder=feeder,logScale=True)
+            ax1.legend(('Vltn., Nom','Vltn., DSS'))
+            plotHcVltn(pdfData['mu_k'],Vp_pct_dss[0],ax=ax2,pltShow=False,feeder=feeder,logScale=False)
 
-        plt.plot(pdfData['mu_k'],Vp_pct_lin[i],'g.-')
-        plt.title('Prob. of violation');
-        plt.xlabel('Scale factor');
-        plt.ylabel('P(.), %')
-
-        plt.grid(True)
-        plt.tight_layout()
         if mcDssOn and pltSave:
             plt.savefig(os.path.join(SD,'pltHcBoth.png'))
 
+        plt.tight_layout()
         plt.show()
         
     if pltHcGen:

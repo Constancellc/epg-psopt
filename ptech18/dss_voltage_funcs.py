@@ -127,6 +127,18 @@ def kron_red(Ky,Kd,Kt,bV,Vreg):
     # xt = spla.solve(Art,regVreg - Arl.dot(xh) - bVr)/(YvbaseReg*dt)
     
     return Anew, Bnew
+
+def lmKronRed(LM,idxShf,regVreg):
+    v_idx_shf,s_idx_shf,sD_idx_shf = idxShf[:]
+    KyR = LM['Ky'][v_idx_shf,:][:,s_idx_shf] # not completely clear if s_idx_shf required?
+    KdR = LM['Kd'][v_idx_shf,:][:,sD_idx_shf] # not completely clear if sD_idx_shf required?
+    bVR = LM['bV'][v_idx_shf]
+    KtR = LM['Kt'][v_idx_shf,:]
+    Anew,Bnew = kron_red(KyR,KdR,KtR,bVR,regVreg)
+
+    Akron = np.concatenate(( Anew,np.zeros((len(regVreg),Anew.shape[1])) ))
+    Bkron = np.concatenate((Bnew,np.array(regVreg)))
+    return Akron, Bkron
     
 def kron_red_ltc(Ky,Kd,Kt,bV,Vreg,KvReg):
     n = len(Vreg)

@@ -483,6 +483,11 @@ def loadNetModel(feeder,lin_point,WD,lp_taps,netModel):
     LM['vYNodeOrder'] = np.load(stt+'vYNodeOrder'+end)
     LM['SyYNodeOrder'] = np.load(stt+'SyYNodeOrder'+end)
     LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)
+    
+    if netModel==2:
+        LM['idxShf'] = np.load(stt+'idxShf'+end)
+        LM['regVreg'] = np.load(stt+'regVreg'+end)
+    
     return LM
     
 def getMu_Kk(feeder,tapOn):

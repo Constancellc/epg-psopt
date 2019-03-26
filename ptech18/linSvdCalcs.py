@@ -1,6 +1,7 @@
 import pickle, os, sys, win32com.client, time, scipy.stats
 import numpy as np
 from dss_python_funcs import *
+from dss_voltage_funcs import *
 import numpy.random as rnd
 import matplotlib.pyplot as plt
 from math import gamma
@@ -51,7 +52,43 @@ def calcVar(X):
         var[i] = x.dot(x)
         i+=1
     return var
+    
+# =================================== PLOTTING FUNCTIONS
 
+def plotCns(mu_k,Cns_pct,ax=None,pltShow=True,feeder=None,lineStyle='-'):
+    if ax==None:
+        fig, ax = plt.subplots()
+        clrs = cm.nipy_spectral(np.linspace(0,1,9))
+        ax.set_prop_cycle(color=clrs)
+    # plt.plot(pdfData['mu_k'],Cns_pct_lin[0],'--')
+    ax.plot(mu_k,Cns_pct[0],lineStyle)
+    plt.xlabel('Scale factor');
+    plt.ylabel('P(.), %');
+    if not feeder==None:
+        plt.title('Constraints, '+feeder)
+    else:
+        plt.title('Constraints')
+    plt.legend(('$\Delta V$','$V^{+}_{\mathrm{MV,LS}}$','$V^{-}_{\mathrm{MV,LS}}$','$V^{+}_{\mathrm{LV,LS}}$','$V^{-}_{\mathrm{LV,LS}}$','$V^{+}_{\mathrm{MV,HS}}$','$V^{-}_{\mathrm{MV,HS}}$','$V^{+}_{\mathrm{LV,HS}}$','$V^{-}_{\mathrm{LV,HS}}$'))
+    if pltShow:
+        plt.show()
+        ax = None; fig = None
+    return ax
+
+def plotHcVltn(mu_k,Vp_pct,ax=None,pltShow=True,feeder=None,lineStyle='.-',logScale=True):
+    if logScale:
+        ax.semilogy(mu_k,Vp_pct,lineStyle)
+        ax.set_title('Prob. of violation (logscale), '+feeder);
+        ax.set_ylabel('Log [ P(.), % ]')
+    else:
+        ax.plot(mu_k,Vp_pct,lineStyle)
+        ax.set_title('Prob. of violation '+feeder);
+        ax.set_ylabel('P(.), %')
+    ax.set_xlabel('Scale factor');
+    ax.grid(True)
+    
+
+    
+# =================================== CLASS: linModel
 class linModel:
     """Linear model class with a whole bunch of useful things that we can do with it."""
     
@@ -90,9 +127,9 @@ class linModel:
             self.branches = pickle.load(handle)
         
         # load the fixed model, as this always exists
-        LMfix = loadLinMagModel(self.feeder,self.linPoint,WD,'Lpt')
-        Kyfix=LMfix['Ky'];Kdfix=LMfix['Kd']
-        dvBase = LMfix['vKvbase'] # NB: this is different to vBase for ltc/regulator models!
+        LMfxd = loadLinMagModel(self.feeder,self.linPoint,WD,'Lpt')
+        Kyfix=LMfxd['Ky'];Kdfix=LMfxd['Kd']
+        dvBase = LMfxd['vKvbase'] # NB: this is different to vBase for ltc/regulator models!
 
         KyPfix = Kyfix[:,:Kyfix.shape[1]//2]
         KdPfix = Kdfix[:,:Kdfix.shape[1]//2]
@@ -101,69 +138,60 @@ class linModel:
         Kfix = Kfix[KfixCheck]
         dvBase = dvBase[KfixCheck]
         
+        self.LMfxd = {'Ky':Kyfix,'Kd':Kdfix,'bV':LMfxd['bV'],'Kt':LMfxd['Kt']}
+        
         self.dvBase = dvBase
         self.KfixPu = dsf.vmM(1/dvBase,Kfix)
-        self.vFixYNodeOrder = LMfix['vYNodeOrder']
-        self.v_idx_fix = LMfix['v_idx']
+        self.vFixYNodeOrder = LMfxd['vYNodeOrder']
+        self.v_idx_fix = LMfxd['v_idx']
     
     def loadNetModel(self,netModel=None):
         if netModel==None:
             netModel = self.netModelNom
         
-        if not netModel:
+        if netModel==0:
             # IF using the FIXED model:
             LM = loadLinMagModel(self.feeder,self.linPoint,self.WD,'Lpt')
-            Ky=LM['Ky'];Kd=LM['Kd'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
-            vBase = LM['vKvbase']
-
-            xhyN = xhy0/self.linPoint # needed seperately for lower down
-            xhdN = xhd0/self.linPoint
-            xNom = np.concatenate((xhyN,xhdN))
-            b0ls = (Ky.dot(xhyN*self.loadPointLo) + Kd.dot(xhdN*self.loadPointLo) + bV)/vBase # in pu
-            b0hs = (Ky.dot(xhyN*self.loadPointHi) + Kd.dot(xhdN*self.loadPointHi) + bV)/vBase # in pu
+            Ky=LM['Ky'];Kd=LM['Kd'];bV=LM['bV']
+            self.vTotBase = LM['vKvbase']
+        else:
+            # IF using the LTC of DCP model:
+            LM = loadNetModel(self.feeder,self.linPoint,self.WD,'Lpt',netModel)
+            A=LM['A'];bV=LM['B']
+            self.vTotBase = LM['Vbase']
+            
+        xhy0=LM['xhy0'];xhd0=LM['xhd0']
+        self.xhyNtot = xhy0/self.linPoint
+        self.xhdNtot = xhd0/self.linPoint
+        self.xNomTot = np.concatenate((self.xhyNtot,self.xhdNtot))
+        self.vTotYNodeOrder = LM['vYNodeOrder']
+        
+        if not netModel: # needed seperately because of Y/D concatenation of powers.
+            self.b0ls = (Ky.dot(self.xhyNtot*self.loadPointLo) + Kd.dot(self.xhdNtot*self.loadPointLo) + bV)/self.vTotBase # in pu
+            self.b0hs = (Ky.dot(self.xhyNtot*self.loadPointHi) + Kd.dot(self.xhdNtot*self.loadPointHi) + bV)/self.vTotBase # in pu
 
             KyP = Ky[:,:Ky.shape[1]//2]
             KdP = Kd[:,:Kd.shape[1]//2]
-            Ktot = np.concatenate((KyP,KdP),axis=1)
-            vYZ = LM['vYNodeOrder']
-            
         elif netModel>0:
-            # IF using the LTC model:
-            LM = loadNetModel(self.feeder,self.linPoint,self.WD,'Lpt',netModel)
-            A=LM['A'];bV=LM['B'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
-            vBase = LM['Vbase']
+            self.updateTotModel(A,bV)
+            # self.b0ls = (A.dot(self.xNomTot*self.loadPointLo) + bV)/self.vTotBase # in pu
+            # self.b0hs = (A.dot(self.xNomTot*self.loadPointHi) + bV)/self.vTotBase # in pu
             
-            xhyN = xhy0/self.linPoint # needed seperately for lower down
-            xhdN = xhd0/self.linPoint
-            xNom = np.concatenate((xhyN,xhdN))
-            b0ls = (A.dot(xNom*self.loadPointLo) + bV)/vBase # in pu
-            b0hs = (A.dot(xNom*self.loadPointHi) + bV)/vBase # in pu
+            # KyP = A[:,0:len(xhy0)//2] # these might be zero if there is no injection (e.g. only Q)
+            # KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
             
-            KyP = A[:,0:len(xhy0)//2] # these might be zero if there is no injection (e.g. only Q)
-            KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
-            
-            Ktot = np.concatenate((KyP,KdP),axis=1)
-            
-            vYZ = LM['vYNodeOrder']
+        # Ktot = np.concatenate((KyP,KdP),axis=1)
+        # self.KtotPu = dsf.vmM(1/self.vTotBase,Ktot) # scale to be in pu
         
-        # KtotCheck = np.sum(Ktot==0,axis=1)!=Ktot.shape[1] # [this seems to get rid of fixed regulated buses]
-        KtotCheck = np.ones((int(Ktot.shape[0])),dtype=bool)
-        Ktot = Ktot[KtotCheck]
         
-        self.xhyNtot = xhyN
-        self.xhdNtot = xhdN
-        self.xNom = xNom
-        self.b0ls = b0ls[KtotCheck]
-        self.b0hs = b0hs[KtotCheck]
-        vBase = vBase[KtotCheck]
+        if netModel==2: # decoupling regulator model
+            self.idxShf = LM['idxShf']
+            self.regVreg0 = LM['regVreg']
         
-        self.vTotBase = vBase
-        self.KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
-        self.vTotYNodeOrder = vYZ[KtotCheck]
-        self.v_idx_tot = LM['v_idx'][KtotCheck]
+        self.v_idx_tot = LM['v_idx']
         
-        self.mvIdx = np.where(vBase>1000)[0]
-        self.lvIdx = np.where(vBase<=1000)[0]
+        self.mvIdx = np.where(self.vTotBase>1000)[0]
+        self.lvIdx = np.where(self.vTotBase<=1000)[0]
         
         self.SyYNodeOrderTot = LM['SyYNodeOrder']
         self.SdYNodeOrderTot = LM['SdYNodeOrder']
@@ -320,11 +348,15 @@ class linModel:
         
     
     def runLinHc(self,nMc,pdfData,model='nom'):
+        nCnstr = 9
+        
         Vp_pct = np.zeros(pdfData['nP'])
-        Cns_pct = np.zeros(list(pdfData['nP'])+[5])
-        hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
+        Cns_pct = np.zeros(list(pdfData['nP'])+[nCnstr])
+        hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
         hcGenAll = np.array([])
-        genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],5))
+        genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
+        genTotAll = {}
+        PP = []
         
         nV = self.KtotPu.shape[0]
         nS = self.KtotPu.shape[1]
@@ -337,6 +369,8 @@ class linModel:
             genTot0 = np.sum(pdfMc,axis=0)
             genTotSort = genTot0.copy()
             genTotSort.sort()
+            genTotAll0 = np.outer(genTot0,pdfData['mu_k'])
+            genTotAll[i] = genTotAll0.flatten()
             
             if model=='nom':
                 NSet = np.arange(nV)
@@ -352,31 +386,26 @@ class linModel:
             
             DelVout = (self.KtotPu[NSet].dot(pdfMc).T)*1e3
             ddVout = abs((self.KfixPu.dot(pdfMc).T)*1e3) # just get abs change
-            Vmax = np.ones(len(DelVout))
             
             b0ls = self.b0ls[NSet]
             b0hs = self.b0hs[NSet]
                 
             for jj in range(pdfData['nP'][-1]):
                 genTot = genTot0*pdfData['mu_k'][jj]
-                
-                vDv = ddVout*pdfData['mu_k'][jj]
-                vV = (DelVout*pdfData['mu_k'][jj])
-                
-                vLo = vV + b0ls
-                vHi = vV + b0hs
-                
-                vLo[vLo<0.5] = 1.0
-                vHi[vHi<0.5] = 1.0
 
-                minVlo = np.min(vLo,axis=1)
-                maxVlo = np.max(vLo,axis=1)
-                minVhi = np.min(vHi,axis=1)
-                maxVhi = np.max(vHi,axis=1)
-                maxDv = np.max(abs(vDv),axis=1)
+                vLsMv = ((DelVout*pdfData['mu_k'][jj]) + b0ls)[:,self.mvIdx]
+                vLsLv = ((DelVout*pdfData['mu_k'][jj]) + b0ls)[:,self.lvIdx]
+                vHsMv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.mvIdx]
+                vHsLv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.lvIdx]
+                vDv = ddVout*pdfData['mu_k'][jj]
                 
-                Cns_pct[i,jj] = 100*np.array([sum(maxDv>self.DVmax),sum(maxVhi>self.Vmax),sum(minVhi<self.Vmin),sum(maxVlo>self.Vmax),sum(minVlo<self.Vmin)])/nMc
-                inBounds = np.any(np.array([maxVhi>self.Vmax,minVhi<self.Vmin,maxVlo>self.Vmax,minVlo<self.Vmin,maxDv>self.DVmax]),axis=0)
+                lp0data = {}
+                lp0data['VpMv'] = self.VpMv
+                lp0data['VpLv'] = self.VpLv
+                lp0data['VmMv'] = self.VmMv
+                lp0data['VmLv'] = self.VmLv
+                
+                Cns_pct[i,jj], inBounds = cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,lp0data)
                 
                 Vp_pct[i,jj] = 100*sum(inBounds)/nMc
                 hcGen = genTot[inBounds]
@@ -394,7 +423,14 @@ class linModel:
                 genTotSet[i,jj,2] = genTotSort[np.floor(len(genTotSort)*1.0/2.0).astype(int)]*pdfData['mu_k'][jj]
                 genTotSet[i,jj,3] = genTotSort[np.floor(len(genTotSort)*3.0/4.0).astype(int)]*pdfData['mu_k'][jj]
                 genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
+        
+            binNo = int(np.round(0.5*len(pdf.pdf['mu_k'])))
+            hist1 = plt.hist(genTotAll[i],bins=binNo,range=(0,max(genTotAll[i])))
+            PP = PP + [hist1[1][1:]]
+            plt.close()
+        
         self.linHcRsl = {}
+        self.linHcRsl['PP'] = PP;
         self.linHcRsl['hcGenSet'] = hcGenSet
         self.linHcRsl['Vp_pct'] = Vp_pct
         self.linHcRsl['Cns_pct'] = Cns_pct
@@ -548,7 +584,21 @@ class linModel:
         plt.xticks([])
         plt.yticks([])
         plt.show()
-
+    
+    def updateDcpleModel(self,regVreg):
+        Akron, Bkron = lmKronRed(self.LMfxd,self.idxShf,regVreg)
+        self.updateTotModel(Akron,Bkron)
+        
+    def updateTotModel(self,A,bV):
+        self.b0ls = (A.dot(self.xNomTot*self.loadPointLo) + bV)/self.vTotBase # in pu
+        self.b0hs = (A.dot(self.xNomTot*self.loadPointHi) + bV)/self.vTotBase # in pu
+        
+        KyP = A[:,0:len(self.xhyNtot)//2] # these might be zero if there is no injection (e.g. only Q)
+        KdP = A[:,len(self.xhyNtot):len(self.xhyNtot) + (len(self.xhdNtot)//2)]
+        
+        Ktot = np.concatenate((KyP,KdP),axis=1)
+        self.KtotPu = dsf.vmM(1/self.vTotBase,Ktot) # scale to be in pu
+        
         
 class hcPdfs:
     def __init__(self,feeder,netModel=0,dMu=0.01,pdfName=None,prms=np.array([])):

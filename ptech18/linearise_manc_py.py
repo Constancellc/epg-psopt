@@ -21,17 +21,17 @@ DSSSolution.Tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
 test_model = True
-test_model = False
+# test_model = False
 test_model_bus = True
 test_model_bus = False
 saveModel = True
-# saveModel = False
+saveModel = False
 saveCc = True
 saveCc = False
 verbose=True
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i_set = [22]
+fdr_i_set = [14]
 # fdr_i_set = [19,20,21]
 for fdr_i in fdr_i_set:
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -54,7 +54,6 @@ for fdr_i in fdr_i_set:
     ckt = get_ckt(WD,feeder)
     fn_ckt = ckt[0]
     fn = ckt[1]
-
 
     fn_y = fn+'_y'
     dir0 = WD + '\\lin_models\\' + feeder
@@ -158,7 +157,7 @@ for fdr_i in fdr_i_set:
 
         # NB!!! -3 required for models which have the first three elements chopped off!
         v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
-        v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3
+        v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3 # NB: this is extremely slow! Try to load where possible
         v_idx = v_idx[v_idx>=0]
         YvbaseV = Yvbase[v_idx]
         
@@ -240,6 +239,9 @@ for fdr_i in fdr_i_set:
             np.save(sn0+'bV'+lp_str+'.npy',bV)
             
             np.save(sn0+'v_idx'+lp_str+'.npy',v_idx)
+            # np.save(sn0+'s_idx'+lp_str+'.npy',s_idx)
+            # np.save(sn0+'p_idx'+lp_str+'.npy',p_idx)
+            
             
             np.save(sn0+'vKvbase'+lp_str+'.npy',YvbaseV)
             np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vecSlc(YNodeOrder[3:],v_idx))

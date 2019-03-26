@@ -86,9 +86,7 @@ for fdr_i in fdr_i_set:
     reIdx = (np.array(get_reIdx(regIdx,len(YZ))[3:])-3).tolist()
 
     # get index shifts
-    v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
-    v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3
-    v_idx = v_idx[v_idx>=0]
+    v_idx = LM['v_idx']
 
     v_idx_shf,v_idx_new = idx_shf(v_idx,reIdx)
 
@@ -99,8 +97,6 @@ for fdr_i in fdr_i_set:
     s_idx_shf = np.concatenate((p_idx_shf,p_idx_shf+len(p_idx_shf)))
     s_idx = np.concatenate((p_idx_yz,p_idx_yz+len(sY)-3),axis=1)[0]
     s_idx_new = np.concatenate((p_idx_new,p_idx_new+len(sY)-3))
-    # p_idx = np.array(sY[3:].nonzero())
-    # s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)[0]
 
     yzI = yzD2yzI(yzD,node_to_YZ(DSSCircuit))
     yzI_shf,yzI_new = idx_shf(yzI,reIdx)
@@ -116,7 +112,6 @@ for fdr_i in fdr_i_set:
     Kq = Sd[yzI_shf].imag/sD[yzI_shf].imag # not sure here?
 
     xhR = np.concatenate((xhy0[s_idx_shf],xhd0[sD_idx_shf]))
-
 
     # 3. FIND LTC MATRICES ====
     rReg,xReg = getRxVltsMat(DSSCircuit)
