@@ -54,7 +54,7 @@ for p in pens:
     _q3.append(1000*diff2[int(len(diff)*0.75)]/int(p))
     _l.append(1000*diff2[0]/int(p))
     _u.append(1000*diff2[-1]/int(p))
-'''
+#'''
 m = filt.gaussian_filter1d(m,1)
 q1 = filt.gaussian_filter1d(q1,1)
 q3 = filt.gaussian_filter1d(q3,1)
@@ -62,7 +62,7 @@ q3 = filt.gaussian_filter1d(q3,1)
 _m = filt.gaussian_filter1d(_m,1)
 _q1 = filt.gaussian_filter1d(_q1,1)
 _q3 = filt.gaussian_filter1d(_q3,1)
-'''
+#'''
 x = []
 x_ticks = []
 for p in range(0,120,20):
@@ -77,7 +77,7 @@ plt.xlabel('% Households with an EV')
 plt.fill_between(range(len(m)),q1,q3,color='#CCCCFF')
 plt.plot(m,c='b',label='Loss Minimising')
 
-plt.fill_between(range(len(m)),_q1,_q3,color='#FFCCCC')
+plt.fill_between(range(len(m)),_q3,_q1,color='#FFCCCC')
 plt.plot(_m,c='r',label='LF+Phase Balancing')
 plt.xlim(0,11)
 plt.ylim(0,35)

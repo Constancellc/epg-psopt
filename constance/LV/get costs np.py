@@ -5,7 +5,7 @@ from cvxopt import matrix, spdiag, sparse, solvers
 import random
 import scipy.sparse as sparse
 
-n = '213'
+n = 'usLv'
 folder = '../../../Documents/ccModels/'+n+'/'+n
 output = 'manc_models/'+n+'/'
 
