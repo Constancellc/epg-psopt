@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from lv_optimization_new import LVTestFeeder
 
 fdr = '1'
-runs = 100
+runs = 300
 
 tr = 1
 
@@ -32,11 +32,14 @@ for i in range(len(lds)):
 lds = {'b':[],'u':[],'m':[],'f':[],'p':[]}
 lss = {'b':[],'u':[],'m':[],'f':[],'p':[]}
 
-for nEVs in [5]:
+for nEVs in [55]:
     network = LVTestFeeder('manc_models/'+fdr,t_res=tr)
     for mc in range(runs):
         print(mc)
-        network.set_households_NR('../../../Documents/netrev/TC2a/03-Dec-2013.csv')
+        #network.set_households_NR('../../../Documents/netrev/TC2a/03-Dec-2013.csv')
+        network.set_households_NR('../../../Documents/netrev/TC2a/08-Jul-2013.csv')
+        #network.set_households_NR('../../../Documents/netrev/TC2a/03-Mar-2014.csv')
+        #network.set_households_NR('../../../Documents/netrev/TC2a/18-Oct-2013.csv')
         network.set_evs_MEA('../../../Documents/My_Electric_Avenue_Technical_Data/'+
                             'constance/ST1charges/',nEVs=nEVs)
         b = network.get_feeder_load()
@@ -82,8 +85,8 @@ for nEVs in [5]:
         lss['m'].append(l_m)
         lss['p'].append(l_p)
 
-    with open('../../../Documents/simulation_results/LV/varying-pen/'+str(nEVs)+\
-              '-losses.csv','w') as csvfile:
+    with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
+              'jul-losses.csv','w') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Base','Unc','LF','LM','PB'])
         for s in range(len(lss['b'])):

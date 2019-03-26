@@ -219,8 +219,8 @@ plt.ylim(392740,392890)
 plt.xticks([390860,391030],['',''])
 plt.yticks([392740,392890],['',''])
 plt.tight_layout()
-plt.savefig('../../../Dropbox/papers/losses/img/network_loss_map2.eps', format='eps',
-            dpi=1000, bbox_inches='tight', pad_inches=0)
+#plt.savefig('../../../Dropbox/papers/losses/img/network_loss_map2.eps', format='eps',
+#            dpi=1000, bbox_inches='tight', pad_inches=0)
 plt.show()
         
 '''

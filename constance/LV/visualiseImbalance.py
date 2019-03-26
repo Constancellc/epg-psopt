@@ -124,12 +124,13 @@ for i in range(4):
             mi = lpd
         if lpd > 0.85:
             sp.plot(x,y,c='gray',lw=1,zorder=0.5)
-        elif lpd > 0.5:
+        elif lpd > 0.55:
             sp.plot(x,y,c=cm.viridis(0),lw=4,zorder=1)
-        elif lpd < 0.1:
-            sp.plot(x,y,c=cm.viridis(1),lw=4,zorder=2)
+        elif lpd < 0.15:
+            sp.plot(x,y,c=cm.viridis(0.99),lw=4,zorder=2)
         else:
-            sp.plot(x,y,c=cm.viridis(1-(lpd-0.1)*2.5),lw=4)
+            rescale = (lpd-0.1)/(0.55-0.15)
+            sp.plot(x,y,c=cm.viridis(1-rescale),lw=4)
         
     x = {'A':[],'B':[],'C':[]}
     y = {'A':[],'B':[],'C':[]}
@@ -167,7 +168,7 @@ ax.scatter([4.8],[0.55],10,c='g',zorder=2)
 ax.annotate('Phase A',(5.1,0.64))
 ax.annotate('Phase B',(5.1,0.59))
 ax.annotate('Phase C',(5.1,0.54))
-tcks = ['10%','20%','30%','40%','50%']
+tcks = ['15%','25%','35%','45%','55%']
 for i in range(5):
     y_ = btm+(top-btm)*(i/4)-0.01
     ax.annotate('- '+tcks[4-i],(11,y_))
@@ -176,8 +177,8 @@ ax.set_xlim(0,11)
 ax.set_ylim(0,1)
 ax.axis('off')
 
-plt.savefig('../../../Dropbox/papers/losses/img/network_loss_map.eps', format='eps',
-            dpi=1000, bbox_inches='tight', pad_inches=0)
+#plt.savefig('../../../Dropbox/papers/losses/img/network_loss_map.eps', format='eps',
+#            dpi=1000, bbox_inches='tight', pad_inches=0)
 
  
 plt.show()       
