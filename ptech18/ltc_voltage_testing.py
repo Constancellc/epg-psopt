@@ -33,7 +33,7 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-# test_model_plt = False
+test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 save_model = True
@@ -66,6 +66,19 @@ for fdr_i in fdr_i_set:
 
     # 1. Nominal Voltage Solution at Linearization point. Load Linear models.
     DSSText.Command='Compile ('+fn+'.dss)'
+    YNodeV0 = tp_2_ar(DSSCircuit.YNodeVarray)
+    
+    # branchNames = getBranchNames(DSSCircuit)
+    # YprimMat, busSet, brchSet, trmlSet = getBranchYprims(DSSCircuit,branchNames)
+    # v2iBrY = getV2iBrY(DSSCircuit,YprimMat,busSet)
+    # Iprim = v2iBrY.dot( YNodeV0 )
+    # regBrIdx = get_regBrIdx(DSSCircuit,busSet,brchSet)
+    
+    # # checking:
+    # # vecSlc(busSet,regBrIdx); vecSlc(brchSet,regBrIdx); vecSlc(trmlSet,regBrIdx)
+    # printBrI(busSet,brchSet,Iprim)
+    
+    
     BB0,SS0 = cpf_get_loads(DSSCircuit)
     if lp_taps=='Lpt':
         cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
@@ -81,8 +94,8 @@ for fdr_i in fdr_i_set:
     # 2. Split the model into upstream/downstream.
     zoneList, regZonIdx0, zoneTree = get_regZneIdx(DSSCircuit)
     regZonIdx = (np.array(regZonIdx0[3:])-3).tolist()
-
-    regIdx = get_regIdx(DSSCircuit)
+    
+    regIdx,regBus = get_regIdx(DSSCircuit)
     reIdx = (np.array(get_reIdx(regIdx,len(YZ))[3:])-3).tolist()
 
     # get index shifts
@@ -126,13 +139,15 @@ for fdr_i in fdr_i_set:
     xhR = np.concatenate((xhy0[s_idx_shf],xhd0[sD_idx_shf]))
     regIdxMat = np.concatenate((regIdxMatY,regIdxMatD),axis=1) # matrix used for finding power through regulators
     Sreg = regIdxMat.dot(xhR)/1e3; print(Sreg) # for debugging. Remember this is set as scaled at the lin point!
-
+    
 
     regIdxMatYs = regIdxMatY[:,0:len(xhy0)//2].real
     regIdxMatDs = regIdxMatD[:,0:len(xhd0)//2].real
     regIdxMatVlts = -np.concatenate( (Rreg.dot(regIdxMatYs),Xreg.dot(regIdxMatYs),Rreg.dot(regIdxMatDs),Xreg.dot(regIdxMatDs)),axis=1 )
     # dVregRx = regIdxMatVlts.dot(xhR) # for debugging; output in volts.
+    
 
+    
     # 4. PERFORM REINDEXING/KRON REDUCTION OF PF MATRICES ==============
     regVreg = get_regVreg(DSSCircuit)
     YZv_idx = vecSlc(vecSlc(YZ[3:],v_idx),v_idx_shf)

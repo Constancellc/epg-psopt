@@ -91,7 +91,7 @@ for fdr_i in fdr_i_set:
     
     print('Get zone list...',time.process_time())
     # 2. get the regulator zones for each regulator. (I think this still needs work?)
-    regIdx = get_regIdx(DSSCircuit)
+    regIdx,regBus = get_regIdx(DSSCircuit)
     reIdx = (np.array(get_reIdx(regIdx,len(YZ))[3:])-3).tolist()
 
     # 3. get index shifts using zone info

@@ -2,10 +2,12 @@ import numpy as np
 import os, sys, win32com.client, time, pickle
 from math import sqrt
 from scipy import sparse
+from scipy.linalg import block_diag
 import scipy.sparse.linalg as spla
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
 from dss_vlin_funcs import *
+from dss_voltage_funcs import get_regIdx
 
 WD = os.path.dirname(sys.argv[0])
 
@@ -21,17 +23,17 @@ DSSSolution.Tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
 test_model = True
-# test_model = False
+test_model = False
 test_model_bus = True
 test_model_bus = False
 saveModel = True
-saveModel = False
+# saveModel = False
 saveCc = True
 saveCc = False
 verbose=True
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i_set = [14]
+fdr_i_set = [6]
 # fdr_i_set = [19,20,21]
 for fdr_i in fdr_i_set:
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -60,8 +62,7 @@ for fdr_i in fdr_i_set:
     sn0 = dir0 + '\\' + feeder + lp_taps
 
     print('\nStart, feeder:',feeder,'\nSaving nom:',saveModel,'\nSaving cc:',saveCc,'\nLin Points:',lin_points,'\n',time.process_time())
-
-    # ve=np.zeros([k.size,lin_points.size])
+    
     vve=np.zeros([k.size,lin_points.size])
     vae=np.zeros([k.size,lin_points.size])
     vvae=np.zeros([k.size,lin_points.size])
@@ -94,6 +95,7 @@ for fdr_i in fdr_i_set:
         
         # Reproduce delta-y power flow eqns (1)
         DSSText.Command='Compile ('+fn+'.dss)'
+        YNodeV0 = tp_2_ar(DSSCircuit.YNodeVarray)
 
         fix_tap_pos(DSSCircuit, TC_No0)
         DSSText.Command='Set Controlmode=off'
@@ -112,7 +114,6 @@ for fdr_i in fdr_i_set:
         cpf_set_loads(DSSCircuit,BB00,SS00,0.0)
         DSSSolution.Solve()
         YNodeVnoLoad = tp_2_ar(DSSCircuit.YNodeVarray)
-        
         
         dI = iTot + Ybus.dot(YNodeV)
         dIang0 = np.rad2deg(np.angle(iTot[iTot!=0]) - np.angle(Ybus.dot(YNodeV)[iTot!=0]) )
@@ -171,7 +172,32 @@ for fdr_i in fdr_i_set:
         if len(H)!=0: # already gotten rid of s_idx
             MdV = Md[v_idx,:]
             KdV = Kd[v_idx,:]
-
+        
+        # For regulation problems: save MyReg
+        branchNames = getBranchNames(DSSCircuit)
+        YprimMat, busSet, brchSet, trmlSet = getBranchYprims(DSSCircuit,branchNames)
+        v2iBrY = getV2iBrY(DSSCircuit,YprimMat,busSet)
+        
+        Wy = v2iBrY[:,3:].dot(My)
+        Wd = v2iBrY[:,3:].dot(Md)
+        aI = v2iBrY.dot(np.concatenate((V0,a)))
+        
+        Iprim = Wy.dot(xhy0) + Wd.dot(xhd0) + aI
+        Iprim0 = v2iBrY.dot(np.concatenate((V0,Vh0)))
+        
+        # plt.plot(abs(Iprim0)); plt.plot(abs(Iprim)) # for testing
+        # plt.show()
+        
+        # printBrI(busSet,brchSet,Iprim0)
+        # Ipri
+        regIdx,regBus = get_regIdx(DSSCircuit)
+        regIdx = np.array(regIdx)-3 # to match My order
+        
+        WyReg = Wy[regIdx,:][:,s_idx]
+        aIreg = aI[regIdx]
+        if len(H)!=0: # already gotten rid of s_idx
+            WdReg = Wd[regIdx,:]
+        
         # now, check these are working
         v_0 = np.zeros((len(k),len(YNodeOrder)),dtype=complex)
         vv_0 = np.zeros((len(k),len(v_idx)),dtype=complex)
@@ -179,12 +205,9 @@ for fdr_i in fdr_i_set:
         vva_0 = np.zeros((len(k),len(v_idx)))
 
         Vslv = np.zeros((len(k),len(YNodeOrder)-3),dtype=complex)
-
-        v_l = np.zeros((len(k),len(YNodeOrder)-3),dtype=complex)
+        
         vv_l = np.zeros((len(k),len(v_idx)),dtype=complex)
-        va_l = np.zeros((len(k),len(YNodeOrder)-3))
         vva_l = np.zeros((len(k),len(v_idx)))
-
 
         Convrg = []
         TP = np.zeros((len(lin_points),len(k)),dtype=complex)
@@ -208,18 +231,13 @@ for fdr_i in fdr_i_set:
                 
                 # Vslv[i,:] = fixed_point_solve(Ybus,v_0[i,:],-1e3*sY[3:],-1e3*sD,H)
                 if len(H)==0:
-                    # v_l[i,:] = My.dot(xhy) + a
                     vv_l[i,:] = MyV.dot(xhy[s_idx]) + aV
-                    # va_l[i,:] = Ky.dot(xhy) + b
                     vva_l[i,:] = KyV.dot(xhy[s_idx]) + bV
                 else:
                     xhd = -1e3*s_2_x(sD) # not [3:] like sY
-                    # v_l[i,:] = My.dot(xhy) + Md.dot(xhd) + a
                     vv_l[i,:] = MyV.dot(xhy[s_idx]) + MdV.dot(xhd) + aV
-                    # va_l[i,:] = Ky.dot(xhy) + Kd.dot(xhd) + b
                     vva_l[i,:] = KyV.dot(xhy[s_idx]) + KdV.dot(xhd) + bV
 
-                # ve[i,K] = np.linalg.norm( (v_l[i,:] - v_0[i,3:])/Yvbase )/np.linalg.norm(v_0[i,3:]/Yvbase) # these are very slow for the bigger networks!
                 vae[i,K] = np.linalg.norm( (va_l[i,:] - va_0[i,3:])/Yvbase )/np.linalg.norm(va_0[i,3:]/Yvbase) # these are very slow for the bigger networks!
                 
                 vve[i,K] = np.linalg.norm( (vv_l[i,:] - vv_0[i,:])/YvbaseV )/np.linalg.norm(vv_0[i,:]/YvbaseV)
@@ -248,19 +266,19 @@ for fdr_i in fdr_i_set:
             np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',vecSlc(YNodeOrder[3:],p_idx)[0])
             np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',yzD)
             
+            
+            np.save(sn0+'WyReg'+lp_str+'.npy',WyReg)
+            np.save(sn0+'aIreg'+lp_str+'.npy',aIreg)
+            np.save(sn0+'regBus'+lp_str+'.npy',regBus)
+            
             if len(H)!=0:
                 np.save(sn0+'Kd'+lp_str+'.npy',KdV)
                 np.save(sn0+'xhd0'+lp_str+'.npy',xhd0)
+                np.save(sn0+'WdReg'+lp_str+'.npy',WdReg)
+    
     print('Complete.\n',time.process_time())
 
     if test_model:
-        # plt.figure()
-        # plt.plot(k,ve), plt.title(feeder+', My error'), 
-        # plt.xlim((-1.5,1.5)); 
-        # # ylm = plt.ylim(); plt.ylim((0,ylm[1])), 
-        # plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
-        # plt.show()
-        # # plt.savefig(fig_loc+'figA')
         plt.figure()
         plt.plot(k,vve), plt.title(feeder+', MyV error')
         plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')

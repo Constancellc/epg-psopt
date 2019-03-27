@@ -421,7 +421,7 @@ def get_ckt(WD,feeder):
         ckts[fdrs[-1]]=[dir0,dir0+'\\Master']
     return ckts[feeder]
 
-def loadLinMagModel(feeder,lin_point,WD,lp_taps):
+def loadLinMagModel(feeder,lin_point,WD,lp_taps,regModel=True):
     # lp_taps either 'Nmt' or 'Lpt'.
     stt = WD+'\\lin_models\\'+feeder+'\\'+feeder+lp_taps
     end = str(np.round(lin_point*100).astype(int)).zfill(3)+'.npy'
@@ -446,6 +446,17 @@ def loadLinMagModel(feeder,lin_point,WD,lp_taps):
         LM['Kt'] = np.load(stt+'Kt'+end)
     except:
         LM['Kt'] = np.empty(shape=(LM['Ky'].shape[0],0))
+        
+    if regModel:
+        LM['WyReg'] = np.load(stt+'WyReg'+end)
+        LM['regBus'] = np.load(stt+'regBus'+end)
+        LM['WtReg'] = np.load(stt+'MtReg'+end)
+        LM['WtReg'] = np.load(stt+'WtReg'+end)
+        LM['aI'] = np.load(stt+'aIreg'+end)
+        try:
+            LM['WdReg'] = np.load(stt+'WdReg'+end)
+        except:
+            LM['WdReg'] = np.empty(shape=(LM['WdReg'].shape[0],0))
     return LM
     
 def loadLtcModel(feeder,lin_point,WD,lp_taps):
@@ -563,7 +574,7 @@ def getBusCoords(DSSCircuit,DSSText):
             i = DSSCircuit.Meters.Next
     return busCoords
     
-def getBranchBuses(DSSCircuit,DSSText):
+def getBranchBuses(DSSCircuit):
     i = DSSCircuit.PDElements.First
     branches = {}
     while i:
@@ -572,3 +583,92 @@ def getBranchBuses(DSSCircuit,DSSText):
             branches[DSSCircuit.PDElements.Name]=DSSCircuit.ActiveElement.BusNames
         i = DSSCircuit.PDElements.Next
     return branches
+    
+def getBranchNames(DSSCircuit):
+    i = DSSCircuit.PDElements.First
+    branchNames = []
+    while i:
+        if not DSSCircuit.PDElements.IsShunt:
+            branchNames = branchNames + [DSSCircuit.PDElements.Name]
+        i = DSSCircuit.PDElements.Next
+    return tuple(branchNames)
+
+def makeYprim(yprimTuple):
+    Yprm = tp_2_ar(yprimTuple)
+    Yprm = Yprm.reshape((np.sqrt(Yprm.shape)[0].astype('int32'),np.sqrt(Yprm.shape)[0].astype('int32')))
+    return Yprm
+
+def countBranchNodes(DSSCircuit):
+    i = DSSCircuit.PDElements.First
+    nodeNum = 0
+    while i:
+        if not DSSCircuit.PDElements.IsShunt:
+            nodeNum = nodeNum + len(DSSCircuit.ActiveElement.NodeOrder)
+        i = DSSCircuit.PDElements.Next
+    return nodeNum
+
+def getBranchYprims(DSSCircuit,branchNames):
+    nbNodes = countBranchNodes(DSSCircuit)
+    YprimMat = np.zeros((nbNodes,nbNodes),dtype=complex)
+    Yprim_i = 0
+    busSet = []
+    brchSet = []
+    trmlSet = []
+    for branch in branchNames:
+        DSSCircuit.SetActiveElement(branch)
+        NodeOrder = DSSCircuit.ActiveElement.NodeOrder
+        nNodes = len(NodeOrder)
+        Yprim = makeYprim(DSSCircuit.ActiveElement.Yprim)
+        YprimMat[Yprim_i:Yprim_i+nNodes,Yprim_i:Yprim_i+nNodes] = Yprim
+        
+        Yprim_i = Yprim_i + nNodes
+        
+        brchSet = brchSet + nNodes*[DSSCircuit.ActiveElement.Name]
+        Buses = DSSCircuit.ActiveElement.BusNames
+        NodeSet = []
+        
+        bus_i = 0
+        for node in NodeOrder:
+            if node in NodeSet:
+                bus_i+=1
+                NodeSet = []
+            if Buses[bus_i].count('.')==0:
+                busSet = busSet + [Buses[bus_i]+'.'+str(node)]
+            else:
+                busSet = busSet + [Buses[bus_i].split('.')[0]+'.'+str(node)]
+            NodeSet = NodeSet + [node]
+            trmlSet = trmlSet + [bus_i]
+        if bus_i + 1 < len(Buses):
+            print('Warning: not been through all buses in branches.')
+    
+    return YprimMat, tuple(busSet), tuple(brchSet), tuple(trmlSet)
+
+def getV2iBrY(DSSCircuit,YprimMat,busSet):
+    # get the modified voltage to branch current matrix for finding branch currents from voltages
+    YZ = DSSCircuit.YNodeOrder
+    idx = []
+    for bus in busSet:
+        if bus[-1]=='0':
+            idx = idx + [-1] # ground node
+        else:
+            try:
+                idx = idx + [YZ.index(bus)]
+            except:
+                idx = idx + [YZ.index(bus.upper())]
+    # YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
+    # YNodeVgnd = np.concatenate((YNodeV,np.array([0+0j])))
+    # YNodeVprim = YNodeVgnd[idx] # below is equivalent to this, but does not require reindexing
+    # Iprim = YprimMat.dot(YNodeVprim)
+    Adj = np.zeros((len(idx),DSSCircuit.NumNodes+1),dtype=int)
+    Adj[np.arange(0,len(idx)),idx] = 1
+    v2iBrY = YprimMat.dot(Adj)
+    v2iBrY = v2iBrY[:,:-1] # get rid of ground voltage
+    # Iprim = v2iBrY.dot(YNodeV)
+    return v2iBrY
+
+def printBrI(busSet,brchSet,Iprim):
+    # checking currents
+    i=0
+    for bus in busSet:
+        print(brchSet[i]+' bus: '+bus+', I real:'+str(Iprim[i].real)+', I imag:'+str(Iprim[i].imag))
+        i+=1

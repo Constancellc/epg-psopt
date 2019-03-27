@@ -90,7 +90,7 @@ def get_regIdx(DSSCircuit):
         regBus.append(bus)
         node = bus.split('.')[0]
         regIdx = regIdx + find_node_idx(node_to_YZ(DSSCircuit),bus,False)
-    return regIdx
+    return regIdx, regBus
 
 def get_reIdx(regIdx,n):
     reIdx = []
@@ -100,6 +100,35 @@ def get_reIdx(regIdx,n):
     reIdx = reIdx+regIdx
     return reIdx
 
+def get_regBrIdx(DSSCircuit,busSet,brchSet):
+    
+    regXfmrs=get_regXfmr(DSSCircuit) # needs to be in this order to match the index order of other fncs
+    regBus = []
+    regBrIdx = []
+    for regXfmr in regXfmrs:
+        DSSCircuit.SetActiveElement('Transformer.'+regXfmr)
+        idx0 = brchSet.index('Transformer.'+regXfmr)
+        buses = vecSlc(busSet,np.where(np.array(brchSet)=='Transformer.'+regXfmr)[0])
+        
+        if DSSCircuit.ActiveElement.NumPhases==1:
+            bus = DSSCircuit.ActiveElement.BusNames[1]
+        elif DSSCircuit.ActiveElement.NumPhases==3: # WARNING: assume connected to .1 (true is bus='')
+            if DSSCircuit.ActiveElement.BusNames[1].count('.')==4:
+                bus = DSSCircuit.ActiveElement.BusNames[1].split('.',1)[0] + '.1'
+            else:
+                bus = DSSCircuit.ActiveElement.BusNames[1]+'.1'
+        regBus.append(bus)
+        try:
+            idx1 = buses.index(bus)
+        except:
+            idx1 = buses.index(bus.lower())
+        regBrIdx = regBrIdx + [idx0 + idx1]
+        # regIdx = regIdx + find_node_idx(node_to_YZ(DSSCircuit),bus,False)
+    return regBrIdx
+    
+    
+    
+    
 def get_regVreg(DSSCircuit):
     i = DSSCircuit.RegControls.First
     regVreg = []
@@ -326,3 +355,8 @@ def get_regIdxMatS(YZx,zoneList,zoneSet,Kp,Kq,nreg,delta):
         i+=1
     regIdxMatS = np.concatenate((regIdxPx,1j*regIdxQx),axis=1)
     return regIdxMatS
+    
+    
+def getCurrentLinearization(DSSCircuit):
+    
+    sdf = 1

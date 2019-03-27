@@ -240,7 +240,7 @@ for fdr_i in fdr_i_set:
             pickle.dump(busCoords,handle)
 
     if saveBrchBuses:
-        branches = getBranchBuses(DSSCircuit,DSSText)
+        branches = getBranchBuses(DSSCircuit)
         if not os.path.exists(SD):
             os.makedirs(SD)
         with open(SBr,'wb') as handle:
