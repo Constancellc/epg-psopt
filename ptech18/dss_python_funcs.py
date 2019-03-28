@@ -449,10 +449,10 @@ def loadLinMagModel(feeder,lin_point,WD,lp_taps,regModel=True):
         
     if regModel:
         LM['WyReg'] = np.load(stt+'WyReg'+end)
-        LM['regBus'] = np.load(stt+'regBus'+end)
-        LM['WtReg'] = np.load(stt+'MtReg'+end)
+        LM['WregBus'] = np.load(stt+'WregBus'+end)
+        # LM['WtReg'] = np.load(stt+'MtReg'+end)
         LM['WtReg'] = np.load(stt+'WtReg'+end)
-        LM['aI'] = np.load(stt+'aIreg'+end)
+        LM['aIreg'] = np.load(stt+'aIreg'+end)
         try:
             LM['WdReg'] = np.load(stt+'WdReg'+end)
         except:
@@ -614,6 +614,7 @@ def getBranchYprims(DSSCircuit,branchNames):
     busSet = []
     brchSet = []
     trmlSet = []
+    unqIdent = []
     for branch in branchNames:
         DSSCircuit.SetActiveElement(branch)
         NodeOrder = DSSCircuit.ActiveElement.NodeOrder
@@ -638,10 +639,11 @@ def getBranchYprims(DSSCircuit,branchNames):
                 busSet = busSet + [Buses[bus_i].split('.')[0]+'.'+str(node)]
             NodeSet = NodeSet + [node]
             trmlSet = trmlSet + [bus_i]
+            unqIdent = unqIdent + [DSSCircuit.ActiveElement.Name+'..'+busSet[-1]]
         if bus_i + 1 < len(Buses):
             print('Warning: not been through all buses in branches.')
     
-    return YprimMat, tuple(busSet), tuple(brchSet), tuple(trmlSet)
+    return YprimMat, tuple(busSet), tuple(brchSet), tuple(trmlSet), tuple(unqIdent)
 
 def getV2iBrY(DSSCircuit,YprimMat,busSet):
     # get the modified voltage to branch current matrix for finding branch currents from voltages
@@ -666,9 +668,9 @@ def getV2iBrY(DSSCircuit,YprimMat,busSet):
     # Iprim = v2iBrY.dot(YNodeV)
     return v2iBrY
 
-def printBrI(busSet,brchSet,Iprim):
+def printBrI(Wunq,Iprim):
     # checking currents
     i=0
-    for bus in busSet:
-        print(brchSet[i]+' bus: '+bus+', I real:'+str(Iprim[i].real)+', I imag:'+str(Iprim[i].imag))
+    for unq in Wunq:
+        print(unq+':'+str(Iprim[i].real)+', I imag:'+str(Iprim[i].imag))
         i+=1

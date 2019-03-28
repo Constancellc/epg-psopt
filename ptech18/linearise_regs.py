@@ -18,7 +18,7 @@ DSSSolution=DSSCircuit.Solution
 # Things to do: 
 # 1. load a circuit;
 fdr_i_set = [5,6,8,9,22,19,20,21]
-fdr_i_set = [6]
+fdr_i_set = [5,6,8]
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
     feeder=fdrs[fdr_i]
@@ -36,6 +36,7 @@ for fdr_i in fdr_i_set:
     lin_points = np.array([0.3, 0.6, 1.0])
     lin_points = np.array([0.6])
     lin_points = False # use this if wanting to use the nominal point from chooseLinPoint.
+    # lin_points = np.array([1.0])
 
     with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
         lp0data = pickle.load(handle)
@@ -56,8 +57,10 @@ for fdr_i in fdr_i_set:
         v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
         
         branchNames = getBranchNames(DSSCircuit)
-        YprimMat, busSet, brchSet, trmlSet = getBranchYprims(DSSCircuit,branchNames)
-        v2iBrY = getV2iBrY(DSSCircuit,YprimMat,busSet)
+        YprimMat, WbusSet, WbrchSet, WtrmlSet, WunqIdent = getBranchYprims(DSSCircuit,branchNames)
+        v2iBrY = getV2iBrY(DSSCircuit,YprimMat,WbusSet)
+        YprimMat, WbusSet, WbrchSet, WtrmlSet, WunqIdent = getBranchYprims(DSSCircuit,branchNames)
+        regWlineIdx = getRegWlineIdx(DSSCircuit,WbusSet,WtrmlSet)
 
         
         try:
@@ -101,7 +104,8 @@ for fdr_i in fdr_i_set:
             DSSCircuit.RegControls.TapNumber = tap0
             j = DSSCircuit.RegControls.Next
             
-        WtReg = v2iBrY[:,3:].dot(dVdt_cplx)
+        Wt = v2iBrY[:,3:].dot(dVdt_cplx)
+        WtReg = v2iBrY[regWlineIdx,3:].dot(dVdt_cplx)
         
         lp_str = str(round(lin_point*100).astype(int)).zfill(3)
         header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn

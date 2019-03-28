@@ -7,7 +7,7 @@ import scipy.sparse.linalg as spla
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
 from dss_vlin_funcs import *
-from dss_voltage_funcs import get_regIdx
+from dss_voltage_funcs import get_regIdx, getRegWlineIdx
 
 WD = os.path.dirname(sys.argv[0])
 
@@ -33,7 +33,7 @@ saveCc = False
 verbose=True
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i_set = [6]
+fdr_i_set = [5,6,8]
 # fdr_i_set = [19,20,21]
 for fdr_i in fdr_i_set:
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -48,6 +48,7 @@ for fdr_i in fdr_i_set:
     lin_points=np.array([0.3,0.6,1.0])
     lin_points=np.array([0.6])
     lin_points=np.array([lp0data['k']])
+    # lin_points=np.array([1.0])
 
     k = np.arange(-1.5,1.6,0.1)
     # k = np.array([-1.5,-1.0,-0.5,0.0,0.3,lin_points[:],1.0,1.5]) # for speedier test model plotting
@@ -175,8 +176,8 @@ for fdr_i in fdr_i_set:
         
         # For regulation problems: save MyReg
         branchNames = getBranchNames(DSSCircuit)
-        YprimMat, busSet, brchSet, trmlSet = getBranchYprims(DSSCircuit,branchNames)
-        v2iBrY = getV2iBrY(DSSCircuit,YprimMat,busSet)
+        YprimMat, WbusSet, WbrchSet, WtrmlSet, WunqIdent = getBranchYprims(DSSCircuit,branchNames)
+        v2iBrY = getV2iBrY(DSSCircuit,YprimMat,WbusSet)
         
         Wy = v2iBrY[:,3:].dot(My)
         Wd = v2iBrY[:,3:].dot(Md)
@@ -188,15 +189,19 @@ for fdr_i in fdr_i_set:
         # plt.plot(abs(Iprim0)); plt.plot(abs(Iprim)) # for testing
         # plt.show()
         
-        # printBrI(busSet,brchSet,Iprim0)
-        # Ipri
-        regIdx,regBus = get_regIdx(DSSCircuit)
-        regIdx = np.array(regIdx)-3 # to match My order
+        # printBrI(WbusSet,WbrchSet,Iprim0)
+        regWlineIdx,regIdx = getRegWlineIdx(DSSCircuit,WbusSet,WtrmlSet)
         
-        WyReg = Wy[regIdx,:][:,s_idx]
-        aIreg = aI[regIdx]
+        WyReg = Wy[regWlineIdx,:][:,s_idx]
+        # aIreg = aI[regWlineIdx]
+        aIreg = aI[list(regWlineIdx)]
+        WregBus = vecSlc(WunqIdent,np.array(regWlineIdx))
         if len(H)!=0: # already gotten rid of s_idx
-            WdReg = Wd[regIdx,:]
+            WdReg = Wd[regWlineIdx,:]
+        
+        IprimReg = WyReg.dot(xhy0[s_idx]) + WdReg.dot(xhd0) + aIreg
+        printBrI(WregBus,IprimReg)
+        
         
         # now, check these are working
         v_0 = np.zeros((len(k),len(YNodeOrder)),dtype=complex)
@@ -269,7 +274,7 @@ for fdr_i in fdr_i_set:
             
             np.save(sn0+'WyReg'+lp_str+'.npy',WyReg)
             np.save(sn0+'aIreg'+lp_str+'.npy',aIreg)
-            np.save(sn0+'regBus'+lp_str+'.npy',regBus)
+            np.save(sn0+'WregBus'+lp_str+'.npy',WregBus)
             
             if len(H)!=0:
                 np.save(sn0+'Kd'+lp_str+'.npy',KdV)

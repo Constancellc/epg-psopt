@@ -360,3 +360,16 @@ def get_regIdxMatS(YZx,zoneList,zoneSet,Kp,Kq,nreg,delta):
 def getCurrentLinearization(DSSCircuit):
     
     sdf = 1
+    
+def getRegWlineIdx(DSSCircuit,WbusSet,WtrmlSet):
+    regIdx,regBus = get_regIdx(DSSCircuit)
+    regIdx = np.array(regIdx)-3 # to match My order
+    
+    regWidx = []
+    for reg in regBus:
+        regWidx0 = np.where(np.array(WbusSet)==reg)[0]
+        trmls = vecSlc(WtrmlSet,regWidx0)
+        regWidx = regWidx + [regWidx0[trmls.index(0)]] # this seems to quite reliably get the right index.
+    
+    
+    return tuple(regWidx), regIdx

@@ -19,6 +19,7 @@ from cvxopt import spmatrix
 from scipy import random
 import scipy.linalg as spla
 from win32com.client import makepy
+from dss_stats_funcs import vmM, mvM, vmvM
 
 print('Start.\n',time.process_time())
 
@@ -33,14 +34,14 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-test_model_plt = False
+# test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 save_model = True
 save_model = False
 
 fdr_i_set = [5,6,8]
-fdr_i_set = [6]
+fdr_i_set = [8]
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
     feeder=fdrs[fdr_i]
@@ -55,6 +56,7 @@ for fdr_i in fdr_i_set:
     fn = ckt[1]
     lin_point=0.6
     lin_point=False
+    # lin_point=1.0
     lp_taps='Lpt'
     sn0 = WD + '\\lin_models\\' + feeder
 
@@ -62,7 +64,6 @@ for fdr_i in fdr_i_set:
         lp0data = pickle.load(handle)
     if not lin_point:
         lin_point=lp0data['k']
-
 
     # 1. Nominal Voltage Solution at Linearization point. Load Linear models.
     DSSText.Command='Compile ('+fn+'.dss)'
@@ -90,7 +91,9 @@ for fdr_i in fdr_i_set:
 
     LM = loadLinMagModel(feeder,lin_point,WD,lp_taps)
     Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
-
+    Wy=LM['WyReg'];Wd=LM['WdReg'];Wt=LM['WtReg'];aIreg=LM['aIreg']
+    
+    
     # 2. Split the model into upstream/downstream.
     zoneList, regZonIdx0, zoneTree = get_regZneIdx(DSSCircuit)
     regZonIdx = (np.array(regZonIdx0[3:])-3).tolist()
@@ -140,11 +143,43 @@ for fdr_i in fdr_i_set:
     regIdxMat = np.concatenate((regIdxMatY,regIdxMatD),axis=1) # matrix used for finding power through regulators
     Sreg = regIdxMat.dot(xhR)/1e3; print(Sreg) # for debugging. Remember this is set as scaled at the lin point!
     
+    Vprim = tp_2_ar(DSSCircuit.YNodeVarray)[regIdx]
+    VprimAng = Vprim/abs(Vprim)
+    regIdx = get_regIdx(DSSCircuit)[0]
+    
+    Iprim = Wy.dot(xhy0) + Wd.dot(xhd0) + aIreg
+    
+    WyRot = vmM(VprimAng.conj(),Wy)
+    WdRot = vmM(VprimAng.conj(),Wd)
+    aIregRot = aIreg*VprimAng.conj()
+    IprimRot = WyRot.dot(xhy0) + WdRot.dot(xhd0) + aIregRot
+    
+    WyS = -vmM(abs(Vprim),WyRot).conj()[:,s_idx_shf]
+    WdS = -vmM(abs(Vprim),WdRot).conj()[:,sD_idx_shf]
+    aIregS = -(aIregRot*abs(Vprim)).conj()
+    
+    # WyS = -vmM(abs(Vprim),vmM(VprimAng.conj(),Wy)).conj()
+    # WdS = -vmM(abs(Vprim),vmM(VprimAng.conj(),Wd)).conj()
+    # aIregS = -aIreg*VprimAng.conj()*abs(Vprim).conj()
+    # aIregS = -(aIreg*(VprimAng.conj())*abs(Vprim)).conj() # new version
+    
+    WS = np.concatenate((WyS,WdS),axis=1)
+    
+    SregPrim = -1e-3*Vprim*(Iprim.conj()) # kva
+    SregPrimRot = -1e-3*abs(Vprim)*(IprimRot.conj()) # kva
+    SregNew0 = (WyS.dot(xhy0) + WdS.dot(xhd0) + aIregS)/1e3
+    SregNew = (WS.dot(xhR) + aIregS)/1e3
 
-    regIdxMatYs = regIdxMatY[:,0:len(xhy0)//2].real
-    regIdxMatDs = regIdxMatD[:,0:len(xhd0)//2].real
+    # # old version:
+    # regIdxMatYs = regIdxMatY[:,0:len(xhy0)//2].real
+    # regIdxMatDs = regIdxMatD[:,0:len(xhd0)//2].real
+    # regIdxMatVlts = -np.concatenate( (Rreg.dot(regIdxMatYs),Xreg.dot(regIdxMatYs),Rreg.dot(regIdxMatDs),Xreg.dot(regIdxMatDs)),axis=1 )
+    # new version:
+    regIdxMatYs = WyS[:,0:len(xhy0)//2].real
+    regIdxMatDs = WdS[:,0:len(xhd0)//2].real
     regIdxMatVlts = -np.concatenate( (Rreg.dot(regIdxMatYs),Xreg.dot(regIdxMatYs),Rreg.dot(regIdxMatDs),Xreg.dot(regIdxMatDs)),axis=1 )
-    # dVregRx = regIdxMatVlts.dot(xhR) # for debugging; output in volts.
+    
+    dVregRx = regIdxMatVlts.dot(xhR) # for debugging; output in volts.
     
 
     
