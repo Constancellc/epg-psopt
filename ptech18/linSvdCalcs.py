@@ -92,7 +92,7 @@ def plotHcVltn(mu_k,Vp_pct,ax=None,pltShow=True,feeder=None,lineStyle='.-',logSc
 class linModel:
     """Linear model class with a whole bunch of useful things that we can do with it."""
     
-    def __init__(self,fdr_i,WD):
+    def __init__(self,fdr_i,WD,Qon=False):
         
         fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
         fdrNetModels = [0,0,0,0,0,1,1,0,1,2,-1,-1,-1,-1,0,-1,-1,0,0,2,2,2,2]
@@ -101,6 +101,7 @@ class linModel:
         
         self.feeder = feeder
         self.WD = WD # for debugging
+        self.Qon = Qon
         
         self.netModelNom = fdrNetModels[fdr_i]
         
@@ -130,10 +131,13 @@ class linModel:
         LMfxd = loadLinMagModel(self.feeder,self.linPoint,WD,'Lpt',regModel=False)
         Kyfix=LMfxd['Ky'];Kdfix=LMfxd['Kd']
         dvBase = LMfxd['vKvbase'] # NB: this is different to vBase for ltc/regulator models!
-
-        KyPfix = Kyfix[:,:Kyfix.shape[1]//2]
-        KdPfix = Kdfix[:,:Kdfix.shape[1]//2]
-        Kfix = np.concatenate((KyPfix,KdPfix),axis=1)
+        
+        if Qon:
+            Kfix = np.concatenate((Kyfix,Kdfix),axis=1)
+        else:
+            KyPfix = Kyfix[:,:Kyfix.shape[1]//2]
+            KdPfix = Kdfix[:,:Kdfix.shape[1]//2]
+            Kfix = np.concatenate((KyPfix,KdPfix),axis=1)
         KfixCheck = np.sum(Kfix==0,axis=1)!=Kfix.shape[1] # [can't remember what this is for...]
         Kfix = Kfix[KfixCheck]
         dvBase = dvBase[KfixCheck]
@@ -172,6 +176,8 @@ class linModel:
 
             KyP = Ky[:,:Ky.shape[1]//2]
             KdP = Kd[:,:Kd.shape[1]//2]
+            Ktot = np.concatenate((KyP,KdP),axis=1)
+            self.KtotPu = dsf.vmM(1/self.vTotBase,Ktot) # scale to be in pu
         elif netModel>0:
             self.updateTotModel(A,bV)
             # self.b0ls = (A.dot(self.xNomTot*self.loadPointLo) + bV)/self.vTotBase # in pu

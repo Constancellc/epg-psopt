@@ -38,7 +38,6 @@ p0lin = np.array(p0lin)
 p10 = np.array(p10)
 p10lin = np.array(p10lin)
 
-
 # plt.subplot(221)
 # plt.bar(x-(dx/2),p0/pLoad,width=dx,zorder=3)
 # plt.bar(x+(dx/2),p0lin/pLoad,width=dx,zorder=3)

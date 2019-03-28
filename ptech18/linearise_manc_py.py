@@ -33,8 +33,8 @@ saveCc = False
 verbose=True
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i_set = [5,6,8]
-# fdr_i_set = [19,20,21]
+fdr_i_set = [5,6,8,0,14]
+fdr_i_set = [22]
 for fdr_i in fdr_i_set:
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']; lp_taps='Nmt'
@@ -100,7 +100,7 @@ for fdr_i in fdr_i_set:
 
         fix_tap_pos(DSSCircuit, TC_No0)
         DSSText.Command='Set Controlmode=off'
-        DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+        # DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
         DSSSolution.Solve()
         # BB00,SS00 = cpf_get_loads(DSSCircuit)
         
@@ -155,13 +155,21 @@ for fdr_i in fdr_i_set:
         DSSText.Command='Compile ('+fn+')'
         fix_tap_pos(DSSCircuit, TC_No0)
         DSSText.Command='Set controlmode=off'
-        DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+        # DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
 
         # NB!!! -3 required for models which have the first three elements chopped off!
         v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
         v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3 # NB: this is extremely slow! Try to load where possible
         v_idx = v_idx[v_idx>=0]
         YvbaseV = Yvbase[v_idx]
+        # For regulation problems
+        branchNames = getBranchNames(DSSCircuit)
+        print('Build Yprimmat',time.process_time())
+        YprimMat, WbusSet, WbrchSet, WtrmlSet, WunqIdent = getBranchYprims(DSSCircuit,branchNames)
+        print('Build v2iBrY',time.process_time())
+        
+        v2iBrY = getV2iBrY(DSSCircuit,YprimMat,WbusSet)
+        print('Complete',time.process_time())
         
         p_idx = np.array(sY[3:].nonzero())
         s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)[0]
@@ -170,38 +178,24 @@ for fdr_i in fdr_i_set:
         aV = a[v_idx]
         KyV = Ky[v_idx,:][:,s_idx]
         bV = b[v_idx]
+        Wy = v2iBrY[:,3:].dot(My)
+        aI = v2iBrY.dot(np.concatenate((V0,a)))
         if len(H)!=0: # already gotten rid of s_idx
             MdV = Md[v_idx,:]
             KdV = Kd[v_idx,:]
-        
-        # For regulation problems: save MyReg
-        branchNames = getBranchNames(DSSCircuit)
-        YprimMat, WbusSet, WbrchSet, WtrmlSet, WunqIdent = getBranchYprims(DSSCircuit,branchNames)
-        v2iBrY = getV2iBrY(DSSCircuit,YprimMat,WbusSet)
-        
-        Wy = v2iBrY[:,3:].dot(My)
-        Wd = v2iBrY[:,3:].dot(Md)
-        aI = v2iBrY.dot(np.concatenate((V0,a)))
-        
-        Iprim = Wy.dot(xhy0) + Wd.dot(xhd0) + aI
-        Iprim0 = v2iBrY.dot(np.concatenate((V0,Vh0)))
-        
-        # plt.plot(abs(Iprim0)); plt.plot(abs(Iprim)) # for testing
-        # plt.show()
-        
-        # printBrI(WbusSet,WbrchSet,Iprim0)
+            Wd = v2iBrY[:,3:].dot(Md)
         regWlineIdx,regIdx = getRegWlineIdx(DSSCircuit,WbusSet,WtrmlSet)
         
         WyReg = Wy[regWlineIdx,:][:,s_idx]
-        # aIreg = aI[regWlineIdx]
         aIreg = aI[list(regWlineIdx)]
         WregBus = vecSlc(WunqIdent,np.array(regWlineIdx))
         if len(H)!=0: # already gotten rid of s_idx
             WdReg = Wd[regWlineIdx,:]
         
-        IprimReg = WyReg.dot(xhy0[s_idx]) + WdReg.dot(xhd0) + aIreg
-        printBrI(WregBus,IprimReg)
-        
+        # IprimReg = WyReg.dot(xhy0[s_idx]) + WdReg.dot(xhd0) + aIreg # for debugging
+        # Iprim = Wy.dot(xhy0) + Wd.dot(xhd0) + aI # for debugging
+        # Iprim0 = v2iBrY.dot(np.concatenate((V0,Vh0))) # for debugging
+        # printBrI(WregBus,IprimReg) # for debugging. Note: there seem to be some differences between python and opendss native.
         
         # now, check these are working
         v_0 = np.zeros((len(k),len(YNodeOrder)),dtype=complex)
@@ -364,3 +358,16 @@ for fdr_i in fdr_i_set:
             if i==0:
                 plt.ylabel('Voltage Angle (rads)')
         plt.show()
+        
+
+
+# # stupid bug when solving, different voltages compared to opendss native V V V V
+# DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
+# DSSText=DSSObj.Text
+# DSSCircuit = DSSObj.ActiveCircuit
+# DSSSolution=DSSCircuit.Solution
+
+# DSSText.Command='Compile ('+fn+'.dss)'
+# YNodeOrder = DSSCircuit.YNodeOrder
+# YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
+# printBrI(YNodeOrder,abs(YNodeV)/1e3)

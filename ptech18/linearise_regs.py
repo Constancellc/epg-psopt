@@ -18,7 +18,7 @@ DSSSolution=DSSCircuit.Solution
 # Things to do: 
 # 1. load a circuit;
 fdr_i_set = [5,6,8,9,22,19,20,21]
-fdr_i_set = [5,6,8]
+fdr_i_set = [20,21]
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
     feeder=fdrs[fdr_i]
@@ -60,7 +60,7 @@ for fdr_i in fdr_i_set:
         YprimMat, WbusSet, WbrchSet, WtrmlSet, WunqIdent = getBranchYprims(DSSCircuit,branchNames)
         v2iBrY = getV2iBrY(DSSCircuit,YprimMat,WbusSet)
         YprimMat, WbusSet, WbrchSet, WtrmlSet, WunqIdent = getBranchYprims(DSSCircuit,branchNames)
-        regWlineIdx = getRegWlineIdx(DSSCircuit,WbusSet,WtrmlSet)
+        regWlineIdx = getRegWlineIdx(DSSCircuit,WbusSet,WtrmlSet)[0]
 
         
         try:

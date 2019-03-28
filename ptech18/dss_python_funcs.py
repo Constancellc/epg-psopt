@@ -1,5 +1,5 @@
 import numpy as np
-import os
+import os, time
 from scipy import sparse
 from cvxopt import matrix
 
@@ -20,10 +20,16 @@ def s_2_x(s):
     return np.concatenate((s.real,s.imag))
 
 def vecSlc(vec_like,new_idx):
-    if type(vec_like)==tuple:
-        vec_slc = tuple(np.array(vec_like)[new_idx].tolist())
-    elif type(vec_like)==list:
-        vec_slc = np.array(vec_like)[new_idx].tolist()
+    if len(new_idx)==0:
+        if type(vec_like)==tuple:
+            vec_slc = ()
+        elif type(vec_like)==list:
+            vec_slc = []
+    else:
+        if type(vec_like)==tuple:
+            vec_slc = tuple(np.array(vec_like)[new_idx].tolist())
+        elif type(vec_like)==list:
+            vec_slc = np.array(vec_like)[new_idx].tolist()
     return vec_slc
 
 def yzD2yzI(yzD,n2y):
@@ -456,7 +462,7 @@ def loadLinMagModel(feeder,lin_point,WD,lp_taps,regModel=True):
         try:
             LM['WdReg'] = np.load(stt+'WdReg'+end)
         except:
-            LM['WdReg'] = np.empty(shape=(LM['WdReg'].shape[0],0))
+            LM['WdReg'] = np.empty(shape=(LM['WtReg'].shape[0],0))
     return LM
     
 def loadLtcModel(feeder,lin_point,WD,lp_taps):
@@ -609,7 +615,8 @@ def countBranchNodes(DSSCircuit):
 
 def getBranchYprims(DSSCircuit,branchNames):
     nbNodes = countBranchNodes(DSSCircuit)
-    YprimMat = np.zeros((nbNodes,nbNodes),dtype=complex)
+    # YprimMat = np.zeros((nbNodes,nbNodes),dtype=complex)
+    YprimMat = sparse.lil_matrix((nbNodes,nbNodes),dtype=complex)
     Yprim_i = 0
     busSet = []
     brchSet = []
@@ -643,7 +650,8 @@ def getBranchYprims(DSSCircuit,branchNames):
         if bus_i + 1 < len(Buses):
             print('Warning: not been through all buses in branches.')
     
-    return YprimMat, tuple(busSet), tuple(brchSet), tuple(trmlSet), tuple(unqIdent)
+    return YprimMat.tocsr(), tuple(busSet), tuple(brchSet), tuple(trmlSet), tuple(unqIdent)
+    # return sparse.csr_matrix(YprimMat), tuple(busSet), tuple(brchSet), tuple(trmlSet), tuple(unqIdent)
 
 def getV2iBrY(DSSCircuit,YprimMat,busSet):
     # get the modified voltage to branch current matrix for finding branch currents from voltages
@@ -656,21 +664,26 @@ def getV2iBrY(DSSCircuit,YprimMat,busSet):
             try:
                 idx = idx + [YZ.index(bus)]
             except:
-                idx = idx + [YZ.index(bus.upper())]
+                try:
+                    idx = idx + [YZ.index(bus.upper())]
+                except:
+                    idx = idx + [-1]
+                    print('Bus '+bus+' not found, set to ground.')
     # YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
     # YNodeVgnd = np.concatenate((YNodeV,np.array([0+0j])))
     # YNodeVprim = YNodeVgnd[idx] # below is equivalent to this, but does not require reindexing
     # Iprim = YprimMat.dot(YNodeVprim)
-    Adj = np.zeros((len(idx),DSSCircuit.NumNodes+1),dtype=int)
+    Adj = sparse.lil_matrix((len(idx),DSSCircuit.NumNodes+1),dtype=int) # NB if not sparse this step is very slow <----!
     Adj[np.arange(0,len(idx)),idx] = 1
+    Adj.tocsr()
     v2iBrY = YprimMat.dot(Adj)
     v2iBrY = v2iBrY[:,:-1] # get rid of ground voltage
     # Iprim = v2iBrY.dot(YNodeV)
     return v2iBrY
 
 def printBrI(Wunq,Iprim):
-    # checking currents
-    i=0
+    i=0 # checking currents
     for unq in Wunq:
         print(unq+':'+str(Iprim[i].real)+', I imag:'+str(Iprim[i].imag))
         i+=1
+
