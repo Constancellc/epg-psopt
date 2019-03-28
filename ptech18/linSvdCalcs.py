@@ -127,7 +127,7 @@ class linModel:
             self.branches = pickle.load(handle)
         
         # load the fixed model, as this always exists
-        LMfxd = loadLinMagModel(self.feeder,self.linPoint,WD,'Lpt')
+        LMfxd = loadLinMagModel(self.feeder,self.linPoint,WD,'Lpt',regModel=False)
         Kyfix=LMfxd['Ky'];Kdfix=LMfxd['Kd']
         dvBase = LMfxd['vKvbase'] # NB: this is different to vBase for ltc/regulator models!
 
@@ -151,7 +151,7 @@ class linModel:
         
         if netModel==0:
             # IF using the FIXED model:
-            LM = loadLinMagModel(self.feeder,self.linPoint,self.WD,'Lpt')
+            LM = loadLinMagModel(self.feeder,self.linPoint,self.WD,'Lpt',regModel=False)
             Ky=LM['Ky'];Kd=LM['Kd'];bV=LM['bV']
             self.vTotBase = LM['vKvbase']
         else:
@@ -311,7 +311,7 @@ class linModel:
             y_ = btm+(top-btm)*(i/2)-((top-btm)*0.075)
             plt.annotate('  '+tcks[i]+units,(xcrd,y_))
         
-    def plotNetBuses(self,type,regsOn=True,pltShow=True):
+    def plotNetBuses(self,type,regsOn=True,pltShow=True,minMax=None):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         self.getBusPhs()
@@ -328,6 +328,9 @@ class linModel:
                 logVar = np.log10(self.KtotUvar)
             logVar[(logVar - np.mean(logVar))/np.std(logVar) < -3] = np.nan
             setMean, setMeanMinMax = self.getSetMean(logVar)
+        
+        if minMax!=None:
+            setMeanMinMax = minMax
         
         self.plotBuses(ax,setMean,setMeanMinMax)
         self.plotRegs(ax)

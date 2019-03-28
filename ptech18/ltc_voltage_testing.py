@@ -129,7 +129,7 @@ for fdr_i in fdr_i_set:
 
     xhR = np.concatenate((xhy0[s_idx_shf],xhd0[sD_idx_shf]))
 
-    # 3. FIND LTC MATRICES ====
+    # 3. FIND LTC MATRICES ==== NB: this can definitely be tidied up VVVVVV
     rReg,xReg = getRxVltsMat(DSSCircuit)
     Rreg = np.diag(rReg)
     Xreg = np.diag(xReg)
