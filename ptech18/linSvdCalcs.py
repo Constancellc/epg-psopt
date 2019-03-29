@@ -91,8 +91,7 @@ def plotHcVltn(mu_k,Vp_pct,ax=None,pltShow=True,feeder=None,lineStyle='.-',logSc
 # =================================== CLASS: linModel
 class linModel:
     """Linear model class with a whole bunch of useful things that we can do with it."""
-    
-    def __init__(self,fdr_i,WD,Qon=False):
+    def __init__(self,fdr_i,WD,QgenPf=1.00):
         
         fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
         fdrNetModels = [0,0,0,0,0,1,1,0,1,2,-1,-1,-1,-1,0,-1,-1,0,0,2,2,2,2]
@@ -101,7 +100,7 @@ class linModel:
         
         self.feeder = feeder
         self.WD = WD # for debugging
-        self.Qon = Qon
+        self.QgenPf = QgenPf # nominally have a unity pf
         
         self.netModelNom = fdrNetModels[fdr_i]
         
@@ -132,23 +131,37 @@ class linModel:
         Kyfix=LMfxd['Ky'];Kdfix=LMfxd['Kd']
         dvBase = LMfxd['vKvbase'] # NB: this is different to vBase for ltc/regulator models!
         
-        if Qon:
-            Kfix = np.concatenate((Kyfix,Kdfix),axis=1)
-        else:
-            KyPfix = Kyfix[:,:Kyfix.shape[1]//2]
-            KdPfix = Kdfix[:,:Kdfix.shape[1]//2]
-            Kfix = np.concatenate((KyPfix,KdPfix),axis=1)
-        KfixCheck = np.sum(Kfix==0,axis=1)!=Kfix.shape[1] # [can't remember what this is for...]
-        Kfix = Kfix[KfixCheck]
-        dvBase = dvBase[KfixCheck]
-        
         self.LMfxd = {'Ky':Kyfix,'Kd':Kdfix,'bV':LMfxd['bV'],'Kt':LMfxd['Kt']}
-        
         self.dvBase = dvBase
-        self.KfixPu = dsf.vmM(1/dvBase,Kfix)
         self.vFixYNodeOrder = LMfxd['vYNodeOrder']
         self.v_idx_fix = LMfxd['v_idx']
-    
+        self.updateFxdModel()
+        # KyPfix = Kyfix[:,:Kyfix.shape[1]//2]
+        # KyQfix = Kyfix[:,Kyfix.shape[1]//2::]
+        # KdPfix = Kdfix[:,:Kdfix.shape[1]//2]
+        # KdQfix = Kdfix[:,Kdfix.shape[1]//2::]
+        # k_Q = pf2kq(self.QgenPf)
+        # Kfix = np.concatenate((KyPfix+k_Q*KyQfix,KdPfix + k_Q*KdQfix),axis=1)
+        # self.KfixPu = dsf.vmM(1/dvBase,Kfix)
+        
+        # KfixCheck = np.sum(Kfix==0,axis=1)!=Kfix.shape[1] # [can't remember what this is for...]
+        # Kfix = Kfix[KfixCheck]
+        # dvBase = dvBase[KfixCheck]
+        
+    def updateFxdModel(self):
+        Ky = self.LMfxd['Ky']
+        Kd = self.LMfxd['Kd']
+        
+        KyPfix = Ky[:,:Ky.shape[1]//2]
+        KyQfix = Ky[:,Ky.shape[1]//2::]
+        KdPfix = Kd[:,:Kd.shape[1]//2]
+        KdQfix = Kd[:,Kd.shape[1]//2::]
+        
+        k_Q = pf2kq(self.QgenPf)
+        
+        Kfix = np.concatenate((KyPfix+k_Q*KyQfix,KdPfix + k_Q*KdQfix),axis=1)
+        self.KfixPu = dsf.vmM(1/self.dvBase,Kfix)
+        
     def loadNetModel(self,netModel=None):
         if netModel==None:
             netModel = self.netModelNom
@@ -158,6 +171,7 @@ class linModel:
             LM = loadLinMagModel(self.feeder,self.linPoint,self.WD,'Lpt',regModel=False)
             Ky=LM['Ky'];Kd=LM['Kd'];bV=LM['bV']
             self.vTotBase = LM['vKvbase']
+            A = np.concatenate((Ky,Kd),axis=1)
         else:
             # IF using the LTC of DCP model:
             LM = loadNetModel(self.feeder,self.linPoint,self.WD,'Lpt',netModel)
@@ -170,25 +184,7 @@ class linModel:
         self.xNomTot = np.concatenate((self.xhyNtot,self.xhdNtot))
         self.vTotYNodeOrder = LM['vYNodeOrder']
         
-        if not netModel: # needed seperately because of Y/D concatenation of powers.
-            self.b0ls = (Ky.dot(self.xhyNtot*self.loadPointLo) + Kd.dot(self.xhdNtot*self.loadPointLo) + bV)/self.vTotBase # in pu
-            self.b0hs = (Ky.dot(self.xhyNtot*self.loadPointHi) + Kd.dot(self.xhdNtot*self.loadPointHi) + bV)/self.vTotBase # in pu
-
-            KyP = Ky[:,:Ky.shape[1]//2]
-            KdP = Kd[:,:Kd.shape[1]//2]
-            Ktot = np.concatenate((KyP,KdP),axis=1)
-            self.KtotPu = dsf.vmM(1/self.vTotBase,Ktot) # scale to be in pu
-        elif netModel>0:
-            self.updateTotModel(A,bV)
-            # self.b0ls = (A.dot(self.xNomTot*self.loadPointLo) + bV)/self.vTotBase # in pu
-            # self.b0hs = (A.dot(self.xNomTot*self.loadPointHi) + bV)/self.vTotBase # in pu
-            
-            # KyP = A[:,0:len(xhy0)//2] # these might be zero if there is no injection (e.g. only Q)
-            # KdP = A[:,len(xhy0):len(xhy0) + (len(xhd0)//2)]
-            
-        # Ktot = np.concatenate((KyP,KdP),axis=1)
-        # self.KtotPu = dsf.vmM(1/self.vTotBase,Ktot) # scale to be in pu
-        
+        self.updateTotModel(A,bV)
         
         if netModel==2: # decoupling regulator model
             self.idxShf = LM['idxShf']
@@ -603,9 +599,14 @@ class linModel:
         self.b0hs = (A.dot(self.xNomTot*self.loadPointHi) + bV)/self.vTotBase # in pu
         
         KyP = A[:,0:len(self.xhyNtot)//2] # these might be zero if there is no injection (e.g. only Q)
+        KyQ = A[:,len(self.xhyNtot)//2:len(self.xhyNtot)]
         KdP = A[:,len(self.xhyNtot):len(self.xhyNtot) + (len(self.xhdNtot)//2)]
+        KdQ = A[:,len(self.xhyNtot) + (len(self.xhdNtot)//2)::]
         
-        Ktot = np.concatenate((KyP,KdP),axis=1)
+        k_Q = pf2kq(self.QgenPf)
+        
+        Ktot = np.concatenate((KyP + k_Q*KyQ,KdP + k_Q*KdQ),axis=1)
+        
         self.KtotPu = dsf.vmM(1/self.vTotBase,Ktot) # scale to be in pu
         
         

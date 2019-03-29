@@ -687,3 +687,5 @@ def printBrI(Wunq,Iprim):
         print(unq+':'+str(Iprim[i].real)+', I imag:'+str(Iprim[i].imag))
         i+=1
 
+def pf2kq(pf):
+    return np.sqrt(1 - pf**2)/pf

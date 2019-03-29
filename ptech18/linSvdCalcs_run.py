@@ -23,33 +23,33 @@ pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
 # pdfName = 'gammaXoff'; prms=(np.concatenate((0.33*np.ones((1,19)),np.array([30*np.arange(0.05,1.0,0.05)])),axis=0)).T
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i = 21
+fdr_i = 0
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 
-print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
-LM = linModel(fdr_i,WD,Qon=False)
-LM.loadNetModel(LM.netModelNom)
+# print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
+# LM = linModel(fdr_i,WD,QgenPf=1.0)
+# LM.loadNetModel(LM.netModelNom)
 
-pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
-Mu0 = pdf.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot)
+# pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+# Mu0 = pdf.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot)
 
-# Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0][0])
-Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0])
-LM.busViolationVar(Sgm)
-LM.makeStdModel()
-LM.getCovMat()
+# # Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0][0])
+# Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0])
+# LM.busViolationVar(Sgm)
+# # LM.makeStdModel()
+# # LM.getCovMat()
 
-LM.makeCorrModel()
+# LM.makeCorrModel()
 # LM.corrPlot()
 # LM.plotNetBuses('vLo')
 
 
 # print('Minimum HC:',np.nanmin(LM.linHcRsl['hcGenSet']))
 
-LM.makeStdModel(stdLim=[0.90])
-LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
-plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
-# plt.plot(prms[:,1],LM.linHcRsl['Cns_pct'][:,0],'--')
+# LM.makeStdModel(stdLim=[0.90])
+# LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
+# plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+# # plt.plot(prms[:,1],LM.linHcRsl['Cns_pct'][:,0],'--')
 
 # LM.makeCorrModel(stdLim=0.90,corrLim=[0.95])
 # LM.runLinHc(nMc,pdf.pdf,model='cor') # model options: nom / std / cor / mxt ?
@@ -59,7 +59,43 @@ plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # plt.show()
 
 
+
+
+# # ============================ EXAMPLE: change Q for epri5
+fdr_i = 17
+print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
+LM = linModel(fdr_i,WD,QgenPf=1.0)
+LM.loadNetModel(LM.netModelNom)
+
+pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
+pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+Mu0 = pdf.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot)
+Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0])
+
+LM.busViolationVar(Sgm)
+LM.makeStdModel()
+LM.getCovMat()
+
+LM.plotNetBuses('logVar',pltShow=True)
+LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
+plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+
+LM = linModel(fdr_i,WD,QgenPf=-0.90)
+LM.loadNetModel(LM.netModelNom)
+LM.busViolationVar(Sgm)
+LM.makeStdModel()
+LM.getCovMat()
+
+LM.plotNetBuses('logVar',pltShow=True)
+LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
+plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+plt.show()
+# ====================================
+
+
+
 # # ============================ EXAMPLE: change Vreg for K1
+# fdr_i = 20
 # print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
 # LM = linModel(fdr_i,WD)
 # LM.loadNetModel(LM.netModelNom)
