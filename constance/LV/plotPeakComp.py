@@ -88,6 +88,7 @@ plt.rcParams['font.size'] = 9
 # whiskers
 plt.scatter(range(1,len(m)+1),l,marker='_',c='gray')
 plt.scatter(range(1,len(m)+1),u,marker='_',c='gray')
+#plt.scatter(range(1,len(m)+1),[0]*len(u),marker='x',c='r')
 for i in range(len(m)):
     plt.plot([i+1,i+1],[l[i],q1[i]],c='gray')
     plt.plot([i+1,i+1],[q3[i],u[i]],c='gray')
@@ -97,11 +98,16 @@ for i in range(len(m)):
     x_ticks.append(str(i+1)+'\n('+str(hhs[fds[i]])+')')
 # box
 for i in range(len(m)):
-    plt.plot([i+0.61,i+1.39],[m[i],m[i]],c='b',lw='2')
+    plt.plot([i+0.72,i+1.28],[0,0],c='r',lw='2')
+    plt.plot([i+0.62,i+1.38],[m[i],m[i]],c='b',lw='2')
     plt.plot([i+0.6,i+1.4],[q1[i],q1[i]],c='k')
     plt.plot([i+0.6,i+1.4],[q3[i],q3[i]],c='k')
     plt.plot([i+1.4,i+1.4],[q1[i],q3[i]],c='k')
     plt.plot([i+0.6,i+0.6],[q1[i],q3[i]],c='k')
+    #plt.plot([i+0.7,i+1.3],[0,0],c='k',ls='--')
+    #plt.plot([i+0.7,i+1.3],[-0.01,-0.01],c='k',ls='--')
+    plt.plot([i+1.3,i+1.3],[-0.005,0.005],c='k',ls='--')
+    plt.plot([i+0.7,i+0.7],[-0.005,0.005],c='k',ls='--')
 plt.xticks(range(1,len(m)+1),x_ticks)
 plt.ylabel('30 min Peak Demand\nIncrease (kW/household)')
 plt.grid(linestyle=':')

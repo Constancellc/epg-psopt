@@ -107,14 +107,14 @@ plt.ylabel('Losses reduction (Wh per household)')
 plt.grid(linestyle=':')
 plt.tight_layout()
 
-rect = pat.Rectangle((0.5,91),2.9,35,facecolor='w',edgecolor='gray',zorder=2)
+rect = pat.Rectangle((0.5,91),3.4,35,facecolor='w',edgecolor='gray',zorder=2)
 ax.add_patch(rect)
 draw_box(0.6,110,1.2,120,'k','-')
 draw_box(0.65,95,1.15,105,'k',':')
 plt.plot([0.62,1.18],[115,115],c='b',lw='2')
 plt.plot([0.67,1.13],[100,100],c='r',lw='2')
 plt.annotate('Loss Minimizing',(1.3,113))
-plt.annotate('Phase Balancing',(1.3,98))
+plt.annotate('LF+Phase Balancing',(1.3,98))
 
 plt.savefig('../../../Dropbox/papers/losses/img/losses_comp.eps', format='eps',
             dpi=1000, bbox_inches='tight', pad_inches=0)
