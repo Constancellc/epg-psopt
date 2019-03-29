@@ -23,18 +23,20 @@ DSSSolution.Tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
 test_model = True
-test_model = False
+# test_model = False
 test_model_bus = True
 test_model_bus = False
 saveModel = True
-# saveModel = False
+saveModel = False
 saveCc = True
-saveCc = False
+# saveCc = False
 verbose=True
+calcReg=True
+calcReg=False
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 fdr_i_set = [5,6,8,0,14]
-fdr_i_set = [22]
+fdr_i_set = [20]
 for fdr_i in fdr_i_set:
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']; lp_taps='Nmt'
@@ -48,7 +50,7 @@ for fdr_i in fdr_i_set:
     lin_points=np.array([0.3,0.6,1.0])
     lin_points=np.array([0.6])
     lin_points=np.array([lp0data['k']])
-    # lin_points=np.array([1.0])
+    lin_points=np.array([1.0])
 
     k = np.arange(-1.5,1.6,0.1)
     # k = np.array([-1.5,-1.0,-0.5,0.0,0.3,lin_points[:],1.0,1.5]) # for speedier test model plotting
@@ -162,14 +164,6 @@ for fdr_i in fdr_i_set:
         v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3 # NB: this is extremely slow! Try to load where possible
         v_idx = v_idx[v_idx>=0]
         YvbaseV = Yvbase[v_idx]
-        # For regulation problems
-        branchNames = getBranchNames(DSSCircuit)
-        print('Build Yprimmat',time.process_time())
-        YprimMat, WbusSet, WbrchSet, WtrmlSet, WunqIdent = getBranchYprims(DSSCircuit,branchNames)
-        print('Build v2iBrY',time.process_time())
-        
-        v2iBrY = getV2iBrY(DSSCircuit,YprimMat,WbusSet)
-        print('Complete',time.process_time())
         
         p_idx = np.array(sY[3:].nonzero())
         s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)[0]
@@ -178,19 +172,30 @@ for fdr_i in fdr_i_set:
         aV = a[v_idx]
         KyV = Ky[v_idx,:][:,s_idx]
         bV = b[v_idx]
-        Wy = v2iBrY[:,3:].dot(My)
-        aI = v2iBrY.dot(np.concatenate((V0,a)))
-        if len(H)!=0: # already gotten rid of s_idx
-            MdV = Md[v_idx,:]
-            KdV = Kd[v_idx,:]
-            Wd = v2iBrY[:,3:].dot(Md)
-        regWlineIdx,regIdx = getRegWlineIdx(DSSCircuit,WbusSet,WtrmlSet)
         
-        WyReg = Wy[regWlineIdx,:][:,s_idx]
-        aIreg = aI[list(regWlineIdx)]
-        WregBus = vecSlc(WunqIdent,np.array(regWlineIdx))
-        if len(H)!=0: # already gotten rid of s_idx
-            WdReg = Wd[regWlineIdx,:]
+        
+        # For regulation problems
+        if calcReg:
+            branchNames = getBranchNames(DSSCircuit)
+            print('Build Yprimmat',time.process_time())
+            YprimMat, WbusSet, WbrchSet, WtrmlSet, WunqIdent = getBranchYprims(DSSCircuit,branchNames)
+            print('Build v2iBrY',time.process_time())
+            
+            v2iBrY = getV2iBrY(DSSCircuit,YprimMat,WbusSet)
+            print('Complete',time.process_time())
+            Wy = v2iBrY[:,3:].dot(My)
+            aI = v2iBrY.dot(np.concatenate((V0,a)))
+            if len(H)!=0: # already gotten rid of s_idx
+                MdV = Md[v_idx,:]
+                KdV = Kd[v_idx,:]
+                Wd = v2iBrY[:,3:].dot(Md)
+            regWlineIdx,regIdx = getRegWlineIdx(DSSCircuit,WbusSet,WtrmlSet)
+            
+            WyReg = Wy[regWlineIdx,:][:,s_idx]
+            aIreg = aI[list(regWlineIdx)]
+            WregBus = vecSlc(WunqIdent,np.array(regWlineIdx))
+            if len(H)!=0: # already gotten rid of s_idx
+                WdReg = Wd[regWlineIdx,:]
         
         # IprimReg = WyReg.dot(xhy0[s_idx]) + WdReg.dot(xhd0) + aIreg # for debugging
         # Iprim = Wy.dot(xhy0) + Wd.dot(xhd0) + aI # for debugging
@@ -237,7 +242,7 @@ for fdr_i in fdr_i_set:
                     vv_l[i,:] = MyV.dot(xhy[s_idx]) + MdV.dot(xhd) + aV
                     vva_l[i,:] = KyV.dot(xhy[s_idx]) + KdV.dot(xhd) + bV
 
-                vae[i,K] = np.linalg.norm( (va_l[i,:] - va_0[i,3:])/Yvbase )/np.linalg.norm(va_0[i,3:]/Yvbase) # these are very slow for the bigger networks!
+                # vae[i,K] = np.linalg.norm( (va_l[i,:] - va_0[i,3:])/Yvbase )/np.linalg.norm(va_0[i,3:]/Yvbase) # these are very slow for the bigger networks!
                 
                 vve[i,K] = np.linalg.norm( (vv_l[i,:] - vv_0[i,:])/YvbaseV )/np.linalg.norm(vv_0[i,:]/YvbaseV)
                 vvae[i,K] = np.linalg.norm( (vva_l[i,:] - vva_0[i,:])/YvbaseV )/np.linalg.norm(vva_0[i,:]/YvbaseV)
@@ -245,6 +250,11 @@ for fdr_i in fdr_i_set:
                 
                 # plt.plot(abs(v_l[i]/Yvbase),'rx-')
                 # plt.plot(abs(v_0[i,3:]/Yvbase),'ko-')
+                
+        vYNodeOrder = vecSlc(YNodeOrder[3:],v_idx)
+        SyYNodeOrder = vecSlc(YNodeOrder[3:],p_idx)[0]
+        SdYNodeOrder = yzD
+        
         if saveModel:
             header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
             lp_str = str(round(lin_point*100).astype(int)).zfill(3)
@@ -261,9 +271,9 @@ for fdr_i in fdr_i_set:
             
             
             np.save(sn0+'vKvbase'+lp_str+'.npy',YvbaseV)
-            np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vecSlc(YNodeOrder[3:],v_idx))
-            np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',vecSlc(YNodeOrder[3:],p_idx)[0])
-            np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',yzD)
+            np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vYNodeOrder)
+            np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',SyYNodeOrder)
+            np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',SdYNodeOrder)
             
             
             np.save(sn0+'WyReg'+lp_str+'.npy',WyReg)
@@ -303,6 +313,7 @@ for fdr_i in fdr_i_set:
         lp_str = str(round(lin_point*100).astype(int)).zfill(3)
         MyCC = My[:,s_idx]
         xhyCC = xhy0[s_idx]
+        
         aCC = a
         V0CC = V0
         YbusCC = Ybus
@@ -318,16 +329,21 @@ for fdr_i in fdr_i_set:
 
         if not os.path.exists(dirCC):
             os.makedirs(dirCC)
-
+        
+        np.save(snCC+'vYNodeOrder'+lp_str+'.npy',vYNodeOrder)
+        np.save(snCC+'SyYNodeOrder'+lp_str+'.npy',SyYNodeOrder)
+            
         np.save(snCC+'MyCc'+lp_str+'.npy',MyCC)
         np.save(snCC+'xhyCc'+lp_str+'.npy',xhyCC)
         np.save(snCC+'aCc'+lp_str+'.npy',aCC)
         np.save(snCC+'V0Cc'+lp_str+'.npy',V0CC)
         np.save(snCC+'YbusCc'+lp_str+'.npy',YbusCC)
         np.save(snCC+'YNodeOrderCc'+lp_str+'.npy',YNodeOrder)
+        
         np.save(snCC+'loadBusesCc'+lp_str+'.npy',[loadBuses]) # nb likely to be similar to vecSlc(YNodeOrder[3:],p_idx)?
         # loadsDict = np.load(snCC+'loadBusesCc'+lp_str+'.npy')[0]
 
+    
     if test_model_bus:
 
         # plt.plot(abs(vv_0[idxs[2]]),'o')

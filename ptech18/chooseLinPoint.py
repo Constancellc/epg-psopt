@@ -19,7 +19,7 @@ DSSSolution.Tolerance=1e-7
 pltVxtrm = True
 pltVxtrm = False
 savePts = True
-# savePts = False
+savePts = False
 saveBusCoords = True
 # saveBusCoords = False
 saveBrchBuses = True
@@ -41,7 +41,7 @@ VmMv = 0.95
 VmLv = 0.92
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i_set = [22]
+# fdr_i_set = [20]
 for fdr_i in fdr_i_set:
     # fdr_i = 17
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -52,6 +52,7 @@ for fdr_i in fdr_i_set:
     SD = os.path.join(WD,'lin_models',feeder,'chooseLinPoint')
     SN = os.path.join(SD,'chooseLinPoint')+'.pkl'
     SB = os.path.join(SD,'busCoords')+'.pkl'
+    SBa = os.path.join(SD,'busCoordsAug')+'.pkl'
     SBr = os.path.join(SD,'branches')+'.pkl'
 
     ckt = get_ckt(WD,feeder)
@@ -231,13 +232,15 @@ for fdr_i in fdr_i_set:
         with open(SN,'wb') as handle:
             pickle.dump(dataOut,handle)
             
-
     if saveBusCoords:
         busCoords = getBusCoords(DSSCircuit,DSSText)
+        busCoordsAug,PDelements,PDparents = getBusCoordsAug(busCoords,DSSCircuit,DSSText)
         if not os.path.exists(SD):
             os.makedirs(SD)
         with open(SB,'wb') as handle:
             pickle.dump(busCoords,handle)
+        with open(SBa,'wb') as handle:
+            pickle.dump(busCoordsAug,handle)
 
     if saveBrchBuses:
         branches = getBranchBuses(DSSCircuit)

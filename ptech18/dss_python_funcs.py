@@ -579,7 +579,63 @@ def getBusCoords(DSSCircuit,DSSText):
             DSSCircuit.Meters.MeteredElement=Mel[i-1]
             i = DSSCircuit.Meters.Next
     return busCoords
+
+def getBusCoordsAug(busCoords,DSSCircuit,DSSText):
+    # approach:
+    # go through all branch elements.
+    # if both coordinates defined: continue.
+    # if only one coordinate defined: coordinate on second element to match first.
+    # if neither: step up one element. define coordinate as the same as the coordinate at the bottom of the first element.
+    busCoordsAug = busCoords.copy()
     
+    ABN = DSSCircuit.AllBusNames
+    PDE = DSSCircuit.PDElements
+    i = DSSCircuit.PDElements.First
+    PDparents = []
+    PDelements = []
+    while i:
+        if not PDE.IsShunt:
+            PDelements = PDelements + [PDE.Name]
+            buses = DSSCircuit.ActiveElement.BusNames
+            
+            bus0 = buses[0].split('.')[0]
+            bus1 = buses[1].split('.')[0]
+            coord0 = busCoordsAug[bus0]
+            coord1 = busCoordsAug[bus1]
+            
+            if np.isnan(coord0[0]) and not np.isnan(coord1[0]):
+                busCoordsAug[bus0] = busCoordsAug[bus1]
+            if not np.isnan(coord0[0]) and np.isnan(coord1[0]):
+                busCoordsAug[bus1] = busCoordsAug[bus0]
+            
+            parent = PDE.ParentPDElement
+            if np.isnan(coord0[0]) and np.isnan(coord1[0]):
+                busesPrt = DSSCircuit.ActiveElement.BusNames
+                
+                bus0prt = busesPrt[0].split('.')[0]
+                bus1prt = busesPrt[1].split('.')[0]
+                coord0prt = busCoordsAug[bus0prt]
+                coord1prt = busCoordsAug[bus1prt]
+                
+                if not np.isnan(coord0prt[0]) or not np.isnan(coord1prt[0]):
+                    if np.isnan(coord0prt[0]):
+                        coordPrt = coord1prt
+                    else:
+                        coordPrt = coord0prt
+                    busCoordsAug[bus0] = coordPrt
+                    busCoordsAug[bus1] = coordPrt
+            if parent:
+                PDparents = PDparents + [PDE.Name]
+            else:
+                PDparents = PDparents + [None]
+        i = PDE.Next
+    
+    return busCoordsAug,PDelements,PDparents
+    
+    
+    
+    
+
 def getBranchBuses(DSSCircuit):
     i = DSSCircuit.PDElements.First
     branches = {}

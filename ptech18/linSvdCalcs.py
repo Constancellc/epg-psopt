@@ -8,7 +8,7 @@ from math import gamma
 import dss_stats_funcs as dsf
 from matplotlib import cm
 from sklearn.decomposition import TruncatedSVD
-
+from matplotlib.collections import LineCollection
 
 
 def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,lp0data,DVmax=0.06):
@@ -50,6 +50,8 @@ def calcVar(X):
     var = np.zeros(len(X))
     for x in X:
         var[i] = x.dot(x)
+        if var[i]==0:
+            var[i]=1e-100
         i+=1
     return var
     
@@ -121,7 +123,9 @@ class linModel:
         self.legLoc = lp0data['legLoc']
         self.DVmax = 0.06 # pu
         
-        with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','busCoords.pkl'),'rb') as handle:
+        # with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','busCoords.pkl'),'rb') as handle:
+            # self.busCoords = pickle.load(handle)
+        with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','busCoordsAug.pkl'),'rb') as handle:
             self.busCoords = pickle.load(handle)
         with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','branches.pkl'),'rb') as handle:
             self.branches = pickle.load(handle)
@@ -212,29 +216,51 @@ class linModel:
                 phs0 = phs0+[['1','2','3']]
         self.bus0 = np.array(bus0)
         self.phs0 = np.array(phs0)
-        
+    
     def plotBranches(self,ax,scores=None):
+        # branchCoords = self.branchCoords
         branches = self.branches
         busCoords = self.busCoords
         print('Plotting branches...')
-        for branch in branches:
-            bus1 = branches[branch][0].split('.')[0]
-            bus2 = branches[branch][1].split('.')[0]
-            if branch.split('.')[0]=='Transformer':
-                ax.plot((busCoords[bus1][0],busCoords[bus2][0]),(busCoords[bus1][1],busCoords[bus2][1]),'--',Color='#777777')
-            else:
-                ax.plot((busCoords[bus1][0],busCoords[bus2][0]),(busCoords[bus1][1],busCoords[bus2][1]),Color='#cccccc')
+        segments = []
+        for branch,buses in branches.items():
+            bus1 = buses[0].split('.')[0]
+            bus2 = buses[1].split('.')[0]
+            segments = segments + [[busCoords[bus1],busCoords[bus2]]]
+            # if branch.split('.')[0]=='Transformer':
+                # ax.plot(points0[-1],points1[-1],'--',Color='#777777')
+        if scores==None:    
+            coll = LineCollection(segments, Color='#cccccc')
+        else:
+            coll = LineCollection(segments, cmap=plt.cm.viridis)
+            coll.set_array(scores)
+        ax.add_collection(coll)
+        ax.autoscale_view()
+        self.segments = segments
         
-    def plotBuses(self,ax,scores,minMax):
+    def plotBuses(self,ax,scores,minMax,colorInvert=False):
         busCoords = self.busCoords
         print('Plotting buses...')
-        for bus in busCoords:
+        x0scr = []
+        y0scr = []
+        xyClr = []
+        x0nne = []
+        y0nne = []
+        for bus,coord in busCoords.items():
             if not np.isnan(busCoords[bus][0]):
                 if np.isnan(scores[bus]):
-                    ax.plot(busCoords[bus][0],busCoords[bus][1],'.',Color='#cccccc')
+                    x0nne = x0nne + [coord[0]]
+                    y0nne = y0nne + [coord[1]]
                 else:
+                    x0scr = x0scr + [coord[0]]
+                    y0scr = y0scr + [coord[1]]
                     score = (scores[bus]-minMax[0])/(minMax[1]-minMax[0])
-                    ax.plot(busCoords[bus][0],busCoords[bus][1],'.',Color=cm.viridis(score),zorder=+10)
+                    if colorInvert:
+                        xyClr = xyClr + [cm.viridis(1-score)]
+                    else:
+                        xyClr = xyClr + [cm.viridis(score)]
+        plt.scatter(x0scr,y0scr,Color=xyClr,marker='.',zorder=+10)
+        plt.scatter(x0nne,y0nne,Color='#cccccc',marker='.')
     
     def plotRegs(self,ax):
         if self.nRegs>0:
@@ -261,33 +287,42 @@ class linModel:
             print('Could not plot source bus'+self.vSrcBus+', no coordinate')
         
         
-    def getSetMean(self,Set):
+    def getSetVals(self,Set,type='mean'):
         busCoords = self.busCoords
-        phs0 = self.phs0
+        # phs0 = self.phs0
         bus0 = self.bus0
         
-        setMean = {}
+        setVals = {}
         setMin = 1e100
         setMax = -1e100
         
         for bus in busCoords:
             if not np.isnan(busCoords[bus][0]):
                 vals = Set[bus0==bus.lower()]
-                phses = phs0[bus0==bus.lower()].flatten()
-                
+                vals = vals[~np.isnan(vals)]
+                # phses = phs0[bus0==bus.lower()].flatten()
                 if not len(vals):
-                    setMean[bus] = np.nan
+                    setVals[bus] = np.nan
                 else:
-                    setMean[bus] = np.mean(vals)
-                    setMax = max(setMax,np.mean(vals))
-                    setMin = min(setMin,np.mean(vals))
+                    if type=='mean':    
+                        setVals[bus] = np.mean(vals)
+                        setMax = max(setMax,np.mean(vals))
+                        setMin = min(setMin,np.mean(vals))
+                    elif type=='max':
+                        setVals[bus] = np.max(vals)
+                        setMax = max(setMax,np.max(vals))
+                        setMin = min(setMin,np.max(vals))
+                    elif type=='min':
+                        setVals[bus] = np.min(vals)
+                        setMax = max(setMax,np.min(vals))
+                        setMin = min(setMin,np.min(vals))
             else:
-                setMean[bus] = np.nan
+                setVals[bus] = np.nan
         
         setMinMax = [setMin,setMax]
-        return setMean, setMinMax
+        return setVals, setMinMax
         
-    def ccColorbar(self,plt,minMax,roundNo=2,units='',loc='NorthEast'):
+    def ccColorbar(self,plt,minMax,roundNo=2,units='',loc='NorthEast',colorInvert=False):
         xlm = plt.xlim()
         ylm = plt.ylim()
         if loc=='NorthEast':
@@ -308,33 +343,53 @@ class linModel:
             y1 = btm+(top-btm)*(i/100)
             y2 = btm+(top-btm)*((i+1)/100)
             plt.plot([xcrd,xcrd],[y1,y2],lw=6,c=cm.viridis(i/100))
-        tcks = [str(round(minMax[0],roundNo)),str(round(np.mean(minMax),roundNo)),str(round(minMax[1],roundNo))]
+            
+        if colorInvert:
+            tcks = [str(round(minMax[1],roundNo)),str(round(np.mean(minMax),roundNo)),str(round(minMax[0],roundNo))]
+        else:
+            tcks = [str(round(minMax[0],roundNo)),str(round(np.mean(minMax),roundNo)),str(round(minMax[1],roundNo))]
+        
         for i in range(3):
             y_ = btm+(top-btm)*(i/2)-((top-btm)*0.075)
             plt.annotate('  '+tcks[i]+units,(xcrd,y_))
         
-    def plotNetBuses(self,type,regsOn=True,pltShow=True,minMax=None):
+    def plotNetBuses(self,type,regsOn=True,pltShow=True,minMax=None,pltType='mean'):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         self.getBusPhs()
 
         self.plotBranches(ax)
         if type=='vLo':
-            setMean, setMeanMinMax = self.getSetMean(self.b0ls)
+            scoreNom = self.b0ls
+            colorInvert = False
         elif type=='vHi':
-            setMean, setMeanMinMax = self.getSetMean(self.b0hs)
+            scoreNom = self.b0hs
+            colorInvert = False
         elif type=='logVar':
             if self.nRegs > 0:
-                logVar = np.log10(self.KtotUvar + min(self.KtotUvar[:-self.nRegs]))
+                scoreNom = np.log10(self.KtotUvar + min(self.KtotUvar[:-self.nRegs]))
             else:
-                logVar = np.log10(self.KtotUvar)
-            logVar[(logVar - np.mean(logVar))/np.std(logVar) < -3] = np.nan
-            setMean, setMeanMinMax = self.getSetMean(logVar)
-        
+                scoreNom = np.log10(self.KtotUvar)
+            scoreNom[(scoreNom - np.mean(scoreNom))/np.std(scoreNom) < -3] = np.nan
+            # scoreNom[scoreNom  < -5] = np.nan
+            colorInvert = False
+        # elif type=='var':
+            # # if self.nRegs > 0:
+                # # scoreNom = self.KtotUvar + min(self.KtotUvar[:-self.nRegs])
+            # # else:
+            # scoreNom = self.KtotUvar
+            # colorInvert = False
+            # # scoreNom[(scoreNom - np.mean(scoreNom))/np.std(scoreNom) < -3] = np.nan
+        elif type=='nStd':
+            scoreNom = np.sign(self.svdLim)/np.sqrt(self.KtotUvar)
+            scoreNom[scoreNom>10] = np.nan
+            colorInvert = True
+        scores, minMax0 = self.getSetVals(scoreNom,pltType)
+
         if minMax!=None:
-            setMeanMinMax = minMax
+            minMax0 = minMax
         
-        self.plotBuses(ax,setMean,setMeanMinMax)
+        self.plotBuses(ax,scores,minMax0,colorInvert=colorInvert)
         self.plotRegs(ax)
         self.plotSub(ax)
 
@@ -343,9 +398,9 @@ class linModel:
         plt.gca().set_aspect('equal', adjustable='box')
         plt.tight_layout()
         if type=='vLo' or type=='vHi':
-            self.ccColorbar(plt,setMeanMinMax,loc=self.legLoc,units=' pu',roundNo=3)
+            self.ccColorbar(plt,minMax0,loc=self.legLoc,units=' pu',roundNo=3,colorInvert=colorInvert)
         else:
-            self.ccColorbar(plt,setMeanMinMax,loc=self.legLoc)
+            self.ccColorbar(plt,minMax0,loc=self.legLoc,colorInvert=colorInvert)
             
         print('Complete')
         if pltShow:
@@ -368,8 +423,8 @@ class linModel:
         
         for i in range(pdfData['nP'][0]):
             pdf = hcPdfs(self.feeder,netModel=self.netModelNom,pdfName=pdfData['name'],prms=pdfData['prms'])
-            Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot)
-            pdfMc, pdfMcU = pdf.genPdfMcSet(nMc,Mu,i)
+            Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
+            pdfMc, pdfMcU = pdf.genPdfMcSet(nMc,Mu,i) # pdfMc in kW (Mu is in W)
             
             genTot0 = np.sum(pdfMc,axis=0)
             genTotSort = genTot0.copy()
@@ -389,7 +444,7 @@ class linModel:
                     NSet = varSortN[self.NSetCor[0]]
             # DvMu0 = self.KtotU.dot(np.sqrt(pdfData['prms'])*np.ones(nS))
             
-            DelVout = (self.KtotPu[NSet].dot(pdfMc).T)*1e3
+            DelVout = (self.KtotPu[NSet].dot(pdfMc).T)*1e3 # KtotPu in V per W
             ddVout = abs((self.KfixPu.dot(pdfMc).T)*1e3) # just get abs change
             
             b0ls = self.b0ls[NSet]
@@ -447,18 +502,37 @@ class linModel:
         covScaling = np.sqrt(np.diag(self.KtotUcov))
         covScaling[covScaling==0] = np.inf # avoid divide by zero complaint
         self.KtotUcorr = dsf.vmvM(1/covScaling,self.KtotUcov,1/covScaling)
-        
     
-    def busViolationVar(self,Sgm,lim='all'):
+    def busViolationVar(self,Sgm,lim='all',Mu=np.array([None])):
         if lim=='all':
-            limA =   self.VpMv - self.b0ls
-            limB =   self.VpLv - self.b0ls
-            limC =   -(self.VmMv - self.b0ls)
-            limD =   -(self.VmLv - self.b0ls)
-            limE =   self.VpMv - self.b0hs
-            limF =   self.VpLv - self.b0hs
-            limG =   -(self.VmMv - self.b0hs)
-            limH =   -(self.VmLv - self.b0hs)
+            if Mu[0]==None:
+                limA =   self.VpMv - self.b0ls
+                limB =   self.VpLv - self.b0ls
+                limC =   -(self.VmMv - self.b0ls)
+                limD =   -(self.VmLv - self.b0ls)
+                limE =   self.VpMv - self.b0hs
+                limF =   self.VpLv - self.b0hs
+                limG =   -(self.VmMv - self.b0hs)
+                limH =   -(self.VmLv - self.b0hs)
+            else:
+                limA =   self.VpMv - self.b0ls - self.KtotPu.dot(Mu)
+                limB =   self.VpLv - self.b0ls - self.KtotPu.dot(Mu)
+                limC =   -(self.VmMv - self.b0ls - self.KtotPu.dot(Mu))
+                limD =   -(self.VmLv - self.b0ls - self.KtotPu.dot(Mu))
+                limE =   self.VpMv - self.b0hs - self.KtotPu.dot(Mu)
+                limF =   self.VpLv - self.b0hs - self.KtotPu.dot(Mu)
+                limG =   -(self.VmMv - self.b0hs - self.KtotPu.dot(Mu))
+                limH =   -(self.VmLv - self.b0hs - self.KtotPu.dot(Mu))
+            
+            # get rid of values we don't care about
+            limA[self.b0ls<0.5] = 1.0
+            limB[self.b0ls<0.5] = 1.0
+            limC[self.b0ls<0.5] = 1.0
+            limD[self.b0ls<0.5] = 1.0
+            limE[self.b0hs<0.5] = 1.0
+            limF[self.b0hs<0.5] = 1.0
+            limG[self.b0hs<0.5] = 1.0
+            limH[self.b0hs<0.5] = 1.0
             
             limA[self.lvIdx] = 1.0
             limB[self.mvIdx] = 1.0
@@ -469,15 +543,28 @@ class linModel:
             limG[self.lvIdx] = 1.0
             limH[self.mvIdx] = 1.0
             
-            # limA0 =   self.Vmax - self.b0ls
-            # limB0 =   self.Vmax - self.b0hs
-            # limC0 = -(self.Vmin - self.b0ls)
-            # limD0 = -(self.Vmin - self.b0hs)
-            lim = np.min(np.array([limA,limB,limC,limD,limE,limF,limG,limH]),axis=0)
-        
-        self.KtotU = dsf.vmvM(lim,self.KtotPu,Sgm)
+            limAct = np.min(np.array([limA,limB,limC,limD,limE,limF,limG,limH]),axis=0)
+        if lim=='VpLvLs':
+            if Mu[0]==None:
+                limAct = self.VpLv - self.b0ls
+            else:
+                limAct = self.VpLv - self.b0ls - self.KtotPu.dot(Mu)
+            # limAct[self.b0ls<0.5] = 1.0
+            # limAct[self.mvIdx] = np.nan
+            limAct[self.b0ls<0.5] = np.inf
+            limAct[self.mvIdx] = np.inf
+        elif lim=='VpMvLs':
+            if Mu[0]==None:
+                limAct = self.VpMv - self.b0ls
+            else:
+                limAct = self.VpMv - self.b0ls - self.KtotPu.dot(Mu)
+            # limAct[self.b0ls<0.5] = 1.0
+            # limAct[self.lvIdx] = np.nan
+            limAct[self.b0ls<0.5] = np.inf
+            limAct[self.lvIdx] = np.inf
+        self.KtotU = dsf.vmvM(1/limAct,self.KtotPu,Sgm)
         self.KtotUvar = calcVar(self.KtotU)
-        self.svdLim = lim
+        self.svdLim = limAct
     
     def makeSvdModel(self,Sgm,evSvdLim=[0.99],nMax=300):
         # method:
@@ -607,9 +694,9 @@ class linModel:
         
         Ktot = np.concatenate((KyP + k_Q*KyQ,KdP + k_Q*KdQ),axis=1)
         
-        self.KtotPu = dsf.vmM(1/self.vTotBase,Ktot) # scale to be in pu
+        self.KtotPu = dsf.vmM(1/self.vTotBase,Ktot) # scale to be in pu per W
         
-        
+# =================================== CLASS: hcPdfs
 class hcPdfs:
     def __init__(self,feeder,netModel=0,dMu=0.01,pdfName=None,prms=np.array([])):
         
@@ -671,7 +758,7 @@ class hcPdfs:
         if self.pdf['name']=='gammaWght':
             k = self.pdf['prms'][prmI]
             pdfMc0 = np.random.gamma(k,1/np.sqrt(k),(len(Mu0),nMc))
-            pdfMc = dsf.vmM( 1e-3*Mu0/np.sqrt(k),pdfMc0 )
+            pdfMc = dsf.vmM( 1e-3*Mu0/np.sqrt(k),pdfMc0 ) # in kW
             pdfMcU = pdfMc0 - np.sqrt(k) # zero mean, unit variance
             
         elif self.pdf['name']=='gammaFlat':
