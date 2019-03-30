@@ -41,7 +41,7 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 # # LM.busViolationVar(Sgm)
 # # # LM.busViolationVar(Sgm,lim='VpMvLs') # for prettier pictures
 # # LM.busViolationVar(Sgm,lim='VpLvLs',Mu=Mu0)
-# # LM.makeStdModel()
+# # LM.makeVarLinModel()
 # # LM.getCovMat()
 # # # LM.plotNetBuses('logVar',pltType='mean')
 # # LM.plotNetBuses('var',pltType='mean')
@@ -54,7 +54,7 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 # # LM.busViolationVar(Sgm*mu_k_first,Mu=Mu0*mu_k_first,lim='VpLvLs')
 # # LM.busViolationVar(Sgm*mu_k_first,Mu=Mu0*mu_k_first,lim='VpMvLs')
 
-# LM.makeStdModel()
+# LM.makeVarLinModel()
 # LM.getCovMat()
 # LM.plotNetBuses('nStd',pltType='mean')
 
@@ -68,7 +68,7 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 
 # print('Minimum HC:',np.nanmin(LM.linHcRsl['hcGenSet']))
 
-# LM.makeStdModel(stdLim=[0.90])
+# LM.makeVarLinModel(stdLim=[0.90])
 # plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # # plt.plot(prms[:,1],LM.linHcRsl['Cns_pct'][:,0],'--')
 
@@ -79,25 +79,102 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 # plt.legend(('Voltage deviation','Overvoltage (hi ld)','Undervoltage (hi ld)','Overvoltage (lo ld)','Undervoltage (lo ld)'))
 # plt.show()
 
-# ============================ EXAMPLE: plotting the number of standard deviations for a network
-fdr_i = 9
-print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
-LM = linModel(fdr_i,WD,QgenPf=1.0)
-LM.loadNetModel(LM.netModelNom)
-pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
-Mu0 = pdf.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot) # in W
 
-LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
-# Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0][0])
-Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0]) # in W
 
-mu_k_first = pdf.pdf['mu_k'][(LM.linHcRsl['Vp_pct']>0).argmax()]
-mu_k_first = mu_k_first*2.0 # 2x the power at which the first violation occurs
+# # ============================ EXAMPLE: plotting the number of standard deviations for a network changing ***vregs*** uniformly
+# fdr_i = 20
+# print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
+# LM = linModel(fdr_i,WD,QgenPf=1.0)
+# LM.loadNetModel(LM.netModelNom)
 
-LM.busViolationVar(Sgm*mu_k_first,Mu=Mu0*mu_k_first)
-LM.makeStdModel()
-LM.plotNetBuses('nStd',pltType='mean')
-# ====================================
+# pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
+# pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+# Mu0 = pdf.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot) # in W
+# Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0]) # in W
+
+# LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
+# plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+
+# mu_k_set = np.linspace(0,pdf.pdf['mu_k'][(LM.linHcRsl['Vp_pct']>0.).argmax()]*2.0,5)
+
+# LM.busViolationVar(Sgm*mu_k_set[2],Mu=Mu0*mu_k_set[2]) # 100% point
+# LM.plotNetBuses('nStd',pltType='mean')
+
+# nOpts = 20
+# opts = np.linspace(0.925,1.05,nOpts)
+# for mu_k_s in mu_k_set:
+    # print(mu_k_s)
+    # N0 = []
+    # for opt in opts:
+        # LM.updateDcpleModel(LM.regVreg0*opt)
+        # LM.busViolationVar(Sgm*mu_k_s,Mu=Mu0*mu_k_s)
+        # N0.append(np.min(LM.nStdU))
+    # plt.plot(opts,N0)
+# print(time.process_time())
+# plt.title('Feeder: ' + fdrs[fdr_i]); plt.xlabel('$k_{\mathrm{Vreg}}$'); plt.ylabel('$N_{\sigma}$')
+# plt.legend(('0%','50%','100%','150%','200%')); plt.grid(True); plt.ylim((-12,9)); plt.show()
+
+# optVal = 0.975
+
+# # LM.updateDcpleModel(LM.regVreg0*optVal)
+# # LM.busViolationVar(Sgm*mu_k_set[2],Mu=Mu0*mu_k_set[2])
+# # LM.plotNetBuses('nStd',pltType='mean')
+# # LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
+# # plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+# # ==========================================
+
+
+
+# # ============================ EXAMPLE: plotting the number of standard deviations for a network changing ***Q*** uniformly
+# fdr_i = 20
+# print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
+# LM = linModel(fdr_i,WD,QgenPf=1.0)
+# LM.loadNetModel(LM.netModelNom)
+
+# pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
+# pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+# Mu0 = pdf.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot) # in W
+# Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0]) # in W
+
+# LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
+# plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+
+# mu_k_set = np.linspace(0,pdf.pdf['mu_k'][(LM.linHcRsl['Vp_pct']>0.).argmax()]*2.0,5)
+
+# LM.busViolationVar(Sgm*mu_k_set[2],Mu=Mu0*mu_k_set[2])
+# LM.plotNetBuses('nStd',pltType='mean')
+
+# nOpts = 20
+# opts = kq2pf(np.linspace(-0.50,0.5,nOpts))
+# for mu_k_s in mu_k_set:
+    # print(mu_k_s)
+    # N0 = []
+    # for opt in opts:
+        # LM.QgenPf = opt
+        # LM.loadNetModel(LM.netModelNom)
+        # LM.updateFxdModel()
+        # LM.busViolationVar(Sgm*mu_k_s,Mu=Mu0*mu_k_s)
+        # N0.append(np.min(LM.nStdU))
+    # plt.plot(abs(opts),N0); 
+# print(time.process_time())
+# plt.title('Feeder: ' + fdrs[fdr_i]); plt.xlabel('$k_{\mathrm{Q}}$'); plt.ylabel('$N_{\sigma}$')
+# plt.legend(('0%','50%','100%','150%','200%')); plt.grid(True); plt.ylim((-12,9)); plt.show()
+
+# optVal = -0.90
+
+# LM.QgenPf = optVal
+# LM.loadNetModel(LM.netModelNom)
+# LM.updateFxdModel()
+# LM.busViolationVar(Sgm*mu_k_set[2],Mu=Mu0*mu_k_set[2])
+# LM.plotNetBuses('nStd',pltType='mean')
+# LM.runLinHc(nMc,pdf.pdf,model='nom') # model options: nom / std / cor / mxt ?
+# plotCns(pdf.pdf['mu_k'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+# # ==========================================
+
+
+
+
+
 
 
 
@@ -113,7 +190,7 @@ LM.plotNetBuses('nStd',pltType='mean')
 # Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0])
 
 # LM.busViolationVar(Sgm)
-# LM.makeStdModel()
+# LM.makeVarLinModel()
 # LM.getCovMat()
 
 # LM.plotNetBuses('logVar',pltShow=True)
@@ -123,7 +200,7 @@ LM.plotNetBuses('nStd',pltType='mean')
 # LM = linModel(fdr_i,WD,QgenPf=-0.90)
 # LM.loadNetModel(LM.netModelNom)
 # LM.busViolationVar(Sgm)
-# LM.makeStdModel()
+# LM.makeVarLinModel()
 # LM.getCovMat()
 
 # LM.plotNetBuses('logVar',pltShow=True)
@@ -135,7 +212,7 @@ LM.plotNetBuses('nStd',pltType='mean')
 
 
 # # ============================ EXAMPLE: change Vreg for K1
-# fdr_i = 9
+# fdr_i = 20
 # print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
 # LM = linModel(fdr_i,WD)
 # LM.loadNetModel(LM.netModelNom)
@@ -145,7 +222,7 @@ LM.plotNetBuses('nStd',pltType='mean')
 # Mu0 = pdf.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot)
 # Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0])
 # LM.busViolationVar(Sgm)
-# LM.makeStdModel()
+# LM.makeVarLinModel()
 # LM.getCovMat()
 
 # ax = plt.subplot(111)
@@ -160,7 +237,7 @@ LM.plotNetBuses('nStd',pltType='mean')
 
 # LM.updateDcpleModel(LM.regVreg0*0.99)
 # LM.busViolationVar(Sgm)
-# LM.makeStdModel()
+# LM.makeVarLinModel()
 # LM.getCovMat()
 
 # LM.plotNetBuses('logVar',pltShow=True)
@@ -179,7 +256,7 @@ LM.plotNetBuses('nStd',pltType='mean')
 # Mu0 = pdf.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot)
 # Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0])
 # LM.busViolationVar(Sgm)
-# LM.makeStdModel()
+# LM.makeVarLinModel()
 # LM.getCovMat()
 
 # LM.plotNetBuses('logVar',pltShow=True)
@@ -188,7 +265,7 @@ LM.plotNetBuses('nStd',pltType='mean')
 
 # LM.updateDcpleModel(LM.regVreg0*0.99)
 # LM.busViolationVar(Sgm)
-# LM.makeStdModel()
+# LM.makeVarLinModel()
 # LM.getCovMat()
 
 # LM.plotNetBuses('logVar',pltShow=True)
@@ -213,7 +290,7 @@ LM.plotNetBuses('nStd',pltType='mean')
 
     # Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0][0])
     # LM.busViolationVar(Sgm)
-    # LM.makeStdModel()
+    # LM.makeVarLinModel()
     # LM.getCovMat()
     
     # LM.plotNetBuses('logVar',pltShow=False,pltType='mean')

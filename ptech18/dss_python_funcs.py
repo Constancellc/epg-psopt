@@ -745,3 +745,6 @@ def printBrI(Wunq,Iprim):
 
 def pf2kq(pf):
     return np.sqrt(1 - pf**2)/pf
+
+def kq2pf(kq):
+    return np.sign(kq)/np.sqrt(1 + kq**2)
