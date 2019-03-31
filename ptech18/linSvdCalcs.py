@@ -63,7 +63,13 @@ def plotCns(mu_k,Cns_pct,ax=None,pltShow=True,feeder=None,lineStyle='-'):
         clrs = cm.nipy_spectral(np.linspace(0,1,9))
         ax.set_prop_cycle(color=clrs)
     # plt.plot(pdfData['mu_k'],Cns_pct_lin[0],'--')
-    ax.plot(mu_k,Cns_pct[0],lineStyle)
+    if len(Cns_pct.shape)==2:
+        ax.plot(mu_k,Cns_pct,lineStyle)
+    elif Cns_pct.shape[0]==1:
+        ax.plot(mu_k,Cns_pct[0],lineStyle)
+    else:
+        ax.plot(mu_k,Cns_pct[:,0,:],lineStyle)
+    
     plt.xlabel('Scale factor');
     plt.ylabel('P(.), %');
     if not feeder==None:
@@ -77,6 +83,8 @@ def plotCns(mu_k,Cns_pct,ax=None,pltShow=True,feeder=None,lineStyle='-'):
     return ax
 
 def plotHcVltn(mu_k,Vp_pct,ax=None,pltShow=True,feeder=None,lineStyle='.-',logScale=True):
+    if ax==None:
+        fig, ax = plt.subplots()
     if logScale:
         ax.semilogy(mu_k,Vp_pct,lineStyle)
         ax.set_title('Prob. of violation (logscale), '+feeder);
@@ -87,8 +95,24 @@ def plotHcVltn(mu_k,Vp_pct,ax=None,pltShow=True,feeder=None,lineStyle='.-',logSc
         ax.set_ylabel('P(.), %')
     ax.set_xlabel('Scale factor');
     ax.grid(True)
+    if pltShow:
+        plt.show()
+        ax = None; fig = None
+    return ax
     
-
+def plotPwrCdf(pp,ppPdfLin,ax=None,pltShow=True,feeder=None,lineStyle='-'):
+    if ax==None:
+        fig, ax = plt.subplots()
+    ax.plot(pp,ppPdfLin,LineStyle=lineStyle)
+    ax.set_xlabel('Power')
+    ax.set_ylabel('Power')
+    ax.grid(True)
+    if pltShow:
+        plt.show()
+        ax = None; fig = None
+    return ax
+    
+    
     
 # =================================== CLASS: linModel
 class linModel:
@@ -212,12 +236,12 @@ class linModel:
         genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
         genTotAll = {}
         PP = []
-        
+        PPpdfLin = []
         nV = self.KtotPu.shape[0]
         nS = self.KtotPu.shape[1]
         
         for i in range(pdfData['nP'][0]):
-            pdf = hcPdfs(self.feeder,netModel=self.netModelNom,pdfName=pdfData['name'],prms=pdfData['prms'])
+            pdf = hcPdfs(self.feeder,netModel=self.netModelNom,pdfName=pdfData['name'],prms=pdfData['prms'],clfnSolar=pdfData['clfnSolar'])
             Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
             pdfMc, pdfMcU = pdf.genPdfMcSet(nMc,Mu,i) # pdfMc in kW (Mu is in W)
             
@@ -252,7 +276,8 @@ class linModel:
                 vLsLv = ((DelVout*pdfData['mu_k'][jj]) + b0ls)[:,self.lvIdx]
                 vHsMv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.mvIdx]
                 vHsLv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.lvIdx]
-                vDv = ddVout*pdfData['mu_k'][jj]
+                # vDv = ddVout*pdfData['mu_k'][jj]
+                vDv = ddVout[:,self.mvIdx]*pdfData['mu_k'][jj]
                 
                 lp0data = {}
                 lp0data['VpMv'] = self.VpMv
@@ -279,9 +304,12 @@ class linModel:
                 genTotSet[i,jj,3] = genTotSort[np.floor(len(genTotSort)*3.0/4.0).astype(int)]*pdfData['mu_k'][jj]
                 genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
         
-            binNo = int(np.round(0.5*len(pdf.pdf['mu_k'])))
+            # binNo = int(np.round(0.5*len(pdf.pdf['mu_k'])))
+            binNo = max(pdf.pdf['nP'])//2
             hist1 = plt.hist(genTotAll[i],bins=binNo,range=(0,max(genTotAll[i])))
+            hist2 = plt.hist(hcGenAll,bins=binNo,range=(0,max(genTotAll)))
             PP = PP + [hist1[1][1:]]
+            PPpdfLin = PPpdfLin + [hist2[0]/hist1[0]] # <<<<< still to be tested!!!!
             plt.close()
         
         self.linHcRsl = {}
@@ -304,6 +332,8 @@ class linModel:
                 dMu = 0
                 dvMu = 0
             else:
+                if Mu.shape==(1,):
+                    Mu = np.ones((self.KtotPu.shape[1]))*Mu
                 dMu = self.KtotPu.dot(Mu)
                 dvMu = self.KfixPu.dot(Mu)
             
@@ -356,8 +386,14 @@ class linModel:
                 limAct = self.VpMv - self.b0ls - self.KtotPu.dot(Mu)
             limAct[self.b0ls<0.5] = np.inf
             limAct[self.lvIdx] = np.inf
-        self.KtotU = dsf.vmvM(1/limAct,self.KtotPu,Sgm)
-        self.KfixU = dsf.vmvM(1/limDV,self.KfixPu,Sgm)
+            
+        if Sgm.shape==(1,):
+            self.KtotU = dsf.vmM(1/limAct,self.KtotPu)*Sgm
+            self.KfixU = dsf.vmM(1/limDV,self.KfixPu)*Sgm
+        else:
+            self.KtotU = dsf.vmvM(1/limAct,self.KtotPu,Sgm)
+            self.KfixU = dsf.vmvM(1/limDV,self.KfixPu,Sgm)
+        
         self.varKtotU = calcVar(self.KtotU)
         self.varKfixU = calcVar(self.KfixU)
         self.svdLim = limAct
@@ -554,7 +590,7 @@ class linModel:
         ax.autoscale_view()
         self.segments = segments
         
-    def plotBuses(self,ax,scores,minMax,colorInvert=False):
+    def plotBuses(self,ax,scores,minMax,colorInvert=False,modMarkerSze=True):
         busCoords = self.busCoords
         print('Plotting buses...')
         x0scr = []
@@ -562,6 +598,7 @@ class linModel:
         xyClr = []
         x0nne = []
         y0nne = []
+        mrkSze = []
         for bus,coord in busCoords.items():
             if not np.isnan(busCoords[bus][0]):
                 if np.isnan(scores[bus]):
@@ -573,21 +610,30 @@ class linModel:
                     score = (scores[bus]-minMax[0])/(minMax[1]-minMax[0])
                     if colorInvert:
                         xyClr = xyClr + [cm.viridis(1-score)]
+                        if modMarkerSze:
+                            mrkSze.append(150.0*(1-score))
                     else:
                         xyClr = xyClr + [cm.viridis(score)]
-        plt.scatter(x0scr,y0scr,Color=xyClr,marker='.',zorder=+10)
-        plt.scatter(x0nne,y0nne,Color='#cccccc',marker='.')
+                        if modMarkerSze:
+                            mrkSze.append(150.0*score)
+                    if not modMarkerSze:
+                        mrkSze.append(20.0)
+        
+        plt.scatter(x0scr,y0scr,Color=xyClr,marker='.',zorder=+10,s=mrkSze,alpha=0.8)
+        plt.scatter(x0nne,y0nne,Color='#cccccc',marker='.',s=20/np.sqrt(2))
     
     def plotRegs(self,ax):
         if self.nRegs>0:
-            regBuses = self.vTotYNodeOrder[-self.nRegs:]
+            regBuses = self.vTotYNodeOrder[-self.nRegs:]; i=0
             for regBus in regBuses:
                 regCoord = self.busCoords[regBus.split('.')[0].lower()]
                 if not np.isnan(regCoord[0]):
                     # ax.plot(regCoord[0],regCoord[1],'r',marker='o',zorder=+20)
                     ax.plot(regCoord[0],regCoord[1],'r',marker=(6,1,0),zorder=+20)
+                    ax.annotate(str(i),(regCoord[0],regCoord[1]),zorder=+40)
                 else:
                     print('Could not plot regulator bus'+regBus+', no coordinate')
+                i+=1
         else:
             print('No regulators to plot.')
     
@@ -669,7 +715,7 @@ class linModel:
             y_ = btm+(top-btm)*(i/2)-((top-btm)*0.075)
             plt.annotate('  '+tcks[i]+units,(xcrd,y_))
         
-    def plotNetBuses(self,type,regsOn=True,pltShow=True,minMax=None,pltType='mean'):
+    def plotNetBuses(self,type,regsOn=True,pltShow=True,minMax=None,pltType='mean',varMax=10):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         self.getBusPhs()
@@ -697,10 +743,8 @@ class linModel:
             # colorInvert = False
             # # scoreNom[(scoreNom - np.mean(scoreNom))/np.std(scoreNom) < -3] = np.nan
         elif type=='nStd':
-            # scoreNom = self.nStdKtotU
             scoreNom = self.nStdU
-            # scoreNom = self.nStdKfixU
-            scoreNom[scoreNom>10] = np.nan
+            scoreNom[scoreNom>varMax] = np.nan
             colorInvert = True
         scores, minMax0 = self.getSetVals(scoreNom,pltType)
 
@@ -728,7 +772,7 @@ class linModel:
 
 # =================================== CLASS: hcPdfs
 class hcPdfs:
-    def __init__(self,feeder,netModel=0,dMu=0.01,pdfName=None,prms=np.array([])):
+    def __init__(self,feeder,netModel=0,dMu=0.01,pdfName=None,prms=np.array([]),clfnSolar=None):
         
         if netModel==0:
             circuitK = {'eulv':1.8,'usLv':5.0,'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':2.0,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
@@ -744,32 +788,33 @@ class hcPdfs:
             self.dMu=1
             mu_k = circuitK[feeder]*np.array([self.dMu])
         
-        self.clfnSolar = {'k':4.21423544,'th_kW':1.2306995} # from plot_california_pv.py
+        if clfnSolar==None:
+            clfnSolar = {'k':4.21423544,'th_kW':1.2306995} # from plot_california_pv.py
         
         if pdfName==None:
             pdfName = 'gammaWght'
             prms = np.array([3.0])
-            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k))}
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':None}
         elif pdfName=='gammaWght':
             # parameters: np.array([k0,k1,...])
             if len(prms)==0:
                 prms = np.array([3.0])
-            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k))}
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':None}
         elif pdfName=='gammaFlat':
             # parameters: np.array([k0,k1,...])
             if len(prms)==0:
                 prms = np.array([3.0])
-            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k))}
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':None}
         elif pdfName=='gammaFrac':
             # parameters: np.array([frac0,frac1,...])
             if len(prms)==0:
                 prms=np.array([0.50])
-            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k))}
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':clfnSolar}
         elif pdfName=='gammaXoff':
             # parameters: np.array([[frac0,xOff0],[frac1,xOff1],...])
             if len(prms)==0:
                 prms=np.array([[0.50,8]])
-            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k))}
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':clfnSolar}
     
     def halfLoadMean(self,scale,xhyN,xhdN):
         # scale suggested as: LM.scaleNom = lp0data['kLo'] - lp0data['k']
@@ -782,6 +827,27 @@ class hcPdfs:
         Mu0[Mu0>(10*Mu0.mean())] = Mu0.mean()
         Mu0[Mu0>(10*Mu0.mean())] = Mu0.mean()
         return Mu0
+        
+    
+    def getMuStd(self,LM=None,prmI=None):
+        pdfName = self.pdf['name']
+        if pdfName=='gammaWght':
+            if LM==None:
+                print('\nError: no linear model loaded into ---getMuStd--- for model gammaWght\n')
+            else:
+                Mu = self.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot) # in W
+                Sgm = Mu/np.sqrt(self.pdf['prms'][0]) # in W
+        if pdfName=='gammaFrac':
+            if prmI==None:
+                print('\nError: no prmI loaded into ---getMuStd--- for model gammaFrac\n')
+            else:
+                frac = self.pdf['prms'][prmI] # fraction of load this is zero (as part of mixture)
+                k,th = self.pdf['clfnSolar'].values()
+                Mu0 = k*th*1e3
+                Sgm0 = np.sqrt(k)*th*1e3
+                Mu = np.array([frac*Mu0])
+                Sgm = np.sqrt(frac*(Mu0**2 + Sgm0**2) - Mu**2) # see Frühwirth-Schnatter chapter 1
+        return Mu,Sgm # both in WATTS
         
     def genPdfMcSet(self,nMc,Mu0,prmI):
         np.random.seed(0)
@@ -799,7 +865,7 @@ class hcPdfs:
             pdfMc = (1e-3*Mu0mean/np.sqrt(k))*pdfMc0
         
         elif self.pdf['name']=='gammaFrac':
-            clfnSolar = self.clfnSolar
+            clfnSolar = self.pdf['clfnSolar']
             frac = self.pdf['prms'][prmI]
             
             genIn = np.random.binomial(1,frac,(len(Mu0),nMc))

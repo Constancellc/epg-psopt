@@ -19,7 +19,7 @@ import numpy.random as rnd
 import matplotlib.pyplot as plt
 from math import gamma
 import dss_stats_funcs as dsf
-from linSvdCalcs import hcPdfs, linModel, cnsBdsCalc, plotCns, plotHcVltn
+from linSvdCalcs import hcPdfs, linModel, cnsBdsCalc, plotCns, plotHcVltn, plotPwrCdf
 from matplotlib import cm
 
 WD = os.path.dirname(sys.argv[0])
@@ -31,13 +31,13 @@ mcDssOn = True
 
 # PLOTTING options:
 pltHcBoth = True
-# pltHcBoth = False
+pltHcBoth = False
 pltHcGen = True
 pltHcGen = False
 pltPwrCdf = True
-pltPwrCdf = False
+# pltPwrCdf = False
 pltCns = True
-# pltCns = False
+pltCns = False
 
 pltBoxDss = True
 pltBoxDss = False
@@ -47,7 +47,7 @@ pltSave = False
 
 # CHOOSE Network
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i_set = [5]
+fdr_i_set = [9,17,18,19,20,21,22]
 # fdr_i_set = [5,6,8,0,14] # fastest few
 # fdr_i_set = [17,18] # medium length 1
 # fdr_i_set = [19,20,21] # medium length 2
@@ -137,7 +137,12 @@ for fdr_i in fdr_i_set:
     # B1. load the appropriate model/DSS
     DSSText.Command='Compile ('+fn+'.dss)'
     BB0,SS0 = cpf_get_loads(DSSCircuit)
-
+    pp0 = np.array(list(SS0.values())).real
+    pp0 = pp0[pp0<100]
+    print(feeder)
+    print('Power mean:',np.mean(0.5*pp0)) # see notes 31-3-19
+    print('Power std (triangular distribution):',np.sqrt(np.mean((pp0*pp0)/12)))
+    
     cpf_set_loads(DSSCircuit,BB0,SS0,loadPointLo)
     DSSSolution.Solve()
 
@@ -347,14 +352,16 @@ for fdr_i in fdr_i_set:
 
 
     if pltPwrCdf:
-        plt.plot(pp,ppPdfLin)
+        # fig,ax = plt.subplots()
+        ax = plotPwrCdf(pp,ppPdfLin,lineStyle='--',pltShow=False)
+        # ax.plot(pp,ppPdfLin)
         if mcDssOn:
-            plt.plot(pp,ppPdf)
-
-        plt.legend(('Lin model','OpenDSS'))
-        plt.xlabel('Power');
-        plt.ylabel('P(.)');
-        plt.grid(True)
+            ax = plotPwrCdf(pp,ppPdf,ax=ax,lineStyle='-',pltShow=False)
+            # ax.plot(pp,ppPdf)
+            ax.legend(('Lin model','OpenDSS'))
+        # plt.xlabel('Power');
+        # plt.ylabel('P(.)');
+        # ax.grid(True)
         if mcDssOn and pltSave:
             plt.savefig(os.path.join(SD,'pltPwrCdf.png'))
 
