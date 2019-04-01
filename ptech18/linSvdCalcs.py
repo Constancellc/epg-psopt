@@ -57,18 +57,25 @@ def calcVar(X):
     
 # =================================== PLOTTING FUNCTIONS
 
-def plotCns(mu_k,Cns_pct,ax=None,pltShow=True,feeder=None,lineStyle='-'):
+def plotCns(mu_k,prms,Cns_pct,ax=None,pltShow=True,feeder=None,lineStyle='-'):
     if ax==None:
         fig, ax = plt.subplots()
         clrs = cm.nipy_spectral(np.linspace(0,1,9))
         ax.set_prop_cycle(color=clrs)
     # plt.plot(pdfData['mu_k'],Cns_pct_lin[0],'--')
     if len(Cns_pct.shape)==2:
-        ax.plot(mu_k,Cns_pct,lineStyle)
+        x_vals = mu_k
+        y_vals = Cns_pct
+        # ax.plot(mu_k,Cns_pct,lineStyle)
     elif Cns_pct.shape[0]==1:
-        ax.plot(mu_k,Cns_pct[0],lineStyle)
+        x_vals = mu_k
+        y_vals = Cns_pct[0]
+        # ax.plot(mu_k,Cns_pct[0],lineStyle)
     else:
-        ax.plot(mu_k,Cns_pct[:,0,:],lineStyle)
+        x_vals = prms
+        y_vals = Cns_pct[:,0,:]
+        # ax.plot(mu_k,Cns_pct[:,0,:],lineStyle)
+    ax.plot(x_vals,y_vals,lineStyle)
     
     plt.xlabel('Scale factor');
     plt.ylabel('P(.), %');
@@ -226,8 +233,11 @@ class linModel:
         self.SyYNodeOrderTot = LM['SyYNodeOrder']
         self.SdYNodeOrderTot = LM['SdYNodeOrder']
         
-    def runLinHc(self,nMc,pdfData,model='nom'):
+    # def runLinHc(self,nMc,pdfData,model='nom'):
+    def runLinHc(self,nMc,pdf,model='nom'):
         nCnstr = 9
+        
+        pdfData = pdf.pdf
         
         Vp_pct = np.zeros(pdfData['nP'])
         Cns_pct = np.zeros(list(pdfData['nP'])+[nCnstr])
@@ -241,7 +251,7 @@ class linModel:
         nS = self.KtotPu.shape[1]
         
         for i in range(pdfData['nP'][0]):
-            pdf = hcPdfs(self.feeder,netModel=self.netModelNom,pdfName=pdfData['name'],prms=pdfData['prms'],clfnSolar=pdfData['clfnSolar'])
+            # pdf = hcPdfs(self.feeder,WD=self.WD,netModel=self.netModelNom,pdfName=pdfData['name'],prms=pdfData['prms'],clfnSolar=pdfData['clfnSolar'])
             Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
             pdfMc, pdfMcU = pdf.genPdfMcSet(nMc,Mu,i) # pdfMc in kW (Mu is in W)
             
@@ -330,12 +340,14 @@ class linModel:
         if lim=='all':
             if Mu[0]==None:
                 dMu = 0
-                dvMu = 0
+                dvMu = np.zeros(self.b0ls.shape)
+                dvScale = (1.0+1e-10) # required so that min puts out a sensible answer?
             else:
                 if Mu.shape==(1,):
                     Mu = np.ones((self.KtotPu.shape[1]))*Mu
                 dMu = self.KtotPu.dot(Mu)
                 dvMu = self.KfixPu.dot(Mu)
+                
             
             limA =   self.VpMv - self.b0ls - dMu
             limB =   self.VpLv - self.b0ls - dMu
@@ -346,7 +358,7 @@ class linModel:
             limG =   -(self.VmMv - self.b0hs - dMu)
             limH =   -(self.VmLv - self.b0hs - dMu)
             
-            limDvA = self.DVmax - dvMu
+            limDvA = self.DVmax - dvMu # required so that min puts out a sensible answer?
             limDvB = -(-self.DVmax - dvMu)
             
             # get rid of values we don't care about
@@ -372,6 +384,7 @@ class linModel:
             
             limAct = np.min(np.array([limA,limB,limC,limD,limE,limF,limG,limH]),axis=0)
             limDV = np.min(np.array([limDvA,limDvB]),axis=0)
+            
         if lim=='VpLvLs':
             if Mu[0]==None:
                 limAct = self.VpLv - self.b0ls
@@ -772,21 +785,34 @@ class linModel:
 
 # =================================== CLASS: hcPdfs
 class hcPdfs:
-    def __init__(self,feeder,netModel=0,dMu=0.01,pdfName=None,prms=np.array([]),clfnSolar=None):
+    def __init__(self,feeder,WD=None,netModel=0,dMu=None,pdfName=None,prms=np.array([]),clfnSolar=None):
         
-        if netModel==0:
-            circuitK = {'eulv':1.8,'usLv':5.0,'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':2.0,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
-        elif netModel==1:
-            circuitK = {'13bus':6.0,'34bus':8.0,'123bus':3.6}
-        elif netModel==2:
-            circuitK = {'8500node':2.5,'epriJ1':6.0,'epriK1':1.5,'epriM1':1.8,'epri24':1.5}
         
         if pdfName==None or pdfName=='gammaWght' or pdfName=='gammaFlat':
+            if dMu==None:
+                dMu = 0.01
+            
+            if netModel==0:
+                circuitK = {'eulv':1.8,'usLv':5.0,'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':2.0,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
+            elif netModel==1:
+                circuitK = {'13bus':6.0,'34bus':8.0,'123bus':3.6}
+            elif netModel==2:
+                circuitK = {'8500node':2.5,'epriJ1':6.0,'epriK1':1.5,'epriM1':1.8,'epri24':1.5}
+            
             self.dMu = dMu
             mu_k = circuitK[feeder]*np.arange(dMu,1.0,dMu) # NB this is as a PERCENTAGE of the chosen nominal powers.
         else:
-            self.dMu=1
-            mu_k = circuitK[feeder]*np.array([self.dMu])
+            if dMu==None: # ! NOTE THAT THIS NEEDS SETTING to avoid preloading the expanded values.
+                if WD==None:
+                    print('Working directory needs to be passed to __init__ of hcPdfs for this mode.')
+                else:
+                    SD = os.path.join(WD,'hcResults','th_kW_mult.pkl')
+                    with open(SD,'rb') as handle:
+                        circuitK = pickle.load(handle)
+                self.dMu = circuitK[feeder]
+            else:
+                self.dMu = 1.0
+            mu_k = np.array([self.dMu])
         
         if clfnSolar==None:
             clfnSolar = {'k':4.21423544,'th_kW':1.2306995} # from plot_california_pv.py
@@ -846,7 +872,7 @@ class hcPdfs:
                 Mu0 = k*th*1e3
                 Sgm0 = np.sqrt(k)*th*1e3
                 Mu = np.array([frac*Mu0])
-                Sgm = np.sqrt(frac*(Mu0**2 + Sgm0**2) - Mu**2) # see Frühwirth-Schnatter chapter 1
+                Sgm = np.sqrt(frac*(Mu0**2 + Sgm0**2) - Mu**2) # see FrÃ¼hwirth-Schnatter chapter 1
         return Mu,Sgm # both in WATTS
         
     def genPdfMcSet(self,nMc,Mu0,prmI):

@@ -27,7 +27,7 @@ WD = os.path.dirname(sys.argv[0])
 mcLinOn = True
 # mcLinOn = False
 mcDssOn = True
-# mcDssOn = False
+mcDssOn = False
 
 # PLOTTING options:
 pltHcBoth = True
@@ -35,9 +35,9 @@ pltHcBoth = False
 pltHcGen = True
 pltHcGen = False
 pltPwrCdf = True
-# pltPwrCdf = False
+pltPwrCdf = False
 pltCns = True
-pltCns = False
+# pltCns = False
 
 pltBoxDss = True
 pltBoxDss = False
@@ -53,6 +53,9 @@ fdr_i_set = [9,17,18,19,20,21,22]
 # fdr_i_set = [19,20,21] # medium length 2
 # fdr_i_set = [9] # slow
 # fdr_i_set = [22] # slowest
+fdr_i_set = [21]
+nMc = int(3e2)
+# nMc = int(3e1)
 
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 
@@ -76,28 +79,24 @@ for fdr_i in fdr_i_set:
 
     lin_point=lp0data['k']
 
-    nMc = int(1e4)
-    nMc = int(3e3)
-    nMc = int(1e3)
-    nMc = int(3e2)
-    nMc = int(1e2)
-    nMc = int(3e1)
 
     LM = linModel(fdr_i,WD)
     netModel = LM.netModelNom
-
-    pdf = hcPdfs(LM.feeder,netModel=netModel)
+    
+    pdfName = 'gammaWght'; prms=np.array([3.0])
+    pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05)
+    
+    pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms,WD=WD )
 
     k = pdf.pdf['prms']
     mu_k = pdf.pdf['mu_k']
     pdfData = pdf.pdf
     dMu = pdf.dMu
 
-
-    DVmax = 0.06 # percent
+    DVmax = LM.DVmax # percent
     # ADMIN =============================================
     SD = os.path.join(WD,'hcResults',feeder)
-    SN = os.path.join(SD,'linHcCalcsRslt.pkl')
+    SN = os.path.join(SD,'linHcCalcsRslt_temp.pkl')
 
     ckt = get_ckt(WD,feeder)
     fn = ckt[1]
@@ -125,23 +124,21 @@ for fdr_i in fdr_i_set:
     VmLv = lp0data['VmLv']
     mvIdx = LM.mvIdx
     lvIdx = LM.lvIdx
-    
     vBaseMv = vBase[mvIdx]
     vBaseLv = vBase[lvIdx]
     
     # mvIdxYz = lp0data['mvIdxYz']
     # lvIdxYz = lp0data['lvIdxYz']
-    
-    
     # OPENDSS ADMIN =======================================
     # B1. load the appropriate model/DSS
     DSSText.Command='Compile ('+fn+'.dss)'
     BB0,SS0 = cpf_get_loads(DSSCircuit)
-    pp0 = np.array(list(SS0.values())).real
-    pp0 = pp0[pp0<100]
-    print(feeder)
-    print('Power mean:',np.mean(0.5*pp0)) # see notes 31-3-19
-    print('Power std (triangular distribution):',np.sqrt(np.mean((pp0*pp0)/12)))
+    
+    # pp0 = np.array(list(SS0.values())).real
+    # pp0 = pp0[pp0<100]
+    # print(feeder)
+    # print('Power mean:',np.mean(0.5*pp0)) # see notes 31-3-19
+    # print('Power std (triangular distribution):',np.sqrt(np.mean((pp0*pp0)/12)))
     
     cpf_set_loads(DSSCircuit,BB0,SS0,loadPointLo)
     DSSSolution.Solve()
@@ -198,8 +195,6 @@ for fdr_i in fdr_i_set:
             genTot = genTot0*pdfData['mu_k'][jj]
             
             if mcDssOn:
-                # vLsDss = np.ones((nMc,len(v_idx)))
-                # vHsDss = np.ones((nMc,len(v_idx)))
                 vLsMvDss = np.ones((nMc,len(mvIdx)))
                 vHsMvDss = np.ones((nMc,len(mvIdx)))
                 vLsLvDss = np.ones((nMc,len(lvIdx)))
@@ -244,8 +239,6 @@ for fdr_i in fdr_i_set:
                     DSSText.Command='set controlmode=static'
                     
                     if convLo and convHi and convDv:
-                        # vLsDss[j,:] = abs(vLsDss0)[3:][v_idx]/vBase
-                        # vHsDss[j,:] = abs(vHsDss0)[3:][v_idx]/vBase
                         vLsMvDss[j,:] = abs(vLsDss0)[3:][v_idx][mvIdx]/vBaseMv
                         vLsLvDss[j,:] = abs(vLsDss0)[3:][v_idx][lvIdx]/vBaseLv
                         vHsMvDss[j,:] = abs(vHsDss0)[3:][v_idx][mvIdx]/vBaseMv
@@ -300,12 +293,12 @@ for fdr_i in fdr_i_set:
     # LM.runLinHc(nMc,pdf.pdf) # equivalent at the moment
 
 
-
     # colors=[#1f77b4,#ff7f0e,#2ca02c]
 
     # NOW: calculate the statistics we want.
 
-    binNo = int(0.5//dMu)
+    binNo = max(pdf.pdf['nP'])//2
+    # binNo = int(0.5//dMu)
     # binNo = int(1.0//dMu)
     hist1 = plt.hist(genTotAll,bins=binNo,range=(0,max(genTotAll)))
     if mcDssOn:
@@ -318,8 +311,13 @@ for fdr_i in fdr_i_set:
         
     p0lin = pp[np.argmax(ppPdfLin!=0)]
     p10lin = pp[np.argmax(ppPdfLin>=0.1)]
-    k0lin = pdfData['mu_k'][np.argmax(Vp_pct_lin!=0)]
-    k10lin = pdfData['mu_k'][np.argmax(Vp_pct_lin>=10.)]
+    
+    if pdf.pdf['name']=='gammaWght':
+        k0lin = pdfData['mu_k'][np.argmax(Vp_pct_lin!=0)]
+        k10lin = pdfData['mu_k'][np.argmax(Vp_pct_lin>=10.)]
+    elif pdf.pdf['name']=='gammaFrac':
+        k0lin = pdfData['prms'][np.argmax(Vp_pct_lin!=0)]
+        k10lin = pdfData['prms'][np.argmax(Vp_pct_lin>=10.)]
 
     print('\n--- Linear results ---\n\nP0:',p0lin,'\nP10:',p10lin,'\nk0:',k0lin,'\nk10:',k10lin)
 
@@ -341,9 +339,10 @@ for fdr_i in fdr_i_set:
     # ================ PLOTTING FUNCTIONS FROM HERE
     if pltCns:
         fig, ax = plt.subplots()
-        plotCns(pdfData['mu_k'],Cns_pct_lin,feeder=feeder,lineStyle='--',ax=ax,pltShow=False)
+        
+        plotCns(pdfData['mu_k'],pdfData['prms'],Cns_pct_lin,feeder=feeder,lineStyle='--',ax=ax,pltShow=False)
         if mcDssOn:
-            plotCns(pdfData['mu_k'],Cns_pct_dss,feeder=feeder,lineStyle='-',ax=ax,pltShow=False)
+            plotCns(pdfData['mu_k'],pdfData['prms'],Cns_pct_dss,feeder=feeder,lineStyle='-',ax=ax,pltShow=False)
         # if mcDssOn:
             # plt.plot(pdfData['mu_k'],Cns_pct_dss[0])
         if mcDssOn and pltSave:
