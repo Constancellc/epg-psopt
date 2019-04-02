@@ -14,8 +14,7 @@ WD = os.path.dirname(sys.argv[0])
 
 fn0 = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190325\\"
 
-nMc = 30
-# nMc = 1000
+nMc = 50
 prmI = 0
 
 pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
@@ -34,7 +33,9 @@ LM = linModel(fdr_i,WD,QgenPf=1.0)
 LM.loadNetModel(LM.netModelNom)
 
 pdf = hcPdfs(LM.feeder,WD=LM.WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
-Mu0 = pdf.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot) # in W
+
+LM.runLinHc(nMc,pdf,model='nom')
+
 
 # # ===============================================
 # Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0][0])
@@ -82,88 +83,88 @@ Mu0 = pdf.halfLoadMean(LM.loadScaleNom,LM.xhyNtot,LM.xhdNtot) # in W
 # plt.show()
 
 
-# # ============================ EXAMPLE: plotting the number of standard deviations for a network changing ***vregs*** uniformly
-# fdr_i = 20
-# print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
+# ============================ EXAMPLE: plotting the number of standard deviations for a network changing ***vregs*** uniformly
+fdr_i = 20
+print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
 
-# LM = linModel(fdr_i,WD,QgenPf=1.0)
-# LM.loadNetModel(LM.netModelNom)
+LM = linModel(fdr_i,WD,QgenPf=1.0)
+LM.loadNetModel(LM.netModelNom)
 
-# pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
+pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
 
-# pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
-# Mu0, Sgm0 = pdf.getMuStd(LM=LM) # in W
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+Mu0, Sgm0 = pdf.getMuStd(LM=LM) # in W
+LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
 
-# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
-# mu_k_set = np.linspace(0,pdf.pdf['mu_k'][(LM.linHcRsl['Vp_pct']>0.).argmax()]*2.0,5)
-# Mu_set = np.outer(mu_k_set,Mu0)
-# Sgm_set = np.outer(mu_k_set,Sgm0)
+plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+mu_k_set = np.linspace(0,pdf.pdf['mu_k'][(LM.linHcRsl['Vp_pct']>0.).argmax()]*2.0,5)
+Mu_set = np.outer(mu_k_set,Mu0)
+Sgm_set = np.outer(mu_k_set,Sgm0)
 
-# LM.busViolationVar(Sgm_set[2],Mu=Mu_set[2]) # 100% point
-# LM.plotNetBuses('nStd',pltType='max')
+LM.busViolationVar(Sgm_set[2],Mu=Mu_set[2]) # 100% point
+LM.plotNetBuses('nStd',pltType='max')
 
-# nOpts = 21
-# opts = np.linspace(0.925,1.05,nOpts)
-# for i in range(len(Mu_set)):
-    # print(i)
-    # N0 = []
-    # for opt in opts:
-        # LM.updateDcpleModel(LM.regVreg0*opt)
-        # LM.busViolationVar(Sgm_set[i],Mu=Mu_set[i])
-        # N0.append(np.min(LM.nStdU))
-    # plt.plot(opts,N0,'x-')
-# print(time.process_time())
-# plt.title('Feeder: ' + fdrs[fdr_i]); plt.xlabel('$k_{\mathrm{Vreg}}$'); plt.ylabel('$N_{\sigma}$')
-# plt.legend(('0%','50%','100%','150%','200%')); plt.grid(True); plt.ylim((-12,9)); plt.show()
+nOpts = 21
+opts = np.linspace(0.925,1.05,nOpts)
+for i in range(len(Mu_set)):
+    print(i)
+    N0 = []
+    for opt in opts:
+        LM.updateDcpleModel(LM.regVreg0*opt)
+        LM.busViolationVar(Sgm_set[i],Mu=Mu_set[i])
+        N0.append(np.min(LM.nStdU))
+    plt.plot(opts,N0,'x-')
+print(time.process_time())
+plt.title('Feeder: ' + fdrs[fdr_i]); plt.xlabel('$k_{\mathrm{Vreg}}$'); plt.ylabel('$N_{\sigma}$')
+plt.legend(('0%','50%','100%','150%','200%')); plt.grid(True); plt.ylim((-12,9)); plt.show()
 
-# optVal = 0.96
+optVal = 0.96
 
-# LM.updateDcpleModel(LM.regVreg0*optVal)
-# LM.busViolationVar(Sgm_set[1],Mu=Mu_set[1])
-# LM.plotNetBuses('nStd',pltType='mean')
+LM.updateDcpleModel(LM.regVreg0*optVal)
+LM.busViolationVar(Sgm_set[1],Mu=Mu_set[1])
+LM.plotNetBuses('nStd',pltType='mean')
 
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
-# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
-# # ==========================================
+LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+# ==========================================
 
 
-# ============================ Choosing which to use (50, 100, 150% of californian solar)
-# NB !!!!!!!! need to make sure the change dMu to None for this to work properly
-fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-# fdr_i_set = [18]
-nMc = int(3e2)
-th_kW_mult = {}
-for fdr_i in fdr_i_set:
-    print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
-    LM = linModel(fdr_i,WD,QgenPf=1.0) # reduce power factor to try and make this work
-    LM.loadNetModel(LM.netModelNom)
-    pdfName = 'gammaFrac'; prms=np.array([0.05,1.00])
-    pdf = hcPdfs(LM.feeder,WD=LM.WD,dMu=np.nan,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+# # ============================ Choosing which to use (50, 100, 150% of californian solar)
+# # NB !!!!!!!! need to make sure the change dMu to None for this to work properly
+# fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
+# # fdr_i_set = [18]
+# nMc = int(3e2)
+# th_kW_mult = {}
+# for fdr_i in fdr_i_set:
+    # print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
+    # LM = linModel(fdr_i,WD,QgenPf=1.0) # reduce power factor to try and make this work
+    # LM.loadNetModel(LM.netModelNom)
+    # pdfName = 'gammaFrac'; prms=np.array([0.05,1.00])
+    # pdf = hcPdfs(LM.feeder,WD=LM.WD,dMu=np.nan,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+    # # LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
     # LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
-    LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
-    print(LM.linHcRsl['Vp_pct'])
-    if LM.linHcRsl['Vp_pct'][0]>=10.:
-        th_kW_mult[fdrs[fdr_i]] = 0.5
-    elif LM.linHcRsl['Vp_pct'][1]<10.:
-        th_kW_mult[fdrs[fdr_i]] = 1.33
-    else:
-        th_kW_mult[fdrs[fdr_i]] = 1.0
-sn = os.path.join(WD,'hcResults','th_kW_mult.pkl')
-print(th_kW_mult)
-with open(sn,'wb') as handle:
-    pickle.dump(th_kW_mult,handle)
+    # print(LM.linHcRsl['Vp_pct'])
+    # if LM.linHcRsl['Vp_pct'][0]>=10.:
+        # th_kW_mult[fdrs[fdr_i]] = 0.5
+    # elif LM.linHcRsl['Vp_pct'][1]<10.:
+        # th_kW_mult[fdrs[fdr_i]] = 1.33
+    # else:
+        # th_kW_mult[fdrs[fdr_i]] = 1.0
+# sn = os.path.join(WD,'hcResults','th_kW_mult.pkl')
+# print(th_kW_mult)
+# with open(sn,'wb') as handle:
+    # pickle.dump(th_kW_mult,handle)
 
-# now check updated version.
-for fdr_i in fdr_i_set:
-    print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
-    LM = linModel(fdr_i,WD,QgenPf=1.0) # reduce power factor to try and make this work
-    LM.loadNetModel(LM.netModelNom)
-    pdfName = 'gammaFrac'; prms=np.array([0.05,1.00])
-    pdf = hcPdfs(LM.feeder,WD=LM.WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
-    LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
-    print(LM.linHcRsl['Vp_pct'])
-# ============================
+# # now check updated version.
+# for fdr_i in fdr_i_set:
+    # print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
+    # LM = linModel(fdr_i,WD,QgenPf=1.0) # reduce power factor to try and make this work
+    # LM.loadNetModel(LM.netModelNom)
+    # pdfName = 'gammaFrac'; prms=np.array([0.05,1.00])
+    # pdf = hcPdfs(LM.feeder,WD=LM.WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+    # LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+    # print(LM.linHcRsl['Vp_pct'])
+# # ============================
 
 
 

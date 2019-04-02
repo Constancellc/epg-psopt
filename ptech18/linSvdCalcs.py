@@ -57,9 +57,10 @@ def calcVar(X):
     
 # =================================== PLOTTING FUNCTIONS
 
-def plotCns(mu_k,prms,Cns_pct,ax=None,pltShow=True,feeder=None,lineStyle='-'):
+def plotCns(mu_k,prms,Cns_pct,ax=None,pltShow=True,feeder=None,lineStyle='-',clrs=None):
     if ax==None:
         fig, ax = plt.subplots()
+    if clrs==None:
         clrs = cm.nipy_spectral(np.linspace(0,1,9))
         ax.set_prop_cycle(color=clrs)
     # plt.plot(pdfData['mu_k'],Cns_pct_lin[0],'--')
@@ -89,15 +90,22 @@ def plotCns(mu_k,prms,Cns_pct,ax=None,pltShow=True,feeder=None,lineStyle='-'):
         ax = None; fig = None
     return ax
 
-def plotHcVltn(mu_k,Vp_pct,ax=None,pltShow=True,feeder=None,lineStyle='.-',logScale=True):
+def plotHcVltn(mu_k,prms,Vp_pct,ax=None,pltShow=True,feeder=None,lineStyle='.-',logScale=True):
+    if len(mu_k)>1:
+        x_vals = mu_k
+        y_vals = Vp_pct[0]
+    elif len(prms)>1:
+        x_vals = prms
+        y_vals = Vp_pct[:,0]
+    
     if ax==None:
         fig, ax = plt.subplots()
     if logScale:
-        ax.semilogy(mu_k,Vp_pct,lineStyle)
+        ax.semilogy(x_vals,y_vals,lineStyle)
         ax.set_title('Prob. of violation (logscale), '+feeder);
         ax.set_ylabel('Log [ P(.), % ]')
     else:
-        ax.plot(mu_k,Vp_pct,lineStyle)
+        ax.plot(x_vals,y_vals,lineStyle)
         ax.set_title('Prob. of violation '+feeder);
         ax.set_ylabel('P(.), %')
     ax.set_xlabel('Scale factor');
@@ -119,8 +127,23 @@ def plotPwrCdf(pp,ppPdfLin,ax=None,pltShow=True,feeder=None,lineStyle='-'):
         ax = None; fig = None
     return ax
     
+def plotHcGen(mu_k,prms,hcGenSet,lineColor,ax=None):
+    if ax==None:
+        fig, ax = plt.subplots()
     
+    if len(prms)==1:
+        x_vals = mu_k
+        y_vals = hcGenSet[0,:,:]
+    if len(mu_k)==1:
+        x_vals = prms
+        y_vals = hcGenSet[:,0,:]
     
+    ax.plot(x_vals,y_vals[:,0],lineColor+'-')
+    ax.plot(x_vals,y_vals[:,1],lineColor+'_')
+    ax.plot(x_vals,y_vals[:,2],lineColor+'-')
+    
+    return ax
+        
 # =================================== CLASS: linModel
 class linModel:
     """Linear model class with a whole bunch of useful things that we can do with it."""
@@ -244,7 +267,7 @@ class linModel:
         hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
         hcGenAll = np.array([])
         genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
-        genTotAll = {}
+        genTotAll = np.nan*np.zeros((pdfData['nP'][0],nMc*pdfData['nP'][1])) # NB this gets flattened later
         PP = []
         PPpdfLin = []
         nV = self.KtotPu.shape[0]
@@ -314,13 +337,13 @@ class linModel:
                 genTotSet[i,jj,3] = genTotSort[np.floor(len(genTotSort)*3.0/4.0).astype(int)]*pdfData['mu_k'][jj]
                 genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
         
-            # binNo = int(np.round(0.5*len(pdf.pdf['mu_k'])))
-            binNo = max(pdf.pdf['nP'])//2
-            hist1 = plt.hist(genTotAll[i],bins=binNo,range=(0,max(genTotAll[i])))
-            hist2 = plt.hist(hcGenAll,bins=binNo,range=(0,max(genTotAll)))
-            PP = PP + [hist1[1][1:]]
-            PPpdfLin = PPpdfLin + [hist2[0]/hist1[0]] # <<<<< still to be tested!!!!
-            plt.close()
+        binNo = max(pdf.pdf['nP'])//2
+        genTotAll = genTotAll.flatten()
+        hist1 = plt.hist(genTotAll,bins=binNo,range=(0,max(genTotAll)))
+        hist2 = plt.hist(hcGenAll,bins=binNo,range=(0,max(genTotAll)))
+        PP = PP + [hist1[1][1:]]
+        PPpdfLin = PPpdfLin + [hist2[0]/hist1[0]] # <<<<< still to be tested!!!!
+        plt.close()
         
         self.linHcRsl = {}
         self.linHcRsl['PP'] = PP;

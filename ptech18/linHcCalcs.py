@@ -19,7 +19,7 @@ import numpy.random as rnd
 import matplotlib.pyplot as plt
 from math import gamma
 import dss_stats_funcs as dsf
-from linSvdCalcs import hcPdfs, linModel, cnsBdsCalc, plotCns, plotHcVltn, plotPwrCdf
+from linSvdCalcs import hcPdfs, linModel, cnsBdsCalc, plotCns, plotHcVltn, plotPwrCdf, plotHcGen
 from matplotlib import cm
 
 WD = os.path.dirname(sys.argv[0])
@@ -27,23 +27,20 @@ WD = os.path.dirname(sys.argv[0])
 mcLinOn = True
 # mcLinOn = False
 mcDssOn = True
-mcDssOn = False
+# mcDssOn = False
 
 # PLOTTING options:
-pltHcBoth = True
-pltHcBoth = False
+pltHcVltn = True
+# pltHcVltn = False
 pltHcGen = True
-pltHcGen = False
+# pltHcGen = False
 pltPwrCdf = True
-pltPwrCdf = False
+# pltPwrCdf = False
 pltCns = True
 # pltCns = False
 
-pltBoxDss = True
-pltBoxDss = False
-
 pltSave = True # for saving both plots and results
-pltSave = False
+# pltSave = False
 
 # CHOOSE Network
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
@@ -51,11 +48,13 @@ fdr_i_set = [9,17,18,19,20,21,22]
 # fdr_i_set = [5,6,8,0,14] # fastest few
 # fdr_i_set = [17,18] # medium length 1
 # fdr_i_set = [19,20,21] # medium length 2
-# fdr_i_set = [9] # slow
-# fdr_i_set = [22] # slowest
-fdr_i_set = [21]
+fdr_i_set = [17]
 nMc = int(3e2)
-# nMc = int(3e1)
+nMc = 50
+
+pdfName = 'gammaWght'; prms=np.array([3.0])
+pdfName = 'gammaFrac'; prms=np.arange(0.02,1.02,0.02)
+# pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05)
 
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 
@@ -79,16 +78,10 @@ for fdr_i in fdr_i_set:
 
     lin_point=lp0data['k']
 
-
     LM = linModel(fdr_i,WD)
     netModel = LM.netModelNom
-    
-    pdfName = 'gammaWght'; prms=np.array([3.0])
-    pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05)
-    
     pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms,WD=WD )
-
-    k = pdf.pdf['prms']
+    
     mu_k = pdf.pdf['mu_k']
     pdfData = pdf.pdf
     dMu = pdf.dMu
@@ -96,11 +89,9 @@ for fdr_i in fdr_i_set:
     DVmax = LM.DVmax # percent
     # ADMIN =============================================
     SD = os.path.join(WD,'hcResults',feeder)
-    SN = os.path.join(SD,'linHcCalcsRslt_temp.pkl')
+    SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'.pkl')
 
-    ckt = get_ckt(WD,feeder)
-    fn = ckt[1]
-    
+    fn = get_ckt(WD,feeder)[1]    
     print('\n\nStart '+'='*30,'\nFeeder:',feeder,'\nLinpoint:',lin_point,'\nLoad Point:',loadPointLo,'\nTap Model:',netModel)
 
     # # PART A.1 - load models ===========================
@@ -161,32 +152,35 @@ for fdr_i in fdr_i_set:
 
     genNames = genNamesY+genNamesD
     nCnstr = 9
+    nRcd = 5
 
     Vp_pct_dss = np.zeros(pdfData['nP'])
     Cns_pct_dss = np.zeros(list(pdfData['nP'])+[nCnstr])
     Vp_pct_lin = np.zeros(pdfData['nP'])
     Cns_pct_lin = np.zeros(list(pdfData['nP'])+[nCnstr])
 
-    hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
-    hcGenSetLin = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
-    genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
+    hcGenSetDss = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nRcd))
+    hcGenSetLin = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nRcd))
+    genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nRcd))
 
     hcGenLinAll = np.array([]); hcGenAll = np.array([])
     hcGen = []; hcGenLin=[]
+    genTotAll = np.nan*np.zeros((pdfData['nP'][0],nMc*pdfData['nP'][1])) # NB this gets flattened later
     # PART A.2 - choose distributions and reduce linear model ===========================
 
     tStart = time.process_time()
     for i in range(pdfData['nP'][0]):
         # PART B FROM HERE ==============================
-        print('---- Start MC ----',time.process_time())
+        if i%(pdfData['nP'][0]//4)==0:
+            print('---- Start MC ----',time.process_time(),i+1,'/',pdfData['nP'][0])
         Mu0 = pdf.halfLoadMean(LM.loadScaleNom,xhyN,xhdN)
         pdfGen = pdf.genPdfMcSet(nMc,Mu0,i)[0]
         
         genTot0 = np.sum(pdfGen,axis=0)
         genTotSort = genTot0.copy()
         genTotSort.sort()
-        genTotAll = np.outer(genTot0,pdfData['mu_k'])
-        genTotAll = genTotAll.flatten()
+        genTotAll0 = np.outer(genTot0,pdfData['mu_k'])
+        genTotAll[i] = genTotAll0.flatten()
         
         DelVoutLin = (KtotPu.dot(pdfGen).T)*1e3
         ddVoutLin = abs((KfixPu.dot(pdfGen).T)*1e3) # just get abs change
@@ -268,11 +262,11 @@ for fdr_i in fdr_i_set:
             if len(hcGen)!=0 and mcDssOn:
                 hcGenAll = np.concatenate((hcGenAll,hcGen))
                 hcGen.sort()
-                hcGenSet[i,jj,0] = hcGen[0]
-                hcGenSet[i,jj,1] = hcGen[np.floor(len(hcGen)*1.0/4.0).astype(int)]
-                hcGenSet[i,jj,2] = hcGen[np.floor(len(hcGen)*1.0/2.0).astype(int)]
-                hcGenSet[i,jj,3] = hcGen[np.floor(len(hcGen)*3.0/4.0).astype(int)]
-                hcGenSet[i,jj,4] = hcGen[-1]
+                hcGenSetDss[i,jj,0] = hcGen[0]
+                hcGenSetDss[i,jj,1] = hcGen[np.floor(len(hcGen)*1.0/4.0).astype(int)]
+                hcGenSetDss[i,jj,2] = hcGen[np.floor(len(hcGen)*1.0/2.0).astype(int)]
+                hcGenSetDss[i,jj,3] = hcGen[np.floor(len(hcGen)*3.0/4.0).astype(int)]
+                hcGenSetDss[i,jj,4] = hcGen[-1]
                 
             if len(hcGenLin)!=0 and mcLinOn:
                 hcGenLinAll = np.concatenate((hcGenLinAll,hcGenLin))
@@ -288,30 +282,27 @@ for fdr_i in fdr_i_set:
             genTotSet[i,jj,2] = genTotSort[np.floor(len(genTotSort)*1.0/2.0).astype(int)]*pdfData['mu_k'][jj]
             genTotSet[i,jj,3] = genTotSort[np.floor(len(genTotSort)*3.0/4.0).astype(int)]*pdfData['mu_k'][jj]
             genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
-        print('MC complete.',time.process_time())
+        if i%(pdfData['nP'][0]//4)==0:
+            print('MC complete.',time.process_time())
     tEnd = time.process_time()
     # LM.runLinHc(nMc,pdf.pdf) # equivalent at the moment
-
-
-    # colors=[#1f77b4,#ff7f0e,#2ca02c]
-
+    
     # NOW: calculate the statistics we want.
 
     binNo = max(pdf.pdf['nP'])//2
-    # binNo = int(0.5//dMu)
-    # binNo = int(1.0//dMu)
+    genTotAll = genTotAll.flatten()
     hist1 = plt.hist(genTotAll,bins=binNo,range=(0,max(genTotAll)))
     if mcDssOn:
         hist2 = plt.hist(hcGenAll,bins=binNo,range=(0,max(genTotAll)))
     hist2lin = plt.hist(hcGenLinAll,bins=binNo,range=(0,max(genTotAll)))
     plt.close()
-        
+
     pp = hist1[1][1:]
     ppPdfLin = hist2lin[0]/hist1[0]
         
     p0lin = pp[np.argmax(ppPdfLin!=0)]
     p10lin = pp[np.argmax(ppPdfLin>=0.1)]
-    
+
     if pdf.pdf['name']=='gammaWght':
         k0lin = pdfData['mu_k'][np.argmax(Vp_pct_lin!=0)]
         k10lin = pdfData['mu_k'][np.argmax(Vp_pct_lin>=10.)]
@@ -322,11 +313,16 @@ for fdr_i in fdr_i_set:
     print('\n--- Linear results ---\n\nP0:',p0lin,'\nP10:',p10lin,'\nk0:',k0lin,'\nk10:',k10lin)
 
     if mcDssOn:
-        ppPdf = hist2[0]/hist1[0]
-        p0 = pp[np.argmax(ppPdf!=0)]
-        p10 = pp[np.argmax(ppPdf>=0.1)]
-        k0 = pdfData['mu_k'][np.argmax(Vp_pct_dss!=0)]
-        k10 = pdfData['mu_k'][np.argmax(Vp_pct_dss>=10.)]
+        ppPdfDss = hist2[0]/hist1[0]
+        p0 = pp[np.argmax(ppPdfDss!=0)]
+        p10 = pp[np.argmax(ppPdfDss>=0.1)]        
+        if pdf.pdf['name']=='gammaWght':        
+            k0 = pdfData['mu_k'][np.argmax(Vp_pct_dss!=0)]
+            k10 = pdfData['mu_k'][np.argmax(Vp_pct_dss>=10.)]
+        elif pdf.pdf['name']=='gammaFrac':
+            k0 = pdfData['prms'][np.argmax(Vp_pct_dss!=0)]
+            k10 = pdfData['prms'][np.argmax(Vp_pct_dss>=10.)]
+
         print('\n--- OpenDSS results ---\n\nP0:',p0,'\nP10:',p10,'\nk0:',k0,'\nk10:',k10)
         
         if not os.path.exists(SD):
@@ -335,76 +331,62 @@ for fdr_i in fdr_i_set:
         if pltSave:
             with open(SN,'wb') as file:
                 pickle.dump([rslt],file)
-        
+    
     # ================ PLOTTING FUNCTIONS FROM HERE
     if pltCns:
         fig, ax = plt.subplots()
-        
-        plotCns(pdfData['mu_k'],pdfData['prms'],Cns_pct_lin,feeder=feeder,lineStyle='--',ax=ax,pltShow=False)
         if mcDssOn:
-            plotCns(pdfData['mu_k'],pdfData['prms'],Cns_pct_dss,feeder=feeder,lineStyle='-',ax=ax,pltShow=False)
-        # if mcDssOn:
-            # plt.plot(pdfData['mu_k'],Cns_pct_dss[0])
+            ax = plotCns(pdfData['mu_k'],pdfData['prms'],Cns_pct_dss,feeder=feeder,lineStyle='-',ax=ax,pltShow=False)
+        
+        ax = plotCns(pdfData['mu_k'],pdfData['prms'],Cns_pct_lin,feeder=feeder,lineStyle='--',ax=ax,pltShow=False)
         if mcDssOn and pltSave:
-            plt.savefig(os.path.join(SD,'pltCns.png'))
+            plt.savefig(os.path.join(SD,'pltCns_'+pdfName+'.png'))
+        
         plt.show()
 
 
     if pltPwrCdf:
-        # fig,ax = plt.subplots()
         ax = plotPwrCdf(pp,ppPdfLin,lineStyle='--',pltShow=False)
-        # ax.plot(pp,ppPdfLin)
         if mcDssOn:
-            ax = plotPwrCdf(pp,ppPdf,ax=ax,lineStyle='-',pltShow=False)
-            # ax.plot(pp,ppPdf)
+            ax = plotPwrCdf(pp,ppPdfDss,ax=ax,lineStyle='-',pltShow=False)
             ax.legend(('Lin model','OpenDSS'))
-        # plt.xlabel('Power');
-        # plt.ylabel('P(.)');
-        # ax.grid(True)
+        plt.xlabel('Power');
+        plt.ylabel('P(.)');
+        ax.grid(True)
         if mcDssOn and pltSave:
-            plt.savefig(os.path.join(SD,'pltPwrCdf.png'))
-
+            plt.savefig(os.path.join(SD,'pltPwrCdf_'+pdfName+'.png'))
+        
         plt.show()
 
-    if pltHcBoth:
+    if pltHcVltn:
         fig = plt.subplot()
         ax1 = plt.subplot(121)
         ax2 = plt.subplot(122)
-
-        plotHcVltn(pdfData['mu_k'],Vp_pct_lin[0],ax=ax1,pltShow=False,feeder=feeder,logScale=True)
-        plotHcVltn(pdfData['mu_k'],Vp_pct_lin[0],ax=ax2,pltShow=False,feeder=feeder,logScale=False)
-
         if mcDssOn:
-            plotHcVltn(pdfData['mu_k'],Vp_pct_dss[0],ax=ax1,pltShow=False,feeder=feeder,logScale=True)
-            ax1.legend(('Vltn., Nom','Vltn., DSS'))
-            plotHcVltn(pdfData['mu_k'],Vp_pct_dss[0],ax=ax2,pltShow=False,feeder=feeder,logScale=False)
-
-        if mcDssOn and pltSave:
-            plt.savefig(os.path.join(SD,'pltHcBoth.png'))
-
+            plotHcVltn(pdfData['mu_k'],pdfData['prms'],Vp_pct_dss,ax=ax1,pltShow=False,feeder=feeder,logScale=True)
+            plotHcVltn(pdfData['mu_k'],pdfData['prms'],Vp_pct_dss,ax=ax2,pltShow=False,feeder=feeder,logScale=False)
+        
+        plotHcVltn(pdfData['mu_k'],pdfData['prms'],Vp_pct_lin,ax=ax1,pltShow=False,feeder=feeder,logScale=True)
+        plotHcVltn(pdfData['mu_k'],pdfData['prms'],Vp_pct_lin,ax=ax2,pltShow=False,feeder=feeder,logScale=False)
+        if mcDssOn:
+            ax1.legend(('Vltn., DSS','Vltn., Nom'))
+        
         plt.tight_layout()
+        if mcDssOn and pltSave:
+            plt.savefig(os.path.join(SD,'pltHcVltn_'+pdfName+'.png'))
+        
         plt.show()
         
     if pltHcGen:
-        i=0
-        plt.plot(pdfData['mu_k'],genTotSet[i,:,0],'b-'); 
-        plt.plot(pdfData['mu_k'],genTotSet[i,:,2],'b_'); 
-        plt.plot(pdfData['mu_k'],genTotSet[i,:,4],'b-');
+        ax = plotHcGen(mu_k,prms,genTotSet[:,:,0::2],'k')
+        ax = plotHcGen(mu_k,prms,hcGenSetLin[:,:,0::2],'r',ax=ax)
         if mcDssOn:
-            plt.plot(pdfData['mu_k'],hcGenSet[i,:,0],'r-'); 
-            plt.plot(pdfData['mu_k'],hcGenSet[i,:,2],'r_'); 
-            plt.plot(pdfData['mu_k'],hcGenSet[i,:,4],'r-');        
-
-        plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,0],'g-') 
-        plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,2],'g_') 
-        plt.plot(pdfData['mu_k'],hcGenSetLin[i,:,4],'g-') 
-        xlm = plt.xlim()
-        plt.xlim((-dsf.get_dx(pdfData['mu_k']),xlm[1]))
+            ax = plotHcGen(mu_k,prms,hcGenSetLin[:,:,0::2],'g',ax=ax)
+        xlm = ax.get_xlim()
+        ax.set_xlim((0,xlm[1]))
         plt.xlabel('Scale factor');
         plt.title('Hosting Capacity (kW)');
         plt.grid(True)
         if mcDssOn and pltSave:
-            plt.savefig(os.path.join(SD,'pltHcGen.png'))
-
+            plt.savefig(os.path.join(SD,'pltHcGen_'+pdfName+'.png'))
         plt.show()
-
