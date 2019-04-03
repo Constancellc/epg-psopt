@@ -12,7 +12,7 @@ from scipy.stats.stats import pearsonr
 
 WD = os.path.dirname(sys.argv[0])
 
-fn0 = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190325\\"
+SD = r"XXXX\\"
 
 nMc = 50
 prmI = 0
@@ -27,37 +27,102 @@ pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05)
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 
-# ============================== 1. plotting EU LV and EPRI K1 for CC 
-fdr_i_set = [0,20]
-for fdr_i in fdr_i_set:
-    LM = linModel(fdr_i,WD,QgenPf=1.0)
-    LM.loadNetModel()
-    ax = LM.plotNetwork(pltShow=False)
+# # ============================== 1. plotting EU LV and EPRI K1 for CC 
+# fdr_i_set = [0,20]
+# for fdr_i in fdr_i_set:
+    # LM = linModel(fdr_i,WD,QgenPf=1.0)
+    # LM.loadNetModel()
+    # ax = LM.plotNetwork(pltShow=False)
 
-    xlm = ax.get_xlim() 
-    ylm = ax.get_ylim()
-    dx = xlm[1] - xlm[0]; dy = ylm[1] - ylm[0] # these seem to be in feet for k1
-    if fdr_i==0:
-        # (2637175.474787638, 2653020.026654688) (2637175.474787638, 2653020.026654688)
-        dist = 10
-        x0 = xlm[0] + 0.8*dx
-        y0 = ylm[0] + 0.05*dy
-        ax.plot([x0,x0+dist],[y0,y0],'k-')
-        ax.plot([x0,x0],[y0-0.005*dy,y0+0.005*dy],'k-')
-        ax.plot([x0+dist,x0+dist],[y0-0.005*dy,y0+0.005*dy],'k-')
-        ax.annotate('10 metres',(x0+(dist/2),y0+dy*0.02),ha='center')
-        plt.savefig(WD+'\\hcResults\\eulvNetwork.pdf')
-    if fdr_i==20:
-        # (390860.71323843475, 391030.5357615654) (390860.71323843475, 391030.5357615654)
-        dist = 5280
-        x0 = xlm[0] + 0.6*dx
-        y0 = ylm[0] + 0.05*dy
-        ax.plot([x0,x0+dist],[y0,y0],'k-')
-        ax.plot([x0,x0],[y0-0.005*dy,y0+0.005*dy],'k-')
-        ax.plot([x0+dist,x0+dist],[y0-0.005*dy,y0+0.005*dy],'k-')
-        ax.annotate('1 mile',(x0+(dist/2),y0+dy*0.02),ha='center')
-        plt.savefig(WD+'\\hcResults\\epriK1Network.pdf')
-    plt.show()
+    # xlm = ax.get_xlim() 
+    # ylm = ax.get_ylim()
+    # dx = xlm[1] - xlm[0]; dy = ylm[1] - ylm[0] # these seem to be in feet for k1
+    # if fdr_i==0:
+        # # (2637175.474787638, 2653020.026654688) (2637175.474787638, 2653020.026654688)
+        # dist = 10
+        # x0 = xlm[0] + 0.8*dx
+        # y0 = ylm[0] + 0.05*dy
+        # ax.plot([x0,x0+dist],[y0,y0],'k-')
+        # ax.plot([x0,x0],[y0-0.005*dy,y0+0.005*dy],'k-')
+        # ax.plot([x0+dist,x0+dist],[y0-0.005*dy,y0+0.005*dy],'k-')
+        # ax.annotate('10 metres',(x0+(dist/2),y0+dy*0.02),ha='center')
+        # plt.savefig(WD+'\\hcResults\\eulvNetwork.pdf')
+    # if fdr_i==20:
+        # # (390860.71323843475, 391030.5357615654) (390860.71323843475, 391030.5357615654)
+        # dist = 5280
+        # x0 = xlm[0] + 0.6*dx
+        # y0 = ylm[0] + 0.05*dy
+        # ax.plot([x0,x0+dist],[y0,y0],'k-')
+        # ax.plot([x0,x0],[y0-0.005*dy,y0+0.005*dy],'k-')
+        # ax.plot([x0+dist,x0+dist],[y0-0.005*dy,y0+0.005*dy],'k-')
+        # ax.annotate('1 mile',(x0+(dist/2),y0+dy*0.02),ha='center')
+        # plt.savefig(WD+'\\hcResults\\epriK1Network.pdf')
+    # plt.show()
 
-# ============================== 2. MAP of Nstd before
+
+# ============================ EXAMPLE: plotting the number of standard deviations for a network changing ***vregs*** uniformly
+fdr_i = 22
+print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
+
+# LM = linModel(fdr_i,WD,QgenPf=1.0)
+LM = linModel(fdr_i,WD,QgenPf=1.0)
+LM.loadNetModel(LM.netModelNom)
+
+# pdfName = 'gammaWght'; prms=np.array([3.0])
+pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05)
+
+pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+
+# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+
+# mu_k_set = np.linspace(0,pdf.pdf['mu_k'][(LM.linHcRsl['Vp_pct']>0.).argmax()]*2.0,5)
+
+mu_k_set = 1
+Mu0, Sgm0 = pdf.getMuStd(LM=LM,prmI=-1) # in W
+Mu_set = np.outer(mu_k_set,Mu0)
+Sgm_set = np.outer(mu_k_set,Sgm0)
+
+Q_set = [-0.95,-0.98,1.0]
+
+LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0]) # 100% point
+LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=plt.cm.inferno)
+# LM.plotNetBuses('logVar',pltType='max',minMax=[-3,0.],cmap=plt.cm.inferno)
+
+nOpts = 31
+opts = np.linspace(0.925,1.05,nOpts)
+for i in range(len(Q_set)):
+    print(i)
+    N0 = []
+    LM.QgenPf = Q_set[i]
+    LM.loadNetModel(LM.netModelNom)
+    LM.updateFxdModel()
+    for opt in opts:
+        print(opt)
+        LM.updateDcpleModel(LM.regVreg0*opt)
+        LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
+        N0.append(np.min(LM.nStdU))
+    plt.plot(opts,N0,'x-')
+print(time.process_time())
+plt.xlabel('Regulator setpoint, $k_{\mathrm{Vreg}}$')
+plt.ylabel('Min. no. of standard deviations to constraint, $N_{\sigma}$')
+plt.legend(('0.9','0.95','0.98','1.0'),title='PF (lagging)'); plt.grid(True); plt.ylim((-12,11)); 
+
+# plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.png')
+# plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.pdf')
+# plt.show()
+
+optVal = 0.98
+
+LM.QgenPf = -0.95
+LM.loadNetModel(LM.netModelNom)
+LM.updateFxdModel()
+
+LM.updateDcpleModel(LM.regVreg0*optVal)
+LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
+LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno)
+
+# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+# # ==========================================
 

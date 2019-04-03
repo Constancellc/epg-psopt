@@ -628,7 +628,7 @@ class linModel:
         ax.autoscale_view()
         self.segments = segments
         
-    def plotBuses(self,ax,scores,minMax,colorInvert=False,modMarkerSze=True,cmap=plt.cm.viridis):
+    def plotBuses(self,ax,scores,minMax,colorInvert=False,modMarkerSze=False,cmap=plt.cm.viridis):
         busCoords = self.busCoords
         print('Plotting buses...')
         x0scr = []
@@ -731,7 +731,7 @@ class linModel:
             setMinMax = [setMin,setMax]
         return setVals, setMinMax
         
-    def ccColorbar(self,plt,minMax,roundNo=2,units='',loc='NorthEast',colorInvert=False):
+    def ccColorbar(self,plt,minMax,roundNo=2,units='',loc='NorthEast',colorInvert=False,cmap=plt.cm.viridis):
         xlm = plt.xlim()
         ylm = plt.ylim()
         if loc=='NorthEast':
@@ -751,7 +751,7 @@ class linModel:
         for i in range(100):
             y1 = btm+(top-btm)*(i/100)
             y2 = btm+(top-btm)*((i+1)/100)
-            plt.plot([xcrd,xcrd],[y1,y2],lw=6,c=cm.viridis(i/100))
+            plt.plot([xcrd,xcrd],[y1,y2],lw=6,c=cmap(i/100))
             
         if colorInvert:
             tcks = [str(round(minMax[1],roundNo)),str(round(np.mean(minMax),roundNo)),str(round(minMax[0],roundNo))]
@@ -762,7 +762,7 @@ class linModel:
             y_ = btm+(top-btm)*(i/2)-((top-btm)*0.075)
             plt.annotate('  '+tcks[i]+units,(xcrd,y_))
         
-    def plotNetBuses(self,type,regsOn=True,pltShow=True,minMax=None,pltType='mean',varMax=10):
+    def plotNetBuses(self,type,regsOn=True,pltShow=True,minMax=None,pltType='mean',varMax=10,cmap=plt.cm.viridis):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         self.getBusPhs()
@@ -779,21 +779,18 @@ class linModel:
                 scoreNom = np.log10(self.varKtotU + min(self.varKtotU[:-self.nRegs]))
             else:
                 scoreNom = np.log10(self.varKtotU)
-            scoreNom[(scoreNom - np.mean(scoreNom))/np.std(scoreNom) < -3] = np.nan
+            # scoreNom[(scoreNom - np.mean(scoreNom))/np.std(scoreNom) < -3] = np.nan
             colorInvert = False
         elif type=='nStd':
             scoreNom = self.nStdU
             scoreNom[scoreNom>varMax] = np.nan
             colorInvert = True
-        elif type==None:
-            scoreNom = np.zeros((self.nV))*np.nan
-            colorInvert = False
         scores, minMax0 = self.getSetVals(scoreNom,pltType)
 
         if minMax!=None:
             minMax0 = minMax
         
-        self.plotBuses(ax,scores,minMax0,colorInvert=colorInvert)
+        self.plotBuses(ax,scores,minMax0,colorInvert=colorInvert,cmap=cmap)
         self.plotSub(ax)
         
         
@@ -804,9 +801,9 @@ class linModel:
         plt.gca().set_aspect('equal', adjustable='box')
         plt.tight_layout()
         if type=='vLo' or type=='vHi':
-            self.ccColorbar(plt,minMax0,loc=self.legLoc,units=' pu',roundNo=3,colorInvert=colorInvert)
+            self.ccColorbar(plt,minMax0,loc=self.legLoc,units=' pu',roundNo=3,colorInvert=colorInvert,cmap=cmap)
         elif type=='logVar' or type=='nStd':
-            self.ccColorbar(plt,minMax0,loc=self.legLoc,colorInvert=colorInvert)
+            self.ccColorbar(plt,minMax0,loc=self.legLoc,colorInvert=colorInvert,cmap=cmap)
         plt.xticks([])
         plt.yticks([])
         print('Complete')
