@@ -176,6 +176,7 @@ class linModel:
         self.srcReg = lp0data['srcReg']
         self.legLoc = lp0data['legLoc']
         self.DVmax = 0.06 # pu
+
         
         # with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','busCoords.pkl'),'rb') as handle:
             # self.busCoords = pickle.load(handle)
@@ -194,17 +195,7 @@ class linModel:
         self.vFixYNodeOrder = LMfxd['vYNodeOrder']
         self.v_idx_fix = LMfxd['v_idx']
         self.updateFxdModel()
-        # KyPfix = Kyfix[:,:Kyfix.shape[1]//2]
-        # KyQfix = Kyfix[:,Kyfix.shape[1]//2::]
-        # KdPfix = Kdfix[:,:Kdfix.shape[1]//2]
-        # KdQfix = Kdfix[:,Kdfix.shape[1]//2::]
-        # k_Q = pf2kq(self.QgenPf)
-        # Kfix = np.concatenate((KyPfix+k_Q*KyQfix,KdPfix + k_Q*KdQfix),axis=1)
-        # self.KfixPu = dsf.vmM(1/dvBase,Kfix)
-        
-        # KfixCheck = np.sum(Kfix==0,axis=1)!=Kfix.shape[1] # [can't remember what this is for...]
-        # Kfix = Kfix[KfixCheck]
-        # dvBase = dvBase[KfixCheck]
+        self.nV, self.nS = self.KfixPu.shape
         
     def updateFxdModel(self):
         Ky = self.LMfxd['Ky']
@@ -252,6 +243,9 @@ class linModel:
         
         self.mvIdx = np.where(self.vTotBase>1000)[0]
         self.lvIdx = np.where(self.vTotBase<=1000)[0]
+
+        self.nVmv = len(self.mvIdx)
+        self.nVlv = len(self.lvIdx)
         
         self.SyYNodeOrderTot = LM['SyYNodeOrder']
         self.SdYNodeOrderTot = LM['SdYNodeOrder']
@@ -587,23 +581,31 @@ class linModel:
         plt.yticks([])
         plt.show()
     
-
-    
-    
     def getBusPhs(self):
         vYZ = self.vTotYNodeOrder
-        
-        bus0 = []
-        phs0 = []
+        sYZ = np.concatenate((self.SyYNodeOrderTot,self.SdYNodeOrderTot))
+
+        bus0v = []; bus0s = []
+        phs0v = []; phs0s = []
         for yz in vYZ:
             fullBus = yz.split('.')
-            bus0 = bus0+[fullBus[0].lower()]
+            bus0v = bus0v+[fullBus[0].lower()]
             if len(fullBus)>1:
-                phs0 = phs0+[fullBus[1::]]
+                phs0v = phs0v+[fullBus[1::]]
             else:
-                phs0 = phs0+[['1','2','3']]
-        self.bus0 = np.array(bus0)
-        self.phs0 = np.array(phs0)
+                phs0v = phs0v+[['1','2','3']]
+        for yz in sYZ:
+            fullBus = yz.split('.')
+            bus0s = bus0s+[fullBus[0].lower()]
+            if len(fullBus)>1:
+                phs0s = phs0s+[fullBus[1::]]
+            else:
+                phs0s = phs0s+[['1','2','3']]
+        
+        self.bus0v = np.array(bus0v)
+        self.phs0v = np.array(phs0v)
+        self.bus0s = np.array(bus0s)
+        self.phs0s = np.array(phs0s)
     
     def plotBranches(self,ax,scores=None):
         # branchCoords = self.branchCoords
@@ -626,7 +628,7 @@ class linModel:
         ax.autoscale_view()
         self.segments = segments
         
-    def plotBuses(self,ax,scores,minMax,colorInvert=False,modMarkerSze=True):
+    def plotBuses(self,ax,scores,minMax,colorInvert=False,modMarkerSze=True,cmap=plt.cm.viridis):
         busCoords = self.busCoords
         print('Plotting buses...')
         x0scr = []
@@ -643,20 +645,23 @@ class linModel:
                 else:
                     x0scr = x0scr + [coord[0]]
                     y0scr = y0scr + [coord[1]]
-                    score = (scores[bus]-minMax[0])/(minMax[1]-minMax[0])
+                    if minMax==None:
+                        score=scores[bus]
+                    else:
+                        score = (scores[bus]-minMax[0])/(minMax[1]-minMax[0])
                     if colorInvert:
-                        xyClr = xyClr + [cm.viridis(1-score)]
+                        xyClr = xyClr + [cmap(1-score)]
                         if modMarkerSze:
                             mrkSze.append(150.0*(1-score))
                     else:
-                        xyClr = xyClr + [cm.viridis(score)]
+                        xyClr = xyClr + [cmap(score)]
                         if modMarkerSze:
                             mrkSze.append(150.0*score)
                     if not modMarkerSze:
                         mrkSze.append(20.0)
         
         plt.scatter(x0scr,y0scr,Color=xyClr,marker='.',zorder=+10,s=mrkSze,alpha=0.8)
-        plt.scatter(x0nne,y0nne,Color='#cccccc',marker='.',s=20/np.sqrt(2))
+        plt.scatter(x0nne,y0nne,Color='#cccccc',marker='.',zorder=+5,s=20/np.sqrt(2))
     
     def plotRegs(self,ax):
         if self.nRegs>0:
@@ -673,11 +678,11 @@ class linModel:
         else:
             print('No regulators to plot.')
     
-    def plotSub(self,ax):
+    def plotSub(self,ax,pltSrcReg=True):
         srcCoord = self.busCoords[self.vSrcBus]
         if not np.isnan(srcCoord[0]):
             ax.plot(srcCoord[0],srcCoord[1],'k',marker='H',markersize=8,zorder=+20)
-            if self.srcReg:
+            if self.srcReg and pltSrcReg:
                 ax.plot(srcCoord[0],srcCoord[1],'r',marker='H',markersize=3,zorder=+21)
             else:
                 ax.plot(srcCoord[0],srcCoord[1],'w',marker='H',markersize=3,zorder=+21)
@@ -685,10 +690,14 @@ class linModel:
             print('Could not plot source bus'+self.vSrcBus+', no coordinate')
         
         
-    def getSetVals(self,Set,type='mean'):
+    def getSetVals(self,Set,type='mean',busType='v'):
         busCoords = self.busCoords
-        # phs0 = self.phs0
-        bus0 = self.bus0
+        if busType=='v':
+            bus0 = self.bus0v
+            # phs0 = self.phs0v
+        elif busType=='s':
+            bus0 = self.bus0s
+            # phs0 = self.phs0s
         
         setVals = {}
         setMin = 1e100
@@ -698,7 +707,7 @@ class linModel:
             if not np.isnan(busCoords[bus][0]):
                 vals = Set[bus0==bus.lower()]
                 vals = vals[~np.isnan(vals)]
-                # phses = phs0[bus0==bus.lower()].flatten()
+                # phses = phs0v[bus0v==bus.lower()].flatten()
                 if not len(vals):
                     setVals[bus] = np.nan
                 else:
@@ -716,8 +725,10 @@ class linModel:
                         setMin = min(setMin,np.min(vals))
             else:
                 setVals[bus] = np.nan
-        
-        setMinMax = [setMin,setMax]
+        if setMin==setMax:
+            setMinMax=None
+        else:
+            setMinMax = [setMin,setMax]
         return setVals, setMinMax
         
     def ccColorbar(self,plt,minMax,roundNo=2,units='',loc='NorthEast',colorInvert=False):
@@ -769,27 +780,24 @@ class linModel:
             else:
                 scoreNom = np.log10(self.varKtotU)
             scoreNom[(scoreNom - np.mean(scoreNom))/np.std(scoreNom) < -3] = np.nan
-            # scoreNom[scoreNom  < -5] = np.nan
             colorInvert = False
-        # elif type=='var':
-            # # if self.nRegs > 0:
-                # # scoreNom = self.varKtotU + min(self.varKtotU[:-self.nRegs])
-            # # else:
-            # scoreNom = self.varKtotU
-            # colorInvert = False
-            # # scoreNom[(scoreNom - np.mean(scoreNom))/np.std(scoreNom) < -3] = np.nan
         elif type=='nStd':
             scoreNom = self.nStdU
             scoreNom[scoreNom>varMax] = np.nan
             colorInvert = True
+        elif type==None:
+            scoreNom = np.zeros((self.nV))*np.nan
+            colorInvert = False
         scores, minMax0 = self.getSetVals(scoreNom,pltType)
 
         if minMax!=None:
             minMax0 = minMax
         
         self.plotBuses(ax,scores,minMax0,colorInvert=colorInvert)
-        self.plotRegs(ax)
         self.plotSub(ax)
+        
+        
+        self.plotRegs(ax)
 
         plt.title(self.feeder)
         
@@ -797,14 +805,41 @@ class linModel:
         plt.tight_layout()
         if type=='vLo' or type=='vHi':
             self.ccColorbar(plt,minMax0,loc=self.legLoc,units=' pu',roundNo=3,colorInvert=colorInvert)
-        else:
+        elif type=='logVar' or type=='nStd':
             self.ccColorbar(plt,minMax0,loc=self.legLoc,colorInvert=colorInvert)
-            
+        plt.xticks([])
+        plt.yticks([])
         print('Complete')
         if pltShow:
             plt.show()
-        
     
+    def plotNetwork(self,pltShow=True):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        self.getBusPhs()
+        self.plotBranches(ax)
+        
+        scoreNom = np.ones((self.nS))
+        scores, minMax0 = self.getSetVals(scoreNom,busType='s')
+        self.plotBuses(ax,scores,minMax0,modMarkerSze=False,cmap=cm.Blues)
+        self.plotSub(ax,pltSrcReg=False)
+
+        xlm = ax.get_xlim() 
+        ylm = ax.get_xlim()
+        dx = xlm[1] - xlm[0]; dy = ylm[1] - ylm[0] # these seem to be in feet for k1
+        
+        srcCoord = self.busCoords[self.vSrcBus]
+        ax.annotate('Substation',(srcCoord[0]+0.01*dx,srcCoord[1]+0.01*dy))
+        
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.xticks(ticks=[],labels=[])
+        plt.yticks(ticks=[],labels=[])
+        plt.tight_layout()
+
+        if pltShow:
+            plt.show()
+        return ax
+
 
 # =================================== CLASS: hcPdfs
 class hcPdfs:

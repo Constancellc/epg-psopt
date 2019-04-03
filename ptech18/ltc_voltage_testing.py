@@ -34,22 +34,25 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-# test_model_plt = False
+test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 save_model = True
 save_model = False
+ltcVoltageTestingFig = True
+# ltcVoltageTestingFig = False
+figSze0 = (5,4)
+SD = r"C:\Users\chri3793\Documents\DPhil\papers\psfeb19\figures\\"
 
 fdr_i_set = [5,6,8]
 fdr_i_set = [8]
+# fdr_i_set = [5]
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
     feeder=fdrs[fdr_i]
     print('\nStarting, feeder:',feeder)
-    k = np.arange(-1.5,1.6,0.025)
-    # k = np.arange(-1.5,1.6,0.1)
-    # k = np.arange(-1.5,1.6,0.5)
-    # k = np.arange(0,1.0,1.0)
+    k = np.concatenate((np.arange(-1.5,1.6,0.05),np.arange(1.6,-1.5,-0.05)))
+    # k = np.arange(-1.5,1.6,0.025)
 
     ckt = get_ckt(WD,feeder)
     fn_ckt = ckt[0]
@@ -181,8 +184,6 @@ for fdr_i in fdr_i_set:
     
     dVregRx = regIdxMatVlts.dot(xhR) # for debugging; output in volts.
     
-
-    
     # 4. PERFORM REINDEXING/KRON REDUCTION OF PF MATRICES ==============
     regVreg = get_regVreg(DSSCircuit)
     YZv_idx = vecSlc(vecSlc(YZ[3:],v_idx),v_idx_shf)
@@ -196,16 +197,21 @@ for fdr_i in fdr_i_set:
     Altc,Bltc = kron_red_ltc(KyR,KdR,KtR,bVR,regVreg,regIdxMatVlts)
 
     # 5. VALIDATION ==============
+    vf_0 = np.zeros((len(k),len(YZ)))
+    vf_0 = np.zeros((len(k),len(YZ)))
     v_0 = np.zeros((len(k),len(YZ)))
 
+    vef=np.zeros([k.size])
     veR=np.zeros([k.size])
     veN=np.zeros([k.size])
     veL=np.zeros([k.size])
 
+    vvf_0 = np.zeros((len(k),len(v_idx)))
     vv_0 = np.zeros((len(k),len(v_idx)))
     vv_0R = np.zeros((len(k),len(v_idx))) # reordered
 
     vv_l = np.zeros((len(k),len(v_idx)))
+    vvf_l = np.zeros((len(k),len(v_idx)))
     vv_lR = np.zeros((len(k),len(v_idx))) # reordered (fixed taps)
     vv_lN = np.zeros((len(k),len(v_idx))) # free, no LTC
     vv_lL = np.zeros((len(k),len(v_idx))) # free, with LTC
@@ -218,8 +224,30 @@ for fdr_i in fdr_i_set:
 
     DSSText.Command='set controlmode=static'
 
-    if test_model_plt or test_model_bus:
-        print('--- Start Testing --- \n',time.process_time())
+    if test_model_plt or test_model_bus or ltcVoltageTestingFig:
+        DSSText.Command='set controlmode=off'
+        print('--- Start Testing, 1/2 --- \n',time.process_time())
+        for i in range(len(k)):
+            print(i,'/',len(k)-1)
+            cpf_set_loads(DSSCircuit,BB0,SS0,k[i])
+            DSSSolution.Solve()
+            Convrg.append(DSSSolution.Converged)
+            
+            vf_0[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray))
+            vvf_0[i,:] = vf_0[i,3:][v_idx]
+            
+            sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
+            xhy = -1e3*s_2_x(sY[3:])
+            
+            if len(H)==0:
+                vvf_l[i,:] = Ky.dot(xhy[s_idx]) + bV
+            else:
+                xhd = -1e3*s_2_x(sD) # not [3:] like sY
+                vvf_l[i,:] = Ky.dot(xhy[s_idx]) + Kd.dot(xhd) + bV
+            vef[i] = np.linalg.norm( vvf_l[i,:] - vvf_0[i,:] )/np.linalg.norm(vvf_0[i,:])
+
+        print('--- Start Testing, 2/2 --- \n',time.process_time())
+        DSSText.Command='set controlmode=static'
         for i in range(len(k)):
             print(i,'/',len(k)-1)
             cpf_set_loads(DSSCircuit,BB0,SS0,k[i])
@@ -246,9 +274,9 @@ for fdr_i in fdr_i_set:
             vv_lN[i,:] = np.concatenate((Anew.dot(xnew) + Bnew,np.array(regVreg)))
             vv_lL[i,:] = Altc.dot(xnew) + Bltc # NB note no need to append regVreg
             
-            veR[i] = np.linalg.norm( vv_lR[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
-            veN[i] = np.linalg.norm( vv_lN[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
-            veL[i] = np.linalg.norm( vv_lL[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
+            veR[i] = np.linalg.norm( vv_lR[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:]) # no taps
+            veN[i] = np.linalg.norm( vv_lN[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:]) # decoupled model
+            veL[i] = np.linalg.norm( vv_lL[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:]) # ldc model
         print('Testing Complete.\n',time.process_time())
         unSat = RegSat.min(axis=1)==1
         sat = RegSat.min(axis=1)==0
@@ -277,12 +305,14 @@ for fdr_i in fdr_i_set:
     # PLOTTING ============
     if test_model_plt:
         plt.figure()
-        plt.plot(k[unSat],veR[unSat],'b') 
+        plt.plot(k[unSat],veR[unSat],'b')
         plt.plot(k[unSat],veN[unSat],'r')
         plt.plot(k[unSat],veL[unSat],'g')
         plt.plot(k[sat],veR[sat],'b.')
         plt.plot(k[sat],veN[sat],'r.')
         plt.plot(k[sat],veL[sat],'g.')
+        plt.plot(k,vef,'k:')
+
         plt.title(feeder+', K error')
         plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
         plt.legend(('Fixed taps','Control, R, X = 0','Control, actual R, X'))
@@ -290,6 +320,19 @@ for fdr_i in fdr_i_set:
         
         krnd = np.around(k,5) # this breaks at 0.000 for the error!
         idxs = np.concatenate( ( (krnd==-1.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.0).nonzero()[0] ) )
+    if ltcVoltageTestingFig:
+        fig = plt.figure(figsize=figSze0)
+        ax = fig.add_subplot(111)
+        ax.plot(k,veR,'.-')
+        ax.plot(k,veL,'.-')
+        ax.plot(k,vef,':')
+
+        ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,ylm[1])), ax.set_xlabel('Power continuation factor, $\kappa$'), ax.set_ylabel('Voltage error, $||\Delta V||_{2}\./\.||V||_{2}$')
+        ax.legend(('Fixed model, full error','LDC model, full error','Fixed model, nom. error'))
+        plt.tight_layout()
+        plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.png')
+        plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.pdf')
+        plt.show()
 
     if test_model_bus:
         krnd = np.around(k,5) # this breaks at 0.000 for the error!

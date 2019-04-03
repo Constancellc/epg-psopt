@@ -3,7 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
 from dss_vlin_funcs import *
-from matplotlib import cm
+from matplotlib import cm, rc
+
+# rc('text',usetex=True)
+figSze0=(4.5,3.3)
 
 WD = os.path.dirname(sys.argv[0])
 sys.argv=["makepy","OpenDSSEngine.DSS"]
@@ -17,17 +20,17 @@ DSSSolution=DSSCircuit.Solution
 DSSSolution.Tolerance=1e-7
 
 pltVxtrm = True
-pltVxtrm = False
+# pltVxtrm = False
 savePts = True
 savePts = False
 saveBusCoords = True
-# saveBusCoords = False
+saveBusCoords = False
 saveBrchBuses = True
 saveBrchBuses = False
 pltVxtrmSave = True
-pltVxtrmSave = False
+# pltVxtrmSave = False # use this for plotting for the paper
 
-fn0 = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190325\\"
+SDfig = r"C:\Users\chri3793\Documents\DPhil\papers\psfeb19\figures\\"
 
 load1 = 0.2
 load2 = 0.66
@@ -41,7 +44,7 @@ VmMv = 0.95
 VmLv = 0.92
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-# fdr_i_set = [20]
+fdr_i_set = [20]
 for fdr_i in fdr_i_set:
     # fdr_i = 17
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -69,13 +72,17 @@ for fdr_i in fdr_i_set:
     YZ = DSSCircuit.YNodeOrder
     vBase = get_Yvbase(DSSCircuit)
 
-    loadMults = np.concatenate([np.linspace(-1.5,1.5,31+1),np.linspace(1.5,-1.5,31+1)])
-    if feeder=='epriJ1':
-        # required for EPRI J1 which is rather temporamental
-        loadMults = np.concatenate([np.linspace(-0.4,1.5,21+1),np.linspace(1.5,-0.4,21+1)])
-    elif feeder=='8500node':
-        # required for IEEE 8500
-        loadMults = np.concatenate([np.linspace(-0.2,1.0,13+1),np.linspace(1.0,-0.2,13+1)])
+    
+    if pltVxtrmSave:
+        loadMults = np.concatenate([np.linspace(-1.5,1.5,31+1)])
+    else:
+        loadMults = np.concatenate([np.linspace(-1.5,1.5,31+1),np.linspace(1.5,-1.5,31+1)])
+        if feeder=='epriJ1':
+            # required for EPRI J1 which is rather temporamental
+            loadMults = np.concatenate([np.linspace(-0.4,1.5,21+1),np.linspace(1.5,-0.4,21+1)])
+        elif feeder=='8500node':
+            # required for IEEE 8500
+            loadMults = np.concatenate([np.linspace(-0.2,1.0,13+1),np.linspace(1.0,-0.2,13+1)])
 
     vmax = []
     vmin = []
@@ -183,39 +190,44 @@ for fdr_i in fdr_i_set:
     dataOut = {'Feeder':feeder,'k':kOut,'kLo':load1,'kHi':load2,'VpMv':VpMv,'VpLv':VpLv,'VmMv':VmMv,'VmLv':VmLv,'mvIdxYz':mvIdxYz,'lvIdxYz':lvIdxYz,'nRegs':DSSCircuit.RegControls.Count,'vSrcBus':vSrcBuses[0],'srcReg':srcReg,'legLoc':legLoc[feeder]}
 
     if pltVxtrm:
-        fix,ax = plt.subplots()
+        fig = plt.figure(figsize=figSze0)
+        ax = fig.add_subplot(111)
         clrs = cm.tab10([0,1])
         ax.set_prop_cycle(color=clrs)
         
-        plt.plot(loadMults,mvMax,'x-')
-        plt.plot(loadMults,mvMin,'x-')
-        if not pltVxtrmSave:
-            plt.plot(loadMults,lvMax,'.-')
-            plt.plot(loadMults,lvMin,'.-')
-        xlm = plt.xlim()
-        ylm = plt.ylim()
-        plt.plot(xlm,[VpMv,VpMv],'k--')
-        plt.plot(xlm,[VmMv,VmMv],'k--')
+        ax.plot(loadMults,mvMax,'x-')
+        ax.plot(loadMults,mvMin,'x-')
+        ax.plot(loadMults,lvMax,'.-')
+        ax.plot(loadMults,lvMin,'.-')
         
-        if not pltVxtrmSave:
-            plt.plot(xlm,[VpLv,VpLv],'k:')
-            plt.plot(xlm,[VmLv,VmLv],'k:')
+        xlm = ax.get_xlim()
+        ylm = ax.get_ylim()
+        ax.plot(xlm,[VpMv,VpMv],'k--')
+        ax.plot(xlm,[VmMv,VmMv],'k--')
         
-        plt.plot([kOut,kOut],ylm,'k')
-        plt.xlim(xlm)
-        plt.ylim(ylm)
-        plt.grid(True)
-        plt.xlabel('Continuation factor, $\kappa$')
-        plt.ylabel('Voltage (pu)')
+        ax.plot(xlm,[VpLv,VpLv],'k:')
+        ax.plot(xlm,[VmLv,VmLv],'k:')
+        
+        yLow = 0.915
+        ax.plot([kOut,kOut],[yLow,ylm[1]],'k')
+        ax.set_xlim(xlm)
+
+        ax.set_ylim([yLow,ylm[1]])
+        ax.grid(True)
+        ax.set_xlabel('Continuation factor, $\kappa$')
+        ax.set_ylabel('Voltage (pu)')
+        ax.legend(('$\max|V_{\mathrm{MV}}|$','$\min|V_{\mathrm{MV}}|$','$\max|V_{\mathrm{LV}}|$','$\min|V_{\mathrm{LV}}|$'),loc='upper right')
         if pltVxtrmSave:
-            plt.annotate('$\kappa_{\mathrm{Lin}}$',(kOut-0.13,ylm[1] - 0.025),rotation=90,fontsize=13)
-            plt.savefig(fn0+'pltVxtrm_'+feeder)
-            plt.legend(('$\max|V_{\mathrm{MV}}|$','$\min|V_{\mathrm{MV}}|$'),loc='upper right')
+            ax.annotate('$\kappa_{\mathrm{Lin}}$',(kOut-0.16,ylm[1] - 0.020),rotation=90,fontsize=13)
+            plt.tight_layout()
+            plt.savefig(SDfig+'pltVxtrm_'+feeder)
+            plt.savefig(SDfig+'pltVxtrm_'+feeder+'.pdf')
+            plt.show()
         else:
-            plt.plot([load1,load1],ylm,'k:')
-            plt.plot([load2,load2],ylm,'k:')
-            plt.legend(('$\max|V_{\mathrm{MV}}|$','$\min|V_{\mathrm{MV}}|$','$\max|V_{\mathrm{LV}}|$','$\min|V_{\mathrm{LV}}|$'),loc='upper right')
-            plt.title(feeder)
+            ax.plot([load1,load1],[yLow,ylm[1]],'k:')
+            ax.plot([load2,load2],[yLow,ylm[1]],'k:')
+            ax.title(feeder)    
+            plt.tight_layout()
             plt.show()
             
         
