@@ -42,13 +42,20 @@ pltCns = True
 pltSave = True # for saving both plots and results
 # pltSave = False
 
+plotShow=True
+plotShow=False
+
 # CHOOSE Network
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 fdr_i_set = [9,17,18,19,20,21,22]
-# fdr_i_set = [5,6,8,0,14] # fastest few
-# fdr_i_set = [17,18] # medium length 1
+fdr_i_set = [5,6,8,0,14] # fastest few
+fdr_i_set = [17,18] # medium length 1
+fdr_i_set = [20,21] # medium length 2
+fdr_i_set = [9]
+fdr_i_set = [22]
+fdr_i_set = [21]
 # fdr_i_set = [19,20,21] # medium length 2
-fdr_i_set = [17]
+# fdr_i_set = [17]
 nMc = int(3e2)
 nMc = 50
 
@@ -342,7 +349,8 @@ for fdr_i in fdr_i_set:
         if mcDssOn and pltSave:
             plt.savefig(os.path.join(SD,'pltCns_'+pdfName+'.png'))
         
-        plt.show()
+        if plotShow:
+            plt.show()
 
 
     if pltPwrCdf:
@@ -356,7 +364,8 @@ for fdr_i in fdr_i_set:
         if mcDssOn and pltSave:
             plt.savefig(os.path.join(SD,'pltPwrCdf_'+pdfName+'.png'))
         
-        plt.show()
+        if plotShow:
+            plt.show()
 
     if pltHcVltn:
         fig = plt.subplot()
@@ -375,7 +384,8 @@ for fdr_i in fdr_i_set:
         if mcDssOn and pltSave:
             plt.savefig(os.path.join(SD,'pltHcVltn_'+pdfName+'.png'))
         
-        plt.show()
+        if plotShow:
+            plt.show()
         
     if pltHcGen:
         ax = plotHcGen(mu_k,prms,genTotSet[:,:,0::2],'k')
@@ -389,4 +399,5 @@ for fdr_i in fdr_i_set:
         plt.grid(True)
         if mcDssOn and pltSave:
             plt.savefig(os.path.join(SD,'pltHcGen_'+pdfName+'.png'))
-        plt.show()
+        if plotShow:
+            plt.show()
