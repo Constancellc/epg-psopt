@@ -14,13 +14,14 @@ q3 = []
 u = []
 l = []
 
+mp = {0:0,1:1,2:3,3:2,4:4}
 ls = {0:[],1:[],2:[],3:[],4:[]}
 with open(stem+'1-losses.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
     next(reader)
     for row in reader:
         for i in range(5):
-            ls[i].append(float(row[i]))
+            ls[mp[i]].append(float(row[i]))
                              
 for i in range(5):
     diff = sorted(ls[i])
@@ -40,9 +41,10 @@ for i in range(len(m)):
     plt.plot([i+1,i+1],[l[i],q1[i]],c='gray')
     plt.plot([i+1,i+1],[q3[i],u[i]],c='gray')
 
-x_ticks = ['No EVs','Uncontrolled','Load\nFlattening','Loss\nMinimizing','LF+Phase\nBalancing']
+x_ticks = ['No EVs','Uncontrolled','Loss\nMinimising','Load\nFlattening',
+           'LF+Phase\nBalancing']
 # box
-plt.plot([0.7,5.3],[m[3],m[3]],ls=':',c='r')
+plt.plot([0.7,5.3],[m[2],m[2]],ls=':',c='r')
 for i in range(len(m)):
     plt.plot([i+0.71,i+1.29],[m[i],m[i]],c='b')
     plt.plot([i+0.7,i+1.3],[q1[i],q1[i]],c='k')#,lw=0.9)

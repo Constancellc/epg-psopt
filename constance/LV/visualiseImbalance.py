@@ -101,7 +101,7 @@ titles = ['Uncontrolled','Load Flatttening','Loss Minimising',
 fig, ax = plt.subplots(1,figsize=(6,5))
 #f, axs = plt.subplots(2, 2)
 
-pm = {1:4,2:1,3:2,4:3}
+pm = {1:4,2:1,3:3,4:2}
 plt.rcParams["font.family"] = 'serif'
 plt.rcParams['font.size'] = 9
 mi = 10
