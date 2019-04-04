@@ -12,7 +12,7 @@ from scipy.stats.stats import pearsonr
 
 WD = os.path.dirname(sys.argv[0])
 
-SD = r"XXXX\\"
+SD = r"C:\Users\chri3793\Documents\DPhil\papers\psfeb19\figures\\"
 
 nMc = 50
 prmI = 0
@@ -46,7 +46,7 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
         # ax.plot([x0,x0],[y0-0.005*dy,y0+0.005*dy],'k-')
         # ax.plot([x0+dist,x0+dist],[y0-0.005*dy,y0+0.005*dy],'k-')
         # ax.annotate('10 metres',(x0+(dist/2),y0+dy*0.02),ha='center')
-        # plt.savefig(WD+'\\hcResults\\eulvNetwork.pdf')
+        # plt.savefig(WD+'\\hcResults\\eulvNetwork.pdf',bbox_inches='tight', pad_inches=0)
     # if fdr_i==20:
         # # (390860.71323843475, 391030.5357615654) (390860.71323843475, 391030.5357615654)
         # dist = 5280
@@ -56,9 +56,8 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
         # ax.plot([x0,x0],[y0-0.005*dy,y0+0.005*dy],'k-')
         # ax.plot([x0+dist,x0+dist],[y0-0.005*dy,y0+0.005*dy],'k-')
         # ax.annotate('1 mile',(x0+(dist/2),y0+dy*0.02),ha='center')
-        # plt.savefig(WD+'\\hcResults\\epriK1Network.pdf')
+        # plt.savefig(WD+'\\hcResults\\epriK1Network.pdf',bbox_inches='tight', pad_inches=0)
     # plt.show()
-
 
 # ============================ EXAMPLE: plotting the number of standard deviations for a network changing ***vregs*** uniformly
 fdr_i = 22
@@ -73,23 +72,22 @@ pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05)
 
 pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
 LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
-
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
-
-# mu_k_set = np.linspace(0,pdf.pdf['mu_k'][(LM.linHcRsl['Vp_pct']>0.).argmax()]*2.0,5)
 
 mu_k_set = 1
 Mu0, Sgm0 = pdf.getMuStd(LM=LM,prmI=-1) # in W
 Mu_set = np.outer(mu_k_set,Mu0)
 Sgm_set = np.outer(mu_k_set,Sgm0)
 
-Q_set = [-0.95,-0.98,1.0]
+Q_set = [1.0,-0.995,-0.98]
 
 LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0]) # 100% point
-LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=plt.cm.inferno)
-# LM.plotNetBuses('logVar',pltType='max',minMax=[-3,0.],cmap=plt.cm.inferno)
+LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=plt.cm.inferno,pltShow=False)
+plt.savefig(SD+'nStdBefore_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0)
+plt.savefig(SD+'nStdBefore_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
+plt.show()
 
-nOpts = 31
+nOpts = 41
 opts = np.linspace(0.925,1.05,nOpts)
 for i in range(len(Q_set)):
     print(i)
@@ -102,25 +100,27 @@ for i in range(len(Q_set)):
         LM.updateDcpleModel(LM.regVreg0*opt)
         LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
         N0.append(np.min(LM.nStdU))
-    plt.plot(opts,N0,'x-')
+    plt.plot(opts*LM.regVreg0/(166*120),N0,'x-')
 print(time.process_time())
-plt.xlabel('Regulator setpoint, $k_{\mathrm{Vreg}}$')
-plt.ylabel('Min. no. of standard deviations to constraint, $N_{\sigma}$')
-plt.legend(('0.9','0.95','0.98','1.0'),title='PF (lagging)'); plt.grid(True); plt.ylim((-12,11)); 
-
-# plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.png')
-# plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.pdf')
-# plt.show()
+plt.xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
+plt.ylabel('Min. no. of standard deviations to constraint, $\min(N_{\sigma})$')
+plt.legend(('1.0','0.995','0.98'),title='PF (lagging)'); plt.grid(True); plt.ylim((-12,9)); 
+plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.png')
+plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.pdf')
+plt.show()
 
 optVal = 0.98
 
-LM.QgenPf = -0.95
+LM.QgenPf = 1.0
 LM.loadNetModel(LM.netModelNom)
 LM.updateFxdModel()
 
 LM.updateDcpleModel(LM.regVreg0*optVal)
 LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
-LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno)
+LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno,pltShow=False)
+plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0)
+plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
+plt.show()
 
 # LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)

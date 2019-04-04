@@ -15,7 +15,7 @@ def tp2mat(tuple_ex):
     
     return mat
     
-    
+
 def s_2_x(s):
     return np.concatenate((s.real,s.imag))
 
@@ -748,3 +748,32 @@ def pf2kq(pf):
 
 def kq2pf(kq):
     return np.sign(kq)/np.sqrt(1 + kq**2)
+    
+    
+def basicTable(caption,label,heading,data,TD):
+    # creates a simple table. caption, label, TD (table directory) are strings;
+    # heading is a list of strings, and data is a list of lists of strings, each 
+    # sublist the same length as heading.
+    headTxt = ''
+    for head in heading:
+        headTxt = headTxt + head + ' & '
+
+    headTxt = headTxt[:-3]
+    headTxt = headTxt + ' \\\\\n'
+    
+    nL = len(heading)*'l'
+
+    dataTxt = ''
+    for line in data:
+        if len(line)!=len(heading):
+            print('\nWarning: length of line does not match heading length.\n')
+        for point in line:
+            dataTxt = dataTxt + point + ' & '
+        dataTxt = dataTxt[:-3]
+        dataTxt = dataTxt + ' \\\\\n'
+
+    latexText = '% Generated using basicTable.\n\\centering\n\\caption{'+caption+'}\\label{t:'+label+'}\n\\begin{tabular}{'+nL+'}\n\\toprule\n'+headTxt+'\\midrule\n'+dataTxt+'\\bottomrule\n\\end{tabular}\n'
+
+    with open(TD+label+'.tex','wt') as handle:
+        handle.write(latexText)
+    return latexText

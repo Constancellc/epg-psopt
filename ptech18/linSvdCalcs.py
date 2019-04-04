@@ -11,7 +11,7 @@ from sklearn.decomposition import TruncatedSVD
 from matplotlib.collections import LineCollection
 
 
-def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,lp0data,DVmax=0.06):
+def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,cns,DVmax=0.06):
     nMc = vLsMv.shape[0]
     
     vLsMv[vLsMv<0.5] = 1.0
@@ -19,10 +19,10 @@ def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,lp0data,DVmax=0.06):
     vHsMv[vHsMv<0.5] = 1.0
     vHsLv[vHsLv<0.5] = 1.0
     
-    VpMv = lp0data['VpMv']
-    VmMv = lp0data['VmMv']
-    VpLv = lp0data['VpLv']
-    VmLv = lp0data['VmLv']
+    VpMv = cns.VpMv
+    VmMv = cns.VmMv
+    VpLv = cns.VpLv
+    VmLv = cns.VmLv
     
     vMaxLsMv = np.max(vLsMv,axis=1)
     vMinLsMv = np.min(vLsMv,axis=1)
@@ -115,10 +115,10 @@ def plotHcVltn(mu_k,prms,Vp_pct,ax=None,pltShow=True,feeder=None,lineStyle='.-',
         ax = None; fig = None
     return ax
     
-def plotPwrCdf(pp,ppPdfLin,ax=None,pltShow=True,feeder=None,lineStyle='-'):
+def plotPwrCdf(pp,ppPdf,ax=None,pltShow=True,feeder=None,lineStyle='-'):
     if ax==None:
         fig, ax = plt.subplots()
-    ax.plot(pp,ppPdfLin,LineStyle=lineStyle)
+    ax.plot(pp,ppPdf,LineStyle=lineStyle)
     ax.set_xlabel('Power')
     ax.set_ylabel('Power')
     ax.grid(True)
@@ -176,6 +176,7 @@ class linModel:
         self.srcReg = lp0data['srcReg']
         self.legLoc = lp0data['legLoc']
         self.DVmax = 0.06 # pu
+
 
         
         # with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','busCoords.pkl'),'rb') as handle:
@@ -247,6 +248,9 @@ class linModel:
         self.nVmv = len(self.mvIdx)
         self.nVlv = len(self.lvIdx)
         
+        self.vTotBaseMv = self.vTotBase[self.mvIdx]
+        self.vTotBaseLv = self.vTotBase[self.lvIdx]
+        
         self.SyYNodeOrderTot = LM['SyYNodeOrder']
         self.SdYNodeOrderTot = LM['SdYNodeOrder']
         
@@ -262,11 +266,13 @@ class linModel:
         hcGenAll = np.array([])
         genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
         genTotAll = np.nan*np.zeros((pdfData['nP'][0],nMc*pdfData['nP'][1])) # NB this gets flattened later
-        PP = []
-        PPpdfLin = []
+        # PP = []
+        # PPpdfLin = []
         nV = self.KtotPu.shape[0]
         nS = self.KtotPu.shape[1]
         
+        tStart = time.process_time()
+
         for i in range(pdfData['nP'][0]):
             # pdf = hcPdfs(self.feeder,WD=self.WD,netModel=self.netModelNom,pdfName=pdfData['name'],prms=pdfData['prms'],clfnSolar=pdfData['clfnSolar'])
             Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
@@ -303,16 +309,10 @@ class linModel:
                 vLsLv = ((DelVout*pdfData['mu_k'][jj]) + b0ls)[:,self.lvIdx]
                 vHsMv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.mvIdx]
                 vHsLv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.lvIdx]
-                # vDv = ddVout*pdfData['mu_k'][jj]
-                vDv = ddVout[:,self.mvIdx]*pdfData['mu_k'][jj]
+                vDv = ddVout*pdfData['mu_k'][jj]
+                # vDv = ddVout[:,self.mvIdx]*pdfData['mu_k'][jj]
                 
-                lp0data = {}
-                lp0data['VpMv'] = self.VpMv
-                lp0data['VpLv'] = self.VpLv
-                lp0data['VmMv'] = self.VmMv
-                lp0data['VmLv'] = self.VmLv
-                
-                Cns_pct[i,jj], inBounds = cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,lp0data)
+                Cns_pct[i,jj], inBounds = cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,self)
                 
                 Vp_pct[i,jj] = 100*sum(inBounds)/nMc
                 hcGen = genTot[inBounds]
@@ -330,23 +330,152 @@ class linModel:
                 genTotSet[i,jj,2] = genTotSort[np.floor(len(genTotSort)*1.0/2.0).astype(int)]*pdfData['mu_k'][jj]
                 genTotSet[i,jj,3] = genTotSort[np.floor(len(genTotSort)*3.0/4.0).astype(int)]*pdfData['mu_k'][jj]
                 genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
-        
+        tEnd = time.process_time()
         binNo = max(pdf.pdf['nP'])//2
         genTotAll = genTotAll.flatten()
         hist1 = plt.hist(genTotAll,bins=binNo,range=(0,max(genTotAll)))
         hist2 = plt.hist(hcGenAll,bins=binNo,range=(0,max(genTotAll)))
-        PP = PP + [hist1[1][1:]]
-        PPpdfLin = PPpdfLin + [hist2[0]/hist1[0]] # <<<<< still to be tested!!!!
+        # PP = PP + [hist1[1][1:]]
+        pp = hist1[1][1:]
+        ppPdf = hist2[0]/hist1[0] # <<<<< still to be tested!!!!
         plt.close()
         
         self.linHcRsl = {}
-        self.linHcRsl['PP'] = PP;
+        self.linHcRsl['pp'] = pp
+        self.linHcRsl['ppPdf'] = ppPdf
         self.linHcRsl['hcGenSet'] = hcGenSet
         self.linHcRsl['Vp_pct'] = Vp_pct
         self.linHcRsl['Cns_pct'] = Cns_pct
         self.linHcRsl['hcGenAll'] = hcGenAll
         self.linHcRsl['genTotSet'] = genTotSet
+        self.linHcRsl['runTime'] = tEnd - tStart
+        
     
+    def runDssHc(self,nMc,pdf,DSSObj,genNames,BB0,SS0):
+        DSSText = DSSObj.Text
+        DSSCircuit = DSSObj.ActiveCircuit
+        DSSSolution = DSSCircuit.Solution
+        
+        pdfData = pdf.pdf
+        
+        fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
+        
+        fdr_i = fdrs.index(self.feeder)
+        
+        nCnstr = 9
+        nRcd = 5
+        
+        Vp_pct = np.zeros(pdfData['nP'])
+        Cns_pct = np.zeros(list(pdfData['nP'])+[nCnstr])
+        hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nRcd))
+        genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nRcd))
+        
+        genTotAll = np.nan*np.zeros((pdfData['nP'][0],nMc*pdfData['nP'][1])) # NB this gets flattened later
+        hcGenAll = np.array([])
+        
+        v_idx = self.v_idx_tot
+        
+        tStart = time.process_time()
+        
+        for i in range(pdfData['nP'][0]):
+            if i%(max(pdfData['nP'])//4)==0:
+                print('---- Start MC ----',time.process_time(),i+1,'/',pdfData['nP'][0])
+            Mu0 = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot)
+            pdfGen = pdf.genPdfMcSet(nMc,Mu0,i)[0]
+            
+            genTot0 = np.sum(pdfGen,axis=0)
+            genTotSort = genTot0.copy()
+            genTotSort.sort()
+            genTotAll0 = np.outer(genTot0,pdfData['mu_k'])
+            genTotAll[i] = genTotAll0.flatten()
+            
+            for jj in range(pdfData['nP'][-1]):
+                genTot = genTot0*pdfData['mu_k'][jj]
+                
+                vLsMv = np.ones((nMc,self.nVmv))
+                vHsMv = np.ones((nMc,self.nVmv))
+                vLsLv = np.ones((nMc,self.nVlv))
+                vHsLv = np.ones((nMc,self.nVlv))
+                vDv = np.ones((nMc,self.nV))
+                convLo = []; convDv = []; convHi = []
+                print('\nDSS MC Run:',jj,'/',pdfData['nP'][-1])
+                
+                for j in range(nMc):
+                    if j%(nMc//4)==0:
+                        print(j,'/',nMc)
+                    set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
+                    
+                    if fdr_i != 6:
+                        DSSText.Command='Batchedit load..* vmin=0.33 vmax=3.0 model=1'
+                    
+                    DSSText.Command='Batchedit generator..* vmin=0.33 vmax=3.0'
+                    DSSText.Command='Batchedit regcontrol..* band=1.0' # seems to be as low as we can set without bit problems
+                    
+                    # first solve for the high load point [NB: This order seems best!]
+                    cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointHi)
+                    
+                    DSSSolution.Solve()
+                    convHi = convHi+[DSSSolution.Converged]
+                    vHsDss0 = tp_2_ar(DSSCircuit.YNodeVarray)
+                    
+                    # then low load point
+                    cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointLo)
+                    
+                    DSSSolution.Solve()
+                    convLo = convLo+[DSSSolution.Converged]
+                    vLsDss0 = tp_2_ar(DSSCircuit.YNodeVarray)
+                    
+                    # finally solve for voltage deviation. 
+                    DSSText.Command='Batchedit generator..* kW=0.001'
+                    DSSText.Command='set controlmode=off'
+                    DSSSolution.Solve()
+
+                    convDv = convDv+[DSSSolution.Converged]
+                    vDv0 = tp_2_ar(DSSCircuit.YNodeVarray)
+                    
+                    DSSText.Command='set controlmode=static'
+                    
+                    if convLo and convHi and convDv:
+                        vLsMv[j,:] = abs(vLsDss0)[3:][v_idx][self.mvIdx]/self.vTotBaseMv
+                        vLsLv[j,:] = abs(vLsDss0)[3:][v_idx][self.lvIdx]/self.vTotBaseLv
+                        vHsMv[j,:] = abs(vHsDss0)[3:][v_idx][self.mvIdx]/self.vTotBaseMv
+                        vHsLv[j,:] = abs(vHsDss0)[3:][v_idx][self.lvIdx]/self.vTotBaseLv
+                        vDv[j,:] = abs(abs(vLsDss0) - abs(vDv0))[3:][v_idx]/self.vTotBase
+                    
+                if sum(convLo+convHi+convDv)!=len(convLo+convHi+convDv):
+                    print('\nNo. Converged:',sum(convLo+convHi+convDv),'/',nMc*3)
+                
+                # NOW: calculate the HC value:
+                Cns_pct[i,jj], inBoundsDss = cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,self)
+                Vp_pct[i,jj] = 100*sum(inBoundsDss)/nMc
+                hcGen = genTot[inBoundsDss]
+
+                if len(hcGen)!=0:
+                    hcGenAll = np.concatenate((hcGenAll,hcGen))
+                    hcGen.sort()
+                    hcGenSet[i,jj,0] = hcGen[0]
+                    hcGenSet[i,jj,1] = hcGen[np.floor(len(hcGen)*1.0/4.0).astype(int)]
+                    hcGenSet[i,jj,2] = hcGen[np.floor(len(hcGen)*1.0/2.0).astype(int)]
+                    hcGenSet[i,jj,3] = hcGen[np.floor(len(hcGen)*3.0/4.0).astype(int)]
+                    hcGenSet[i,jj,4] = hcGen[-1]
+                genTotSet[i,jj,0] = genTotSort[0]*pdfData['mu_k'][jj]
+                genTotSet[i,jj,1] = genTotSort[np.floor(len(genTotSort)*1.0/4.0).astype(int)]*pdfData['mu_k'][jj]
+                genTotSet[i,jj,2] = genTotSort[np.floor(len(genTotSort)*1.0/2.0).astype(int)]*pdfData['mu_k'][jj]
+                genTotSet[i,jj,3] = genTotSort[np.floor(len(genTotSort)*3.0/4.0).astype(int)]*pdfData['mu_k'][jj]
+                genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
+            if i%(max(pdfData['nP'])//4)==0:
+                print('MC complete.',time.process_time())
+        tEnd = time.process_time()
+        
+        self.dssHcRsl = {}
+        self.dssHcRsl['genTotAll'] = genTotAll
+        self.dssHcRsl['hcGenSet'] = hcGenSet
+        self.dssHcRsl['Vp_pct'] = Vp_pct
+        self.dssHcRsl['Cns_pct'] = Cns_pct
+        self.dssHcRsl['hcGenAll'] = hcGenAll
+        self.dssHcRsl['genTotSet'] = genTotSet
+        self.dssHcRsl['runTime'] = tEnd - tStart
+        
     def getCovMat(self):
         self.KtotUcov = self.KtotU.dot(self.KtotU.T)
         covScaling = np.sqrt(np.diag(self.KtotUcov))
@@ -498,7 +627,6 @@ class linModel:
         print('\nStdLim:',stdLim)
         print('NSetStd:',NSetStd,', out of ', N0)
         self.NSetStd = NSetStd
-        # LM.plotNetBuses('logVar') # this is the plot to call to visualize this
         
     def makeCorrModel(self,stdLim=0.99,corrLim=[0.95,0.98,0.99]):
         vars = self.varKtotU.copy()
@@ -669,9 +797,8 @@ class linModel:
             for regBus in regBuses:
                 regCoord = self.busCoords[regBus.split('.')[0].lower()]
                 if not np.isnan(regCoord[0]):
-                    # ax.plot(regCoord[0],regCoord[1],'r',marker='o',zorder=+20)
-                    ax.plot(regCoord[0],regCoord[1],'r',marker=(6,1,0),zorder=+20)
-                    ax.annotate(str(i),(regCoord[0],regCoord[1]),zorder=+40)
+                    ax.plot(regCoord[0],regCoord[1],'r',marker=(6,1,0),zorder=+15)
+                    # ax.annotate(str(i),(regCoord[0],regCoord[1]),zorder=+40)
                 else:
                     print('Could not plot regulator bus'+regBus+', no coordinate')
                 i+=1
@@ -795,8 +922,8 @@ class linModel:
         
         
         self.plotRegs(ax)
-
-        plt.title(self.feeder)
+        ax.axis('off')
+        # plt.title(self.feeder)
         
         plt.gca().set_aspect('equal', adjustable='box')
         plt.tight_layout()
@@ -827,6 +954,7 @@ class linModel:
         
         srcCoord = self.busCoords[self.vSrcBus]
         ax.annotate('Substation',(srcCoord[0]+0.01*dx,srcCoord[1]+0.01*dy))
+        ax.axis('off')
         
         plt.gca().set_aspect('equal', adjustable='box')
         plt.xticks(ticks=[],labels=[])
