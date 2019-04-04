@@ -52,7 +52,7 @@ with open('lv test/Loads.csv','rU') as csvfile:
 
 fig,ax = plt.subplots(1,figsize=(5,4.5))
 plt.rcParams["font.family"] = 'serif'
-plt.rcParams['font.size'] = 9
+plt.rcParams['font.size'] = 10
 for l in lines:
     a = lines[l][0]
     b = lines[l][1]
@@ -65,12 +65,12 @@ y = []
 for l in loads:
     x.append(buses[l][0])
     y.append(buses[l][1])
-plt.scatter(x,y,c='gray',label='Households')
+plt.scatter(x,y,c='gray',label='Households',zorder=2.5)
 plt.xlim(390860,391030)
 plt.ylim(392740,392890)
 plt.xticks([390860,391030],['',''])
 plt.yticks([392740,392890],['',''])
-plt.scatter([buses[1][0]],[buses[1][1]],c='r',label='Substation')
+plt.scatter([buses[1][0]],[buses[1][1]],c='r',label='Substation',zorder=2.5)
 plt.plot([390990,391000],[392760,392760],c='k')
 plt.annotate('10 m',(391004,392758.5))
 plt.annotate('Length Scale',(390988,392769))

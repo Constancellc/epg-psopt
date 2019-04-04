@@ -55,6 +55,10 @@ for p in pens:
     _l.append(1000*diff2[0]/int(p))
     _u.append(1000*diff2[-1]/int(p))
 #'''
+
+for i in range(len(q1)):
+    if _q1[i] > q1[i]:
+        _q1[i] = q1[i]
 m = filt.gaussian_filter1d(m,1)
 q1 = filt.gaussian_filter1d(q1,1)
 q3 = filt.gaussian_filter1d(q3,1)
