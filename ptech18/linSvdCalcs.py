@@ -143,7 +143,19 @@ def plotHcGen(mu_k,prms,hcGenSet,lineColor,ax=None):
     ax.plot(x_vals,y_vals[:,2],lineColor+'-')
     
     return ax
-        
+
+def plotBoxWhisk(ax,x,ddx,y,clr):
+    ax.plot([x]*2,y[0:2],'-',color=clr)
+    ax.plot([x-ddx,x+ddx],[y[0]]*2,color=clr)
+    ax.plot([x-ddx,x+ddx],[y[1]]*2,color=clr)
+    ax.plot([x-ddx,x+ddx],[y[2]]*2,color=clr)
+    ax.plot([x-ddx,x+ddx],[y[3]]*2,color=clr)
+    ax.plot([x-ddx,x+ddx],[y[4]]*2,color=clr)
+    ax.plot([x+ddx]*3,y[1:4],'-',color=clr)
+    ax.plot([x-ddx]*3,y[1:4],'-',color=clr)
+    ax.plot([x]*2,y[3::],'-',color=clr)
+    return ax
+
 # =================================== CLASS: linModel
 class linModel:
     """Linear model class with a whole bunch of useful things that we can do with it."""
@@ -255,10 +267,11 @@ class linModel:
         self.SdYNodeOrderTot = LM['SdYNodeOrder']
         
     # def runLinHc(self,nMc,pdfData,model='nom'):
-    def runLinHc(self,nMc,pdf,model='nom'):
+    def runLinHc(self,pdf,model='nom'):
         nCnstr = 9
         
         pdfData = pdf.pdf
+        nMc = pdfData['nMc']
         
         Vp_pct = np.zeros(pdfData['nP'])
         Cns_pct = np.zeros(list(pdfData['nP'])+[nCnstr])
@@ -335,29 +348,37 @@ class linModel:
         genTotAll = genTotAll.flatten()
         hist1 = plt.hist(genTotAll,bins=binNo,range=(0,max(genTotAll)))
         hist2 = plt.hist(hcGenAll,bins=binNo,range=(0,max(genTotAll)))
-        # PP = PP + [hist1[1][1:]]
         pp = hist1[1][1:]
-        ppPdf = hist2[0]/hist1[0] # <<<<< still to be tested!!!!
+        ppPdf = 100*hist2[0]/hist1[0] # <<<<< still to be tested!!!!
         plt.close()
         
+        if pdfData['name']=='gammaWght':
+            param = pdfData['mu_k']
+        elif pdfData['name']=='gammaFrac':
+            param = pdfData['prms']
+        
+        
         self.linHcRsl = {}
+        
         self.linHcRsl['pp'] = pp
         self.linHcRsl['ppPdf'] = ppPdf
+        self.linHcRsl['ppCdf'],self.linHcRsl['xCdf'] = self.getKcdf(pp,ppPdf)
+        
         self.linHcRsl['hcGenSet'] = hcGenSet
         self.linHcRsl['Vp_pct'] = Vp_pct
         self.linHcRsl['Cns_pct'] = Cns_pct
         self.linHcRsl['hcGenAll'] = hcGenAll
         self.linHcRsl['genTotSet'] = genTotSet
         self.linHcRsl['runTime'] = tEnd - tStart
-        
+        self.linHcRsl['kCdf'] = self.getKcdf(param,Vp_pct)[0]
     
-    def runDssHc(self,nMc,pdf,DSSObj,genNames,BB0,SS0):
+    def runDssHc(self,pdf,DSSObj,genNames,BB0,SS0):
         DSSText = DSSObj.Text
         DSSCircuit = DSSObj.ActiveCircuit
         DSSSolution = DSSCircuit.Solution
         
         pdfData = pdf.pdf
-        
+        nMc = pdfData['nMc']
         fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
         
         fdr_i = fdrs.index(self.feeder)
@@ -466,8 +487,26 @@ class linModel:
             if i%(max(pdfData['nP'])//4)==0:
                 print('MC complete.',time.process_time())
         tEnd = time.process_time()
+        binNo = max(pdf.pdf['nP'])//2
+        genTotAll = genTotAll.flatten()
+        hist1 = plt.hist(genTotAll,bins=binNo,range=(0,max(genTotAll)))
+        hist2 = plt.hist(hcGenAll,bins=binNo,range=(0,max(genTotAll)))
+        pp = hist1[1][1:]
+        ppPdf = 100*hist2[0]/hist1[0] # <<<<< still to be tested!!!!
+        plt.close()
+        
+        if pdfData['name']=='gammaWght':
+            param = pdfData['mu_k']
+        elif pdfData['name']=='gammaFrac':
+            param = pdfData['prms']
+
         
         self.dssHcRsl = {}
+        
+        self.dssHcRsl['pp'] = pp # NB ppDss==ppLin if both at the same time
+        self.dssHcRsl['ppPdf'] = ppPdf 
+        self.dssHcRsl['ppCdf'],self.dssHcRsl['xCdf'] = self.getKcdf(pp,ppPdf)
+        
         self.dssHcRsl['genTotAll'] = genTotAll
         self.dssHcRsl['hcGenSet'] = hcGenSet
         self.dssHcRsl['Vp_pct'] = Vp_pct
@@ -475,7 +514,15 @@ class linModel:
         self.dssHcRsl['hcGenAll'] = hcGenAll
         self.dssHcRsl['genTotSet'] = genTotSet
         self.dssHcRsl['runTime'] = tEnd - tStart
+        self.dssHcRsl['kCdf'] = self.getKcdf(param,Vp_pct)[0]
         
+    def getKcdf(self,param,Vp_pct):
+        kCdf = [param[np.argmax(Vp_pct!=0)]]
+        for centile in np.arange(5.,105.,5.): # NB in %, not value
+            kCdf.append(param[np.argmax(Vp_pct>=centile)])
+        xCdf = [0.]+(np.arange(5.,105.,5.).tolist())
+        return kCdf,xCdf
+    
     def getCovMat(self):
         self.KtotUcov = self.KtotU.dot(self.KtotU.T)
         covScaling = np.sqrt(np.diag(self.KtotUcov))
@@ -968,12 +1015,12 @@ class linModel:
 
 # =================================== CLASS: hcPdfs
 class hcPdfs:
-    def __init__(self,feeder,WD=None,netModel=0,dMu=None,pdfName=None,prms=np.array([]),clfnSolar=None):
+    def __init__(self,feeder,WD=None,netModel=0,dMu=None,pdfName=None,prms=np.array([]),clfnSolar=None,nMc=50):
         
         
         if pdfName==None or pdfName=='gammaWght' or pdfName=='gammaFlat':
             if dMu==None:
-                dMu = 0.01
+                dMu = 0.02
             
             if netModel==0:
                 circuitK = {'eulv':1.8,'usLv':5.0,'13bus':4.8,'34bus':5.4,'123bus':3.0,'8500node':1.2,'epri5':2.4,'epri7':2.0,'epriJ1':1.2,'epriK1':1.2,'epriM1':1.5,'epri24':1.5}
@@ -1002,28 +1049,28 @@ class hcPdfs:
         
         if pdfName==None:
             pdfName = 'gammaWght'
-            prms = np.array([3.0])
-            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':None}
+            prms = np.array([clfnSolar['k']]) # if none, initialised with clfnSolar shape parameter value
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':None,'nMc':nMc}
         elif pdfName=='gammaWght':
             # parameters: np.array([k0,k1,...])
             if len(prms)==0:
-                prms = np.array([3.0])
-            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':None}
+                prms = np.array([clfnSolar['k']])
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':None,'nMc':nMc}
         elif pdfName=='gammaFlat':
             # parameters: np.array([k0,k1,...])
             if len(prms)==0:
-                prms = np.array([3.0])
-            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':None}
+                prms = np.array([clfnSolar['k']])
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':None,'nMc':nMc}
         elif pdfName=='gammaFrac':
             # parameters: np.array([frac0,frac1,...])
             if len(prms)==0:
-                prms=np.array([0.50])
-            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':clfnSolar}
+                prms=np.arange(0.02,1.02,0.02) # if none, use values from santoso paper
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':clfnSolar,'nMc':nMc}
         elif pdfName=='gammaXoff':
             # parameters: np.array([[frac0,xOff0],[frac1,xOff1],...])
             if len(prms)==0:
                 prms=np.array([[0.50,8]])
-            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':clfnSolar}
+            self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':clfnSolar,'nMc':nMc}
     
     def halfLoadMean(self,scale,xhyN,xhdN):
         # scale suggested as: LM.scaleNom = lp0data['kLo'] - lp0data['k']

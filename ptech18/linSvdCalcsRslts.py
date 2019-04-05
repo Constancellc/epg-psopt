@@ -71,7 +71,7 @@ LM.loadNetModel(LM.netModelNom)
 pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05)
 
 pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
-LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 
 mu_k_set = 1
@@ -122,7 +122,7 @@ plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0
 plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
 plt.show()
 
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # # ==========================================
 

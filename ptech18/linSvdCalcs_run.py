@@ -34,7 +34,7 @@ LM.loadNetModel(LM.netModelNom)
 
 pdf = hcPdfs(LM.feeder,WD=LM.WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
 
-LM.runLinHc(nMc,pdf,model='nom')
+LM.runLinHc(pdf,model='nom')
 
 
 # # ===============================================
@@ -76,7 +76,7 @@ LM.runLinHc(nMc,pdf,model='nom')
 # # plt.plot(prms[:,1],LM.linHcRsl['Cns_pct'][:,0],'--')
 
 # LM.makeCorrModel(stdLim=0.90,corrLim=[0.95])
-# LM.runLinHc(nMc,pdf,model='cor') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='cor') # model options: nom / std / cor / mxt ?
 # plt.plot(prms[:,1],LM.linHcRsl['Cns_pct'][:,0],'k:')
 
 # plt.legend(('Voltage deviation','Overvoltage (hi ld)','Undervoltage (hi ld)','Overvoltage (lo ld)','Undervoltage (lo ld)'))
@@ -94,7 +94,7 @@ pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
 
 pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
 Mu0, Sgm0 = pdf.getMuStd(LM=LM) # in W
-LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 
 plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 mu_k_set = np.linspace(0,pdf.pdf['mu_k'][(LM.linHcRsl['Vp_pct']>0.).argmax()]*2.0,5)
@@ -124,7 +124,7 @@ LM.updateDcpleModel(LM.regVreg0*optVal)
 LM.busViolationVar(Sgm_set[1],Mu=Mu_set[1])
 LM.plotNetBuses('nStd',pltType='mean')
 
-LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # ==========================================
 
@@ -141,8 +141,8 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
     # LM.loadNetModel(LM.netModelNom)
     # pdfName = 'gammaFrac'; prms=np.array([0.05,1.00])
     # pdf = hcPdfs(LM.feeder,WD=LM.WD,dMu=np.nan,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
-    # # LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
-    # LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+    # # LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
+    # LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
     # print(LM.linHcRsl['Vp_pct'])
     # if LM.linHcRsl['Vp_pct'][0]>=10.:
         # th_kW_mult[fdrs[fdr_i]] = 0.5
@@ -162,7 +162,7 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
     # LM.loadNetModel(LM.netModelNom)
     # pdfName = 'gammaFrac'; prms=np.array([0.05,1.00])
     # pdf = hcPdfs(LM.feeder,WD=LM.WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
-    # LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+    # LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
     # print(LM.linHcRsl['Vp_pct'])
 # # ============================
 
@@ -183,7 +183,7 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 
 # pdf.pdf['clfnSolar'] = {'k':pdf.pdf['clfnSolar']['k'],'th_kW':th_kW_mult*pdf.pdf['clfnSolar']['th_kW']}
 
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 
 # prmIs = [0,3,6,9,12]
@@ -198,7 +198,7 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # LM.busViolationVar(Sgm_set[4],Mu=Mu_set[4])
 # LM.plotNetBuses('nStd',pltType='max',varMax=10)
 
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 
 # # mult0 = mult0*np.array([1.,1.,1.,0.98,0.98,0.98,1.,1.,1.,1.,1.,1.,])
@@ -230,7 +230,7 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # LM.busViolationVar(Sgm_set[1],Mu=Mu_set[1])
 # LM.plotNetBuses('nStd',pltType='mean')
 
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # # ==========================================
 
@@ -244,7 +244,7 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
 # Mu0, Sgm0 = pdf.getMuStd(LM=LM) # in W
 
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # mu_k_set = np.linspace(0,pdf.pdf['mu_k'][(LM.linHcRsl['Vp_pct']>0.).argmax()]*2.0,5)
 
@@ -277,7 +277,7 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # LM.updateFxdModel()
 # LM.busViolationVar(Sgm=Sgm_set[4],Mu=Mu_set[4])
 # LM.plotNetBuses('nStd',pltType='mean')
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # # ==========================================
 
@@ -291,7 +291,7 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
 # Mu0, Sgm0 = pdf.getMuStd(LM=LM) # in W
 
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # mu_k_set = np.linspace(0,pdf.pdf['mu_k'][(LM.linHcRsl['Vp_pct']>0.).argmax()]*2.0,5)
 
@@ -306,7 +306,7 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # LM.loadNetModel(LM.netModelNom)
 # LM.updateFxdModel()
 
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 
 # LM.busViolationVar(Sgm=Sgm_set[4],Mu=Mu_set[4])
@@ -341,7 +341,7 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # plt.show()
 
 # LM.plotNetBuses('logVar',pltShow=True)
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 
 # LM.updateDcpleModel(LM.regVreg0*0.99)
@@ -350,7 +350,7 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # LM.getCovMat()
 
 # LM.plotNetBuses('logVar',pltShow=True)
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # plt.show()
 # # ====================================
@@ -369,7 +369,7 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # LM.getCovMat()
 
 # LM.plotNetBuses('logVar',pltShow=True)
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 
 # LM.updateDcpleModel(LM.regVreg0*0.99)
@@ -378,7 +378,7 @@ plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # LM.getCovMat()
 
 # LM.plotNetBuses('logVar',pltShow=True)
-# LM.runLinHc(nMc,pdf,model='nom') # model options: nom / std / cor / mxt ?
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # plt.show()
 # # ====================================
