@@ -12,8 +12,11 @@ from linSvdCalcs import plotBoxWhisk
 feeders = ['epriJ1','epriK1','epriM1','epri5','epri7','epri24','8500node','eulv','usLv','13bus','34bus','123bus']
 pLoad = 1000*np.array([11.6,12.74,15.67,16.3,19.3,28.8,12.05,0.055,42.8,3.6,2.0,3.6])
 
-feeders = ['eulv','13bus','34bus','123bus']
-figSze0 = (5,3)
+pLoad = {'epriJ1':11.6,'epriK1':12.74,'epriM1':15.67,'epri5':16.3,'epri7':19.3,'epri24':28.8,'8500node':12.05,'eulv':0.055,'usLv':42.8,'13bus':3.6,'34bus':2.0,'123bus':3.6}
+
+
+# feeders = ['eulv','13bus','34bus','123bus','usLv','epri5','epri7','epri24','epriK1','epriM1']
+figSze0 = (5,4)
 
 TD = r"C:\Users\chri3793\Documents\DPhil\papers\psfeb19\tables\\"
 
@@ -38,8 +41,8 @@ for rslt in rslts.values():
     
     kCdfLin.append(rslt['linHcRsl']['kCdf'][0::5]) # range plus quartiles
     kCdfDss.append(rslt['dssHcRsl']['kCdf'][0::5])
-    ppCdfLin.append(rslt['linHcRsl']['ppCdf'][0::5]) # range plus quartiles
-    ppCdfDss.append(rslt['dssHcRsl']['ppCdf'][0::5])
+    ppCdfLin.append(1e-3*np.array(rslt['linHcRsl']['ppCdf'][0::5])/pLoad[rslt['feeder']]) # range plus quartiles
+    ppCdfDss.append(1e-3*np.array(rslt['dssHcRsl']['ppCdf'][0::5])/pLoad[rslt['feeder']])
     
     
 
