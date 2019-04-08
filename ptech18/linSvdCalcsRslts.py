@@ -63,7 +63,6 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 fdr_i = 22
 print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
 
-# LM = linModel(fdr_i,WD,QgenPf=1.0)
 LM = linModel(fdr_i,WD,QgenPf=1.0)
 LM.loadNetModel(LM.netModelNom)
 
@@ -72,7 +71,7 @@ pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05)
 
 pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
 LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
-# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 
 mu_k_set = 1
 Mu0, Sgm0 = pdf.getMuStd(LM=LM,prmI=-1) # in W
@@ -122,7 +121,9 @@ plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0
 plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
 plt.show()
 
-# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
-# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
+plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 # # ==========================================
 
+# https://stackoverflow.com/questions/39277638/element-wise-minimum-of-multiple-vectors-in-numpy
+# https://docs.scipy.org/doc/numpy/reference/generated/numpy.maximum.html

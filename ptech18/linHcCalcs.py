@@ -22,11 +22,11 @@ from matplotlib import cm
 mcLinOn = True
 # mcLinOn = False
 mcLinVal = True
-mcLinVal = False
+# mcLinVal = False
 mcLinSns = True
 mcLinSns = False
 mcDssOn = True
-# mcDssOn = False
+mcDssOn = False
 
 # PLOTTING options:
 pltHcVltn = True
@@ -54,8 +54,8 @@ fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [20,21] # medium length 2
 # fdr_i_set = [9] # slow 1
 # fdr_i_set = [22] # slow 2
-fdr_i_set = [19] # slow 3
-# fdr_i_set = [18,9]
+# fdr_i_set = [19] # slow 3
+# fdr_i_set = [5]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'

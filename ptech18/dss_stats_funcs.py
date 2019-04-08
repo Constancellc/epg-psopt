@@ -151,17 +151,19 @@ def getHcV2(V,Cdf,v0):
 def vmM(vec,Mat): # Rowwise multiplication, i.e. np.diag(vec).dot(Mat)]
     if len(vec)!=len(Mat):
         print('Warning! vector length is not the same length as the matrix row no.')
-    MatOut = np.zeros(np.shape(Mat),dtype=Mat.dtype); i = 0
-    for mati in Mat:
-        MatOut[i] = mati*vec[i]; i+=1
+    MatOut = Mat*vec[:,None] # see https://stackoverflow.com/questions/18522216/multiplying-across-in-a-numpy-array
+    # MatOut = np.zeros(np.shape(Mat),dtype=Mat.dtype); i = 0
+    # for mati in Mat:
+        # MatOut[i] = mati*vec[i]; i+=1
     return MatOut
 
 def mvM(Mat,vec): # Columnwise multiplication, i.e. Mat.dot(np.diag(vec))
     if len(vec)!=Mat.shape[1]:
         print('Warning! vector length is not the same length as the matrix col no.')
-    MatOut = np.zeros(np.shape(Mat),dtype=Mat.dtype); i = 0
-    for i in range(Mat.shape[1]):
-        MatOut[:,i] = Mat[:,i]*vec[i]; i+=1
+    MatOut = Mat*vec # see https://stackoverflow.com/questions/18522216/multiplying-across-in-a-numpy-array
+    # MatOut = np.zeros(np.shape(Mat),dtype=Mat.dtype); i = 0
+    # for i in range(Mat.shape[1]):
+        # MatOut[:,i] = Mat[:,i]*vec[i]; i+=1
     return MatOut
 
 def vmvM(vec0,Mat,vec1):

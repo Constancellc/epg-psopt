@@ -37,6 +37,47 @@ pdf = hcPdfs(LM.feeder,WD=LM.WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prm
 LM.runLinHc(pdf,model='nom')
 
 
+
+# workflow:
+# - load model; run lin hc analysis; plot variance of buses model
+# - then go through, calculate covariance matrix and bounds; then find chebyshev-like inequality and plot to find pseudo-optimal
+# - validate the pseudo-optimal location with linear HC analysis
+
+fdr_i = 21
+LM = linModel(fdr_i,WD)
+LM.loadNetModel(LM.netModelNom)
+
+pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms)
+Mu0,Sgm0 = pdf.getMuStd(prmI=len(prms)-1)
+
+# olkin and pratt: https://en.wikipedia.org/wiki/Chebyshev%27s_inequality#Multivariate_case
+# use k = 1 on all axis?
+
+LM.busViolationVar(Sgm0,lim='all',Mu=Mu0)
+
+Mtot0 = np.concatenate((LM.KtotPu,LM.KfixPu),axis=0)*Sgm0 # 
+mVars = calcVar(Mtot0)
+nIn = np.where(mVars!=1e-100)
+MtotZmZs = Mtot0*np.sqrt(1/mVars)[:,None]
+MtotCov = MtotZmZs[nIn].dot(MtotZmZs[nIn].T) # NB
+
+MtotCov
+
+k = np.concatenate((LM.svdLim,LM.svdLimDv))*np.sqrt(1/mVars)
+k = k[nIn]
+
+p = len(MtotCov)
+PI = (MtotCov*(1/k)[:,None])*(1/k)
+t = np.sum(1/(k**2))
+t = sum(np.diag(PI)) # this is identical
+u = sum(sum(PI))
+
+# u = kSum2 + 2*rhoSum
+
+# Pr = 1 - ( (1/(n**2))*( ( np.sqrt(u) + (np.sqrt(n-1)*np.sqrt( (n*kSum2) - u ) ) )**2 ) )
+Pr = ( ( np.sqrt(u) + np.sqrt( (p*t - u)*(p-1) ) )**2 )/(p**2)
+
+
 # # ===============================================
 # Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0][0])
 # Sgm = Mu0/np.sqrt(pdf.pdf['prms'][0]) # in W
@@ -83,50 +124,50 @@ LM.runLinHc(pdf,model='nom')
 # plt.show()
 
 
-# ============================ EXAMPLE: plotting the number of standard deviations for a network changing ***vregs*** uniformly
-fdr_i = 20
-print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
+# # ============================ EXAMPLE: plotting the number of standard deviations for a network changing ***vregs*** uniformly
+# fdr_i = 20
+# print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
 
-LM = linModel(fdr_i,WD,QgenPf=1.0)
-LM.loadNetModel(LM.netModelNom)
+# LM = linModel(fdr_i,WD,QgenPf=1.0)
+# LM.loadNetModel(LM.netModelNom)
 
-pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
+# pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
 
-pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
-Mu0, Sgm0 = pdf.getMuStd(LM=LM) # in W
-LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
+# pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+# Mu0, Sgm0 = pdf.getMuStd(LM=LM) # in W
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 
-plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
-mu_k_set = np.linspace(0,pdf.pdf['mu_k'][(LM.linHcRsl['Vp_pct']>0.).argmax()]*2.0,5)
-Mu_set = np.outer(mu_k_set,Mu0)
-Sgm_set = np.outer(mu_k_set,Sgm0)
+# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+# mu_k_set = np.linspace(0,pdf.pdf['mu_k'][(LM.linHcRsl['Vp_pct']>0.).argmax()]*2.0,5)
+# Mu_set = np.outer(mu_k_set,Mu0)
+# Sgm_set = np.outer(mu_k_set,Sgm0)
 
-LM.busViolationVar(Sgm_set[2],Mu=Mu_set[2]) # 100% point
-LM.plotNetBuses('nStd',pltType='max')
+# LM.busViolationVar(Sgm_set[2],Mu=Mu_set[2]) # 100% point
+# LM.plotNetBuses('nStd',pltType='max')
 
-nOpts = 21
-opts = np.linspace(0.925,1.05,nOpts)
-for i in range(len(Mu_set)):
-    print(i)
-    N0 = []
-    for opt in opts:
-        LM.updateDcpleModel(LM.regVreg0*opt)
-        LM.busViolationVar(Sgm_set[i],Mu=Mu_set[i])
-        N0.append(np.min(LM.nStdU))
-    plt.plot(opts,N0,'x-')
-print(time.process_time())
-plt.title('Feeder: ' + fdrs[fdr_i]); plt.xlabel('$k_{\mathrm{Vreg}}$'); plt.ylabel('$N_{\sigma}$')
-plt.legend(('0%','50%','100%','150%','200%')); plt.grid(True); plt.ylim((-12,9)); plt.show()
+# nOpts = 21
+# opts = np.linspace(0.925,1.05,nOpts)
+# for i in range(len(Mu_set)):
+    # print(i)
+    # N0 = []
+    # for opt in opts:
+        # LM.updateDcpleModel(LM.regVreg0*opt)
+        # LM.busViolationVar(Sgm_set[i],Mu=Mu_set[i])
+        # N0.append(np.min(LM.nStdU))
+    # plt.plot(opts,N0,'x-')
+# print(time.process_time())
+# plt.title('Feeder: ' + fdrs[fdr_i]); plt.xlabel('$k_{\mathrm{Vreg}}$'); plt.ylabel('$N_{\sigma}$')
+# plt.legend(('0%','50%','100%','150%','200%')); plt.grid(True); plt.ylim((-12,9)); plt.show()
 
-optVal = 0.96
+# optVal = 0.96
 
-LM.updateDcpleModel(LM.regVreg0*optVal)
-LM.busViolationVar(Sgm_set[1],Mu=Mu_set[1])
-LM.plotNetBuses('nStd',pltType='mean')
+# LM.updateDcpleModel(LM.regVreg0*optVal)
+# LM.busViolationVar(Sgm_set[1],Mu=Mu_set[1])
+# LM.plotNetBuses('nStd',pltType='mean')
 
-LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
-plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
-# ==========================================
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
+# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+# # ==========================================
 
 
 # # ============================ Choosing which to use (50, 100, 150% of californian solar)

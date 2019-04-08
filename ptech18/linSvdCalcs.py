@@ -262,6 +262,15 @@ class linModel:
         self.xNomTot = np.concatenate((self.xhyNtot,self.xhdNtot))
         self.vTotYNodeOrder = LM['vYNodeOrder']
         
+        self.mvIdx = np.where(self.vTotBase>1000)[0]
+        self.lvIdx = np.where(self.vTotBase<=1000)[0]
+        
+        self.mlvIdx = np.concatenate((self.mvIdx,self.lvIdx))
+        self.mlvUnIdx = np.argsort(self.mlvIdx)        
+        
+        self.nVmv = len(self.mvIdx)
+        self.nVlv = len(self.lvIdx)
+        
         self.updateTotModel(A,bV)
         
         if netModel==2: # decoupling regulator model
@@ -270,11 +279,7 @@ class linModel:
         
         self.v_idx_tot = LM['v_idx']
         
-        self.mvIdx = np.where(self.vTotBase>1000)[0]
-        self.lvIdx = np.where(self.vTotBase<=1000)[0]
 
-        self.nVmv = len(self.mvIdx)
-        self.nVlv = len(self.lvIdx)
         
         self.vTotBaseMv = self.vTotBase[self.mvIdx]
         self.vTotBaseLv = self.vTotBase[self.lvIdx]
@@ -540,6 +545,9 @@ class linModel:
         covScaling[covScaling==0] = np.inf # avoid divide by zero complaint
         self.KtotUcorr = dsf.vmvM(1/covScaling,self.KtotUcov,1/covScaling)
     
+    
+    
+    
     def busViolationVar(self,Sgm,lim='all',Mu=np.array([None])):
         if lim=='all':
             if Mu[0]==None:
@@ -550,44 +558,23 @@ class linModel:
                 if Mu.shape==(1,):
                     Mu = np.ones((self.KtotPu.shape[1]))*Mu
                 dMu = self.KtotPu.dot(Mu)
+                dMuMv = self.KtotPuMv.dot(Mu)
+                dMuLv = self.KtotPuLv.dot(Mu)
                 dvMu = self.KfixPu.dot(Mu)
-                
             
-            limA =   self.VpMv - self.b0ls - dMu
-            limB =   self.VpLv - self.b0ls - dMu
-            limC =   -(self.VmMv - self.b0ls - dMu)
-            limD =   -(self.VmLv - self.b0ls - dMu)
-            limE =   self.VpMv - self.b0hs - dMu
-            limF =   self.VpLv - self.b0hs - dMu
-            limG =   -(self.VmMv - self.b0hs - dMu)
-            limH =   -(self.VmLv - self.b0hs - dMu)
+            # NEW VERSION            
+            limMvHi = self.VpMv - self.b0MvMax - dMuMv
+            limMvLo = -(self.VmMv - self.b0MvMin - dMuMv)
+            limLvHi = self.VpLv - self.b0LvMax - dMuLv
+            limLvLo = -(self.VmLv - self.b0LvMin - dMuLv)
             
             limDvA = self.DVmax - dvMu # required so that min puts out a sensible answer?
             limDvB = -(-self.DVmax - dvMu)
+            limLo = np.concatenate((limMvLo,limLvLo))[self.mlvUnIdx]
+            limHi = np.concatenate((limMvHi,limLvHi))[self.mlvUnIdx]
             
-            # get rid of values we don't care about
-            lt05ls = self.b0ls<0.5
-            lt05hs = self.b0ls<0.5
-            limA[lt05ls] = 1.0
-            limB[lt05ls] = 1.0
-            limC[lt05ls] = 1.0
-            limD[lt05ls] = 1.0
-            limE[lt05hs] = 1.0
-            limF[lt05hs] = 1.0
-            limG[lt05hs] = 1.0
-            limH[lt05hs] = 1.0
-            
-            limA[self.lvIdx] = 1.0
-            limB[self.mvIdx] = 1.0
-            limC[self.lvIdx] = 1.0
-            limD[self.mvIdx] = 1.0
-            limE[self.lvIdx] = 1.0
-            limF[self.mvIdx] = 1.0
-            limG[self.lvIdx] = 1.0
-            limH[self.mvIdx] = 1.0
-            
-            limAct = np.min(np.array([limA,limB,limC,limD,limE,limF,limG,limH]),axis=0)
-            limDV = np.min(np.array([limDvA,limDvB]),axis=0)
+            limAct = np.minimum(limLo,limHi)
+            limDV = np.minimum(limDvA,limDvB)
             
         if lim=='VpLvLs':
             if Mu[0]==None:
@@ -716,7 +703,8 @@ class linModel:
         print('\nCorr model stdLim/corrLim:',stdLim,'/',corrLim)
         print('Corr model nset:',NsetLen)
         self.NSetCor = Nset
-
+        
+        
     def updateDcpleModel(self,regVreg):
         # this only requires the update of b0.
         bV = lmKronRedVregUpdate(self.LMfxd,self.idxShf,regVreg)
@@ -730,12 +718,17 @@ class linModel:
         self.b0ls = (A.dot(self.xNomTot*self.loadPointLo) + bV)/self.vTotBase # in pu
         self.b0hs = (A.dot(self.xNomTot*self.loadPointHi) + bV)/self.vTotBase # in pu
         
+        self.updateMvLvB0Models()
+        
         # Akron, Bkron = lmKronRed(self.LMfxd,self.idxShf,regVreg)
         # self.updateTotModel(Akron,Bkron)
         
     def updateTotModel(self,A,bV):
         self.b0ls = (A.dot(self.xNomTot*self.loadPointLo) + bV)/self.vTotBase # in pu
         self.b0hs = (A.dot(self.xNomTot*self.loadPointHi) + bV)/self.vTotBase # in pu
+        
+        self.b0ls[self.b0ls<0.5] = 1.0 # get rid of outliers
+        self.b0hs[self.b0hs<0.5] = 1.0 # get rid of outliers
         
         KyP = A[:,0:len(self.xhyNtot)//2] # these might be zero if there is no injection (e.g. only Q)
         KyQ = A[:,len(self.xhyNtot)//2:len(self.xhyNtot)]
@@ -747,6 +740,23 @@ class linModel:
         Ktot = np.concatenate((KyP + k_Q*KyQ,KdP + k_Q*KdQ),axis=1)
         
         self.KtotPu = dsf.vmM(1/self.vTotBase,Ktot) # scale to be in pu per W
+        
+        self.KtotPuMv = self.KtotPu[self.mvIdx]
+        self.KtotPuLv = self.KtotPu[self.lvIdx]
+        self.updateMvLvB0Models()
+        
+    def updateMvLvB0Models(self):
+        self.b0lsMv = self.b0ls[self.mvIdx]
+        self.b0hsMv = self.b0hs[self.mvIdx]
+        self.b0lsLv = self.b0ls[self.lvIdx]
+        self.b0hsLv = self.b0hs[self.lvIdx]
+        
+        self.b0MvMax = np.maximum(self.b0lsMv,self.b0hsMv)
+        self.b0MvMin = np.minimum(self.b0lsMv,self.b0hsMv)
+        self.b0LvMax = np.maximum(self.b0lsLv,self.b0hsLv)
+        self.b0LvMin = np.minimum(self.b0lsLv,self.b0hsLv) 
+        
+        
     
     # --------------------------------- PLOTTING FUNCTIONS FROM HERE
     def corrPlot(self):
