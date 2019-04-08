@@ -20,15 +20,17 @@ DSSSolution=DSSCircuit.Solution
 DSSSolution.Tolerance=1e-7
 
 pltVxtrm = True
-# pltVxtrm = False
+pltVxtrm = False
 savePts = True
 savePts = False
 saveBusCoords = True
 saveBusCoords = False
 saveBrchBuses = True
 saveBrchBuses = False
+saveRegBandwidths = True
+# saveRegBandwidths = False
 pltVxtrmSave = True
-# pltVxtrmSave = False # use this for plotting for the paper
+pltVxtrmSave = False # use this for plotting for the paper
 
 SDfig = r"C:\Users\chri3793\Documents\DPhil\papers\psfeb19\figures\\"
 
@@ -44,7 +46,8 @@ VmMv = 0.95
 VmLv = 0.92
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i_set = [20]
+# fdr_i_set = [20]
+# fdr_i_set = [19]
 for fdr_i in fdr_i_set:
     # fdr_i = 17
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -57,7 +60,7 @@ for fdr_i in fdr_i_set:
     SB = os.path.join(SD,'busCoords')+'.pkl'
     SBa = os.path.join(SD,'busCoordsAug')+'.pkl'
     SBr = os.path.join(SD,'branches')+'.pkl'
-
+    SBreg = os.path.join(SD,'regBndwth')+'.pkl'
     ckt = get_ckt(WD,feeder)
     fn_ckt = ckt[0]
     fn = ckt[1]
@@ -226,7 +229,7 @@ for fdr_i in fdr_i_set:
         else:
             ax.plot([load1,load1],[yLow,ylm[1]],'k:')
             ax.plot([load2,load2],[yLow,ylm[1]],'k:')
-            ax.title(feeder)    
+            ax.set_title(feeder)    
             plt.tight_layout()
             plt.show()
             
@@ -260,3 +263,14 @@ for fdr_i in fdr_i_set:
             os.makedirs(SD)
         with open(SBr,'wb') as handle:
             pickle.dump(branches,handle)
+    
+    if saveRegBandwidths:
+        i = DSSCircuit.RegControls.First
+        bandWidths = [] # follows the order of the regcontrols
+        while i:
+            bandWidths.append(DSSCircuit.RegControls.ForwardBand)
+            i = DSSCircuit.RegControls.Next
+        if not os.path.exists(SD):
+            os.makedirs(SD)
+        with open(SBreg,'wb') as handle:
+            pickle.dump(bandWidths,handle)

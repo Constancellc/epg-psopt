@@ -23,20 +23,20 @@ DSSSolution.Tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
 test_model = True
-# test_model = False
+test_model = False
 test_model_bus = True
 test_model_bus = False
 saveModel = True
-saveModel = False
+# saveModel = False
 saveCc = True
-# saveCc = False
+saveCc = False
 verbose=True
 calcReg=True
-calcReg=False
+# calcReg=False
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 fdr_i_set = [5,6,8,0,14]
-fdr_i_set = [20]
+fdr_i_set = [18,19]
 for fdr_i in fdr_i_set:
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']; lp_taps='Nmt'
@@ -50,7 +50,7 @@ for fdr_i in fdr_i_set:
     lin_points=np.array([0.3,0.6,1.0])
     lin_points=np.array([0.6])
     lin_points=np.array([lp0data['k']])
-    lin_points=np.array([1.0])
+    # lin_points=np.array([1.0])
 
     k = np.arange(-1.5,1.6,0.1)
     # k = np.array([-1.5,-1.0,-0.5,0.0,0.3,lin_points[:],1.0,1.5]) # for speedier test model plotting
@@ -276,14 +276,16 @@ for fdr_i in fdr_i_set:
             np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',SdYNodeOrder)
             
             
-            np.save(sn0+'WyReg'+lp_str+'.npy',WyReg)
-            np.save(sn0+'aIreg'+lp_str+'.npy',aIreg)
-            np.save(sn0+'WregBus'+lp_str+'.npy',WregBus)
+            if calcReg:
+                np.save(sn0+'WyReg'+lp_str+'.npy',WyReg)
+                np.save(sn0+'aIreg'+lp_str+'.npy',aIreg)
+                np.save(sn0+'WregBus'+lp_str+'.npy',WregBus)
             
             if len(H)!=0:
                 np.save(sn0+'Kd'+lp_str+'.npy',KdV)
                 np.save(sn0+'xhd0'+lp_str+'.npy',xhd0)
-                np.save(sn0+'WdReg'+lp_str+'.npy',WdReg)
+                if calcReg:
+                    np.save(sn0+'WdReg'+lp_str+'.npy',WdReg)
     
     print('Complete.\n',time.process_time())
 

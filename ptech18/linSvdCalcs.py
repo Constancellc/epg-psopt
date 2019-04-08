@@ -6,7 +6,7 @@ import numpy.random as rnd
 import matplotlib.pyplot as plt
 from math import gamma
 import dss_stats_funcs as dsf
-from matplotlib import cm
+from matplotlib import cm, patches
 from sklearn.decomposition import TruncatedSVD
 from matplotlib.collections import LineCollection
 
@@ -144,17 +144,31 @@ def plotHcGen(mu_k,prms,hcGenSet,lineColor,ax=None):
     
     return ax
 
-def plotBoxWhisk(ax,x,ddx,y,clr):
-    ax.plot([x]*2,y[0:2],'-',color=clr)
-    ax.plot([x-ddx,x+ddx],[y[0]]*2,color=clr)
-    ax.plot([x-ddx,x+ddx],[y[1]]*2,color=clr)
-    ax.plot([x-ddx,x+ddx],[y[2]]*2,color=clr)
-    ax.plot([x-ddx,x+ddx],[y[3]]*2,color=clr)
-    ax.plot([x-ddx,x+ddx],[y[4]]*2,color=clr)
-    ax.plot([x+ddx]*3,y[1:4],'-',color=clr)
-    ax.plot([x-ddx]*3,y[1:4],'-',color=clr)
-    ax.plot([x]*2,y[3::],'-',color=clr)
+def plotBoxWhisk(ax,x,ddx,y,clr,zOrder=10,lineWidth=1.0):
+    ax.plot([x]*2,y[0:2],'-',color=clr,zorder=zOrder,linewidth=lineWidth)
+    
+    ax.plot([x-ddx,x+ddx],[y[0]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
+    ax.plot([x-ddx,x+ddx],[y[4]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
+    
+    ddx2 = ddx/1.5
+    box = patches.Rectangle(xy=(x-ddx2,y[1]),width=ddx2*2,height=y[3]-y[1],edgecolor=clr,facecolor='w',zorder=zOrder,linewidth=lineWidth)
+    ax.add_patch(box)
+    ax.plot([x-ddx2,x+ddx2],[y[2]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
+    ax.plot([x]*2,y[3::],'-',color=clr,zorder=zOrder,linewidth=lineWidth)
     return ax
+
+def getKcdf(param,Vp_pct):
+    if np.any(Vp_pct):
+        kCdf = [param[np.argmax(Vp_pct!=0)]]
+    else:
+        kCdf = [np.nan]
+    for centile in np.arange(5.,105.,5.): # NB in %, not probability
+        if np.any(Vp_pct>=centile):
+            kCdf.append(param[np.argmax(Vp_pct>=centile)])
+        else:
+            kCdf.append(np.nan)
+    xCdf = [0.]+(np.arange(5.,105.,5.).tolist())
+    return kCdf,xCdf
 
 # =================================== CLASS: linModel
 class linModel:
@@ -174,6 +188,8 @@ class linModel:
         
         with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
             lp0data = pickle.load(handle)
+        with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','regBndwth.pkl'),'rb') as handle:
+            self.regBandwidth = pickle.load(handle)
         
         self.linPoint = lp0data['k']
         self.loadPointLo = lp0data['kLo']
@@ -188,7 +204,7 @@ class linModel:
         self.srcReg = lp0data['srcReg']
         self.legLoc = lp0data['legLoc']
         self.DVmax = 0.06 # pu
-
+        
 
         
         # with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','busCoords.pkl'),'rb') as handle:
@@ -362,7 +378,7 @@ class linModel:
         
         self.linHcRsl['pp'] = pp
         self.linHcRsl['ppPdf'] = ppPdf
-        self.linHcRsl['ppCdf'],self.linHcRsl['xCdf'] = self.getKcdf(pp,ppPdf)
+        self.linHcRsl['ppCdf'],self.linHcRsl['xCdf'] = getKcdf(pp,ppPdf)
         
         self.linHcRsl['hcGenSet'] = hcGenSet
         self.linHcRsl['Vp_pct'] = Vp_pct
@@ -370,9 +386,9 @@ class linModel:
         self.linHcRsl['hcGenAll'] = hcGenAll
         self.linHcRsl['genTotSet'] = genTotSet
         self.linHcRsl['runTime'] = tEnd - tStart
-        self.linHcRsl['kCdf'] = self.getKcdf(param,Vp_pct)[0]
+        self.linHcRsl['kCdf'] = getKcdf(param,Vp_pct)[0]
     
-    def runDssHc(self,pdf,DSSObj,genNames,BB0,SS0):
+    def runDssHc(self,pdf,DSSObj,genNames,BB0,SS0,regBand=0):
         DSSText = DSSObj.Text
         DSSCircuit = DSSObj.ActiveCircuit
         DSSSolution = DSSCircuit.Solution
@@ -430,7 +446,9 @@ class linModel:
                         DSSText.Command='Batchedit load..* vmin=0.33 vmax=3.0 model=1'
                     
                     DSSText.Command='Batchedit generator..* vmin=0.33 vmax=3.0'
-                    DSSText.Command='Batchedit regcontrol..* band=1.0' # seems to be as low as we can set without bit problems
+                    if regBand!=0:
+                        # DSSText.Command='Batchedit regcontrol..* band=1.0' # seems to be as low as we can set without bit problems
+                        DSSText.Command='Batchedit regcontrol..* band='+str(regBand) # seems to be as low as we can set without bit problems
                     
                     # first solve for the high load point [NB: This order seems best!]
                     cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointHi)
@@ -505,7 +523,7 @@ class linModel:
         
         self.dssHcRsl['pp'] = pp # NB ppDss==ppLin if both at the same time
         self.dssHcRsl['ppPdf'] = ppPdf 
-        self.dssHcRsl['ppCdf'],self.dssHcRsl['xCdf'] = self.getKcdf(pp,ppPdf)
+        self.dssHcRsl['ppCdf'],self.dssHcRsl['xCdf'] = getKcdf(pp,ppPdf)
         
         self.dssHcRsl['genTotAll'] = genTotAll
         self.dssHcRsl['hcGenSet'] = hcGenSet
@@ -514,15 +532,8 @@ class linModel:
         self.dssHcRsl['hcGenAll'] = hcGenAll
         self.dssHcRsl['genTotSet'] = genTotSet
         self.dssHcRsl['runTime'] = tEnd - tStart
-        self.dssHcRsl['kCdf'] = self.getKcdf(param,Vp_pct)[0]
+        self.dssHcRsl['kCdf'] = getKcdf(param,Vp_pct)[0]
         
-    def getKcdf(self,param,Vp_pct):
-        kCdf = [param[np.argmax(Vp_pct!=0)]]
-        for centile in np.arange(5.,105.,5.): # NB in %, not value
-            kCdf.append(param[np.argmax(Vp_pct>=centile)])
-        xCdf = [0.]+(np.arange(5.,105.,5.).tolist())
-        return kCdf,xCdf
-    
     def getCovMat(self):
         self.KtotUcov = self.KtotU.dot(self.KtotU.T)
         covScaling = np.sqrt(np.diag(self.KtotUcov))
@@ -1015,9 +1026,9 @@ class linModel:
 
 # =================================== CLASS: hcPdfs
 class hcPdfs:
-    def __init__(self,feeder,WD=None,netModel=0,dMu=None,pdfName=None,prms=np.array([]),clfnSolar=None,nMc=50):
+    def __init__(self,feeder,WD=None,netModel=0,dMu=None,pdfName=None,prms=np.array([]),clfnSolar=None,nMc=50,rndSeed=0):
         
-        
+        self.rndSeed=rndSeed # 32 bit unsigned integer (up to 2**32)
         if pdfName==None or pdfName=='gammaWght' or pdfName=='gammaFlat':
             if dMu==None:
                 dMu = 0.02
@@ -1106,7 +1117,7 @@ class hcPdfs:
         return Mu,Sgm # both in WATTS
         
     def genPdfMcSet(self,nMc,Mu0,prmI):
-        np.random.seed(0)
+        np.random.seed(self.rndSeed)
         if self.pdf['name']=='gammaWght':
             k = self.pdf['prms'][prmI]
             pdfMc0 = np.random.gamma(k,1/np.sqrt(k),(len(Mu0),nMc))

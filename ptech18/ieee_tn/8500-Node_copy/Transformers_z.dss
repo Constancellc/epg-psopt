@@ -32,9 +32,12 @@ New Transformer.regf3 phases=1  windings=2  buses=(regxfmr_HVMV_Sub_LSB.3,  _HVM
 new line.regf bus1=_HVMV_Sub_LSB_r0 bus2=_HVMV_Sub_LSB phases=3 switch=true
 
 ! Voltage regulator controls
-!New RegControl.regf1 transformer=regf1  winding=2 vreg=126.5  ptratio=60 band=2 
-!New RegControl.regf2 transformer=regf2  winding=2 vreg=126.5  ptratio=60 band=2 
-!New RegControl.regf3 transformer=regf3  winding=2 vreg=126.5  ptratio=60 band=2 
-New RegControl.regf1 transformer=regf1  winding=2 vreg=125.0  ptratio=60 band=1 
-New RegControl.regf2 transformer=regf2  winding=2 vreg=125.0  ptratio=60 band=1 
-New RegControl.regf3 transformer=regf3  winding=2 vreg=125.0  ptratio=60 band=1 
+!New RegControl.regf1 transformer=regf1  winding=2 vreg=126.5  ptratio=60 band=2 !original
+!New RegControl.regf2 transformer=regf2  winding=2 vreg=126.5  ptratio=60 band=2 !original 
+!New RegControl.regf3 transformer=regf3  winding=2 vreg=126.5  ptratio=60 band=2  !original
+!New RegControl.regf1 transformer=regf1  winding=2 vreg=125.0  ptratio=60 band=1 
+!New RegControl.regf2 transformer=regf2  winding=2 vreg=125.0  ptratio=60 band=1 
+!New RegControl.regf3 transformer=regf3  winding=2 vreg=125.0  ptratio=60 band=1 
+New RegControl.regf1 transformer=regf1  winding=2 vreg=125.0  ptratio=60 band=2 
+New RegControl.regf2 transformer=regf2  winding=2 vreg=125.0  ptratio=60 band=2 
+New RegControl.regf3 transformer=regf3  winding=2 vreg=125.0  ptratio=60 band=2 

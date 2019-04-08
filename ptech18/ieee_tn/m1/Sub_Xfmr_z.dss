@@ -6,5 +6,5 @@ New Transformer.reg1  phases=3  windings=2  buses=(SourcebusZ, tempr0)  conns=(d
 new line.reg1 bus1=tempr0 bus2=temp phases=3 switch=True
 
 New Regcontrol.reg1  transformer=reg1  winding=2  
-~ vreg=122.0  band=1.0 ptratio=60 bus=temp enabled=True delay=15 tapdelay=45 !maxtapchange=2
-!~ vreg=122.0  band=3.0 ptratio=60 bus=temp enabled=True delay=15 tapdelay=45 !maxtapchange=2
+!~ vreg=122.0  band=1.0 ptratio=60 bus=temp enabled=True delay=15 tapdelay=45 !maxtapchange=2
+~ vreg=122.0  band=3.0 ptratio=60 bus=temp enabled=True delay=15 tapdelay=45 !maxtapchange=2 ! original

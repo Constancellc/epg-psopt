@@ -8,7 +8,7 @@ Redirect Services_ckt7.dss
 Redirect Load_XFMR_ckt7.dss
 Redirect Loads_ckt7.dss
 Redirect Substation_ckt7_z_loads.dss
-Redirect Capacitors_ckt7.dss
+!Redirect Capacitors_ckt7.dss
 
 ! Initial allocation factors for allocated loads
 redirect AllocationFactors.dss

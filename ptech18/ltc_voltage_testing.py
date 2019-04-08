@@ -34,13 +34,13 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-test_model_plt = False
+# test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 save_model = True
 save_model = False
 ltcVoltageTestingFig = True
-# ltcVoltageTestingFig = False
+ltcVoltageTestingFig = False
 figSze0 = (5,4)
 SD = r"C:\Users\chri3793\Documents\DPhil\papers\psfeb19\figures\\"
 
