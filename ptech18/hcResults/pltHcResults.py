@@ -13,18 +13,23 @@ feeders = ['13bus','34bus','123bus','8500node','eulv','usLv','epriJ1','epriK1','
 # feeders = ['eulv','13bus','34bus','123bus','usLv','epri5','epri7','epri24','epriK1','epriM1']
 pLoad = {'epriJ1':11.6,'epriK1':12.74,'epriM1':15.67,'epri5':16.3,'epri7':19.3,'epri24':28.8,'8500node':12.05,'eulv':0.055,'usLv':42.8,'13bus':3.6,'34bus':2.0,'123bus':3.6}
 
-# t_timeTable = True # timeTable
+feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
+
+t_timeTable = True # timeTable
 f_dssVlinWght = True # gammaFrac boxplot results
 f_linMcVal = True # monte carlo no. validation
 f_logTimes = True # 
+f_linMcSns = True
+f_dssVlinWghtErr = True
 
+pltSave=True
 # pltShow=True
 
 figSze0 = (5,4)
 TD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\tables\\"
 FD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
-rsltsFrac = {}; rsltsVal = {}
+rsltsFrac = {}; rsltsVal = {}; rsltsSns = {}
 for feeder in feeders:
     # RD = os.path.join(WD,feeder,'linHcCalcs'+rsltType+pdfName+num+regID+'.pkl')
     RDval = os.path.join(WD,feeder,'linHcCalcsVal_gammaFrac50.pkl')
@@ -33,10 +38,14 @@ for feeder in feeders:
         rsltsFrac[feeder] = pickle.load(handle)
     with open(RDval,'rb') as handle:
         rsltsVal[feeder] = pickle.load(handle)
-
+for feeder in feeders_dcp:
+    RDsns = os.path.join(WD,feeder,'linHcCalcsSns_gammaFrac.pkl')
+    with open(RDsns,'rb') as handle:
+        rsltsSns[feeder] = pickle.load(handle)
 
 timeStrLin = [];    timeStrDss = []; timeLin = []; timeDss = []
-kCdfLin = [];    kCdfDss = []
+kCdfLin = [];    kCdfDss = []; 
+LrelNorm = []
 for rslt in rsltsFrac.values():
     timeStrLin.append('%.3f' % (rslt['linHcRsl']['runTime']/60.))
     timeStrDss.append('%.3f' % (rslt['dssHcRsl']['runTime']/60.))
@@ -46,17 +55,36 @@ for rslt in rsltsFrac.values():
     KcdkDss = 100*np.array(getKcdf(rslt['pdfData']['prms'],rslt['dssHcRsl']['Vp_pct'])[0])
     KcdkLin[np.isnan(KcdkLin)] = 100.
     KcdkDss[np.isnan(KcdkDss)] = 100.
-    kCdfLin.append(KcdkLin[0::5])
-    kCdfDss.append(KcdkDss[0::5])
-kCdfLin = [];    kCdfVal = []
+    kCdfLin.append(KcdkLin[[0,1,5,10,15,19,20]])
+    kCdfDss.append(KcdkDss[[0,1,5,10,15,19,20]])
+    Vp0 = (0.01*rslt['linHcRsl']['Vp_pct'])
+    Vp1 = (0.01*rslt['dssHcRsl']['Vp_pct'])
+    LrelNorm.append( np.linalg.norm(Vp0-Vp1,ord=1)/(np.linalg.norm(Vp1,ord=1) + 1) )
+    # print(np.linalg.norm(Vp1,ord=1)) # check we're not cheating too much...!
+        
+kCdfVal = []; # kCdfLin = []
 for rslt in rsltsVal.values():
     KcdkLin = 100*np.array(rslt['linHcRsl']['kCdf'])
     KcdkVal = 100*np.array(rslt['linHcVal']['kCdf'])
     KcdkLin[np.isnan(KcdkLin)] = 100.
     KcdkVal[np.isnan(KcdkVal)] = 100.
-    kCdfLin.append(KcdkLin[0::5])
-    kCdfVal.append(KcdkVal[0::5])
-    
+    # kCdfLin.append(KcdkLin[0::5])
+    kCdfVal.append(KcdkVal[[0,1,5,10,15,19,20]])
+kCdfSns0 = [];    kCdfSns1 = []; kCdfLinSns = []
+for rslt in rsltsSns.values():
+    KcdkLinSns = 100*np.array(rslt['linHcRsl']['kCdf'])
+    KcdkSns0 = 100*np.array(rslt['linHcSns0']['kCdf'])
+    KcdkSns1 = 100*np.array(rslt['linHcSns1']['kCdf'])
+    KcdkLinSns[np.isnan(KcdkLinSns)] = 100.
+    KcdkSns0[np.isnan(KcdkSns0)] = 100.
+    KcdkSns1[np.isnan(KcdkSns1)] = 100.
+    # kCdfLinSns.append(KcdkLinSns[1,5,10,15,19])
+    kCdfLinSns.append(KcdkLinSns[[0,1,5,10,15,19,20]])
+    kCdfSns0.append(KcdkSns0[[0,1,5,10,15,19,20]])
+    kCdfSns1.append(KcdkSns1[[0,1,5,10,15,19,20]])
+
+
+
 linHcRsl = rslt['linHcRsl']
 
 # TABLE 1 ======================= 
@@ -71,15 +99,15 @@ if 't_timeTable' in locals():
 dx = 0.175; ddx=dx/1.5
 X = np.arange(len(kCdfLin))
 i=0
-clrA,clrB = cm.tab10([0,1])
+clrA,clrB,clrC,clrD,clrE = cm.tab10(np.arange(5))
 # RESULTS 1 - opendss vs linear model, k =====================
 if 'f_dssVlinWght' in locals():
     fig = plt.figure(figsize=figSze0)
     ax = fig.add_subplot(111)
     i=0
     for x in X:
-        ax = plotBoxWhisk(ax,x+dx,ddx,kCdfDss[i],clrB)
-        ax = plotBoxWhisk(ax,x-dx,ddx,kCdfLin[i],clrA)
+        ax = plotBoxWhisk(ax,x+dx,ddx,kCdfDss[i][1:-1],clrB,bds=kCdfDss[i][[0,-1]])
+        ax = plotBoxWhisk(ax,x-dx,ddx,kCdfLin[i][1:-1],clrA,bds=kCdfLin[i][[0,-1]])
         i+=1
     ax.plot(0,0,'-',color=clrA,label='Linear')
     ax.plot(0,0,'-',color=clrB,label='OpenDSS')
@@ -89,8 +117,9 @@ if 'f_dssVlinWght' in locals():
     plt.xticks(X,feeders,rotation=90)
     plt.ylabel('Loads with PV installed, \%')
     plt.tight_layout()
-    plt.savefig(FD+'dssVlinWght.png',pad_inches=0.02,bbox_inches='tight')
-    plt.savefig(FD+'dssVlinWght.pdf',pad_inches=0.02,bbox_inches='tight')
+    if 'pltSave' in locals():
+        plt.savefig(FD+'dssVlinWght.png',pad_inches=0.02,bbox_inches='tight')
+        plt.savefig(FD+'dssVlinWght.pdf',pad_inches=0.02,bbox_inches='tight')
     if 'pltShow' in locals():
         plt.show()
 
@@ -100,8 +129,8 @@ if 'f_linMcVal' in locals():
     ax = fig.add_subplot(111)
     i=0
     for x in X:
-        ax = plotBoxWhisk(ax,x+dx,ddx,kCdfVal[i],clrB)
-        ax = plotBoxWhisk(ax,x-dx,ddx,kCdfLin[i],clrA)
+        ax = plotBoxWhisk(ax,x+dx,ddx,kCdfVal[i][1:-1],clrB,bds=kCdfVal[i][[0,-1]])
+        ax = plotBoxWhisk(ax,x-dx,ddx,kCdfLin[i][1:-1],clrA,bds=kCdfLin[i][[0,-1]])
         i+=1
     ax.plot(0,0,'-',color=clrA,label='Run A')
     ax.plot(0,0,'-',color=clrB,label='Run B')
@@ -111,11 +140,14 @@ if 'f_linMcVal' in locals():
     plt.grid(True)
     plt.ylabel('Loads with PV installed, \%')
     plt.tight_layout()
-    plt.savefig(FD+'linMcVal.png',pad_inches=0.02,bbox_inches='tight')
-    plt.savefig(FD+'linMcVal.pdf',pad_inches=0.02,bbox_inches='tight')
+    if 'pltSave' in locals():
+        plt.savefig(FD+'linMcVal.png',pad_inches=0.02,bbox_inches='tight')
+        plt.savefig(FD+'linMcVal.pdf',pad_inches=0.02,bbox_inches='tight')
     if 'pltShow' in locals():
         plt.show()
 
+        
+# RESULTS 4 - linear model vs linear rerun, seconds =====================
 if 'f_logTimes' in locals():
     fig = plt.figure(figsize=figSze0)
     ax = fig.add_subplot(111)
@@ -131,7 +163,46 @@ if 'f_logTimes' in locals():
     ax.set_ylabel('Run time, min')
     ax.set_ylim((10**-3,10**3))
     plt.tight_layout()
-    plt.savefig(FD+'logTimes.png',pad_inches=0.02,bbox_inches='tight')
-    plt.savefig(FD+'logTimes.pdf',pad_inches=0.02,bbox_inches='tight')
+    if 'pltSave' in locals():
+        plt.savefig(FD+'logTimes.png',pad_inches=0.02,bbox_inches='tight')
+        plt.savefig(FD+'logTimes.pdf',pad_inches=0.02,bbox_inches='tight')
+    if 'pltShow' in locals():
+        plt.show()
+
+# RESULTS 5 =====================
+Xsns = np.arange(len(kCdfLinSns))
+if 'f_linMcSns' in locals():
+    fig = plt.figure(figsize=figSze0)
+    ax = fig.add_subplot(111)
+    i=0
+    for x in Xsns:
+        ax = plotBoxWhisk(ax,x-dx,0.66*ddx,kCdfLinSns[i][1:-1],clrC,bds=kCdfLinSns[i][[0,-1]])
+        ax = plotBoxWhisk(ax,x   ,0.66*ddx,kCdfSns0[i][1:-1],clrD,bds=kCdfSns0[i][[0,-1]])
+        ax = plotBoxWhisk(ax,x+dx,0.66*ddx,kCdfSns1[i][1:-1],clrE,bds=kCdfSns1[i][[0,-1]])
+        i+=1
+    ax.plot(0,0,'-',color=clrC,label='Nom')
+    ax.plot(0,0,'-',color=clrD,label='T+1')
+    ax.plot(0,0,'-',color=clrE,label='T-1')
+    plt.legend()
+    plt.ylim((-2,102))
+    plt.grid(True)
+    plt.xticks(Xsns,feeders_dcp,rotation=90)
+    plt.ylabel('Loads with PV installed, \%')
+    plt.tight_layout()
+    if 'pltSave' in locals():
+        plt.savefig(FD+'linMcSns.png',pad_inches=0.02,bbox_inches='tight')
+        plt.savefig(FD+'linMcSns.pdf',pad_inches=0.02,bbox_inches='tight')
+    if 'pltShow' in locals():
+        plt.show()
+
+if 'f_dssVlinWghtErr' in locals():
+    plt.bar(X,LrelNorm)
+    plt.xticks(X,feeders,rotation=90)
+    plt.title('Error')
+    plt.ylabel('Relative error, $\epsilon = \dfrac{||f_{\mathrm{lin}}(x) - f_{\mathrm{dss}}(x)||_{1}}{1 + ||f_{\mathrm{dss}}||_{1}}$')
+    plt.tight_layout()
+    if 'pltSave' in locals():
+        plt.savefig(FD+'dssVlinWghtErr.png',pad_inches=0.02,bbox_inches='tight')
+        plt.savefig(FD+'dssVlinWghtErr.pdf',pad_inches=0.02,bbox_inches='tight')
     if 'pltShow' in locals():
         plt.show()

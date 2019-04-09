@@ -16,6 +16,7 @@ fn0 = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190325\\"
 
 nMc = 50
 prmI = 0
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 
 pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
 # pdfName = 'gammaFlat'; prms=np.array([0.5]); prms=np.array([3.0])
@@ -24,58 +25,159 @@ pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05)
 # pdfName = 'gammaFrac'; prms=np.array([0.25,0.25])
 # pdfName = 'gammaXoff'; prms=(np.concatenate((0.33*np.ones((1,19)),np.array([30*np.arange(0.05,1.0,0.05)])),axis=0)).T
 
-fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i = 18
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
+# # fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
+# # fdr_i = 18
 
+# # print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
+# # LM = linModel(fdr_i,WD,QgenPf=1.0)
+# # LM.loadNetModel(LM.netModelNom)
+
+# # pdf = hcPdfs(LM.feeder,WD=LM.WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+
+# # LM.runLinHc(pdf,model='nom')
+
+# ============================ USING matrix norms of the covariance matrix to avoid MC analysis/using approximate results.
+fdr_i = 21
 print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
+
 LM = linModel(fdr_i,WD,QgenPf=1.0)
 LM.loadNetModel(LM.netModelNom)
 
-pdf = hcPdfs(LM.feeder,WD=LM.WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+# pdfName = 'gammaWght'; prms=np.array([3.0])
+pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05); prms100=np.array([1.00])
 
-LM.runLinHc(pdf,model='nom')
+pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+pdf100 = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms100 )
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
+# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+
+mu_k_set = 1
+# Mu0, Sgm0 = pdf.getMuStd(LM=LM,prmI=-1) # in W
+Mu0, Sgm0 = pdf100.getMuStd(LM=LM,prmI=0) # in W
+Mu_set = np.outer(mu_k_set,Mu0)
+Sgm_set = np.outer(mu_k_set,Sgm0)
+
+Q_set = [1.00]
+
+LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0]) # 100% point
+# LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=plt.cm.inferno,pltShow=False)
+# plt.show()
+
+nOpts = 21
+opts = np.linspace(0.925,1.05,nOpts)
+for i in range(len(Q_set)):
+    print(i)
+    
+    R_prct = []
+    N0 = []
+    N1 = []
+    N2 = []
+    N3 = []
+    N4 = []
+    
+    LM.QgenPf = Q_set[i]
+    LM.loadNetModel(LM.netModelNom)
+    LM.updateFxdModel()
+    for opt in opts:
+        print(opt)
+        LM.updateDcpleModel(LM.regVreg0*opt)
+        LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
+        LM.runLinHc(pdf100,model='nom') # NB: this calls plt!
+        R_prct.append(LM.linHcRsl['Vp_pct'][0][0])
+        
+        totMat = np.concatenate((LM.KtotU,LM.KfixU))
+        
+        N0.append(np.linalg.norm(totMat,ord='fro'))
+        N1.append(np.linalg.norm(totMat,ord=np.inf))
+        N2.append(np.min(LM.nStdU))
+    # plt.plot(opts*LM.regVreg0/(166*120),N0,'x-')
+    
+print(time.process_time())
+
+fig = plt.figure(figsize=(4.5,7))
+ax1 = fig.add_subplot(211)
+ax1.plot(opts,N0,'x-')
+ax1.plot(opts,N1,'.-')
+ax1.plot(opts,N2,'o-')
+ax1.legend(('Fro','inf','Nstd'))
+ax1.grid(True)
+ax1.set_xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
+ax1.set_ylim((-3,20))
+
+ax2 = fig.add_subplot(212)
+ax2.plot(opts,R_prct,'x-')
+ax2.grid(True)
+ax2.set_xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
+plt.tight_layout()
+plt.show()
+
+
+# optVal = 0.98
+
+# LM.QgenPf = 1.0
+# LM.loadNetModel(LM.netModelNom)
+# LM.updateFxdModel()
+
+# LM.updateDcpleModel(LM.regVreg0*optVal)
+# LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
+# LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno,pltShow=False)
+# plt.show()
+
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
+# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+# # ==========================================
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# # ==================== Attempting to use olkin and pratt. does not seem to work well at all. VVVVVVV
 # workflow:
 # - load model; run lin hc analysis; plot variance of buses model
 # - then go through, calculate covariance matrix and bounds; then find chebyshev-like inequality and plot to find pseudo-optimal
 # - validate the pseudo-optimal location with linear HC analysis
+# fdr_i = 21
+# LM = linModel(fdr_i,WD)
+# LM.loadNetModel(LM.netModelNom)
 
-fdr_i = 21
-LM = linModel(fdr_i,WD)
-LM.loadNetModel(LM.netModelNom)
+# pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms)
+# Mu0,Sgm0 = pdf.getMuStd(prmI=len(prms)-1)
+# # olkin and pratt: https://en.wikipedia.org/wiki/Chebyshev%27s_inequality#Multivariate_case
+# # use k = 1 on all axis?
+# LM.busViolationVar(Sgm0,lim='all',Mu=Mu0)
 
-pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms)
-Mu0,Sgm0 = pdf.getMuStd(prmI=len(prms)-1)
+# Mtot0 = np.concatenate((LM.KtotPu,LM.KfixPu),axis=0)*Sgm0 # 
+# mVars = calcVar(Mtot0)
+# nIn = np.where(mVars!=1e-100)
+# MtotZmZs = Mtot0*np.sqrt(1/mVars)[:,None]
+# MtotCov = MtotZmZs[nIn].dot(MtotZmZs[nIn].T) # NB
 
-# olkin and pratt: https://en.wikipedia.org/wiki/Chebyshev%27s_inequality#Multivariate_case
-# use k = 1 on all axis?
+# k = np.concatenate((LM.svdLim,LM.svdLimDv))*np.sqrt(1/mVars)
+# k = k[nIn]
 
-LM.busViolationVar(Sgm0,lim='all',Mu=Mu0)
+# p = len(MtotCov)
+# PI = (MtotCov*(1/k)[:,None])*(1/k)
+# t = np.sum(1/(k**2))
+# t = sum(np.diag(PI)) # this is identical
+# u = sum(sum(PI))
 
-Mtot0 = np.concatenate((LM.KtotPu,LM.KfixPu),axis=0)*Sgm0 # 
-mVars = calcVar(Mtot0)
-nIn = np.where(mVars!=1e-100)
-MtotZmZs = Mtot0*np.sqrt(1/mVars)[:,None]
-MtotCov = MtotZmZs[nIn].dot(MtotZmZs[nIn].T) # NB
+# # u = kSum2 + 2*rhoSum
 
-MtotCov
-
-k = np.concatenate((LM.svdLim,LM.svdLimDv))*np.sqrt(1/mVars)
-k = k[nIn]
-
-p = len(MtotCov)
-PI = (MtotCov*(1/k)[:,None])*(1/k)
-t = np.sum(1/(k**2))
-t = sum(np.diag(PI)) # this is identical
-u = sum(sum(PI))
-
-# u = kSum2 + 2*rhoSum
-
-# Pr = 1 - ( (1/(n**2))*( ( np.sqrt(u) + (np.sqrt(n-1)*np.sqrt( (n*kSum2) - u ) ) )**2 ) )
-Pr = ( ( np.sqrt(u) + np.sqrt( (p*t - u)*(p-1) ) )**2 )/(p**2)
+# # Pr = 1 - ( (1/(n**2))*( ( np.sqrt(u) + (np.sqrt(n-1)*np.sqrt( (n*kSum2) - u ) ) )**2 ) )
+# Pr = ( ( np.sqrt(u) + np.sqrt( (p*t - u)*(p-1) ) )**2 )/(p**2)
 
 
 # # ===============================================

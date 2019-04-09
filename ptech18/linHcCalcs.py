@@ -22,40 +22,42 @@ from matplotlib import cm
 mcLinOn = True
 # mcLinOn = False
 mcLinVal = True
-# mcLinVal = False
+mcLinVal = False
 mcLinSns = True
 mcLinSns = False
 mcDssOn = True
-mcDssOn = False
+# mcDssOn = False
 
 # PLOTTING options:
 pltHcVltn = True
-pltHcVltn = False
+# pltHcVltn = False
 pltHcGen = True
-pltHcGen = False
+# pltHcGen = False
 pltPwrCdf = True
-pltPwrCdf = False
+# pltPwrCdf = False
 pltCns = True
-pltCns = False
+# pltCns = False
 
 nMc = 50 # nominal value
 # nMc = 300
 
 pltSave = True # for saving both plots and results
-# pltSave = False
+pltSave = False
 
 plotShow=True
-plotShow=False
+# plotShow=False
 
 # CHOOSE Network
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0] # fast
 # fdr_i_set = [14,17,18] # medium length 1
+# fdr_i_set = [18] # medium length 1
 # fdr_i_set = [20,21] # medium length 2
 # fdr_i_set = [9] # slow 1
 # fdr_i_set = [22] # slow 2
 # fdr_i_set = [19] # slow 3
-# fdr_i_set = [5]
+# fdr_i_set = [22,19,20,21,9] # big networks with only decoupled regulator models
+fdr_i_set = [20]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'
@@ -95,8 +97,6 @@ for fdr_i in fdr_i_set:
     if mcLinSns:
         LMsns = linModel(fdr_i,WD)
         LMsns.loadNetModel()
-        newRegs = LMsns.regVreg0*(1+(np.array(LMsns.regBandwidth)*0.5/120.0))
-        LMsns.updateDcpleModel(newRegs)
         
     
     # ADMIN =============================================
@@ -131,12 +131,20 @@ for fdr_i in fdr_i_set:
         LM.runLinHc(pdf) # equivalent at the moment
         
     if mcLinSns:
+        regs0 = LMsns.regVreg0
+        LMsns.updateDcpleModel(regs0*1.00625)
         LMsns.runLinHc(pdf)
+        rsl0 = LMsns.linHcRsl
+        
+        LMsns.updateDcpleModel(regs0/1.00625)
+        LMsns.runLinHc(pdf)
+        rsl1 = LMsns.linHcRsl
+        
         print('\n--- Linear results 1 ---\n\nP0:',LM.linHcRsl['ppCdf'][0],'\nP10:',LM.linHcRsl['ppCdf'][2],'\nk0:',LM.linHcRsl['kCdf'][0],'\nk10:',LM.linHcRsl['kCdf'][2])
         print('\n--- Linear results 2 ---\n\nP0:',LMsns.linHcRsl['ppCdf'][0],'\nP10:',LMsns.linHcRsl['ppCdf'][2],'\nk0:',LMsns.linHcRsl['kCdf'][0],'\nk10:',LMsns.linHcRsl['kCdf'][2])
         if not os.path.exists(SD):
             os.makedirs(SD)
-        rslt = {'linHcRsl':LM.linHcRsl,'linHcSns':LMsns.linHcRsl,'reg0':LM.regVreg0,'newReg':newRegs,'pdf':pdf.pdf,'feeder':feeder}
+        rslt = {'linHcRsl':LM.linHcRsl,'linHcSns0':rsl0,'linHcSns1':rsl1,'pdf':pdf.pdf,'feeder':feeder}
         if pltSave:
             SN = os.path.join(SD,'linHcCalcsSns_'+pdfName+'.pkl')
             with open(SN,'wb') as file:
@@ -170,7 +178,7 @@ for fdr_i in fdr_i_set:
             SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_reg'+str(regBand)+'.pkl')
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
-    
+
     
     
     # ================ PLOTTING FUNCTIONS FROM HERE

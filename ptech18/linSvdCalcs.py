@@ -144,8 +144,11 @@ def plotHcGen(mu_k,prms,hcGenSet,lineColor,ax=None):
     
     return ax
 
-def plotBoxWhisk(ax,x,ddx,y,clr,zOrder=10,lineWidth=1.0):
-    ax.plot([x]*2,y[0:2],'-',color=clr,zorder=zOrder,linewidth=lineWidth)
+def plotBoxWhisk(ax,x,ddx,y,clr,zOrder=10,lineWidth=1.0,bds=[None]):
+    if bds[0]!=None:
+        ax.plot([x],bds[0],color=clr, zorder=zOrder,marker='2')
+        ax.plot([x],bds[1],color=clr, zorder=zOrder,marker='1')
+    ax.plot([x]*2,y[0:2],'--',color=clr,zorder=zOrder,linewidth=lineWidth)
     
     ax.plot([x-ddx,x+ddx],[y[0]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
     ax.plot([x-ddx,x+ddx],[y[4]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
@@ -154,7 +157,7 @@ def plotBoxWhisk(ax,x,ddx,y,clr,zOrder=10,lineWidth=1.0):
     box = patches.Rectangle(xy=(x-ddx2,y[1]),width=ddx2*2,height=y[3]-y[1],edgecolor=clr,facecolor='w',zorder=zOrder,linewidth=lineWidth)
     ax.add_patch(box)
     ax.plot([x-ddx2,x+ddx2],[y[2]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
-    ax.plot([x]*2,y[3::],'-',color=clr,zorder=zOrder,linewidth=lineWidth)
+    ax.plot([x]*2,y[3::],'--',color=clr,zorder=zOrder,linewidth=lineWidth)
     return ax
 
 def getKcdf(param,Vp_pct):
@@ -365,10 +368,11 @@ class linModel:
                 genTotSet[i,jj,3] = genTotSort[np.floor(len(genTotSort)*3.0/4.0).astype(int)]*pdfData['mu_k'][jj]
                 genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
         tEnd = time.process_time()
+        
         binNo = max(pdf.pdf['nP'])//2
         genTotAll = genTotAll.flatten()
-        hist1 = plt.hist(genTotAll,bins=binNo,range=(0,max(genTotAll)))
-        hist2 = plt.hist(hcGenAll,bins=binNo,range=(0,max(genTotAll)))
+        hist1 = plt.hist(genTotAll,bins=max(binNo,1),range=(0,max(genTotAll)))
+        hist2 = plt.hist(hcGenAll,bins=max(binNo,1),range=(0,max(genTotAll)))
         pp = hist1[1][1:]
         ppPdf = 100*hist2[0]/hist1[0] # <<<<< still to be tested!!!!
         plt.close()
@@ -573,9 +577,12 @@ class linModel:
             limLo = np.concatenate((limMvLo,limLvLo))[self.mlvUnIdx]
             limHi = np.concatenate((limMvHi,limLvHi))[self.mlvUnIdx]
             
+            # limAct[self.b0ls<0.5] = np.inf
             limAct = np.minimum(limLo,limHi)
             limDV = np.minimum(limDvA,limDvB)
             
+            limAct[self.b0ls<0.5] = np.inf # required still unfortunately
+            limAct[self.b0hs<0.5] = np.inf # required still unfortunately
         if lim=='VpLvLs':
             if Mu[0]==None:
                 limAct = self.VpLv - self.b0ls
@@ -606,6 +613,7 @@ class linModel:
         self.nStdKfixU = np.sign(self.svdLimDv)/np.sqrt(self.varKfixU)
         # self.nStdU = np.min(np.concatenate((self.nStdKtotU,self.nStdKfixU),axis=1),axis=1)
         self.nStdU = np.min(np.array((self.nStdKtotU,self.nStdKfixU)),axis=0)
+        
         # plt.plot(self.nStdKtotU)
         # plt.plot(self.nStdKfixU)
         # plt.plot(self.nStdU)
