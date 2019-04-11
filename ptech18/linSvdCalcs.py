@@ -171,12 +171,12 @@ def getKcdf(param,Vp_pct):
         else:
             kCdf.append(np.nan)
     xCdf = [0.]+(np.arange(5.,105.,5.).tolist())
-    return kCdf,xCdf
+    return np.array(kCdf),np.array(xCdf)
 
 # =================================== CLASS: linModel
 class linModel:
     """Linear model class with a whole bunch of useful things that we can do with it."""
-    def __init__(self,fdr_i,WD,QgenPf=1.00):
+    def __init__(self,fdr_i,WD,QgenPf=1.00,capShift=False):
         
         fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
         fdrNetModels = [0,0,0,0,0,1,1,0,1,2,-1,-1,-1,-1,0,-1,-1,0,0,2,2,2,2]
@@ -208,6 +208,7 @@ class linModel:
         self.legLoc = lp0data['legLoc']
         self.DVmax = 0.06 # pu
         
+        
 
         
         # with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','busCoords.pkl'),'rb') as handle:
@@ -228,6 +229,10 @@ class linModel:
         self.v_idx_fix = LMfxd['v_idx']
         self.updateFxdModel()
         self.nV, self.nS = self.KfixPu.shape
+        
+        self.capShift=capShift
+        self.loadNetModel()
+        
         
     def updateFxdModel(self):
         Ky = self.LMfxd['Ky']
@@ -259,10 +264,24 @@ class linModel:
             A=LM['A'];bV=LM['B']
             self.vTotBase = LM['Vbase']
             
-        xhy0=LM['xhy0'];xhd0=LM['xhd0']
-        self.xhyNtot = xhy0/self.linPoint
-        self.xhdNtot = xhd0/self.linPoint
+        xhy0=LM['xhy0'];xhd0=LM['xhd0'];
+        xhyCap0=LM['xhyCap0'];xhdCap0=LM['xhdCap0'];xhyLds0=LM['xhyLds0'];xhdLds0=LM['xhdLds0']
+        
+        self.xTotCap = np.concatenate((xhyCap0,xhdCap0))
+        
+        self.xhyNtot = xhy0/self.linPoint # half deprecated - still useful for halfLoadMean.
+        self.xhdNtot = xhd0/self.linPoint # half deprecated - still useful for halfLoadMean.
         self.xNomTot = np.concatenate((self.xhyNtot,self.xhdNtot))
+        
+        self.xTotLds = np.concatenate((xhyLds0,xhdLds0))/self.linPoint
+        
+        if self.capShift:
+            self.xTotLs = (self.xNomTot*self.loadPointLo)
+            self.xTotHs = (self.xNomTot*self.loadPointHi)        
+        else:
+            self.xTotLs = (self.xTotLds*self.loadPointLo) + self.xTotCap
+            self.xTotHs = (self.xTotLds*self.loadPointHi) + self.xTotCap
+        
         self.vTotYNodeOrder = LM['vYNodeOrder']
         
         self.mvIdx = np.where(self.vTotBase>1000)[0]
@@ -282,15 +301,12 @@ class linModel:
         
         self.v_idx_tot = LM['v_idx']
         
-
-        
         self.vTotBaseMv = self.vTotBase[self.mvIdx]
         self.vTotBaseLv = self.vTotBase[self.lvIdx]
         
         self.SyYNodeOrderTot = LM['SyYNodeOrder']
         self.SdYNodeOrderTot = LM['SdYNodeOrder']
         
-    # def runLinHc(self,nMc,pdfData,model='nom'):
     def runLinHc(self,pdf,model='nom'):
         nCnstr = 9
         
@@ -395,9 +411,10 @@ class linModel:
         self.linHcRsl['hcGenAll'] = hcGenAll
         self.linHcRsl['genTotSet'] = genTotSet
         self.linHcRsl['runTime'] = tEnd - tStart
-        self.linHcRsl['kCdf'] = getKcdf(param,Vp_pct)[0]
+        self.linHcRsl['kCdf'] = 100*getKcdf(param,Vp_pct)[0]
+        self.linHcRsl['kCdf'][np.isnan(self.linHcRsl['kCdf'])] = 100.0000011111
     
-    def runDssHc(self,pdf,DSSObj,genNames,BB0,SS0,regBand=0):
+    def runDssHc(self,pdf,DSSObj,genNames,BB0,SS0,regBand=0,capShift=False):
         DSSText = DSSObj.Text
         DSSCircuit = DSSObj.ActiveCircuit
         DSSSolution = DSSCircuit.Solution
@@ -421,6 +438,13 @@ class linModel:
         
         v_idx = self.v_idx_tot
         
+        if fdr_i != 6:
+            DSSText.Command='Batchedit load..* vmin=0.33 vmax=3.0 model=1'
+        DSSText.Command='Batchedit generator..* vmin=0.33 vmax=3.0'
+        
+        if regBand!=0:
+            DSSText.Command='Batchedit regcontrol..* band='+str(regBand) # 1v seems to be as low as we can set without bit problems
+                    
         tStart = time.process_time()
         
         for i in range(pdfData['nP'][0]):
@@ -451,27 +475,21 @@ class linModel:
                         print(j,'/',nMc)
                     set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
                     
-                    if fdr_i != 6:
-                        DSSText.Command='Batchedit load..* vmin=0.33 vmax=3.0 model=1'
-                    
-                    DSSText.Command='Batchedit generator..* vmin=0.33 vmax=3.0'
-                    if regBand!=0:
-                        # DSSText.Command='Batchedit regcontrol..* band=1.0' # seems to be as low as we can set without bit problems
-                        DSSText.Command='Batchedit regcontrol..* band='+str(regBand) # seems to be as low as we can set without bit problems
-                    
                     # first solve for the high load point [NB: This order seems best!]
-                    cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointHi)
+                    cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointHi,setCaps=capShift)
                     
                     DSSSolution.Solve()
                     convHi = convHi+[DSSSolution.Converged]
                     vHsDss0 = tp_2_ar(DSSCircuit.YNodeVarray)
                     
                     # then low load point
-                    cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointLo)
+                    cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointLo,setCaps=capShift)
                     
                     DSSSolution.Solve()
                     convLo = convLo+[DSSSolution.Converged]
                     vLsDss0 = tp_2_ar(DSSCircuit.YNodeVarray)
+                    
+                    tapPos = find_tap_pos(DSSCircuit)
                     
                     # finally solve for voltage deviation. 
                     DSSText.Command='Batchedit generator..* kW=0.001'
@@ -526,14 +544,11 @@ class linModel:
             param = pdfData['mu_k']
         elif pdfData['name']=='gammaFrac':
             param = pdfData['prms']
-
         
         self.dssHcRsl = {}
-        
         self.dssHcRsl['pp'] = pp # NB ppDss==ppLin if both at the same time
         self.dssHcRsl['ppPdf'] = ppPdf 
         self.dssHcRsl['ppCdf'],self.dssHcRsl['xCdf'] = getKcdf(pp,ppPdf)
-        
         self.dssHcRsl['genTotAll'] = genTotAll
         self.dssHcRsl['hcGenSet'] = hcGenSet
         self.dssHcRsl['Vp_pct'] = Vp_pct
@@ -541,7 +556,8 @@ class linModel:
         self.dssHcRsl['hcGenAll'] = hcGenAll
         self.dssHcRsl['genTotSet'] = genTotSet
         self.dssHcRsl['runTime'] = tEnd - tStart
-        self.dssHcRsl['kCdf'] = getKcdf(param,Vp_pct)[0]
+        self.dssHcRsl['kCdf'] = 100*getKcdf(param,Vp_pct)[0]
+        self.dssHcRsl['kCdf'][np.isnan(self.dssHcRsl['kCdf'])] = 100.0000011111
         
     def getCovMat(self):
         self.KtotUcov = self.KtotU.dot(self.KtotU.T)
@@ -723,8 +739,10 @@ class linModel:
             end = str(np.round(self.linPoint*100).astype(int)).zfill(3)+'.npy'
             A = np.load(stt+'A'+end)
         # NB based on self.updateTotModel(A,Bkron)
-        self.b0ls = (A.dot(self.xNomTot*self.loadPointLo) + bV)/self.vTotBase # in pu
-        self.b0hs = (A.dot(self.xNomTot*self.loadPointHi) + bV)/self.vTotBase # in pu
+        # self.b0ls = (A.dot(self.xNomTot*self.loadPointLo) + bV)/self.vTotBase # in pu
+        # self.b0hs = (A.dot(self.xNomTot*self.loadPointHi) + bV)/self.vTotBase # in pu
+        self.b0ls = (A.dot(self.xTotLs) + bV)/self.vTotBase # in pu
+        self.b0hs = (A.dot(self.xTotHs) + bV)/self.vTotBase # in pu
         
         self.updateMvLvB0Models()
         
@@ -732,8 +750,10 @@ class linModel:
         # self.updateTotModel(Akron,Bkron)
         
     def updateTotModel(self,A,bV):
-        self.b0ls = (A.dot(self.xNomTot*self.loadPointLo) + bV)/self.vTotBase # in pu
-        self.b0hs = (A.dot(self.xNomTot*self.loadPointHi) + bV)/self.vTotBase # in pu
+        # self.b0ls = (A.dot(self.xNomTot*self.loadPointLo) + bV)/self.vTotBase # in pu
+        # self.b0hs = (A.dot(self.xNomTot*self.loadPointHi) + bV)/self.vTotBase # in pu
+        self.b0ls = (A.dot(self.xTotLs) + bV)/self.vTotBase # in pu
+        self.b0hs = (A.dot(self.xTotHs) + bV)/self.vTotBase # in pu
         
         self.b0ls[self.b0ls<0.5] = 1.0 # get rid of outliers
         self.b0hs[self.b0hs<0.5] = 1.0 # get rid of outliers
@@ -764,7 +784,11 @@ class linModel:
         self.b0LvMax = np.maximum(self.b0lsLv,self.b0hsLv)
         self.b0LvMin = np.minimum(self.b0lsLv,self.b0hsLv) 
         
-        
+    def calcLinPdfError(self,otherRslt):
+        Vp0 = 0.01*self.linHcRsl['Vp_pct']
+        Vp1 = 0.01*otherRslt['Vp_pct']
+        regError = np.linalg.norm(Vp0-Vp1,ord=1)/(np.linalg.norm(Vp1,ord=1)+1) # this equivalent to: sum of errors/(regularised sum of function)
+        return regError
     
     # --------------------------------- PLOTTING FUNCTIONS FROM HERE
     def corrPlot(self):

@@ -7,23 +7,23 @@ WD = os.path.dirname(sys.argv[0])
 sys.path.append(os.path.dirname(WD))
 
 from dss_python_funcs import basicTable
-from linSvdCalcs import plotBoxWhisk, getKcdf
+from linSvdCalcs import plotBoxWhisk, getKcdf, plotCns
 
 feeders = ['13bus','34bus','123bus','8500node','eulv','usLv','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
-# feeders = ['eulv','13bus','34bus','123bus','usLv','epri5','epri7','epri24','epriK1','epriM1']
+# feeders = ['13bus','34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri24']
 pLoad = {'epriJ1':11.6,'epriK1':12.74,'epriM1':15.67,'epri5':16.3,'epri7':19.3,'epri24':28.8,'8500node':12.05,'eulv':0.055,'usLv':42.8,'13bus':3.6,'34bus':2.0,'123bus':3.6}
 
 feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
 
-t_timeTable = True # timeTable
-f_dssVlinWght = True # gammaFrac boxplot results
-f_linMcVal = True # monte carlo no. validation
-f_logTimes = True # 
-f_linMcSns = True
+# t_timeTable = True # timeTable
+# f_dssVlinWght = True # gammaFrac boxplot results
+# f_linMcVal = True # monte carlo no. validation
+# f_logTimes = True # 
+# f_linMcSns = True
 f_dssVlinWghtErr = True
 
-pltSave=True
-# pltShow=True
+# pltSave=True
+pltShow=True
 
 figSze0 = (5,4)
 TD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\tables\\"
@@ -32,58 +32,49 @@ FD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\
 rsltsFrac = {}; rsltsVal = {}; rsltsSns = {}
 for feeder in feeders:
     # RD = os.path.join(WD,feeder,'linHcCalcs'+rsltType+pdfName+num+regID+'.pkl')
-    RDval = os.path.join(WD,feeder,'linHcCalcsVal_gammaFrac50.pkl')
-    RDfrac = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_reg0.pkl')
+    RDval = os.path.join(WD,feeder,'linHcCalcsVal_gammaFrac50_new.pkl')
+    RDfrac = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_reg0_new.pkl')
+    RDfrac = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_reg0_bw.pkl')
     with open(RDfrac,'rb') as handle:
         rsltsFrac[feeder] = pickle.load(handle)
     with open(RDval,'rb') as handle:
         rsltsVal[feeder] = pickle.load(handle)
 for feeder in feeders_dcp:
-    RDsns = os.path.join(WD,feeder,'linHcCalcsSns_gammaFrac.pkl')
+    # RDsns = os.path.join(WD,feeder,'linHcCalcsSns_gammaFrac.pkl')
+    RDsns = os.path.join(WD,feeder,'linHcCalcsSns_gammaFrac_new.pkl')
     with open(RDsns,'rb') as handle:
         rsltsSns[feeder] = pickle.load(handle)
 
 timeStrLin = [];    timeStrDss = []; timeLin = []; timeDss = []
 kCdfLin = [];    kCdfDss = []; 
-LrelNorm = []
+LrelNorm = []; LmeanNorm = []
 for rslt in rsltsFrac.values():
     timeStrLin.append('%.3f' % (rslt['linHcRsl']['runTime']/60.))
     timeStrDss.append('%.3f' % (rslt['dssHcRsl']['runTime']/60.))
     timeLin.append(rslt['linHcRsl']['runTime']/60.)
     timeDss.append(rslt['dssHcRsl']['runTime']/60.)
-    KcdkLin = 100*np.array(getKcdf(rslt['pdfData']['prms'],rslt['linHcRsl']['Vp_pct'])[0])
-    KcdkDss = 100*np.array(getKcdf(rslt['pdfData']['prms'],rslt['dssHcRsl']['Vp_pct'])[0])
-    KcdkLin[np.isnan(KcdkLin)] = 100.
-    KcdkDss[np.isnan(KcdkDss)] = 100.
+    KcdkLin = rslt['linHcRsl']['kCdf']
+    KcdkDss = rslt['dssHcRsl']['kCdf']
     kCdfLin.append(KcdkLin[[0,1,5,10,15,19,20]])
     kCdfDss.append(KcdkDss[[0,1,5,10,15,19,20]])
-    Vp0 = (0.01*rslt['linHcRsl']['Vp_pct'])
-    Vp1 = (0.01*rslt['dssHcRsl']['Vp_pct'])
-    LrelNorm.append( np.linalg.norm(Vp0-Vp1,ord=1)/(np.linalg.norm(Vp1,ord=1) + 1) )
-    # print(np.linalg.norm(Vp1,ord=1)) # check we're not cheating too much...!
+    LmeanNorm.append( np.mean(np.abs(rslt['dssHcRsl']['Vp_pct']-rslt['linHcRsl']['Vp_pct'])) )
+    LrelNorm.append(rslt['regError'])
         
-kCdfVal = []; # kCdfLin = []
+kCdfVal = []; LvalNorm = []; # kCdfLin = []
 for rslt in rsltsVal.values():
-    KcdkLin = 100*np.array(rslt['linHcRsl']['kCdf'])
-    KcdkVal = 100*np.array(rslt['linHcVal']['kCdf'])
-    KcdkLin[np.isnan(KcdkLin)] = 100.
-    KcdkVal[np.isnan(KcdkVal)] = 100.
-    # kCdfLin.append(KcdkLin[0::5])
+    KcdkLin = rslt['linHcRsl']['kCdf']
+    KcdkVal = rslt['linHcVal']['kCdf']
     kCdfVal.append(KcdkVal[[0,1,5,10,15,19,20]])
-kCdfSns0 = [];    kCdfSns1 = []; kCdfLinSns = []
+    LvalNorm.append(rslt['regError'])
+kCdfSns0 = [];    kCdfSns1 = []; kCdfLinSns = []; LsnsNorm = [] # new lin needed coz this is only some models
 for rslt in rsltsSns.values():
-    KcdkLinSns = 100*np.array(rslt['linHcRsl']['kCdf'])
-    KcdkSns0 = 100*np.array(rslt['linHcSns0']['kCdf'])
-    KcdkSns1 = 100*np.array(rslt['linHcSns1']['kCdf'])
-    KcdkLinSns[np.isnan(KcdkLinSns)] = 100.
-    KcdkSns0[np.isnan(KcdkSns0)] = 100.
-    KcdkSns1[np.isnan(KcdkSns1)] = 100.
-    # kCdfLinSns.append(KcdkLinSns[1,5,10,15,19])
+    KcdkLinSns = rslt['linHcRsl']['kCdf']
+    KcdkSns0 = rslt['linHcSns0']['kCdf']
+    KcdkSns1 = rslt['linHcSns1']['kCdf']
     kCdfLinSns.append(KcdkLinSns[[0,1,5,10,15,19,20]])
     kCdfSns0.append(KcdkSns0[[0,1,5,10,15,19,20]])
     kCdfSns1.append(KcdkSns1[[0,1,5,10,15,19,20]])
-
-
+    LsnsNorm.append(rslt['regErrors'])
 
 linHcRsl = rslt['linHcRsl']
 
@@ -206,3 +197,14 @@ if 'f_dssVlinWghtErr' in locals():
         plt.savefig(FD+'dssVlinWghtErr.pdf',pad_inches=0.02,bbox_inches='tight')
     if 'pltShow' in locals():
         plt.show()
+        
+        
+        
+# rsltM1 = rsltsFrac['epriM1']
+# pdf = rsltM1['pdfData']
+# linRsl = rsltM1['linHcRsl']
+# dssRsl = rsltM1['dssHcRsl']
+# fig, ax = plt.subplots()
+# ax = plotCns(pdf['mu_k'],pdf['prms'],dssRsl['Cns_pct'],feeder=rsltM1['feeder'],lineStyle='-',ax=ax,pltShow=False)
+# ax = plotCns(pdf['mu_k'],pdf['prms'],linRsl['Cns_pct'],feeder=rsltM1['feeder'],lineStyle='--',ax=ax,pltShow=False)
+# plt.show()

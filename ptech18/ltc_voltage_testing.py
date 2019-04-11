@@ -9,7 +9,7 @@
 
 # A bunch of notes on the main method in WB 7-01-19 and 15-01-19
 
-import time, win32com.client, pickle, os, sys
+import time, win32com.client, pickle, os, sys, getpass
 import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
@@ -34,19 +34,19 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-# test_model_plt = False
+test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 save_model = True
-save_model = False
+# save_model = False
 ltcVoltageTestingFig = True
 ltcVoltageTestingFig = False
 figSze0 = (5,4)
-SD = r"C:\Users\chri3793\Documents\DPhil\papers\psfeb19\figures\\"
+SD = r"C:\Users\\"+getpass.getuser()+r"\\Documents\DPhil\papers\psfeb19\figures\\"
 
 fdr_i_set = [5,6,8]
 fdr_i_set = [8]
-# fdr_i_set = [5]
+fdr_i_set = [6]
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
     feeder=fdrs[fdr_i]
@@ -93,7 +93,8 @@ for fdr_i in fdr_i_set:
     YZ = DSSCircuit.YNodeOrder
 
     LM = loadLinMagModel(feeder,lin_point,WD,lp_taps)
-    Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
+    Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];
+    xhy0=LM['xhy0'];xhd0=LM['xhd0'];xhyCap0=LM['xhyCap0'];xhdCap0=LM['xhdCap0'];xhyLds0=LM['xhyLds0'];xhdLds0=LM['xhdLds0']
     Wy=LM['WyReg'];Wd=LM['WdReg'];Wt=LM['WtReg'];aIreg=LM['aIreg']
     
     
@@ -296,6 +297,10 @@ for fdr_i in fdr_i_set:
         np.save(sn0+'v_idx'+lp_str+'.npy',v_idx_new)
         np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx_shf])
         np.save(sn0+'xhd0'+lp_str+'.npy',xhd0[sD_idx_shf])
+        np.save(sn0+'xhyCap0'+lp_str+'.npy',xhyCap0[s_idx_shf])
+        np.save(sn0+'xhdCap0'+lp_str+'.npy',xhdCap0[sD_idx_shf])
+        np.save(sn0+'xhyLds0'+lp_str+'.npy',xhyLds0[s_idx_shf])
+        np.save(sn0+'xhdLds0'+lp_str+'.npy',xhdLds0[sD_idx_shf])
         np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vecSlc(YZ[3:],v_idx_new))
         np.save(sn0+'Vbase'+lp_str+'.npy',Yvbase_new)
 

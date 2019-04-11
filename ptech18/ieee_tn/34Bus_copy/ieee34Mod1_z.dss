@@ -84,7 +84,7 @@ new regcontrol.creg2c transformer=reg2c winding=2 vreg=124 band=2 ptratio=120 ct
 new line.reg2 bus1=852r0 bus2=852r phases=3 switch=true
 
 ! Capacitors
-New Capacitor.C844      Bus1=844        Phases=3        kVAR=300        kV=24.9
+!New Capacitor.C844      Bus1=844        Phases=3        kVAR=300        kV=24.9
 New Capacitor.C848      Bus1=848        Phases=3        kVAR=450        kV=24.9
 
 ! spot loads

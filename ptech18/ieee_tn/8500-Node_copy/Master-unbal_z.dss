@@ -22,8 +22,9 @@ Redirect  Triplex_Lines.dss
 Redirect  Regulators_z.dss
 
 Redirect  UnbalancedLoads.dss
-Redirect  Capacitors.dss
-Redirect  CapControls.dss
+Redirect  Capacitors_z.dss
+!Redirect  Capacitors.dss
+!Redirect  CapControls.dss
 
 ! Let DSS estimate the voltage bases
 Set voltagebases=[115, 12.47,  0.48, 0.208]
@@ -45,11 +46,17 @@ batchedit line..*_sw length=0.001
 !batchedit regcontrol..* vreg=124 band=2.0
 solve
 
+
 !batchedit load..* vminpu=0.33 vmaxpu=3.0 status=variable
 batchedit load..* status=variable
 
 set loadmult=1.0
 solve
+
+!set loadmult=0.66
+!solve
+!show powers elem
+
 !summary
 
 !set controlmode=off

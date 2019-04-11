@@ -211,7 +211,7 @@ def create_Hmat(DSSCircuit):
             Hmat[idx[2],idx[0]] = -1        
     return Hmat
     
-def cpf_get_loads(DSSCircuit):
+def cpf_get_loads(DSSCircuit,getCaps=True):
     SS = {}
     BB = {}
     i = DSSCircuit.Loads.First
@@ -220,14 +220,15 @@ def cpf_get_loads(DSSCircuit):
         BB[i]=DSSCircuit.Loads.Name
         i=DSSCircuit.Loads.Next
     imax = DSSCircuit.Loads.Count
-    j = DSSCircuit.Capacitors.First
-    while j!=0:
-        SS[imax+j]=1j*DSSCircuit.Capacitors.kvar
-        BB[imax+j]=DSSCircuit.Capacitors.Name
-        j = DSSCircuit.Capacitors.Next
+    if getCaps:
+        j = DSSCircuit.Capacitors.First
+        while j!=0:
+            SS[imax+j]=1j*DSSCircuit.Capacitors.kvar
+            BB[imax+j]=DSSCircuit.Capacitors.Name
+            j = DSSCircuit.Capacitors.Next
     return BB,SS
 
-def cpf_set_loads(DSSCircuit,BB,SS,k):
+def cpf_set_loads(DSSCircuit,BB,SS,k,setCaps=True):
     i = DSSCircuit.Loads.First
     while i!=0:
         # DSSCircuit.Loads.Name=BB[i]
@@ -235,11 +236,12 @@ def cpf_set_loads(DSSCircuit,BB,SS,k):
         DSSCircuit.Loads.kvar = k*SS[i].imag
         i=DSSCircuit.Loads.Next
     imax = DSSCircuit.Loads.Count
-    j = DSSCircuit.Capacitors.First
-    while j!=0:
-        DSSCircuit.Capacitors.Name=BB[j+imax]
-        DSSCircuit.Capacitors.kvar=k*SS[j+imax].imag
-        j=DSSCircuit.Capacitors.Next
+    if setCaps:
+        j = DSSCircuit.Capacitors.First
+        while j!=0:
+            DSSCircuit.Capacitors.Name=BB[j+imax]
+            DSSCircuit.Capacitors.kvar=k*SS[j+imax].imag
+            j=DSSCircuit.Capacitors.Next
     return
 
 def find_tap_pos(DSSCircuit):
@@ -436,6 +438,8 @@ def loadLinMagModel(feeder,lin_point,WD,lp_taps,regModel=True):
     
     LM['bV'] = np.load(stt+'bV'+end)
     LM['xhy0'] = np.load(stt+'xhy0'+end)
+    LM['xhyCap0'] = np.load(stt+'xhyCap0'+end)
+    LM['xhyLds0'] = np.load(stt+'xhyLds0'+end)
     LM['vKvbase'] = np.load(stt+'vKvbase'+end)
     LM['vYNodeOrder'] = np.load(stt+'vYNodeOrder'+end)
     LM['SyYNodeOrder'] = np.load(stt+'SyYNodeOrder'+end)
@@ -443,10 +447,14 @@ def loadLinMagModel(feeder,lin_point,WD,lp_taps,regModel=True):
     try:
         LM['Kd'] = np.load(stt+'Kd'+end)
         LM['xhd0'] = np.load(stt+'xhd0'+end)
+        LM['xhdCap0'] = np.load(stt+'xhdCap0'+end)
+        LM['xhdLds0'] = np.load(stt+'xhdLds0'+end)
         LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)
     except:
         LM['Kd'] = np.empty(shape=(LM['Ky'].shape[0],0))
         LM['xhd0'] = np.array([])
+        LM['xhdCap0'] = np.array([])
+        LM['xhdLds0'] = np.array([])
         LM['SdYNodeOrder'] = np.array([])
     try: 
         LM['Kt'] = np.load(stt+'Kt'+end)
@@ -497,6 +505,10 @@ def loadNetModel(feeder,lin_point,WD,lp_taps,netModel):
     LM['Vbase'] = np.load(stt+'Vbase'+end)
     LM['xhy0'] = np.load(stt+'xhy0'+end)
     LM['xhd0'] = np.load(stt+'xhd0'+end)
+    LM['xhyCap0'] = np.load(stt+'xhyCap0'+end)
+    LM['xhdCap0'] = np.load(stt+'xhdCap0'+end)    
+    LM['xhyLds0'] = np.load(stt+'xhyLds0'+end)
+    LM['xhdLds0'] = np.load(stt+'xhdLds0'+end)
     LM['vYNodeOrder'] = np.load(stt+'vYNodeOrder'+end)
     LM['SyYNodeOrder'] = np.load(stt+'SyYNodeOrder'+end)
     LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)

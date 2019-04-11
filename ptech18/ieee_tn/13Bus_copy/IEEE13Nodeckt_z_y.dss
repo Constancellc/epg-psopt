@@ -150,6 +150,7 @@ New Load.670c Bus1=670.3    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=117  kvar=68
 New Capacitor.Cap1 Bus1=675 phases=3 kVAR=600 kV=4.16 
 New Capacitor.Cap2 Bus1=611.3 phases=1 kVAR=100 kV=2.4 
 */
+
 !Transformer.Reg1.Taps=[1.0 1.0625]
 !Transformer.Reg2.Taps=[1.0 1.0500]
 !Transformer.Reg3.Taps=[1.0 1.06875]
@@ -158,7 +159,7 @@ New Capacitor.Cap2 Bus1=611.3 phases=1 kVAR=100 kV=2.4
 new energymeter.msub element=transformer.sub
 new energymeter.mregS element=line.regS
 
-Batchedit load..* vminpu=0.33 vmaxpu=3 model=1
+Batchedit load..* vminpu=0.33 vmaxpu=3 !model=1
 Set Voltagebases=[115, 4.16, .48]
 calcv
 Solve

@@ -4,7 +4,7 @@
 !new capcontrol.Cap1_ctrl Capacitor=Cap1 element=line.temp2 terminal=1 Delay=45 Delayoff=900
 !~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
 
-New Capacitor.Cap2_a Phases=1 Bus1=0x008ED880.1 kV=7.2 kvar=400 conn = wye enabled =true states=1
+New Capacitor.Cap2_a Phases=1 Bus1=0x008ED880.1 kV=7.2 kvar=400 conn = wye enabled =true states=1 ! NB this is not in at mean(0.2,0.66) = 0.43 (but does seem to come on for 0.66.)
 New Capacitor.Cap2_b Phases=1 Bus1=0x008ED880.2 kV=7.2 kvar=400 conn = wye enabled =true states=1
 New Capacitor.Cap2_c Phases=1 Bus1=0x008ED880.3 kV=7.2 kvar=400 conn = wye enabled =true states=1
 !new capcontrol.Cap2_ctrl Capacitor=Cap2 element=line.temp2 terminal=1 Delay=30 Delayoff=910 

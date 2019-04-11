@@ -40,8 +40,8 @@ save_model=True
 
 fdr_i_set = [5,6,8,9,22,19,20,21]
 fdr_i_set = [5,6,8,9,19,20,21,22]
-fdr_i_set = [22]
-# fdr_i_set = [5,6,8]
+# fdr_i_set = [22]
+fdr_i_set = [9]
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
     feeder=fdrs[fdr_i]
@@ -85,7 +85,8 @@ for fdr_i in fdr_i_set:
     YZ = DSSCircuit.YNodeOrder
 
     LM = loadLinMagModel(feeder,lin_point,WD,lp_taps)
-    Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];xhy0=LM['xhy0'];xhd0=LM['xhd0']
+    Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];
+    xhy0=LM['xhy0'];xhd0=LM['xhd0'];xhyCap0=LM['xhyCap0'];xhdCap0=LM['xhdCap0'];xhyLds0=LM['xhyLds0'];xhdLds0=LM['xhdLds0']
 
     
     print('Get zone list...',time.process_time())
@@ -125,6 +126,7 @@ for fdr_i in fdr_i_set:
 
     ve_ctl=np.zeros([k.size])
     veN_ctl=np.zeros([k.size])
+    vvae_cap=np.zeros([k.size])
 
     v_0 = np.zeros((len(k),len(YZ)))
 
@@ -137,6 +139,7 @@ for fdr_i in fdr_i_set:
     vv_lN = np.zeros((len(k),len(v_idx)))
     vv_l_ctr = np.zeros((len(k),len(v_idx)))
     vv_lN_ctr = np.zeros((len(k),len(v_idx)))
+    vv_lN_cap = np.zeros((len(k),len(v_idx)))
 
     RegSat = np.zeros((len(k),nRegs),dtype=int)
 
@@ -205,7 +208,29 @@ for fdr_i in fdr_i_set:
             ve_ctl[i] = np.linalg.norm( vv_l_ctr[i,:] - vv_0_ctl[i,:] )/np.linalg.norm(vv_0_ctl[i,:])
             veN_ctl[i] = np.linalg.norm( vv_lN_ctr[i,:] - vv_0R_ctl[i,:] )/np.linalg.norm(vv_0R_ctl[i,:])
         print('Testing Complete.\n',time.process_time())
-
+        
+        if 'test_cap_model' in locals():
+            print('Start cap model validation\n',time.process_time())
+            cpf_set_loads(DSSCircuit,BB0,SS0,1/lin_point,setCaps=True)
+            for i in range(len(k)):
+                print(i,'/',len(k))
+                cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point,setCaps=False)
+                DSSSolution.Solve()
+                vva_0_cap[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray))[3:][v_idx]
+                sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
+                xhyAct = -1e3*s_2_x(sY[3:])
+                
+                xhy = (xhyLds0*k[i]/lin_point) + xhyCap0
+                
+                if len(H)==0:
+                    vv_lN_cap[i,:] = Akron.dot(xhy[s_idx_new]) + Bkron
+                else:
+                    xhdAct = -1e3*s_2_x(sD) # not [3:] like sY
+                    xhd = (xhdLds0*k[i]/lin_point) + xhdCap0
+                    xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
+                    vv_lN_cap[i,:] = Akron.dot(xnew) + Bkron
+                vvae_cap[i,K] = np.linalg.norm( (vv_lN_cap[i,:] - vva_0_cap[i,:])/YvbaseV )/np.linalg.norm(vva_0_cap[i,:]/YvbaseV)
+        
     unSat = RegSat.min(axis=1)==1
     sat = RegSat.min(axis=1)==0
     # Yvbase = get_Yvbase(DSSCircuit)[3:][v_idx]
@@ -224,6 +249,10 @@ for fdr_i in fdr_i_set:
         np.save(sn0+'v_idx'+lp_str+'.npy',v_idx_new)
         np.save(sn0+'xhy0'+lp_str+'.npy',xhy0[s_idx_shf])
         np.save(sn0+'xhd0'+lp_str+'.npy',xhd0[sD_idx_shf])
+        np.save(sn0+'xhyCap0'+lp_str+'.npy',xhyCap0[s_idx_shf])
+        np.save(sn0+'xhdCap0'+lp_str+'.npy',xhdCap0[sD_idx_shf])
+        np.save(sn0+'xhyLds0'+lp_str+'.npy',xhyLds0[s_idx_shf])
+        np.save(sn0+'xhdLds0'+lp_str+'.npy',xhdLds0[sD_idx_shf])
         np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vecSlc(YZ[3:],v_idx_new))
         np.save(sn0+'Vbase'+lp_str+'.npy',Yvbase_new)
 
