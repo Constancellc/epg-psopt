@@ -22,20 +22,20 @@ from matplotlib import cm
 mcLinOn = True
 # mcLinOn = False
 mcLinVal = True
-# mcLinVal = False
+mcLinVal = False
 mcLinSns = True
 mcLinSns = False
 mcDssOn = True
-mcDssOn = False
-mcDssBw = True
-# mcDssBw = False
+# mcDssOn = False
+# mcDssBw = 1
+# mcDssPar = 1
 
 # # PLOTTING options:
-# pltHcVltn = True
-# pltHcGen = True
-# pltPwrCdf = True
-# pltCns = True
-# plotShow=True
+# pltHcVltn = 1
+# pltHcGen = 1
+# pltPwrCdf = 1
+# pltCns = 1
+# plotShow=1
 
 nMc = 50 # nominal value of 50
 
@@ -48,16 +48,16 @@ capShift = False # opendss options. FALSE is the 'right' option.
 # CHOOSE Network
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14,17,18,20,21]
-fdr_i_set = [5,6,8,0] # fast
-# fdr_i_set = [14,17,18] # medium length 1
+# fdr_i_set = [5,6,8] # fast
+# fdr_i_set = [0,14,17,18] # medium length 1
 # fdr_i_set = [18] # medium length 1
-fdr_i_set = [20,21] # medium length 2
+# fdr_i_set = [20,21] # medium length 2
 # fdr_i_set = [9] # slow 1
 # fdr_i_set = [22] # slow 2
 # fdr_i_set = [19] # slow 3
 # fdr_i_set = [22,19,20,21,9] # big networks with only decoupled regulator models
 # fdr_i_set = [22,19,9] # big networks with only decoupled regulator models
-# fdr_i_set = [0,14,17,18]
+fdr_i_set = [5]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'
@@ -139,7 +139,22 @@ for fdr_i in fdr_i_set:
             SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_reg'+str(regBand)+'_new.pkl')
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
-    if mcDssBw:
+    
+    if 'mcDssPar' in locals():
+        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,capShift=capShift,runType='seq')
+        rsltSeq = LM.dssHcRsl
+        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,capShift=capShift,runType='par')
+        rsltPar = LM.dssHcRsl
+        dssParSeqError = LM.calcLinPdfError(rsltSeq)
+        print('\n -------- Complete -------- ')
+        
+        rslt = {'dssHcRslSeq':rsltSeq,'dssHcRslPar':rsltPar,'linHcRsl':LM.linHcRsl,'pdfData':pdf.pdf,'feeder':feeder,'regError':dssParSeqError}
+        if pltSave:
+            SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_reg'+str(regBand)+'_par.pkl')
+            with open(SN,'wb') as file:
+                pickle.dump(rslt,file)
+
+    if 'mcDssBw' in locals():
         LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=1.0,capShift=capShift)
         dssRegError = LM.calcLinPdfError(LM.dssHcRsl)
         print('\n -------- Complete -------- ')
@@ -194,6 +209,9 @@ for fdr_i in fdr_i_set:
             ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LMval.linHcRsl['Cns_pct'],feeder=feeder,lineStyle=':',ax=ax,pltShow=False)
         if mcLinSns:
             ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LMsns.linHcRsl['Cns_pct'],feeder=feeder,lineStyle=':',ax=ax,pltShow=False)
+        if 'mcDssPar' in locals():
+            ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rsltSeq['Cns_pct'],feeder=feeder,lineStyle=':',ax=ax,pltShow=False)
+            ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rsltPar['Cns_pct'],feeder=feeder,lineStyle='-.',ax=ax,pltShow=False)
         
         ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=feeder,lineStyle='--',ax=ax,pltShow=False)
         if mcDssOn and pltSave:

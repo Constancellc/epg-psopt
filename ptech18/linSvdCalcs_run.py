@@ -37,95 +37,84 @@ pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05)
 # # LM.runLinHc(pdf,model='nom')
 
 # ============================ USING matrix norms of the covariance matrix to avoid MC analysis/using approximate results.
-fdr_i = 21
+fdr_i = 22
 print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
 
 LM = linModel(fdr_i,WD,QgenPf=1.0)
-LM.loadNetModel(LM.netModelNom)
+# LM.loadNetModel(LM.netModelNom)
 
 # pdfName = 'gammaWght'; prms=np.array([3.0])
 pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05); prms100=np.array([1.00])
 
 pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
-pdf100 = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms100 )
 # LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
 # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 
 mu_k_set = 1
-# Mu0, Sgm0 = pdf.getMuStd(LM=LM,prmI=-1) # in W
+pdf100 = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms100 )
 Mu0, Sgm0 = pdf100.getMuStd(LM=LM,prmI=0) # in W
 Mu_set = np.outer(mu_k_set,Mu0)
 Sgm_set = np.outer(mu_k_set,Sgm0)
 
-Q_set = [1.00]
+Q_set = [1.00,-0.995,-0.98]
 
 LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0]) # 100% point
-# LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=plt.cm.inferno,pltShow=False)
-# plt.show()
+LM.plotNetBuses('nStd',pltType='max',minMax=[-1.,6.],cmap=plt.cm.inferno,pltShow=False)
+plt.show()
 
-nOpts = 21
+nOpts = 41
 opts = np.linspace(0.925,1.05,nOpts)
+N0 = np.zeros((len(Q_set),len(opts)))
+R_prct = np.zeros((len(Q_set),len(opts)))
 for i in range(len(Q_set)):
-    print(i)
-    
-    R_prct = []
-    N0 = []
-    N1 = []
-    N2 = []
-    N3 = []
-    N4 = []
-    
     LM.QgenPf = Q_set[i]
     LM.loadNetModel(LM.netModelNom)
     LM.updateFxdModel()
+    j=0
     for opt in opts:
         print(opt)
         LM.updateDcpleModel(LM.regVreg0*opt)
         LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
         LM.runLinHc(pdf100,model='nom') # NB: this calls plt!
-        R_prct.append(LM.linHcRsl['Vp_pct'][0][0])
-        
         totMat = np.concatenate((LM.KtotU,LM.KfixU))
         
-        N0.append(np.linalg.norm(totMat,ord='fro'))
-        N1.append(np.linalg.norm(totMat,ord=np.inf))
-        N2.append(np.min(LM.nStdU))
+        R_prct[i,j] = LM.linHcRsl['Vp_pct'][0][0]
+        N0[i,j] = np.min(LM.nStdU) - 0.01*np.linalg.norm(totMat,ord='fro')
+        j+=1
     # plt.plot(opts*LM.regVreg0/(166*120),N0,'x-')
-    
+
 print(time.process_time())
 
 fig = plt.figure(figsize=(4.5,7))
 ax1 = fig.add_subplot(211)
-ax1.plot(opts,N0,'x-')
-ax1.plot(opts,N1,'.-')
-ax1.plot(opts,N2,'o-')
-ax1.legend(('Fro','inf','Nstd'))
+ax1.plot(np.outer(opts,[1,1,1]),N0.T,'x-')
+# ax1.legend(('Fro','inf','Nstd'))
 ax1.grid(True)
 ax1.set_xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
-ax1.set_ylim((-3,20))
+ax1.set_ylim((-3,12))
 
 ax2 = fig.add_subplot(212)
-ax2.plot(opts,R_prct,'x-')
+ax2.plot(np.outer(opts,[1,1,1]),R_prct.T,'x-')
 ax2.grid(True)
 ax2.set_xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
 plt.tight_layout()
 plt.show()
 
 
-# optVal = 0.98
+optVal = 0.98
 
-# LM.QgenPf = 1.0
-# LM.loadNetModel(LM.netModelNom)
-# LM.updateFxdModel()
+LM.QgenPf = 1.0
+LM.loadNetModel(LM.netModelNom)
+LM.updateFxdModel()
 
-# LM.updateDcpleModel(LM.regVreg0*optVal)
-# LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
-# LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno,pltShow=False)
-# plt.show()
+LM.updateDcpleModel(LM.regVreg0*optVal)
+LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
+LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno,pltShow=False)
+plt.show()
 
-# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
-# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
-# # ==========================================
+LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
+plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+# ==========================================
 
 
 

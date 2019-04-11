@@ -1,4 +1,4 @@
-import pickle, os, sys, win32com.client, time, scipy.stats
+import pickle, os, sys, win32com.client, time, scipy.stats, getpass
 import numpy as np
 from dss_python_funcs import *
 import numpy.random as rnd
@@ -12,7 +12,7 @@ from scipy.stats.stats import pearsonr
 
 WD = os.path.dirname(sys.argv[0])
 
-SD = r"C:\Users\chri3793\Documents\DPhil\papers\psfeb19\figures\\"
+SD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
 nMc = 50
 prmI = 0
@@ -60,7 +60,7 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
     # plt.show()
 
 # ============================ EXAMPLE: plotting the number of standard deviations for a network changing ***vregs*** uniformly
-fdr_i = 22
+fdr_i = 20
 print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
 
 LM = linModel(fdr_i,WD,QgenPf=1.0)
@@ -82,11 +82,11 @@ Q_set = [1.0,-0.995,-0.98]
 
 LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0]) # 100% point
 LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=plt.cm.inferno,pltShow=False)
-plt.savefig(SD+'nStdBefore_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0)
-plt.savefig(SD+'nStdBefore_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
+# plt.savefig(SD+'nStdBefore_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0)
+# plt.savefig(SD+'nStdBefore_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
 plt.show()
 
-nOpts = 41
+nOpts = 21
 opts = np.linspace(0.925,1.05,nOpts)
 for i in range(len(Q_set)):
     print(i)
@@ -104,8 +104,8 @@ print(time.process_time())
 plt.xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
 plt.ylabel('Min. no. of standard deviations to constraint, $\min(N_{\sigma})$')
 plt.legend(('1.0','0.995','0.98'),title='PF (lagging)'); plt.grid(True); plt.ylim((-12,9)); 
-plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.png')
-plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.pdf')
+# plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.png')
+# plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.pdf')
 plt.show()
 
 optVal = 0.98
@@ -117,8 +117,8 @@ LM.updateFxdModel()
 LM.updateDcpleModel(LM.regVreg0*optVal)
 LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
 LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno,pltShow=False)
-plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0)
-plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
+# plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0)
+# plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
 plt.show()
 
 LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?

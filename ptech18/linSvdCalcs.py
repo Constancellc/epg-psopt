@@ -44,6 +44,11 @@ def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,cns,DVmax=0.06):
     inBounds = np.any(np.array([maxDv>DVmax,vMaxLsMv>VpMv,vMinLsMv<VmMv,vMaxLsLv>VpLv,vMinLsLv<VmLv,vMaxHsMv>VpMv,vMinHsMv<VmMv,vMaxHsLv>VpLv,vMinHsLv<VmLv]),axis=0)
     return cnsPct, inBounds
 
+def pos2str(tapPos):
+    hexPos = ''
+    for pos in tapPos:
+        hexPos = hexPos + hex(pos)
+    return hexPos
 
 def calcVar(X):
     i=0
@@ -176,7 +181,7 @@ def getKcdf(param,Vp_pct):
 # =================================== CLASS: linModel
 class linModel:
     """Linear model class with a whole bunch of useful things that we can do with it."""
-    def __init__(self,fdr_i,WD,QgenPf=1.00,capShift=False):
+    def __init__(self,fdr_i,WD,QgenPf=1.00,capShift=False,kDroop=None,aDroop=None):
         
         fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
         fdrNetModels = [0,0,0,0,0,1,1,0,1,2,-1,-1,-1,-1,0,-1,-1,0,0,2,2,2,2]
@@ -186,6 +191,9 @@ class linModel:
         self.feeder = feeder
         self.WD = WD # for debugging
         self.QgenPf = QgenPf # nominally have a unity pf
+        self.kDroopV = None # nominal values - these may get updated lated
+        self.kDroopDV = None # nominal values - these may get updated lated
+        self.aDroopV = None # nominal values - these may get updated lated
         
         self.netModelNom = fdrNetModels[fdr_i]
         
@@ -208,15 +216,13 @@ class linModel:
         self.legLoc = lp0data['legLoc']
         self.DVmax = 0.06 # pu
         
-        
-
-        
         # with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','busCoords.pkl'),'rb') as handle:
             # self.busCoords = pickle.load(handle)
         with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','busCoordsAug.pkl'),'rb') as handle:
             self.busCoords = pickle.load(handle)
         with open(os.path.join(WD,'lin_models',feeder,'chooseLinPoint','branches.pkl'),'rb') as handle:
             self.branches = pickle.load(handle)
+        
         
         # load the fixed model, as this always exists
         LMfxd = loadLinMagModel(self.feeder,self.linPoint,WD,'Lpt',regModel=False)
@@ -227,11 +233,27 @@ class linModel:
         self.dvBase = dvBase
         self.vFixYNodeOrder = LMfxd['vYNodeOrder']
         self.v_idx_fix = LMfxd['v_idx']
+        
+        
         self.updateFxdModel()
         self.nV, self.nS = self.KfixPu.shape
         
         self.capShift=capShift
         self.loadNetModel()
+        
+        if kDroop!=None and aDroop!=None:
+            self.updateDroopCoeffs(kDroop,aDroop) # NOT YET FUNCTIONAL!
+        elif kDroop!=None:
+            self.updateDroopCoeffs(kDroop) # NOT YET FUNCTIONAL!
+
+    def updateDroopCoeffs(self,kDroop,aDroop=1.0):
+        # converts droop coefficients in VAr per pu to VAr per V (in the right base). NOT YET FUNCTIONAL!
+        self.kDroopDV = kDroop*self.dvBase # droop slope ( W per volt, e.g. -100 means 500 var at 1.05V )
+        
+        self.updateFxdModel()
+        
+        self.kDroopV = kDroop*self.vTotBase # droop slope ( W per volt, e.g. -100 means 500kVar at 1.05V )
+        self.aDroopV = aDroop*self.vTotBase # droop intercept (volts)
         
         
     def updateFxdModel(self):
@@ -243,9 +265,14 @@ class linModel:
         KdPfix = Kd[:,:Kd.shape[1]//2]
         KdQfix = Kd[:,Kd.shape[1]//2::]
         
-        k_Q = pf2kq(self.QgenPf)
-        
-        Kfix = np.concatenate((KyPfix+k_Q*KyQfix,KdPfix + k_Q*KdQfix),axis=1)
+        if self.kDroopDV==None:
+            k_Q = pf2kq(self.QgenPf)
+            Kfix = np.concatenate((KyPfix+k_Q*KyQfix,KdPfix + k_Q*KdQfix),axis=1)
+        else:
+            KfixY = np.linalg.solve( np.eye(len(KyPfix)) - KyQfix*self.kDroopDV,KyPfix )
+            KfixD = np.linalg.solve( np.eye(len(KdPfix)) - KdQfix*self.kDroopDV,KdPfix )
+            Kfix = np.concatenate((KyPfix+k_Q*KyQfix,KdPfix + k_Q*KdQfix),axis=1)
+            
         self.KfixPu = dsf.vmM(1/self.dvBase,Kfix)
         
     def loadNetModel(self,netModel=None):
@@ -414,7 +441,7 @@ class linModel:
         self.linHcRsl['kCdf'] = 100*getKcdf(param,Vp_pct)[0]
         self.linHcRsl['kCdf'][np.isnan(self.linHcRsl['kCdf'])] = 100.0000011111
     
-    def runDssHc(self,pdf,DSSObj,genNames,BB0,SS0,regBand=0,capShift=False):
+    def runDssHc(self,pdf,DSSObj,genNames,BB0,SS0,regBand=0,capShift=False,runType='seq'):
         DSSText = DSSObj.Text
         DSSCircuit = DSSObj.ActiveCircuit
         DSSSolution = DSSCircuit.Solution
@@ -470,44 +497,90 @@ class linModel:
                 convLo = []; convDv = []; convHi = []
                 print('\nDSS MC Run:',jj,'/',pdfData['nP'][-1])
                 
-                for j in range(nMc):
-                    if j%(nMc//4)==0:
-                        print(j,'/',nMc)
-                    set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
-                    
-                    # first solve for the high load point [NB: This order seems best!]
+                nYVV = len(DSSCircuit.YNodeVarray)//2
+                vLsDss0 = np.zeros((nMc,nYVV),dtype=complex)
+                vHsDss0 = np.zeros((nMc,nYVV),dtype=complex)
+                vDv0 = np.zeros((nMc,nYVV),dtype=complex)
+                
+                if runType=='seq': # nominal version
+                    for j in range(nMc):
+                        if j%(nMc//4)==0:
+                            print(j,'/',nMc)
+                        set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
+                        
+                        # first solve for the high load point [NB: This order seems best!]
+                        cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointHi,setCaps=capShift)
+                        
+                        DSSSolution.Solve()
+                        convHi = convHi+[DSSSolution.Converged]
+                        vHsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
+                        
+                        # then low load point
+                        cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointLo,setCaps=capShift)
+                        
+                        DSSSolution.Solve()
+                        convLo = convLo+[DSSSolution.Converged]
+                        vLsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
+                        
+                        # finally solve for voltage deviation. 
+                        DSSText.Command='Batchedit generator..* kW=0.001'
+                        DSSText.Command='set controlmode=off'
+                        DSSSolution.Solve()
+
+                        convDv = convDv+[DSSSolution.Converged]
+                        vDv0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
+                        
+                        DSSText.Command='set controlmode=static'
+                        
+                        if convLo and convHi and convDv:
+                            vLsMv[j,:] = abs(vLsDss0[j,:])[3:][v_idx][self.mvIdx]/self.vTotBaseMv
+                            vLsLv[j,:] = abs(vLsDss0[j,:])[3:][v_idx][self.lvIdx]/self.vTotBaseLv
+                            vHsMv[j,:] = abs(vHsDss0[j,:])[3:][v_idx][self.mvIdx]/self.vTotBaseMv
+                            vHsLv[j,:] = abs(vHsDss0[j,:])[3:][v_idx][self.lvIdx]/self.vTotBaseLv
+                            vDv[j,:] = abs(abs(vLsDss0[j,:]) - abs(vDv0[j,:]))[3:][v_idx]/self.vTotBase
+                if runType=='par':
+                    # first solve for the high load point
                     cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointHi,setCaps=capShift)
-                    
-                    DSSSolution.Solve()
-                    convHi = convHi+[DSSSolution.Converged]
-                    vHsDss0 = tp_2_ar(DSSCircuit.YNodeVarray)
-                    
+                    for j in range(nMc):
+                        set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
+                        DSSSolution.Solve()
+                        convHi = convHi+[DSSSolution.Converged]
+                        vHsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
+                        
                     # then low load point
                     cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointLo,setCaps=capShift)
-                    
                     DSSSolution.Solve()
-                    convLo = convLo+[DSSSolution.Converged]
-                    vLsDss0 = tp_2_ar(DSSCircuit.YNodeVarray)
-                    
-                    tapPos = find_tap_pos(DSSCircuit)
-                    
-                    # finally solve for voltage deviation. 
-                    DSSText.Command='Batchedit generator..* kW=0.001'
-                    DSSText.Command='set controlmode=off'
-                    DSSSolution.Solve()
-
-                    convDv = convDv+[DSSSolution.Converged]
-                    vDv0 = tp_2_ar(DSSCircuit.YNodeVarray)
-                    
-                    DSSText.Command='set controlmode=static'
-                    
-                    if convLo and convHi and convDv:
-                        vLsMv[j,:] = abs(vLsDss0)[3:][v_idx][self.mvIdx]/self.vTotBaseMv
-                        vLsLv[j,:] = abs(vLsDss0)[3:][v_idx][self.lvIdx]/self.vTotBaseLv
-                        vHsMv[j,:] = abs(vHsDss0)[3:][v_idx][self.mvIdx]/self.vTotBaseMv
-                        vHsLv[j,:] = abs(vHsDss0)[3:][v_idx][self.lvIdx]/self.vTotBaseLv
-                        vDv[j,:] = abs(abs(vLsDss0) - abs(vDv0))[3:][v_idx]/self.vTotBase
-                    
+                    tapSlns = {}
+                    for j in range(nMc):
+                        set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
+                        DSSSolution.Solve()
+                        convLo = convLo+[DSSSolution.Converged]
+                        vLsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
+                        
+                        tapPos = find_tap_pos(DSSCircuit)
+                        tapHex = pos2str(tapPos)
+                        
+                        try:
+                            vDv0[j,:] = tapSlns[tapHex]
+                            convDv = convDv+[DSSSolution.Converged]
+                        except:    
+                            # solve for voltage deviation. 
+                            DSSText.Command='Batchedit generator..* kW=0.001'
+                            DSSText.Command='set controlmode=off'
+                            DSSSolution.Solve()
+                            convDv = convDv+[DSSSolution.Converged]
+                            tapSlns[tapHex] = tp_2_ar(DSSCircuit.YNodeVarray)
+                            vDv0[j,:] = tapSlns[tapHex]
+                            DSSText.Command='set controlmode=static'
+                        
+                    for j in range(nMc):
+                        if convLo and convHi and convDv:
+                            vLsMv[j,:] = abs(vLsDss0[j,:])[3:][v_idx][self.mvIdx]/self.vTotBaseMv
+                            vLsLv[j,:] = abs(vLsDss0[j,:])[3:][v_idx][self.lvIdx]/self.vTotBaseLv
+                            vHsMv[j,:] = abs(vHsDss0[j,:])[3:][v_idx][self.mvIdx]/self.vTotBaseMv
+                            vHsLv[j,:] = abs(vHsDss0[j,:])[3:][v_idx][self.lvIdx]/self.vTotBaseLv
+                            vDv[j,:] = abs(abs(vLsDss0[j,:]) - abs(vDv0[j,:]))[3:][v_idx]/self.vTotBase
+                        
                 if sum(convLo+convHi+convDv)!=len(convLo+convHi+convDv):
                     print('\nNo. Converged:',sum(convLo+convHi+convDv),'/',nMc*3)
                 
@@ -582,11 +655,17 @@ class linModel:
                 dMuLv = self.KtotPuLv.dot(Mu)
                 dvMu = self.KfixPu.dot(Mu)
             
-            # NEW VERSION            
+            # NEW VERSION
             limMvHi = self.VpMv - self.b0MvMax - dMuMv
             limMvLo = -(self.VmMv - self.b0MvMin - dMuMv)
             limLvHi = self.VpLv - self.b0LvMax - dMuLv
             limLvLo = -(self.VmLv - self.b0LvMin - dMuLv)
+            
+            # Brickwall to stop there being undervoltages at no load
+            limMvHi[self.VpMv - self.b0MvMax<0] = -np.inf
+            limMvLo[self.VmMv - self.b0MvMin>0] = -np.inf
+            limLvHi[self.VpLv - self.b0LvMax<0] = -np.inf
+            limLvLo[self.VmLv - self.b0LvMin>0] = -np.inf
             
             limDvA = self.DVmax - dvMu # required so that min puts out a sensible answer?
             limDvB = -(-self.DVmax - dvMu)
@@ -750,6 +829,11 @@ class linModel:
         # self.updateTotModel(Akron,Bkron)
         
     def updateTotModel(self,A,bV):
+        KyP = A[:,0:len(self.xhyNtot)//2] # these might be zero if there is no injection (e.g. only Q)
+        KyQ = A[:,len(self.xhyNtot)//2:len(self.xhyNtot)]
+        KdP = A[:,len(self.xhyNtot):len(self.xhyNtot) + (len(self.xhdNtot)//2)]
+        KdQ = A[:,len(self.xhyNtot) + (len(self.xhdNtot)//2)::]
+        
         # self.b0ls = (A.dot(self.xNomTot*self.loadPointLo) + bV)/self.vTotBase # in pu
         # self.b0hs = (A.dot(self.xNomTot*self.loadPointHi) + bV)/self.vTotBase # in pu
         self.b0ls = (A.dot(self.xTotLs) + bV)/self.vTotBase # in pu
@@ -758,14 +842,8 @@ class linModel:
         self.b0ls[self.b0ls<0.5] = 1.0 # get rid of outliers
         self.b0hs[self.b0hs<0.5] = 1.0 # get rid of outliers
         
-        KyP = A[:,0:len(self.xhyNtot)//2] # these might be zero if there is no injection (e.g. only Q)
-        KyQ = A[:,len(self.xhyNtot)//2:len(self.xhyNtot)]
-        KdP = A[:,len(self.xhyNtot):len(self.xhyNtot) + (len(self.xhdNtot)//2)]
-        KdQ = A[:,len(self.xhyNtot) + (len(self.xhdNtot)//2)::]
-        
         k_Q = pf2kq(self.QgenPf)
-        
-        Ktot = np.concatenate((KyP + k_Q*KyQ,KdP + k_Q*KdQ),axis=1)
+        Ktot = np.concatenate((KyP + k_Q*KyQ,KdP + k_Q*KdQ),axis=1)    
         
         self.KtotPu = dsf.vmM(1/self.vTotBase,Ktot) # scale to be in pu per W
         
