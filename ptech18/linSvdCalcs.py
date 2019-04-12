@@ -149,7 +149,7 @@ def plotHcGen(mu_k,prms,hcGenSet,lineColor,ax=None):
     
     return ax
 
-def plotBoxWhisk(ax,x,ddx,y,clr,zOrder=10,lineWidth=1.0,bds=[None]):
+def plotBoxWhisk(ax,x,ddx,y,clr=cm.tab10(0),zOrder=10,lineWidth=1.0,bds=[None]):
     if bds[0]!=None:
         ax.plot([x],bds[0],color=clr, zorder=zOrder,marker='2')
         ax.plot([x],bds[1],color=clr, zorder=zOrder,marker='1')
@@ -638,60 +638,24 @@ class linModel:
         covScaling[covScaling==0] = np.inf # avoid divide by zero complaint
         self.KtotUcorr = dsf.vmvM(1/covScaling,self.KtotUcov,1/covScaling)
     
-    
-    
-    
-    def busViolationVar(self,Sgm,lim='all',Mu=np.array([None])):
+    def busViolationVar(self,Sgm,lim='all',Mu=np.array([None]),calcSrsVals=False):
         if lim=='all':
-            if Mu[0]==None:
-                dMu = 0
-                dvMu = np.zeros(self.b0ls.shape)
-                dvScale = (1.0+1e-10) # required so that min puts out a sensible answer?
-            else:
-                if Mu.shape==(1,):
-                    Mu = np.ones((self.KtotPu.shape[1]))*Mu
-                dMu = self.KtotPu.dot(Mu)
-                dMuMv = self.KtotPuMv.dot(Mu)
-                dMuLv = self.KtotPuLv.dot(Mu)
-                dvMu = self.KfixPu.dot(Mu)
-            
-            # NEW VERSION
-            limMvHi = self.VpMv - self.b0MvMax - dMuMv
-            limMvLo = -(self.VmMv - self.b0MvMin - dMuMv)
-            limLvHi = self.VpLv - self.b0LvMax - dMuLv
-            limLvLo = -(self.VmLv - self.b0LvMin - dMuLv)
-            
-            # Brickwall to stop there being undervoltages at no load
-            limMvHi[self.VpMv - self.b0MvMax<0] = -np.inf
-            limMvLo[self.VmMv - self.b0MvMin>0] = -np.inf
-            limLvHi[self.VpLv - self.b0LvMax<0] = -np.inf
-            limLvLo[self.VmLv - self.b0LvMin>0] = -np.inf
-            
-            limDvA = self.DVmax - dvMu # required so that min puts out a sensible answer?
-            limDvB = -(-self.DVmax - dvMu)
-            limLo = np.concatenate((limMvLo,limLvLo))[self.mlvUnIdx]
-            limHi = np.concatenate((limMvHi,limLvHi))[self.mlvUnIdx]
-            
+            limAct, limDV = self.updateKlims(Mu)
+        
+        # if lim=='VpLvLs': # <<< these have not been tested for quite a while.
+            # if Mu[0]==None:
+                # limAct = self.VpLv - self.b0ls
+            # else:
+                # limAct = self.VpLv - self.b0ls - self.KtotPu.dot(Mu)
             # limAct[self.b0ls<0.5] = np.inf
-            limAct = np.minimum(limLo,limHi)
-            limDV = np.minimum(limDvA,limDvB)
-            
-            limAct[self.b0ls<0.5] = np.inf # required still unfortunately
-            limAct[self.b0hs<0.5] = np.inf # required still unfortunately
-        if lim=='VpLvLs':
-            if Mu[0]==None:
-                limAct = self.VpLv - self.b0ls
-            else:
-                limAct = self.VpLv - self.b0ls - self.KtotPu.dot(Mu)
-            limAct[self.b0ls<0.5] = np.inf
-            limAct[self.mvIdx] = np.inf
-        elif lim=='VpMvLs':
-            if Mu[0]==None:
-                limAct = self.VpMv - self.b0ls
-            else:
-                limAct = self.VpMv - self.b0ls - self.KtotPu.dot(Mu)
-            limAct[self.b0ls<0.5] = np.inf
-            limAct[self.lvIdx] = np.inf
+            # limAct[self.mvIdx] = np.inf
+        # elif lim=='VpMvLs':
+            # if Mu[0]==None:
+                # limAct = self.VpMv - self.b0ls
+            # else:
+                # limAct = self.VpMv - self.b0ls - self.KtotPu.dot(Mu)
+            # limAct[self.b0ls<0.5] = np.inf
+            # limAct[self.lvIdx] = np.inf
             
         if Sgm.shape==(1,):
             self.KtotU = dsf.vmM(1/limAct,self.KtotPu)*Sgm
@@ -706,14 +670,81 @@ class linModel:
         self.svdLimDv = limDV
         self.nStdKtotU = np.sign(self.svdLim)/np.sqrt(self.varKtotU)
         self.nStdKfixU = np.sign(self.svdLimDv)/np.sqrt(self.varKfixU)
-        # self.nStdU = np.min(np.concatenate((self.nStdKtotU,self.nStdKfixU),axis=1),axis=1)
-        self.nStdU = np.min(np.array((self.nStdKtotU,self.nStdKfixU)),axis=0)
+        # self.nStdU = np.min(np.array((self.nStdKtotU,self.nStdKfixU)),axis=0)
+        self.nStdU = np.minimum( self.nStdKtotU,self.nStdKfixU )
         
-        # plt.plot(self.nStdKtotU)
-        # plt.plot(self.nStdKfixU)
-        # plt.plot(self.nStdU)
-        # plt.xlim((-10,8))
-        # plt.show()
+        if calcSrsVals: # for speedy 'updateNormCalc'
+            self.KtotUsrs = self.varKtotU.copy()
+            self.KfixUsrs = self.varKfixU.copy()
+            self.svdLim2 = self.svdLim**2
+            self.svdLimDv2 = self.svdLimDv**2
+        
+    def updateNormCalc(self,Mu,inclSmallMu=True):
+        if inclSmallMu:
+            limAct00, limDV00 = self.updateKlims(Mu)
+            limAct01, limDV01 = self.updateKlims(Mu*1e-6)
+            limAct = np.minimum(limAct00,limAct01)
+            limDV = np.minimum(limDV00,limDV01)
+        else:
+            limAct, limDV = self.updateKlims(Mu)
+        
+        limActScl = self.svdLim2/(limAct**2)
+        limDvScl = self.svdLimDv2/(limDV**2)
+        
+        nSgmsTot = self.KtotUsrs*limActScl
+        nSgmsFix = self.KfixUsrs*limDvScl
+        
+        nStdsTot = np.sign(limAct)/np.sqrt(nSgmsTot)
+        nStdsFix = np.sign(limDV)/np.sqrt(nSgmsFix)
+        
+        Kfro = np.sqrt(np.sum( nSgmsTot+nSgmsFix ))
+        Knstd = np.min(np.minimum(nStdsTot,nStdsFix))
+        
+        return Kfro, Knstd
+
+        
+    def updateKlims(self,Mu):
+        if Mu[0]==None:
+            dMu = 0
+            dvMu = np.zeros(self.b0ls.shape)
+            dvScale = (1.0+1e-10) # required so that min puts out a sensible answer?
+        else:
+            if Mu.shape==(1,):
+                Mu = np.ones((self.KtotPu.shape[1]))*Mu
+            dMu = self.KtotPu.dot(Mu)
+            dMuMv = self.KtotPuMv.dot(Mu)
+            dMuLv = self.KtotPuLv.dot(Mu)
+            dvMu = self.KfixPu.dot(Mu)        
+        # NEW VERSION
+        limMvHi = self.VpMv - self.b0MvMax - dMuMv
+        limMvLo = -(self.VmMv - self.b0MvMin - dMuMv)
+        limLvHi = self.VpLv - self.b0LvMax - dMuLv
+        limLvLo = -(self.VmLv - self.b0LvMin - dMuLv)
+        
+        # # Brickwall to stop there being undervoltages at no load
+        # limMvHi[self.VpMv - self.b0MvMax<0] = -np.inf
+        # limMvLo[self.VmMv - self.b0MvMin>0] = -np.inf
+        # limLvHi[self.VpLv - self.b0LvMax<0] = -np.inf
+        # limLvLo[self.VmLv - self.b0LvMin>0] = -np.inf
+        limMvHi[self.VpMv - self.b0MvMax<0] = -1e100
+        limMvLo[self.VmMv - self.b0MvMin>0] = -1e100
+        limLvHi[self.VpLv - self.b0LvMax<0] = -1e100
+        limLvLo[self.VmLv - self.b0LvMin>0] = -1e100
+        
+        limDvA = self.DVmax - dvMu # required so that min puts out a sensible answer?
+        limDvB = -(-self.DVmax - dvMu)
+        limLo = np.concatenate((limMvLo,limLvLo))[self.mlvUnIdx]
+        limHi = np.concatenate((limMvHi,limLvHi))[self.mlvUnIdx]
+        
+        limAct = np.minimum(limLo,limHi)
+        limDV = np.minimum(limDvA,limDvB)
+        
+        # limAct[self.b0ls<0.5] = np.inf # required still unfortunately
+        # limAct[self.b0hs<0.5] = np.inf # required still unfortunately
+        limAct[self.b0ls<0.5] = 1e100 # required still unfortunately
+        limAct[self.b0hs<0.5] = 1e100 # required still unfortunately
+        return limAct, limDV
+    
     
     def makeSvdModel(self,Sgm,evSvdLim=[0.99],nMax=300):
         # method:
@@ -817,6 +848,7 @@ class linModel:
             stt = self.WD+'\\lin_models\\'+self.feeder+'\\fxd_model\\'+self.feeder+'Lpt'+'Fxd'
             end = str(np.round(self.linPoint*100).astype(int)).zfill(3)+'.npy'
             A = np.load(stt+'A'+end)
+            self.A0 = A
         # NB based on self.updateTotModel(A,Bkron)
         # self.b0ls = (A.dot(self.xNomTot*self.loadPointLo) + bV)/self.vTotBase # in pu
         # self.b0hs = (A.dot(self.xNomTot*self.loadPointHi) + bV)/self.vTotBase # in pu
@@ -828,6 +860,7 @@ class linModel:
         # Akron, Bkron = lmKronRed(self.LMfxd,self.idxShf,regVreg)
         # self.updateTotModel(Akron,Bkron)
         
+    
     def updateTotModel(self,A,bV):
         KyP = A[:,0:len(self.xhyNtot)//2] # these might be zero if there is no injection (e.g. only Q)
         KyQ = A[:,len(self.xhyNtot)//2:len(self.xhyNtot)]

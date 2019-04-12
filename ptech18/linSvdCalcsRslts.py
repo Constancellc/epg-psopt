@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from math import gamma
 import dss_stats_funcs as dsf
-from linSvdCalcs import linModel, calcVar, hcPdfs, plotCns, plotHcVltn
+from linSvdCalcs import linModel, calcVar, hcPdfs, plotCns, plotHcVltn, plotBoxWhisk
 from scipy.stats.stats import pearsonr
 
 
@@ -60,18 +60,16 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
     # plt.show()
 
 # ============================ EXAMPLE: plotting the number of standard deviations for a network changing ***vregs*** uniformly
-fdr_i = 20
+fdr_i = 22
 print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
 
 LM = linModel(fdr_i,WD,QgenPf=1.0)
-LM.loadNetModel(LM.netModelNom)
 
-# pdfName = 'gammaWght'; prms=np.array([3.0])
-pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05)
+pdfName = 'gammaFrac'
 
-pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
-LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
-plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
+# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
 
 mu_k_set = 1
 Mu0, Sgm0 = pdf.getMuStd(LM=LM,prmI=-1) # in W
@@ -79,51 +77,96 @@ Mu_set = np.outer(mu_k_set,Mu0)
 Sgm_set = np.outer(mu_k_set,Sgm0)
 
 Q_set = [1.0,-0.995,-0.98]
+Q_set = [1.0,-0.98]
+# Q_set = [1.0]
+aFro = 1e-6
 
-LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0]) # 100% point
-LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=plt.cm.inferno,pltShow=False)
-# plt.savefig(SD+'nStdBefore_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0)
-# plt.savefig(SD+'nStdBefore_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
-plt.show()
+# LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0]) # 100% point
+# LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=plt.cm.inferno,pltShow=False)
+# # plt.savefig(SD+'nStdBefore_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0)
+# # plt.savefig(SD+'nStdBefore_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
+# plt.show()
 
-nOpts = 21
-opts = np.linspace(0.925,1.05,nOpts)
+t = time.time()
+nOpts = 41
+opts = np.linspace(0.955,1.025,nOpts)
+N0 = np.zeros((len(Q_set),len(opts)))
 for i in range(len(Q_set)):
     print(i)
-    N0 = []
     LM.QgenPf = Q_set[i]
     LM.loadNetModel(LM.netModelNom)
     LM.updateFxdModel()
+    LM.updateDcpleModel(LM.regVreg0)
+    LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0],calcSrsVals=True)
+    j=0
     for opt in opts:
-        print(opt)
         LM.updateDcpleModel(LM.regVreg0*opt)
-        LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
-        N0.append(np.min(LM.nStdU))
-    plt.plot(opts*LM.regVreg0/(166*120),N0,'x-')
+        Kfro,Knstd = LM.updateNormCalc(Mu=Mu_set[0],inclSmallMu=True)
+        N0[i,j] = Knstd - aFro*Kfro
+        j+=1
+    print(time.time()-t)
+plt.plot(np.outer(opts,[1]*len(N0)),N0.T,'x-')
+# plt.plot(np.outer(opts*LM.regVreg0/(166*120),[1]*len(N0)),N0.T,'x-')
 print(time.process_time())
 plt.xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
+
 plt.ylabel('Min. no. of standard deviations to constraint, $\min(N_{\sigma})$')
 plt.legend(('1.0','0.995','0.98'),title='PF (lagging)'); plt.grid(True); plt.ylim((-12,9)); 
-# plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.png')
-# plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.pdf')
+
+# # plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.png')
+# # plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.pdf')
 plt.show()
 
-optVal = 0.98
+optVals = np.linspace(0.95,1.0,11)
 
-LM.QgenPf = 1.0
+i=0
+rsltsA = {}; rsltsB = {}
+LM.QgenPf = Q_set[0]
 LM.loadNetModel(LM.netModelNom)
 LM.updateFxdModel()
+# LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
+for optVal in optVals:
+    print(i)
+    LM.updateDcpleModel(LM.regVreg0*optVal)
+    LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
+    rsltsA[i] = LM.linHcRsl
+    i+=1
+i=0
+LM.QgenPf = Q_set[1]
+LM.loadNetModel(LM.netModelNom)
+LM.updateFxdModel()
+# LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
+for optVal in optVals:
+    print(i)
+    LM.updateDcpleModel(LM.regVreg0*optVal)
+    LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
+    rsltsB[i] = LM.linHcRsl
+    i+=1
+    
+fig = plt.figure()
+ax = fig.add_subplot(111)
+X = np.arange(len(optVals))
+for x in X:
+    ax = plotBoxWhisk(ax,x-0.15,0.12,rsltsA[x]['kCdf'][0::5],clr=cm.tab10(0))
+    ax = plotBoxWhisk(ax,x+0.15,0.12,rsltsB[x]['kCdf'][0::5],clr=cm.tab10(1))
 
-LM.updateDcpleModel(LM.regVreg0*optVal)
-LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
-LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno,pltShow=False)
-# plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0)
-# plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
+plt.grid(True)
+plt.xticks(X,optVals,rotation=90)
 plt.show()
 
-LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
-plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
-# # ==========================================
+# optVal = 0.98
 
-# https://stackoverflow.com/questions/39277638/element-wise-minimum-of-multiple-vectors-in-numpy
-# https://docs.scipy.org/doc/numpy/reference/generated/numpy.maximum.html
+# LM.QgenPf = 1.0
+# LM.loadNetModel(LM.netModelNom)
+# LM.updateFxdModel()
+
+# LM.updateDcpleModel(LM.regVreg0*optVal)
+# LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
+# LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno,pltShow=False)
+# # plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0)
+# # plt.savefig(SD+'nStdAfter_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
+# plt.show()
+
+# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
+# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+# # ==========================================
