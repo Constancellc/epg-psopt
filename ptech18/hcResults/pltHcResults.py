@@ -9,7 +9,8 @@ sys.path.append(os.path.dirname(WD))
 from dss_python_funcs import basicTable
 from linSvdCalcs import plotBoxWhisk, getKcdf, plotCns
 
-feeders = ['13bus','34bus','123bus','8500node','eulv','usLv','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
+# feeders = ['13bus','34bus','123bus','8500node','eulv','usLv','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
+feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
 # feeders = ['13bus','34bus','123bus','8500node','eulv','usLv','epriK1','epriM1','epri5','epri7','epri24']
 pLoad = {'epriJ1':11.6,'epriK1':12.74,'epriM1':15.67,'epri5':16.3,'epri7':19.3,'epri24':28.8,'8500node':12.05,'eulv':0.055,'usLv':42.8,'13bus':3.6,'34bus':2.0,'123bus':3.6}
 
@@ -20,11 +21,12 @@ feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
 # f_linMcVal = 1 # monte carlo no. validation
 # f_logTimes = 1 # 
 # f_linMcSns = 1
-f_dssVlinWghtErr = 1
+# f_dssVlinWghtErr = 1
 # f_dssSeqPar = 1
+f_plotCns = 1
 
-# pltSave=True
-pltShow=True
+pltSave=True
+# pltShow=True
 
 figSze0 = (5,4)
 TD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\tables\\"
@@ -206,7 +208,7 @@ if 'f_dssVlinWghtErr' in locals():
     if 'pltShow' in locals():
         plt.show()
 
-# RESULTS 1 - opendss vs linear model, k =====================
+# RESULTS 6 - opendss vs linear model, k =====================
 if 'f_dssSeqPar' in locals():
     fig = plt.figure(figsize=figSze0)
     ax = fig.add_subplot(111)
@@ -230,12 +232,47 @@ if 'f_dssSeqPar' in locals():
         # plt.savefig(FD+'dssVlinWght.pdf',pad_inches=0.02,bbox_inches='tight')
     if 'pltShow' in locals():
         plt.show()
-        
-# rsltM1 = rsltsFrac['epriM1']
-# pdf = rsltM1['pdfData']
-# linRsl = rsltM1['linHcRsl']
-# dssRsl = rsltM1['dssHcRsl']
-# fig, ax = plt.subplots()
-# ax = plotCns(pdf['mu_k'],pdf['prms'],dssRsl['Cns_pct'],feeder=rsltM1['feeder'],lineStyle='-',ax=ax,pltShow=False)
-# ax = plotCns(pdf['mu_k'],pdf['prms'],linRsl['Cns_pct'],feeder=rsltM1['feeder'],lineStyle='--',ax=ax,pltShow=False)
-# plt.show()
+
+# RESULTS 7 - OpenDSS vs Linear pltCons
+if 'f_plotCns':
+    # feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
+    feederPlot='8500node'
+    rsltM1 = rsltsFrac[feederPlot]
+    pdf = rsltM1['pdfData']
+    linRsl = rsltM1['linHcRsl']
+    dssRsl = rsltM1['dssHcRsl']
+    fig, ax = plt.subplots(figsize=(6.4,3.4))
+    
+    # ax = plotCns(pdf['mu_k'],pdf['prms'],dssRsl['Cns_pct'],feeder=rsltM1['feeder'],lineStyle='-',ax=ax,pltShow=False)
+    # ax = plotCns(pdf['mu_k'],pdf['prms'],linRsl['Cns_pct'],feeder=rsltM1['feeder'],lineStyle='--',ax=ax,pltShow=False)
+    # plt.legend(('$\Delta V$','$V^{+}_{\mathrm{MV,LS}}$','$V^{-}_{\mathrm{MV,LS}}$','$V^{+}_{\mathrm{LV,LS}}$','$V^{-}_{\mathrm{LV,LS}}$','$V^{+}_{\mathrm{MV,HS}}$','$V^{-}_{\mathrm{MV,HS}}$','$V^{+}_{\mathrm{LV,HS}}$','$V^{-}_{\mathrm{LV,HS}}$'))
+    
+    clrs = cm.nipy_spectral(np.linspace(0,1,9))
+    clrs = cm.viridis(np.linspace(0,1,4))
+    ax.set_prop_cycle(color=clrs)
+    Cns_dss = dssRsl['Cns_pct']
+    Cns_lin = linRsl['Cns_pct']
+    x_vals = 100*pdf['prms']
+    y_dss = Cns_dss[:,0,:][:,[7,1,3,0]]
+    y_lin = Cns_lin[:,0,:][:,[7,1,3,0]]
+    
+    # plt.legend(('$\Delta V$','$V^{+}_{\mathrm{MV,LS}}$','$V^{-}_{\mathrm{MV,LS}}$','$V^{+}_{\mathrm{LV,LS}}$','$V^{-}_{\mathrm{LV,LS}}$','$V^{+}_{\mathrm{MV,HS}}$','$V^{+}_{\mathrm{LV,HS}}$','$V^{-}_{\mathrm{LV,HS}}$'))
+    
+    ax.plot(x_vals,y_dss,'-')
+    ax.plot(x_vals,y_lin,'--')
+    
+    ax.legend(['$V^{+}_{\mathrm{LV,Hi\,P}}$','$V^{+}_{\mathrm{MV,Lo\,P}}$','$V^{+}_{\mathrm{LV,Lo\,P}}$','$\Delta V$'])
+    
+    ax.annotate('OpenDSS',xytext=(60,80),xy=(90,72),arrowprops={'arrowstyle':'->'})
+    ax.annotate('Linear',xytext=(65,55),xy=(89,52),arrowprops={'arrowstyle':'->'})
+    
+    plt.ylabel('Fraction of runs w/ violations, %');
+    plt.xlabel('Fraction of loads with PV, %');
+    plt.xlim((0,100))
+    plt.grid(True)
+    plt.tight_layout()
+    if 'pltShow' in locals():
+        plt.show()
+    if 'pltSave' in locals():
+        plt.savefig(FD+'plotCns.png',pad_inches=0.02,bbox_inches='tight')
+        plt.savefig(FD+'plotCns.pdf',pad_inches=0.02,bbox_inches='tight')
