@@ -1,4 +1,4 @@
-import win32com.client, os, sys, pickle
+import win32com.client, os, sys, pickle, getpass
 import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
@@ -6,7 +6,7 @@ from dss_vlin_funcs import *
 from matplotlib import cm, rc
 
 # rc('text',usetex=True)
-figSze0=(4.5,3.3)
+figSze0=(5.2,3.0)
 
 WD = os.path.dirname(sys.argv[0])
 sys.argv=["makepy","OpenDSSEngine.DSS"]
@@ -20,7 +20,7 @@ DSSSolution=DSSCircuit.Solution
 DSSSolution.Tolerance=1e-7
 
 pltVxtrm = True
-pltVxtrm = False
+# pltVxtrm = False
 savePts = True
 savePts = False
 saveBusCoords = True
@@ -28,11 +28,11 @@ saveBusCoords = False
 saveBrchBuses = True
 saveBrchBuses = False
 saveRegBandwidths = True
-# saveRegBandwidths = False
+saveRegBandwidths = False
 pltVxtrmSave = True
-pltVxtrmSave = False # use this for plotting for the paper
+# pltVxtrmSave = False # use this for plotting for the paper
 
-SDfig = r"C:\Users\chri3793\Documents\DPhil\papers\psfeb19\figures\\"
+SDfig = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
 load1 = 0.2
 load2 = 0.66
@@ -46,7 +46,7 @@ VmMv = 0.95
 VmLv = 0.92
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-# fdr_i_set = [20]
+fdr_i_set = [20]
 # fdr_i_set = [19]
 for fdr_i in fdr_i_set:
     # fdr_i = 17
@@ -205,28 +205,30 @@ for fdr_i in fdr_i_set:
         
         xlm = ax.get_xlim()
         ylm = ax.get_ylim()
-        ax.plot(xlm,[VpMv,VpMv],'k--')
-        ax.plot(xlm,[VmMv,VmMv],'k--')
+        ax.plot(xlm,[VpMv,VpMv],'k:')
+        ax.plot(xlm,[VmMv,VmMv],'k:')
         
-        ax.plot(xlm,[VpLv,VpLv],'k:')
-        ax.plot(xlm,[VmLv,VmLv],'k:')
+        ax.plot(xlm,[VpLv,VpLv],'k--')
+        ax.plot(xlm,[VmLv,VmLv],'k--')
         
         yLow = 0.915
         ax.plot([kOut,kOut],[yLow,ylm[1]],'k')
         ax.set_xlim(xlm)
 
         ax.set_ylim([yLow,ylm[1]])
-        ax.grid(True)
         ax.set_xlabel('Continuation factor, $\kappa$')
         ax.set_ylabel('Voltage (pu)')
         ax.legend(('$\max|V_{\mathrm{MV}}|$','$\min|V_{\mathrm{MV}}|$','$\max|V_{\mathrm{LV}}|$','$\min|V_{\mathrm{LV}}|$'),loc='upper right')
         if pltVxtrmSave:
-            ax.annotate('$\kappa_{\mathrm{Lin}}$',(kOut-0.16,ylm[1] - 0.020),rotation=90,fontsize=13)
+            # ax.annotate('$\kappa_{\mathrm{Lin}}$',(kOut-0.16,ylm[1] - 0.020),rotation=90,fontsize=13)
+            # ax.annotate('Lin. pt.',(kOut-0.16,ylm[1] - 0.020),rotation=90)
+            ax.annotate('Lin. point',(kOut-0.11,ylm[1] - 0.14),rotation=90)
             plt.tight_layout()
-            plt.savefig(SDfig+'pltVxtrm_'+feeder)
-            plt.savefig(SDfig+'pltVxtrm_'+feeder+'.pdf')
+            plt.savefig(SDfig+'pltVxtrm_'+feeder,bbox_inches='tight',pad_inches=0)
+            plt.savefig(SDfig+'pltVxtrm_'+feeder+'.pdf',bbox_inches='tight',pad_inches=0)
             plt.show()
         else:
+            ax.grid(True)
             ax.plot([load1,load1],[yLow,ylm[1]],'k:')
             ax.plot([load2,load2],[yLow,ylm[1]],'k:')
             ax.set_title(feeder)    

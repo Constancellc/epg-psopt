@@ -34,14 +34,14 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-test_model_plt = False
+# test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 save_model = True
-# save_model = False
+save_model = False
 ltcVoltageTestingFig = True
-ltcVoltageTestingFig = False
-figSze0 = (5,4)
+# ltcVoltageTestingFig = False
+figSze0 = (5.2,3.3)
 SD = r"C:\Users\\"+getpass.getuser()+r"\\Documents\DPhil\papers\psfeb19\figures\\"
 
 fdr_i_set = [5,6,8]
@@ -53,6 +53,9 @@ for fdr_i in fdr_i_set:
     print('\nStarting, feeder:',feeder)
     k = np.concatenate((np.arange(-1.5,1.6,0.05),np.arange(1.6,-1.5,-0.05)))
     # k = np.arange(-1.5,1.6,0.025)
+    if ltcVoltageTestingFig:
+        k = np.arange(-1.5,1.6,0.05)
+        k = -np.arange(-1.5,1.6,0.025)
 
     ckt = get_ckt(WD,feeder)
     fn_ckt = ckt[0]
@@ -328,15 +331,17 @@ for fdr_i in fdr_i_set:
     if ltcVoltageTestingFig:
         fig = plt.figure(figsize=figSze0)
         ax = fig.add_subplot(111)
+        ax.plot(k,vef,'k')
         ax.plot(k,veR,'.-')
         ax.plot(k,veL,'.-')
-        ax.plot(k,vef,':')
 
-        ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,ylm[1])), ax.set_xlabel('Power continuation factor, $\kappa$'), ax.set_ylabel('Voltage error, $||\Delta V||_{2}\./\.||V||_{2}$')
-        ax.legend(('Fixed model, full error','LDC model, full error','Fixed model, nom. error'))
+        # ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,ylm[1])), 
+        ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,0.055)), 
+        ax.set_xlabel('Power continuation factor, $\kappa$'), ax.set_ylabel('Voltage error, $||V_{\mathrm{DSS}} - V_{\mathrm{Lin}} ||_{2}\./\.||V_{\mathrm{DSS}}||_{2}$')
+        ax.legend(('Load flow model (locked taps)','Load flow model (unlocked taps)','Network model (unlocked taps)'))
         plt.tight_layout()
-        plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.png')
-        plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.pdf')
+        plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.png',bbox_inches='tight',pad_inches=0)
+        plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.pdf',bbox_inches='tight',pad_inches=0)
         plt.show()
 
     if test_model_bus:

@@ -14,16 +14,18 @@ feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7
 # feeders = ['13bus','34bus','123bus','8500node','eulv','usLv','epriK1','epriM1','epri5','epri7','epri24']
 pLoad = {'epriJ1':11.6,'epriK1':12.74,'epriM1':15.67,'epri5':16.3,'epri7':19.3,'epri24':28.8,'8500node':12.05,'eulv':0.055,'usLv':42.8,'13bus':3.6,'34bus':2.0,'123bus':3.6}
 
+feedersTidy = {'34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24'}
+
 feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
 
-# t_timeTable = 1 # timeTable
+t_timeTable = 1 # timeTable
 # f_dssVlinWght = 1 # gammaFrac boxplot results
 # f_linMcVal = 1 # monte carlo no. validation
 # f_logTimes = 1 # 
 # f_linMcSns = 1
 # f_dssVlinWghtErr = 1
 # f_dssSeqPar = 1
-f_plotCns = 1
+# f_plotCns = 1
 
 pltSave=True
 # pltShow=True
@@ -36,9 +38,9 @@ rsltsFrac = {}; rsltsVal = {}; rsltsPar = {}; rsltsSns = {}
 for feeder in feeders:
     # RD = os.path.join(WD,feeder,'linHcCalcs'+rsltType+pdfName+num+regID+'.pkl')
     RDval = os.path.join(WD,feeder,'linHcCalcsVal_gammaFrac50_new.pkl')
-    RDfrac = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_reg0_new.pkl')
-    RDfrac = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_reg0_bw.pkl')
-    RDpar = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_reg0_par.pkl')
+    # RDfrac = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_reg0_new.pkl')
+    RDfrac = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_reg0_bw.pkl') # bw as in reduced bw
+    RDpar = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_reg0_par.pkl') # par as in parallel (faster for J1)
     with open(RDfrac,'rb') as handle:
         rsltsFrac[feeder] = pickle.load(handle)
     with open(RDval,'rb') as handle:
@@ -50,11 +52,19 @@ for feeder in feeders_dcp:
     RDsns = os.path.join(WD,feeder,'linHcCalcsSns_gammaFrac_new.pkl')
     with open(RDsns,'rb') as handle:
         rsltsSns[feeder] = pickle.load(handle)
-
 timeStrLin = [];    timeStrDss = []; timeLin = []; timeDss = []
 kCdfLin = [];    kCdfDss = []; 
 LrelNorm = []; LmeanNorm = []
+feederData = []
 for rslt in rsltsFrac.values():
+    dataSet = []
+    dataSet.append(feedersTidy[rslt['feeder']])
+    dataSet.append('%.2f' % (rsltsPar[rslt['feeder']]['linHcRsl']['runTime']))
+    dataSet.append('%.2f' % (rsltsPar[rslt['feeder']]['dssHcRslPar']['runTime']))
+    # dataSet.append('%.2f' % (rslt['dssHcRsl']['runTime']))
+    # dataSet.append('%.2f' % (rslt['linHcRsl']['runTime']))
+    # dataSet.append('%.2f' % (rslt['dssHcRsl']['runTime']))
+    dataSet.append('%.2f' %  (np.mean(np.abs(rslt['dssHcRsl']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))) )
     timeStrLin.append('%.3f' % (rslt['linHcRsl']['runTime']/60.))
     timeStrDss.append('%.3f' % (rslt['dssHcRsl']['runTime']/60.))
     timeLin.append(rslt['linHcRsl']['runTime']/60.)
@@ -63,6 +73,7 @@ for rslt in rsltsFrac.values():
     kCdfDss.append(rslt['dssHcRsl']['kCdf'][[0,1,5,10,15,19,20]])
     LmeanNorm.append( np.mean(np.abs(rslt['dssHcRsl']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))*0.01 )
     LrelNorm.append(rslt['regError'])
+    feederData.append(dataSet)
         
 kCdfVal = []; LvalNorm = []; # kCdfLin = []
 for rslt in rsltsVal.values():
@@ -76,21 +87,27 @@ for rslt in rsltsSns.values():
     LsnsNorm.append(rslt['regErrors'])
 KcdkLin = []; KcdkSeq = []; KcdkPar = []; # kCdfLin = []
 timeSeq = [];timePar = [];
+i=0
 for rslt in rsltsPar.values():
     KcdkLin.append(rslt['linHcRsl']['kCdf'][0::5])
     KcdkSeq.append(rslt['dssHcRslSeq']['kCdf'][0::5])
     KcdkPar.append(rslt['dssHcRslPar']['kCdf'][0::5])
     timeSeq.append(rslt['dssHcRslSeq']['runTime'])
     timePar.append(rslt['dssHcRslPar']['runTime'])
+    feederData[i].append('%.2f' %  (np.mean(np.abs(rslt['dssHcRslPar']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))) )
+    i+=1
 
 linHcRsl = rslt['linHcRsl']
 
 # TABLE 1 ======================= 
 if 't_timeTable' in locals():
-    caption='Linear and non-linear models HC run times (min).'
+    caption='OpenDSS and Linear models result comparison'
     label='timeTable'
-    heading = ['']+feeders
-    data = [['Full Model']+timeStrDss,['Linear Model']+timeStrLin]
+    # heading = ['']+feeders
+    # data = [['Full Model']+timeStrDss,['Linear Model']+timeStrLin]
+    heading = ['Model','OpenDSS time','Linear time','MAE (tight), \%','MAE (nominal), \%']
+    # data = feederT + timeStrLin + timeStrDss + timeStrLin + timeStrDss
+    data = feederData
     basicTable(caption,label,heading,data,TD)
 # ===============================
 

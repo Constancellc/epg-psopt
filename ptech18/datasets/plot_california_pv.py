@@ -1,16 +1,20 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import os, sys
+import os, sys, getpass
 from math import gamma
-from matplotlib import rc
-rc('text',usetex=True)
+# from matplotlib import rc
+# rc('text',usetex=True)
+
+# pltShow=1
+pltSave=1
+
 
 WD = os.path.dirname(sys.argv[0])
 fn = os.path.join(WD,'california_residential_pv.csv')
 
-figSze0 = (4,3)
-SD = r"C:\Users\chri3793\Documents\DPhil\papers\psfeb19\figures\\"
+figSze0 = (5.2,2.5)
+SD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
 QWE = pd.read_csv(fn)
 
@@ -46,18 +50,21 @@ ax = plt.subplot()
 
 ax.step(histx,histy)
 ax.plot(X,gX)
-ax.legend(('CEC data','Fitted gamma distribution'))
+ax.legend(('California residential solar','Fitted gamma distribution'))
 ax.set_xlabel('AC System Size (kW)')
 ax.set_ylabel('Probability density')
 # ax.title('California Residential PV Sizes (Oct 18)')
 ax.set_xlim((0,pmax))
 ax.set_ylim((0,ax.get_ylim()[1]))
 ax.set_xticks(np.arange(0,pmax+2,2))
-ax.grid(True)
+# ax.grid(True)
 plt.tight_layout()
-plt.savefig(SD+"plot_california_pv.pdf")
-plt.savefig(SD+"plot_california_pv.png")
-plt.show()
+
+if 'pltSave' in locals():
+    plt.savefig(SD+"plot_california_pv.pdf",bbox_inches='tight',pad_inches=0)
+    plt.savefig(SD+"plot_california_pv.png",bbox_inches='tight',pad_inches=0)
+if 'pltShow' in locals():
+    plt.show()
 
 print("k (approx):",k)
 print("Theta (approx):",th)

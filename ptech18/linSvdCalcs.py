@@ -1069,27 +1069,32 @@ class linModel:
             setMinMax = [setMin,setMax]
         return setVals, setMinMax
         
-    def ccColorbar(self,plt,minMax,roundNo=2,units='',loc='NorthEast',colorInvert=False,cmap=plt.cm.viridis):
-        xlm = plt.xlim()
-        ylm = plt.ylim()
+    def ccColorbar(self,ax,minMax,roundNo=2,units='',loc='NorthEast',colorInvert=False,cmap=plt.cm.viridis):
+        xlm = ax.get_xlim()
+        ylm = ax.get_ylim()
+        dx = np.diff(xlm)
+        dy = np.diff(ylm)
         if loc=='NorthEast':
-            top = ylm[1] - np.diff(ylm)*0.025
-            btm = ylm[1] - np.diff(ylm)*0.2
-            xcrd = xlm[1] - np.diff(xlm)*0.2
+            top = ylm[1] - dy*0.025
+            btm = ylm[1] - dy*0.2
+            xcrd = xlm[1] - dx*0.2
         elif loc=='NorthWest':
             top = ylm[1]
-            btm = ylm[1] - np.diff(ylm)*0.25
-            xcrd = xlm[1] - np.diff(xlm)*0.9
+            btm = ylm[1] - dy*0.25
+            xcrd = xlm[1] - dx*0.9
         elif loc=='SouthEast':
-            top = ylm[1] - np.diff(ylm)*0.75
+            top = ylm[1] - dy*0.75
             btm = ylm[0] 
-            xcrd = xlm[1] - np.diff(xlm)*0.25
-            
+            xcrd = xlm[1] - dx*0.25
+        elif loc=='resPlot24': # used in linSvdCalcsRslts.py
+            top = ylm[1] - dy*0.15
+            btm = ylm[1] - dy*0.4
+            xcrd = xlm[1] - dx*0.2
 
         for i in range(100):
             y1 = btm+(top-btm)*(i/100)
             y2 = btm+(top-btm)*((i+1)/100)
-            plt.plot([xcrd,xcrd],[y1,y2],lw=6,c=cmap(i/100))
+            ax.plot([xcrd,xcrd],[y1,y2],lw=6,c=cmap(i/100))
             
         if colorInvert:
             tcks = [str(round(minMax[1],roundNo)),str(round(np.mean(minMax),roundNo)),str(round(minMax[0],roundNo))]
@@ -1098,7 +1103,16 @@ class linModel:
         
         for i in range(3):
             y_ = btm+(top-btm)*(i/2)-((top-btm)*0.075)
-            plt.annotate('  '+tcks[i]+units,(xcrd,y_))
+            ax.annotate('  '+tcks[i]+units,(xcrd,y_))
+        if loc=='resPlot24':
+            t = ax.annotate('# St. Dev.',(xcrd-dx*0.035,top + (top-btm)*0.12))
+            width_scale = 0.2 # epri K1
+            width_scale = 0.235 # epri 24
+            btmm_y = btm - 0.125*(top-btm)
+            xcrd_0 = xcrd - 0.05*dx
+            box = patches.Rectangle(xy=(xcrd_0,btmm_y),width=dx*width_scale,height=(top-btm)*1.42,edgecolor='k',facecolor='w',zorder=-10)
+            ax.add_patch(box)
+            
         
     def plotNetBuses(self,type,regsOn=True,pltShow=True,minMax=None,pltType='mean',varMax=10,cmap=plt.cm.viridis):
         fig = plt.figure()
@@ -1139,15 +1153,16 @@ class linModel:
         plt.gca().set_aspect('equal', adjustable='box')
         plt.tight_layout()
         if type=='vLo' or type=='vHi':
-            self.ccColorbar(plt,minMax0,loc=self.legLoc,units=' pu',roundNo=3,colorInvert=colorInvert,cmap=cmap)
+            self.ccColorbar(ax,minMax0,loc=self.legLoc,units=' pu',roundNo=3,colorInvert=colorInvert,cmap=cmap)
         elif type=='logVar' or type=='nStd':
-            self.ccColorbar(plt,minMax0,loc=self.legLoc,colorInvert=colorInvert,cmap=cmap)
+            self.ccColorbar(ax,minMax0,loc=self.legLoc,colorInvert=colorInvert,cmap=cmap)
         plt.xticks([])
         plt.yticks([])
         print('Complete')
         if pltShow:
             plt.show()
-    
+        else:
+            self.currentAx = ax
     def plotNetwork(self,pltShow=True):
         fig = plt.figure()
         ax = fig.add_subplot(111)
