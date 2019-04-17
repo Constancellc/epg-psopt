@@ -28,8 +28,7 @@ Redirect  Capacitors_z.dss
 Redirect  Loads_Only_z.dss
 !Redirect  Loads_Only.dss
 
-!batchedit load..* model=1 vmin=0.30 vmax=3.00 status=fixed
-batchedit load..* model=1 vmin=0.0030 vmax=300.00 status=variable
+batchedit load..* model=1 vmin=0.3 vmax=3.0 status=variable
 
 new energymeter.msub element=transformer.reg1
 new energymeter.mreg1G element=line.reg1
@@ -37,12 +36,6 @@ new energymeter.mreg1G element=line.reg1
 Set voltagebases=[66 12.47,  0.480, 0.416, 0.208]
 Calcv
 Solve
-
-!set loadmult=0.43
-!solve
-!set loadmult=0.66
-!solve
-!show powers elem
 
 buscoords buscoords_src.dss
 /*

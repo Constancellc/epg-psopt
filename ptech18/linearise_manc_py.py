@@ -31,15 +31,18 @@ saveModel = True
 saveCc = True
 saveCc = False
 calcReg=1
+
 # test_cap_model=1
 
-setCaps=True
+# setCapsModel=True # True: change with linpoint. False: keep fixed at nominal values. linPoint: only those switched in at lin
+# setCapsModel=False
+setCapsModel = 'linPoint'
 # fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14]
-# fdr_i_set = [17,18,19,20,21]
-# fdr_i_set = [9]
-# fdr_i_set = [22]
+fdr_i_set = [6,8,17,18,19,20,21]
 fdr_i_set = [9]
+# fdr_i_set = [19]
+# fdr_i_set = [6,8,18,19]
 for fdr_i in fdr_i_set:
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']; lp_taps='Nmt'
@@ -54,6 +57,11 @@ for fdr_i in fdr_i_set:
     lin_points=np.array([0.6])
     lin_points=np.array([lp0data['k']])
     # lin_points=np.array([1.0])
+    
+    if setCapsModel=='linPoint':
+        capPosLin=lp0data['capPosOut']
+    else:
+        capPosLin=None
 
     k = np.arange(-1.5,1.6,0.1)
     # k = np.array([-1.5,-1.0,-0.5,0.0,0.3,lin_points[:],1.0,1.5]) # for speedier test model plotting
@@ -67,7 +75,7 @@ for fdr_i in fdr_i_set:
     dir0 = WD + '\\lin_models\\' + feeder
     sn0 = dir0 + '\\' + feeder + lp_taps
 
-    print('\nStart, feeder:',feeder,'\nSaving nom:',saveModel,'\nSaving cc:',saveCc,'\nLin Points:',lin_points,'\n',time.process_time())
+    print('\nStart, feeder:',feeder,'\nSaving nom:',saveModel,'\nSaving cc:',saveCc,'\nLin Points:',lin_points,'\nCap pos model:',setCapsModel,'\n',time.process_time())
     
     vve=np.zeros([k.size,lin_points.size])
     vae=np.zeros([k.size,lin_points.size])
@@ -80,12 +88,13 @@ for fdr_i in fdr_i_set:
         # run the dss
         DSSText.Command='Compile ('+fn+'.dss)'
         DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
-        BB00,SS00 = cpf_get_loads(DSSCircuit,getCaps=setCaps)
+        BB00,SS00 = cpf_get_loads(DSSCircuit)
         if lp_taps=='Nmt':
             TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
         elif lp_taps=='Lpt':
-            # cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCaps)
-            cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=True)
+            # cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=True)
+            cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCapsModel,capPos=capPosLin)
+            
             DSSSolution.Solve()
             TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
         print('Load Ybus\n',time.process_time())
@@ -107,31 +116,26 @@ for fdr_i in fdr_i_set:
 
         fix_tap_pos(DSSCircuit, TC_No0)
         DSSText.Command='Set Controlmode=off'
-        # DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
         DSSSolution.Solve()
         # BB00,SS00 = cpf_get_loads(DSSCircuit)
         
         Yvbase = get_Yvbase(DSSCircuit)[3:]
 
-        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCaps)
+        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
         YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
         sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
-        BB0,SS0 = cpf_get_loads(DSSCircuit,getCaps=setCaps)
+        BB0,SS0 = cpf_get_loads(DSSCircuit,getCaps=setCapsModel)
         
-        # cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCaps)
-        # DSSSolution.Solve()
-        # sYlin,sDlin = get_sYsD(DSSCircuit)[0:2]
-        
-        # cpf_set_loads(DSSCircuit,BB00,SS00,0.0,setCaps=setCaps)
-        # DSSSolution.Solve()
-        
-        cpf_set_loads(DSSCircuit,BB00,SS00,0.0,setCaps=setCaps)
+        cpf_set_loads(DSSCircuit,BB00,SS00,0.0,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
         YNodeVnoLoad = tp_2_ar(DSSCircuit.YNodeVarray)
         
         cpf_set_loads(DSSCircuit,BB00,SS00,1.0,setCaps=True) # set back to 1
-        cpf_set_loads(DSSCircuit,BB00,SS00,0.0,setCaps=False)
+        # if setCapsModel==True:
+            # cpf_set_loads(DSSCircuit,BB00,SS00,0.0,setCaps=False,capPos=capPosLin) # a trick to keep the caps in
+        # elif setCapsModel=='linPoint':
+        cpf_set_loads(DSSCircuit,BB00,SS00,0.0,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
         sYcap,sDcap = get_sYsD(DSSCircuit)[0:2]
         xhyCap0 = -1e3*s_2_x(sYcap[3:])
@@ -139,7 +143,8 @@ for fdr_i in fdr_i_set:
         if len(xhdCap0)==0 and len(sD)!=0:
             xhdCap0 = np.zeros(len(sD)*2)
         
-        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=False)
+        # cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=False)
+        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
         sYlds,sDlds = get_sYsD(DSSCircuit)[0:2]
         xhyLds = -1e3*s_2_x(sYlds[3:])
@@ -252,7 +257,7 @@ for fdr_i in fdr_i_set:
             print('Start validation\n',time.process_time())
             for i in range(len(k)):
                 print(i,'/',len(k))
-                cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point,setCaps=setCaps)
+                cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point,setCaps=setCapsModel,capPos=capPosLin)
                 DSSSolution.Solve()
                 Convrg.append(DSSSolution.Converged)
                 TP[K,i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
@@ -284,10 +289,12 @@ for fdr_i in fdr_i_set:
                 # plt.plot(abs(v_0[i,3:]/Yvbase),'ko-')
         if 'test_cap_model' in locals():
             print('Start cap model validation\n',time.process_time())
-            cpf_set_loads(DSSCircuit,BB0,SS0,1/lin_point,setCaps=True)
+            # cpf_set_loads(DSSCircuit,BB0,SS0,1/lin_point,setCaps=True)
+            # cpf_set_loads(DSSCircuit,BB0,SS0,1/lin_point,setCaps=True,capPos=None)
+            cpf_set_loads(DSSCircuit,BB00,SS00,1,setCaps=True,capPos=None)
             for i in range(len(k)):
                 print(i,'/',len(k))
-                cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point,setCaps=False)
+                cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point,setCaps=setCapsModel,capPos=capPosLin)
                 DSSSolution.Solve()
                 vva_0_cap[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray))[3:][v_idx]
                 sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
@@ -302,6 +309,8 @@ for fdr_i in fdr_i_set:
                     xhd = (xhdLds0*k[i]/lin_point) + xhdCap0
                     vva_l_cap[i,:] = KyV.dot(xhy[s_idx]) + KdV.dot(xhd) + bV
                 vvae_cap[i,K] = np.linalg.norm( (vva_l_cap[i,:] - vva_0_cap[i,:])/YvbaseV )/np.linalg.norm(vva_0_cap[i,:]/YvbaseV)
+            xhyCap0[xhyCap0!=0]
+            xhdCap0[xhdCap0!=0]
         
         
         vYNodeOrder = vecSlc(YNodeOrder[3:],v_idx)

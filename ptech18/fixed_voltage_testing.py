@@ -30,7 +30,7 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-# test_model_plt = False
+test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 test_model_dff = True
@@ -38,10 +38,13 @@ test_model_dff = False
 save_model=True
 # save_model=False
 
+setCapsModel='linPoint'
+
 fdr_i_set = [5,6,8,9,22,19,20,21]
 fdr_i_set = [5,6,8,9,19,20,21,22]
-# fdr_i_set = [22]
-fdr_i_set = [9]
+fdr_i_set = [6,8,9,19,20,21,22]
+fdr_i_set = [22]
+fdr_i_set = [6,8,19]
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
     feeder=fdrs[fdr_i]
@@ -51,8 +54,6 @@ for fdr_i in fdr_i_set:
     k = np.arange(-1.5,1.6,0.1)
     # k = np.arange(-1.5,1.6,0.3)
     # k = np.arange(0,1.0,1.0)
-
-    fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
 
     ckt = get_ckt(WD,feeder)
     fn_ckt = ckt[0]
@@ -69,15 +70,20 @@ for fdr_i in fdr_i_set:
         lp0data = pickle.load(handle)
     if not lin_point:
         lin_point=lp0data['k']
+    
+    if setCapsModel=='linPoint':
+        capPosLin=lp0data['capPosOut']
+    else:
+        print('Warning! not using linPoint, not implemented.')
 
 
     # 1. Load files' find nominal voltages, node orders, linear model
     DSSText.Command='Compile ('+fn+'.dss)'
-    BB0,SS0 = cpf_get_loads(DSSCircuit)
+    BB00,SS00 = cpf_get_loads(DSSCircuit)
     nRegs = DSSCircuit.RegControls.Count # NB is not necessarily the same as the number of transformers (e.g. 123 bus)
     # DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
     if lp_taps=='Lpt':
-        cpf_set_loads(DSSCircuit,BB0,SS0,lin_point)
+        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
     YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 
@@ -150,7 +156,7 @@ for fdr_i in fdr_i_set:
         print('--- Start Testing, 1/2 --- \n',time.process_time())
         for i in range(len(k)):
             print(i,'/',len(k)-1)
-            cpf_set_loads(DSSCircuit,BB0,SS0,k[i])
+            cpf_set_loads(DSSCircuit,BB00,SS00,k[i],setCaps=setCapsModel,capPos=capPosLin)
             DSSSolution.Solve()
             Convrg.append(DSSSolution.Converged)
             TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
@@ -180,7 +186,7 @@ for fdr_i in fdr_i_set:
         DSSText.Command='set controlmode=static'
         for i in range(len(k)):
             print(i,'/',len(k)-1)
-            cpf_set_loads(DSSCircuit,BB0,SS0,k[i])
+            cpf_set_loads(DSSCircuit,BB00,SS00,k[i],setCaps=setCapsModel,capPos=capPosLin)
             DSSSolution.Solve()
             Convrg.append(DSSSolution.Converged)
             TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
@@ -209,27 +215,37 @@ for fdr_i in fdr_i_set:
             veN_ctl[i] = np.linalg.norm( vv_lN_ctr[i,:] - vv_0R_ctl[i,:] )/np.linalg.norm(vv_0R_ctl[i,:])
         print('Testing Complete.\n',time.process_time())
         
-        if 'test_cap_model' in locals():
-            print('Start cap model validation\n',time.process_time())
-            cpf_set_loads(DSSCircuit,BB0,SS0,1/lin_point,setCaps=True)
-            for i in range(len(k)):
-                print(i,'/',len(k))
-                cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point,setCaps=False)
-                DSSSolution.Solve()
-                vva_0_cap[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray))[3:][v_idx]
-                sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
-                xhyAct = -1e3*s_2_x(sY[3:])
-                
-                xhy = (xhyLds0*k[i]/lin_point) + xhyCap0
-                
-                if len(H)==0:
-                    vv_lN_cap[i,:] = Akron.dot(xhy[s_idx_new]) + Bkron
-                else:
-                    xhdAct = -1e3*s_2_x(sD) # not [3:] like sY
-                    xhd = (xhdLds0*k[i]/lin_point) + xhdCap0
-                    xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
-                    vv_lN_cap[i,:] = Akron.dot(xnew) + Bkron
-                vvae_cap[i,K] = np.linalg.norm( (vv_lN_cap[i,:] - vva_0_cap[i,:])/YvbaseV )/np.linalg.norm(vva_0_cap[i,:]/YvbaseV)
+    
+    # if 'test_cap_model' in locals(): # <--- not implemented
+        # vva_0_cap = np.zeros((len(k),len(v_idx)))
+        # vva_l_cap = np.zeros((len(k),len(v_idx)))
+        # print('Start cap model validation\n',time.process_time())
+        # # cpf_set_loads(DSSCircuit,BB00,SS00,1/lin_point,setCaps=True)
+        # cpf_set_loads(DSSCircuit,BB00,SS00,1,setCaps=True)
+        # for i in range(len(k)):
+            # print(i,'/',len(k))
+            # # cpf_set_loads(DSSCircuit,BB00,SS00,k[i]/lin_point,setCaps=False)
+            # cpf_set_loads(DSSCircuit,BB00,SS00,k[i],setCaps=setCapsModel,capPos=capPosLin)
+            # DSSSolution.Solve()
+            # vva_0_cap[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray))[3:][v_idx]
+            # sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
+            # xhyAct = -1e3*s_2_x(sY[3:])
+            
+            # xhy = (xhyLds0*k[i]/lin_point) + xhyCap0
+            
+            # if len(H)==0:
+                # vv_lN_cap[i,:] = Akron.dot(xhy[s_idx_new]) + Bkron
+            # else:
+                # xhdAct = -1e3*s_2_x(sD) # not [3:] like sY
+                # xhd = (xhdLds0*k[i]/lin_point) + xhdCap0
+                # xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
+                # vv_lN_cap[i,:] = Akron.dot(xnew) + Bkron
+            # vvae_cap[i,K] = np.linalg.norm( (vv_lN_cap[i,:] - vva_0_cap[i,:])/YvbaseV )/np.linalg.norm(vva_0_cap[i,:]/YvbaseV)
+        # plt.figure()
+        # plt.plot(k,vvae_cap), plt.title(feeder+', Cap model KyV error')
+        # plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
+        # plt.show()
+        
         
     unSat = RegSat.min(axis=1)==1
     sat = RegSat.min(axis=1)==0
@@ -271,7 +287,6 @@ for fdr_i in fdr_i_set:
         plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
         plt.legend([pltA,pltB],['Lin fixed','Lin not fixed'])
         plt.show()
-        # plt.savefig(fig_loc+'reg_off_err.png')
         
         plt.figure()
         plt.plot(k,ve,'k:')
@@ -283,7 +298,6 @@ for fdr_i in fdr_i_set:
         plt.xlim((-1.5,1.5)); ylm = plt.ylim(); plt.ylim((0,ylm[1])), plt.xlabel('k'), plt.ylabel( '||dV||/||V||')
         plt.legend([pltA,pltB],['Lin fixed','Lin not fixed'])
         plt.show()
-        # plt.savefig(fig_loc+'reg_on_err.png')
 
 
     if test_model_bus:
@@ -317,7 +331,6 @@ for fdr_i in fdr_i_set:
                 plt.ylabel('Voltage Magnitude (pu)')
                 plt.legend(('DSS, fxd regs,','Lin fxd','Lin not fxd'))
         plt.show()
-        # plt.savefig(fig_loc+'err_exmpl.png')
 
     if test_model_dff:
         krnd = np.around(k,5) # this breaks at 0.000 for the error!

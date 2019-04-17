@@ -18,19 +18,20 @@ feedersTidy = {'34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ
 
 feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
 
-t_timeTable = 1 # timeTable
+# t_timeTable = 1 # timeTable
 # f_dssVlinWght = 1 # gammaFrac boxplot results
 # f_linMcVal = 1 # monte carlo no. validation
 # f_logTimes = 1 # 
-# f_linMcSns = 1
+f_linMcSns = 1
 # f_dssVlinWghtErr = 1
 # f_dssSeqPar = 1
 # f_plotCns = 1
 
 pltSave=True
-# pltShow=True
+pltShow=True
 
-figSze0 = (5,4)
+figSze0 = (5.2,3.4)
+figSze1 = (5.2,2.5)
 TD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\tables\\"
 FD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
@@ -54,7 +55,7 @@ for feeder in feeders_dcp:
         rsltsSns[feeder] = pickle.load(handle)
 timeStrLin = [];    timeStrDss = []; timeLin = []; timeDss = []
 kCdfLin = [];    kCdfDss = []; 
-LrelNorm = []; LmeanNorm = []
+LrelNorm = []; LmeanNorm = []; feederTidySet = []
 feederData = []
 for rslt in rsltsFrac.values():
     dataSet = []
@@ -74,17 +75,20 @@ for rslt in rsltsFrac.values():
     LmeanNorm.append( np.mean(np.abs(rslt['dssHcRsl']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))*0.01 )
     LrelNorm.append(rslt['regError'])
     feederData.append(dataSet)
+    feederTidySet.append(feedersTidy[rslt['feeder']])
         
 kCdfVal = []; LvalNorm = []; # kCdfLin = []
 for rslt in rsltsVal.values():
     kCdfVal.append(rslt['linHcVal']['kCdf'][[0,1,5,10,15,19,20]])
     LvalNorm.append(rslt['regError'])
 kCdfSns0 = [];    kCdfSns1 = []; kCdfLinSns = []; LsnsNorm = [] # new lin needed coz this is only some models
+feederSnsSmart = []
 for rslt in rsltsSns.values():
     kCdfLinSns.append(rslt['linHcRsl']['kCdf'][[0,1,5,10,15,19,20]])
     kCdfSns0.append(rslt['linHcSns0']['kCdf'][[0,1,5,10,15,19,20]])
     kCdfSns1.append(rslt['linHcSns1']['kCdf'][[0,1,5,10,15,19,20]])
     LsnsNorm.append(rslt['regErrors'])
+    feederSnsSmart.append(feedersTidy[rslt['feeder']])
 KcdkLin = []; KcdkSeq = []; KcdkPar = []; # kCdfLin = []
 timeSeq = [];timePar = [];
 i=0
@@ -112,26 +116,55 @@ if 't_timeTable' in locals():
 # ===============================
 
 dx = 0.175; ddx=dx/1.5
-X = np.arange(len(kCdfLin))
+X = np.arange(len(kCdfLin),0,-1)
 i=0
 clrA,clrB,clrC,clrD,clrE = cm.tab10(np.arange(5))
 
-# RESULTS 1 - opendss vs linear model, k =====================
+# # RESULTS 1 - opendss vs linear model, k =====================
+# if 'f_dssVlinWght' in locals():
+    # fig = plt.figure(figsize=figSze0)
+    # ax = fig.add_subplot(111)
+    # i=0
+    # for x in X:
+        # ax = plotBoxWhisk(ax,x+dx,ddx,kCdfDss[i][1:-1],clrB,bds=kCdfDss[i][[0,-1]])
+        # ax = plotBoxWhisk(ax,x-dx,ddx,kCdfLin[i][1:-1],clrA,bds=kCdfLin[i][[0,-1]])
+        # i+=1
+    # ax.plot(0,0,'-',color=clrA,label='Linear')
+    # ax.plot(0,0,'-',color=clrB,label='OpenDSS')
+    # plt.legend()
+    # plt.ylim((-2,102))
+    # plt.grid(True)
+    # plt.xticks(X,feeders,rotation=90)
+    # plt.ylabel('Loads with PV installed, \%')
+    # plt.tight_layout()
+    # if 'pltSave' in locals():
+        # plt.savefig(FD+'dssVlinWght.png',pad_inches=0.02,bbox_inches='tight')
+        # plt.savefig(FD+'dssVlinWght.pdf',pad_inches=0.02,bbox_inches='tight')
+    # if 'pltShow' in locals():
+        # plt.show()
+
 if 'f_dssVlinWght' in locals():
     fig = plt.figure(figsize=figSze0)
     ax = fig.add_subplot(111)
     i=0
     for x in X:
-        ax = plotBoxWhisk(ax,x+dx,ddx,kCdfDss[i][1:-1],clrB,bds=kCdfDss[i][[0,-1]])
-        ax = plotBoxWhisk(ax,x-dx,ddx,kCdfLin[i][1:-1],clrA,bds=kCdfLin[i][[0,-1]])
+        ax = plotBoxWhisk(ax,x+dx,ddx,kCdfLin[i][1:-1],clrA,bds=kCdfLin[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x-dx,ddx,kCdfDss[i][1:-1],clrB,bds=kCdfDss[i][[0,-1]],transpose=True)
         i+=1
-    ax.plot(0,0,'-',color=clrA,label='Linear')
-    ax.plot(0,0,'-',color=clrB,label='OpenDSS')
-    plt.legend()
-    plt.ylim((-2,102))
+    ax.plot(0,0,'-',color=clrA,label='Lin.')
+    ax.plot(0,0,'-',color=clrB,label='O\'DSS.')
+    ax.tick_params(direction="in",bottom=1,top=1,left=1,right=1,grid_linewidth=0.4,width=0.4,length=2.5)
+    legend = plt.legend()
+    legend = plt.legend(framealpha=1.0,fancybox=0,edgecolor='k',loc='lower right')
+    legend.get_frame().set_linewidth(0.4)
+    [i.set_linewidth(0.4) for i in ax.spines.values()]
+    
+    plt.xlim((-3,103))
+    plt.ylim((0.4,9.6))
+    # plt.grid(True,axis='y')
     plt.grid(True)
-    plt.xticks(X,feeders,rotation=90)
-    plt.ylabel('Loads with PV installed, \%')
+    plt.yticks(X,feederTidySet)
+    plt.xlabel('Loads with PV installed, %')
     plt.tight_layout()
     if 'pltSave' in locals():
         plt.savefig(FD+'dssVlinWght.png',pad_inches=0.02,bbox_inches='tight')
@@ -154,7 +187,7 @@ if 'f_linMcVal' in locals():
     plt.xticks(X,feeders,rotation=90)
     plt.ylim((-2,102))
     plt.grid(True)
-    plt.ylabel('Loads with PV installed, \%')
+    plt.ylabel('Loads with PV installed, %')
     plt.tight_layout()
     if 'pltSave' in locals():
         plt.savefig(FD+'linMcVal.png',pad_inches=0.02,bbox_inches='tight')
@@ -186,24 +219,30 @@ if 'f_logTimes' in locals():
         plt.show()
 
 # RESULTS 5 =====================
-Xsns = np.arange(len(kCdfLinSns))
+Xsns = np.arange(len(kCdfLinSns),0,-1)
 if 'f_linMcSns' in locals():
-    fig = plt.figure(figsize=figSze0)
+    fig = plt.figure(figsize=figSze1)
     ax = fig.add_subplot(111)
     i=0
     for x in Xsns:
-        ax = plotBoxWhisk(ax,x-dx,0.66*ddx,kCdfLinSns[i][1:-1],clrC,bds=kCdfLinSns[i][[0,-1]])
-        ax = plotBoxWhisk(ax,x   ,0.66*ddx,kCdfSns0[i][1:-1],clrD,bds=kCdfSns0[i][[0,-1]])
-        ax = plotBoxWhisk(ax,x+dx,0.66*ddx,kCdfSns1[i][1:-1],clrE,bds=kCdfSns1[i][[0,-1]])
+        ax = plotBoxWhisk(ax,x-1.3*dx   ,0.66*ddx,kCdfSns0[i][1:-1],clrD,bds=kCdfSns0[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x,0.66*ddx,kCdfLinSns[i][1:-1],clrC,bds=kCdfLinSns[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x+1.3*dx,0.66*ddx,kCdfSns1[i][1:-1],clrE,bds=kCdfSns1[i][[0,-1]],transpose=True)
         i+=1
-    ax.plot(0,0,'-',color=clrC,label='Nom')
-    ax.plot(0,0,'-',color=clrD,label='T+1')
-    ax.plot(0,0,'-',color=clrE,label='T-1')
-    plt.legend()
-    plt.ylim((-2,102))
+    ax.plot(0,0,'-',color=clrD,label='t = +1')
+    ax.plot(0,0,'-',color=clrC,label='t = 0')
+    ax.plot(0,0,'-',color=clrE,label='t = -1')
+    plt.xlim((-3,103))
+    plt.ylim((0.4,5.6))
+    ax.tick_params(direction="in",bottom=1,top=1,left=1,right=1,grid_linewidth=0.4,width=0.4,length=2.5)
+    legend = plt.legend()
+    legend = plt.legend(framealpha=1.0,fancybox=0,edgecolor='k')
+    legend.get_frame().set_linewidth(0.4)
+    [i.set_linewidth(0.4) for i in ax.spines.values()]
+
     plt.grid(True)
-    plt.xticks(Xsns,feeders_dcp,rotation=90)
-    plt.ylabel('Loads with PV installed, \%')
+    plt.yticks(Xsns,feederSnsSmart)
+    plt.xlabel('Loads with PV installed, %')
     plt.tight_layout()
     if 'pltSave' in locals():
         plt.savefig(FD+'linMcSns.png',pad_inches=0.02,bbox_inches='tight')
@@ -242,7 +281,7 @@ if 'f_dssSeqPar' in locals():
     plt.ylim((-2,102))
     plt.grid(True)
     plt.xticks(X,feeders,rotation=90)
-    plt.ylabel('Loads with PV installed, \%')
+    plt.ylabel('Loads with PV installed, %')
     plt.tight_layout()
     # if 'pltSave' in locals():
         # plt.savefig(FD+'dssVlinWght.png',pad_inches=0.02,bbox_inches='tight')
@@ -251,14 +290,14 @@ if 'f_dssSeqPar' in locals():
         plt.show()
 
 # RESULTS 7 - OpenDSS vs Linear pltCons
-if 'f_plotCns':
+if 'f_plotCns' in locals():
     # feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
     feederPlot='8500node'
     rsltM1 = rsltsFrac[feederPlot]
     pdf = rsltM1['pdfData']
     linRsl = rsltM1['linHcRsl']
     dssRsl = rsltM1['dssHcRsl']
-    fig, ax = plt.subplots(figsize=(6.4,3.4))
+    fig, ax = plt.subplots(figsize=(5.2,3.4))
     
     # ax = plotCns(pdf['mu_k'],pdf['prms'],dssRsl['Cns_pct'],feeder=rsltM1['feeder'],lineStyle='-',ax=ax,pltShow=False)
     # ax = plotCns(pdf['mu_k'],pdf['prms'],linRsl['Cns_pct'],feeder=rsltM1['feeder'],lineStyle='--',ax=ax,pltShow=False)
@@ -278,7 +317,7 @@ if 'f_plotCns':
     ax.plot(x_vals,y_dss,'-')
     ax.plot(x_vals,y_lin,'--')
     
-    ax.legend(['$V^{+}_{\mathrm{LV,Hi\,P}}$','$V^{+}_{\mathrm{MV,Lo\,P}}$','$V^{+}_{\mathrm{LV,Lo\,P}}$','$\Delta V$'])
+    ax.legend(['$V^{+}_{\mathrm{LV,Hi\,P}}$','$V^{+}_{\mathrm{MV,Lo\,P}}$','$V^{+}_{\mathrm{LV,Lo\,P}}$','$\Delta V$'],loc='lower right')
     
     ax.annotate('OpenDSS',xytext=(60,80),xy=(90,72),arrowprops={'arrowstyle':'->'})
     ax.annotate('Linear',xytext=(65,55),xy=(89,52),arrowprops={'arrowstyle':'->'})

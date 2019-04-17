@@ -29,13 +29,14 @@ mcDssOn = True
 # mcDssOn = False
 # mcDssBw = 1
 # mcDssPar = 1
+mcFullSet = 1
 
 # # PLOTTING options:
 # pltHcVltn = 1
 # pltHcGen = 1
 # pltPwrCdf = 1
 # pltCns = 1
-# plotShow=1
+# plotShow = 1
 
 nMc = 50 # nominal value of 50
 
@@ -43,7 +44,7 @@ pltSave = True # for saving both plots and results
 # pltSave = False
 
 regBand=0 # opendss options
-capShift = False # opendss options. FALSE is the 'right' option.
+setCapsOpt = 'linModel' # opendss options. 'linModels' is the 'right' option, cf True/False
 
 # CHOOSE Network
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
@@ -57,11 +58,12 @@ fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [19] # slow 3
 # fdr_i_set = [22,19,20,21,9] # big networks with only decoupled regulator models
 # fdr_i_set = [22,19,9] # big networks with only decoupled regulator models
-fdr_i_set = [5]
+fdr_i_set = [19]
+fdr_i_set = [6,8,18,19]
 
 pdfName = 'gammaWght'
-pdfName = 'gammaFrac'
-# pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05) # to make it a bit faster
+pdfName = 'gammaFrac'; prms=np.array([]) 
+# pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05) # to make it faster
 
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 
@@ -83,17 +85,17 @@ for fdr_i in fdr_i_set:
         lp0data = pickle.load(handle)
 
     # # PART A.1 - load models ===========================
-    LM = linModel(fdr_i,WD,capShift=capShift)
+    LM = linModel(fdr_i,WD,setCapsModel=setCapsOpt)
     YZp = LM.SyYNodeOrderTot
     YZd = LM.SdYNodeOrderTot
-    pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,WD=WD,nMc=nMc,rndSeed=0 ) # use
+    pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,WD=WD,nMc=nMc,rndSeed=0,prms=prms ) # use
     
-    if mcLinVal:
-        LMval = linModel(fdr_i,WD,capShift=capShift)
-        pdfVal = hcPdfs(LMval.feeder,netModel=LMval.netModelNom,pdfName=pdfName,WD=WD,nMc=nMc,rndSeed=2**31 )
+    if mcLinVal or ('mcFullSet' in locals()):
+        LMval = linModel(fdr_i,WD,setCapsModel=setCapsOpt)
+        pdfVal = hcPdfs(LMval.feeder,netModel=LMval.netModelNom,pdfName=pdfName,WD=WD,nMc=nMc,rndSeed=2**31,prms=prms )
     
     if mcLinSns:
-        LMsns = linModel(fdr_i,WD,capShift=capShift)
+        LMsns = linModel(fdr_i,WD,setCapsModel=setCapsOpt)
         
     
     # ADMIN =============================================
@@ -105,9 +107,9 @@ for fdr_i in fdr_i_set:
     # OPENDSS ADMIN =======================================
     # B1. load the appropriate model/DSS    
     DSSText.Command='Compile ('+fn+'.dss)'
-    BB0,SS0 = cpf_get_loads(DSSCircuit)
+    BB00,SS00 = cpf_get_loads(DSSCircuit)
     
-    cpf_set_loads(DSSCircuit,BB0,SS0,lp0data['kLo'],setCaps=capShift)
+    cpf_set_loads(DSSCircuit,BB00,SS00,lp0data['kLo'],setCaps=setCapsOpt,capPos=lp0data['capPosOut'])
     DSSSolution.Solve()
 
     if not LM.netModelNom:
@@ -124,11 +126,51 @@ for fdr_i in fdr_i_set:
     genNames = genNamesY+genNamesD
     
     # PART A.2 - choose distributions and reduce linear model ===========================
+    if 'mcFullSet' in locals():
+        
+        # 'nominal' linear
+        LM.runLinHc(pdf) # equivalent at the moment
+        linHcRslNom = LM.linHcRsl
+        
+        # precondition linear model + MC run 2
+        Mu,Sgm = pdf.getMuStd(LM,0)
+        LM.busViolationVar(Sgm)
+        LM.makeCorrModel(stdLim=0.90,corrLim=[0.90])
+        LM.runLinHc(pdfVal,model='cor') # equivalent at the moment
+        linHcRslNmc = LM.linHcRsl
+        
+        # Nominal DSS model:
+        LM.runDssHc(pdf,DSSObj,genNames,BB00,SS00,regBand=regBand,setCapsModel=setCapsOpt)
+        dssHcRslNom = LM.dssHcRsl
+        
+        # Low BW DSS model:
+        LM.runDssHc(pdf,DSSObj,genNames,BB00,SS00,regBand=1.0,setCapsModel=setCapsOpt)
+        dssHcRslTgt = LM.dssHcRsl
+        
+        # Finally run linear model to which everything is compared
+        LM.runLinHc(pdf,model='cor')
+        linHcRsl = LM.linHcRsl
+        
+        # calculate error:
+        nomError = LM.calcLinPdfError(linHcRslNom)
+        nmcError = LM.calcLinPdfError(linHcRslNmc)
+        dssNomError = LM.calcLinPdfError(dssHcRslNom)
+        dssTgtError = LM.calcLinPdfError(dssHcRslTgt)
+        
+        rslt = {'linHcRsl':linHcRsl,'linHcRslNom':linHcRslNom,'linHcRslNmc':linHcRslNmc,'dssHcRslNom':dssHcRslNom,'dssHcRslTgt':dssHcRslTgt,'pdfData':pdf.pdf,'pdfDataNmc':pdfVal.pdf,'feeder':feeder,'nomError':nomError,'nmcError':nmcError,'dssNomError':dssNomError,'dssTgtError':dssTgtError}
+        if pltSave:
+            SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_final.pkl')
+            with open(SN,'wb') as file:
+                pickle.dump(rslt,file)
+        
+        
+        
+        
     if mcLinOn:
         LM.runLinHc(pdf) # equivalent at the moment
         
     if mcDssOn:
-        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,capShift=capShift)
+        LM.runDssHc(pdf,DSSObj,genNames,BB00,SS00,regBand=regBand,setCapsModel=setCapsOpt)
         dssRegError = LM.calcLinPdfError(LM.dssHcRsl)
         print('\n -------- Complete -------- ')
         
@@ -140,22 +182,8 @@ for fdr_i in fdr_i_set:
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
     
-    if 'mcDssPar' in locals():
-        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,capShift=capShift,runType='seq')
-        rsltSeq = LM.dssHcRsl
-        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,capShift=capShift,runType='par')
-        rsltPar = LM.dssHcRsl
-        dssParSeqError = LM.calcLinPdfError(rsltSeq)
-        print('\n -------- Complete -------- ')
-        
-        rslt = {'dssHcRslSeq':rsltSeq,'dssHcRslPar':rsltPar,'linHcRsl':LM.linHcRsl,'pdfData':pdf.pdf,'feeder':feeder,'regError':dssParSeqError}
-        if pltSave:
-            SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_reg'+str(regBand)+'_par.pkl')
-            with open(SN,'wb') as file:
-                pickle.dump(rslt,file)
-
     if 'mcDssBw' in locals():
-        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=1.0,capShift=capShift)
+        LM.runDssHc(pdf,DSSObj,genNames,BB00,SS00,regBand=1.0,setCapsModel=setCapsOpt)
         dssRegError = LM.calcLinPdfError(LM.dssHcRsl)
         print('\n -------- Complete -------- ')
         
@@ -185,16 +213,16 @@ for fdr_i in fdr_i_set:
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
         
-    if mcLinVal:
-        LMval.runLinHc(pdfVal) # equivalent at the moment
-        valRegErrors = LM.calcLinPdfError(LMval.linHcRsl)
-        print('\n -------- Complete -------- ')
+    # if mcLinVal:
+        # LMval.runLinHc(pdfVal) # equivalent at the moment
+        # valRegErrors = LM.calcLinPdfError(LMval.linHcRsl)
+        # print('\n -------- Complete -------- ')
         
-        rslt = {'linHcRsl':LM.linHcRsl,'linHcVal':LMval.linHcRsl,'pdfLin':pdf.pdf,'pdfVal':pdfVal.pdf,'feeder':feeder,'regError':valRegErrors}
-        if pltSave:
-            SN = os.path.join(SD,'linHcCalcsVal_'+pdfName+str(nMc)+'_new.pkl')
-            with open(SN,'wb') as file:
-                pickle.dump(rslt,file)
+        # rslt = {'linHcRsl':LM.linHcRsl,'linHcVal':LMval.linHcRsl,'pdfLin':pdf.pdf,'pdfVal':pdfVal.pdf,'feeder':feeder,'regError':valRegErrors}
+        # if pltSave:
+            # SN = os.path.join(SD,'linHcCalcsVal_'+pdfName+str(nMc)+'_new.pkl')
+            # with open(SN,'wb') as file:
+                # pickle.dump(rslt,file)
         
         
 
@@ -212,11 +240,11 @@ for fdr_i in fdr_i_set:
         if 'mcDssPar' in locals():
             ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rsltSeq['Cns_pct'],feeder=feeder,lineStyle=':',ax=ax,pltShow=False)
             ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rsltPar['Cns_pct'],feeder=feeder,lineStyle='-.',ax=ax,pltShow=False)
-        
+
         ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=feeder,lineStyle='--',ax=ax,pltShow=False)
         if mcDssOn and pltSave:
             plt.savefig(os.path.join(SD,'pltCns_'+pdfName+'.png'))
-        
+
         if 'plotShow' in locals():
             plt.show()
     if 'pltPwrCdf' in locals():

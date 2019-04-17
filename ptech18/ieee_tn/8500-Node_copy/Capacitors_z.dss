@@ -5,9 +5,9 @@ New Capacitor.CAPBank2A  Bus1=R20185.1  kv=7.2  kvar=300  phases=1 conn=wye
 New Capacitor.CAPBank2B  Bus1=R20185.2  kv=7.2  kvar=300  phases=1 conn=wye
 New Capacitor.CAPBank2C  Bus1=R20185.3  kv=7.2  kvar=300  phases=1 conn=wye
 
-!New Capacitor.CAPBank1A  Bus1=R42247.1  kv=7.2  kvar=300  phases=1 conn=wye
-!New Capacitor.CAPBank1B  Bus1=R42247.2  kv=7.2  kvar=300  phases=1 conn=wye
-!New Capacitor.CAPBank1C  Bus1=R42247.3  kv=7.2  kvar=300  phases=1 conn=wye
+New Capacitor.CAPBank1A  Bus1=R42247.1  kv=7.2  kvar=300  phases=1 conn=wye
+New Capacitor.CAPBank1B  Bus1=R42247.2  kv=7.2  kvar=300  phases=1 conn=wye
+New Capacitor.CAPBank1C  Bus1=R42247.3  kv=7.2  kvar=300  phases=1 conn=wye
 
 !New Capacitor.CAPBank0A  Bus1=R42246.1  kv=7.2  kvar=400  phases=1 conn=wye
 !New Capacitor.CAPBank0B  Bus1=R42246.2  kv=7.2  kvar=400  phases=1 conn=wye

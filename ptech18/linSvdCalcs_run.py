@@ -9,148 +9,60 @@ import dss_stats_funcs as dsf
 from linSvdCalcs import linModel, calcVar, hcPdfs, plotCns, plotHcVltn
 from scipy.stats.stats import pearsonr
 
-
 WD = os.path.dirname(sys.argv[0])
 
-fn0 = r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190325\\"
-
-nMc = 50
 prmI = 0
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 
 pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
 # pdfName = 'gammaFlat'; prms=np.array([0.5]); prms=np.array([3.0])
-pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05)
-# pdfName = 'gammaFrac'; prms=np.arange(0.025,0.625,0.025)
-# pdfName = 'gammaFrac'; prms=np.array([0.25,0.25])
+pdfName = 'gammaFrac'
 # pdfName = 'gammaXoff'; prms=(np.concatenate((0.33*np.ones((1,19)),np.array([30*np.arange(0.05,1.0,0.05)])),axis=0)).T
 
-# # fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-# # fdr_i = 18
+# ================== RUN through each of the networks and see if we can get the analysis running reasonably well
+feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
+fdrs_i = 2
+# fdrs_i = 2
+fdrs_is = [6,8,9,19,20,21,17,18,22]
 
-# # print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
-# # LM = linModel(fdr_i,WD,QgenPf=1.0)
+for fdrs_i in fdrs_is:
+    # LM = linModel(fdrs_is[fdrs_i],WD)
+    LM = linModel(fdrs_i,WD)
+    pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
 
-# # pdf = hcPdfs(LM.feeder,WD=LM.WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
+    LM.runLinHc(pdf)
 
-# # LM.runLinHc(pdf,model='nom')
+    rslA = LM.linHcRsl
+    rslAt = rslA['runTime']
 
-# ============================ USING matrix norms of the covariance matrix to avoid MC analysis/using approximate results.
-fdr_i = 22
-fdr_i = 9
-print('Load Linear Model feeder:',fdrs[fdr_i],'\nPdf type:',pdfName,'\n',time.process_time())
+    Mu,Sgm = pdf.getMuStd(LM,0)
+    LM.busViolationVar(Sgm)
+    # LM.makeVarLinModel()
+    LM.makeCorrModel(stdLim=0.90,corrLim=[0.90])
+    # LM.corrPlot()
 
-LM = linModel(fdr_i,WD,QgenPf=1.0)
+    LM.runLinHc(pdf,model='cor')
+    rslB = LM.linHcRsl
+    rslBt = LM.linHcRsl['runTime']
+    error = np.mean(np.abs(rslB['Vp_pct']-rslA['Vp_pct']))
 
-# pdfName = 'gammaWght'; prms=np.array([3.0])
-pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05); prms100=np.array([0.25])
+    print('Error:',error)
+    print('Time A: ',rslAt,'Time B:', rslBt)
 
-pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms )
-# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
-# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
 
-mu_k_set = 1
-pdf100 = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,prms=prms100 )
-Mu0, Sgm0 = pdf100.getMuStd(LM=LM,prmI=0) # in W
-Mu_set = np.outer(mu_k_set,Mu0)
-Sgm_set = np.outer(mu_k_set,Sgm0)
+    plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rslA['Cns_pct'],pltShow=False,ax=ax)
+    plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rslB['Cns_pct'],pltShow=False,ax=ax,lineStyle='--')
+    plt.show()
 
-Q_set = [1.00,-0.995,-0.98]
-Q_set = [1.00,-0.98,-0.90]
-# Q_set = [-0.9]
-LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0]) # 100% point
-# LM.plotNetBuses('nStd',pltType='max',minMax=[-1.,6.],cmap=plt.cm.inferno,pltShow=False)
-# plt.show()
-
-aFro = 0.01
-
-nOpts = 21
-opts = np.linspace(0.925,1.025,nOpts)
-N0 = np.zeros((len(Q_set),len(opts)))
-Nfro = np.zeros((len(Q_set),len(opts)))
-N0_check = np.zeros((len(Q_set),len(opts)))
-R_prct = np.zeros((len(Q_set),len(opts)))
-for i in range(len(Q_set)):
-    LM.QgenPf = Q_set[i]
-    LM.loadNetModel(LM.netModelNom)
-    LM.updateFxdModel()
-    LM.updateDcpleModel(LM.regVreg0)
-    LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0],calcSrsVals=True)
-    
-    j=0
-    for opt in opts:
-        print(opt)
-        LM.updateDcpleModel(LM.regVreg0*opt)
-        
-        t1 = time.process_time()
-        Kfro,Knstd = LM.updateNormCalc(Mu=Mu_set[0])
-        N0_check[i,j] = Knstd - aFro*Kfro
-        Nfro[i,j] = 0.1*Kfro
-        print('New calc',time.process_time()-t1)
-        
-        # t1 = time.process_time()
-        # LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
-        # totMat = np.concatenate((LM.KtotU,LM.KfixU))
-        # froCalc = np.linalg.norm(totMat,ord='fro')
-        # nstCalc = np.min(LM.nStdU)
-        # N0[i,j] = nstCalc - aFro*froCalc
-        # print('BVV calc',time.process_time()-t1)
-
-        # t1 = time.process_time()
-        # LM.runLinHc(pdf100,model='nom') # NB: this calls plt!
-        # R_prct[i,j] = LM.linHcRsl['Vp_pct'][0][0]
-        # print('HC run',time.process_time()-t1)
-        
-        j+=1
-    # plt.plot(opts*LM.regVreg0/(166*120),N0,'x-')
-
-print(time.process_time())
-
-fig = plt.figure(figsize=(4.5,7))
-ax1 = fig.add_subplot(211)
-ax1.plot(np.outer(opts,[1]*len(N0)),N0.T,'x-')
-ax1.plot(np.outer(opts,[1]*len(N0)),N0_check.T,'.-')
-ax1.plot(np.outer(opts,[1]*len(N0)),Nfro.T,'.-')
-# ax1.legend(('Fro','inf','Nstd'))
-ax1.grid(True)
-ax1.set_xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
-ax1.set_ylim((-6,9))
-
-ax2 = fig.add_subplot(212)
-ax2.plot(np.outer(opts,[1,1,1]),R_prct.T,'x-')
-ax2.grid(True)
-ax2.set_xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
-plt.tight_layout()
-plt.show()
+    # plt.plot(rslA['Vp_pct']);
+    # plt.plot(rslB['Vp_pct']);
+    # plt.show()
 
 
-# optVal = 0.98
-
-# LM.QgenPf = 1.0
-# LM.loadNetModel(LM.netModelNom)
-# LM.updateFxdModel()
-
-# LM.updateDcpleModel(LM.regVreg0*optVal)
-# LM.busViolationVar(Sgm_set[0],Mu=Mu_set[0])
-# LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno,pltShow=False)
-# plt.show()
-
-# LM.runLinHc(pdf,model='nom') # model options: nom / std / cor / mxt ?
-# plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
-# # ==========================================
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # print(qwe['runTime'])
+    # print(qwe['runTimeClk'])
 
 
 
@@ -548,7 +460,6 @@ plt.show()
     # LM.getCovMat()
     
     # LM.plotNetBuses('logVar',pltShow=False,pltType='mean')
-    # plt.savefig(fn0+'logVar_'+fdrs[fdr_i]+'_new.png')
     # plt.close()
     # # plt.show()
 # # ====================================

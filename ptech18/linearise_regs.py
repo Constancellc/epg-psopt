@@ -15,10 +15,14 @@ DSSText = DSSObj.Text
 DSSCircuit=DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
 
+setCapsModel = 'linPoint'
+saveModel = 1
+
 # Things to do: 
 # 1. load a circuit;
 fdr_i_set = [5,6,8,9,22,19,20,21]
 fdr_i_set = [20,21]
+# fdr_i_set = [6,8,18,19]
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
     feeder=fdrs[fdr_i]
@@ -33,6 +37,7 @@ for fdr_i in fdr_i_set:
     test_model = False
     # test_model = True
 
+
     lin_points = np.array([0.3, 0.6, 1.0])
     lin_points = np.array([0.6])
     lin_points = False # use this if wanting to use the nominal point from chooseLinPoint.
@@ -43,6 +48,10 @@ for fdr_i in fdr_i_set:
     if not lin_points:
         lin_points=np.array([lp0data['k']])
 
+    if setCapsModel=='linPoint':
+        capPosLin=lp0data['capPosOut']
+    else:
+        capPosLin=None
 
     for i in range(len(lin_points)):
         print('Creating model', feeder,', linpoint=',lin_points[i])
@@ -51,7 +60,7 @@ for fdr_i in fdr_i_set:
         DSSText.Command='Compile ('+fn+'.dss)'
         lin_point = lin_points[i]
         BB00,SS00 = cpf_get_loads(DSSCircuit)
-        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point)
+        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
         DSSText.Command='set controlmode=off'
         v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
@@ -103,22 +112,23 @@ for fdr_i in fdr_i_set:
             dVdt_cplx[:,j-1] = (V1_cplx - V0_cplx)/(dt)
             DSSCircuit.RegControls.TapNumber = tap0
             j = DSSCircuit.RegControls.Next
-            
-        Wt = v2iBrY[:,3:].dot(dVdt_cplx)
-        WtReg = v2iBrY[regWlineIdx,3:].dot(dVdt_cplx)
         
-        lp_str = str(round(lin_point*100).astype(int)).zfill(3)
-        header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
-        if not os.path.exists(dir0):
-            os.makedirs(dir0)
-        np.savetxt(sn0+'header'+lp_str+'.txt',[0],header=header_str)
-        np.save(sn0+'Kt'+lp_str+'.npy',dVdt)
-        np.save(sn0+'MtReg'+lp_str+'.npy',dVdt_cplx) # ONLY save regIdx values
-        np.save(sn0+'WtReg'+lp_str+'.npy',WtReg) # ONLY save regIdx values
-        if test_model:
-            print(lin_point)
-            plt.xlabel('Bus id'), plt.ylabel('dVdt'), plt.grid(True)
-            plt.plot(dVdt), plt.grid(True), plt.show()
+        if 'saveModel' in locals():
+            Wt = v2iBrY[:,3:].dot(dVdt_cplx)
+            WtReg = v2iBrY[regWlineIdx,3:].dot(dVdt_cplx)
+            
+            lp_str = str(round(lin_point*100).astype(int)).zfill(3)
+            header_str="Linpoint: "+str(lin_point)+"\nDSS filename: "+fn
+            if not os.path.exists(dir0):
+                os.makedirs(dir0)
+            np.savetxt(sn0+'header'+lp_str+'.txt',[0],header=header_str)
+            np.save(sn0+'Kt'+lp_str+'.npy',dVdt)
+            np.save(sn0+'MtReg'+lp_str+'.npy',dVdt_cplx) # ONLY save regIdx values
+            np.save(sn0+'WtReg'+lp_str+'.npy',WtReg) # ONLY save regIdx values
+            if test_model:
+                print(lin_point)
+                plt.xlabel('Bus id'), plt.ylabel('dVdt'), plt.grid(True)
+                plt.plot(dVdt), plt.grid(True), plt.show()
 
     # # for debugging
     # YZ = DSSCircuit.YNodeOrder

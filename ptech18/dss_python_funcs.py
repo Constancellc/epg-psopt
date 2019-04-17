@@ -228,7 +228,7 @@ def cpf_get_loads(DSSCircuit,getCaps=True):
             j = DSSCircuit.Capacitors.Next
     return BB,SS
 
-def cpf_set_loads(DSSCircuit,BB,SS,k,setCaps=True):
+def cpf_set_loads(DSSCircuit,BB,SS,k,setCaps=True,capPos=None):
     i = DSSCircuit.Loads.First
     while i!=0:
         # DSSCircuit.Loads.Name=BB[i]
@@ -237,11 +237,22 @@ def cpf_set_loads(DSSCircuit,BB,SS,k,setCaps=True):
         i=DSSCircuit.Loads.Next
     imax = DSSCircuit.Loads.Count
     if setCaps:
+        if setCaps==True:
+            if capPos==None:
+                capPos = [k]*DSSCircuit.Capacitors.Count
+            else:
+                capPos = (k*np.array(capPos)).tolist()
+        elif setCaps=='linCaps':
+            if capPos==None:
+                capPos = [1]*DSSCircuit.Capacitors.Count
+            # otherwise use capPos
         j = DSSCircuit.Capacitors.First
         while j!=0:
             DSSCircuit.Capacitors.Name=BB[j+imax]
-            DSSCircuit.Capacitors.kvar=k*SS[j+imax].imag
+            # DSSCircuit.Capacitors.kvar=k*SS[j+imax].imag
+            DSSCircuit.Capacitors.kvar=capPos[j-1]*SS[j+imax].imag + 1e-4 # so that the # of caps doesn't change...
             j=DSSCircuit.Capacitors.Next
+            
     return
 
 def find_tap_pos(DSSCircuit):

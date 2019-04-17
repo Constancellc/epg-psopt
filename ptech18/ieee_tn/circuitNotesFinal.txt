@@ -1,0 +1,86 @@
+--- 34 bus.
+Loads:
+No changes other than three phase to single phase.
+Capacitors:
+One cap switched out
+Regulators:
+No changes
+Other:
+
+--- 123 bus
+Loads:
+No change
+Capacitors:
+No change
+Regulators:
+No change
+Other:
+
+--- 8500 node
+Loads:
+Changed to all variable
+Capacitors:
+!Two sets (of four sets) switched out; cap controls turned off
+Now switched back in except for cap bank 0.
+Regulators:
+LTC reg reduced by 1.5 V; 
+Other:
+Source impedance reduced to 1.025 pu; source voltage dropped to 12.47 kV from nominal; lines which seem to be 1ph converted;
+=======
+--- epri J1
+Loads:
+
+Capacitors:
+!3/5 caps off (those with reg voltage controls)
+Now put back in.
+Regulators:
+No change
+Other:
+
+--- epri K1
+Loads:
+
+Capacitors:
+No change
+Regulators:
+No change
+Other:
+Lines_z gets rid of .0 on all of the lines
+--- epri M1
+Loads:
+A bunch of three phase loads converted to 3x single phase loads
+Capacitors:
+(var-) capcontrols switched off; one cap switched out. All converted to 1ph.
+Regulators:
+No change
+Other:
+A few doubled up lines have been removed from the 2ndry circuits
+======
+--- epri 5
+Loads:
+Loads and lines split up into two seperate scripts as required
+Capacitors:
+!Controls seem to be disabled by default <---- when run, none of these are swtiched in.
+Now put back in.
+Regulators:
+na
+Other:
+--- epri 7
+Loads:
+
+Capacitors:
+!One switched out, capcontrols turned off.
+Now put back in.
+Regulators:
+na
+Other:
+substation loads moved to seperate script
+--- epri 24
+Loads:
+
+Capacitors:
+No change
+Regulators:
+No change
+Other:
+other_load_z because we need to seperate loads from lines.

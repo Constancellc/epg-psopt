@@ -19,6 +19,17 @@ def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,cns,DVmax=0.06):
     vHsMv[vHsMv<0.5] = 1.0
     vHsLv[vHsLv<0.5] = 1.0
     
+    if vLsMv.shape[1]==0:
+        vLsMv = np.ones((nMc,1))
+    if vLsLv.shape[1]==0:
+        vLsLv = np.ones((nMc,1))
+    if vHsMv.shape[1]==0:
+        vHsMv = np.ones((nMc,1))
+    if vHsLv.shape[1]==0:
+        vHsLv = np.ones((nMc,1))
+    if vDv.shape[1]==0:
+        vDv = np.zeros((nMc,1))
+    
     VpMv = cns.VpMv
     VmMv = cns.VmMv
     VpLv = cns.VpLv
@@ -149,20 +160,37 @@ def plotHcGen(mu_k,prms,hcGenSet,lineColor,ax=None):
     
     return ax
 
-def plotBoxWhisk(ax,x,ddx,y,clr=cm.tab10(0),zOrder=10,lineWidth=1.0,bds=[None]):
-    if bds[0]!=None:
-        ax.plot([x],bds[0],color=clr, zorder=zOrder,marker='2')
-        ax.plot([x],bds[1],color=clr, zorder=zOrder,marker='1')
-    ax.plot([x]*2,y[0:2],'--',color=clr,zorder=zOrder,linewidth=lineWidth)
-    
-    ax.plot([x-ddx,x+ddx],[y[0]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
-    ax.plot([x-ddx,x+ddx],[y[4]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
-    
-    ddx2 = ddx/1.5
-    box = patches.Rectangle(xy=(x-ddx2,y[1]),width=ddx2*2,height=y[3]-y[1],edgecolor=clr,facecolor='w',zorder=zOrder,linewidth=lineWidth)
-    ax.add_patch(box)
-    ax.plot([x-ddx2,x+ddx2],[y[2]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
-    ax.plot([x]*2,y[3::],'--',color=clr,zorder=zOrder,linewidth=lineWidth)
+def plotBoxWhisk(ax,x,ddx,y,clr=cm.tab10(0),zOrder=10,lineWidth=1.0,bds=[None],transpose=False):
+    if not transpose:
+        if bds[0]!=None:
+            ax.plot([x],bds[0],color=clr, zorder=zOrder,marker='2')
+            ax.plot([x],bds[1],color=clr, zorder=zOrder,marker='1')
+        ax.plot([x]*2,y[0:2],'--',color=clr,zorder=zOrder,linewidth=lineWidth)
+        
+        ax.plot([x-ddx,x+ddx],[y[0]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
+        ax.plot([x-ddx,x+ddx],[y[4]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
+        
+        ddx2 = ddx/1.5
+        box = patches.Rectangle(xy=(x-ddx2,y[1]),width=ddx2*2,height=y[3]-y[1],edgecolor=clr,facecolor='w',zorder=zOrder,linewidth=lineWidth)
+        ax.add_patch(box)
+        ax.plot([x-ddx2,x+ddx2],[y[2]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
+        ax.plot([x]*2,y[3::],'--',color=clr,zorder=zOrder,linewidth=lineWidth)
+    if transpose:
+        if bds[0]!=None:
+            # ax.plot(bds[0],[x],color=clr, zorder=zOrder,marker=5,markersize=5,markerfacecolor='none')
+            # ax.plot(bds[1],[x],color=clr, zorder=zOrder,marker=4,markersize=5,markerfacecolor='none')
+            ax.plot(bds[0]-1,[x],color=clr, zorder=zOrder,marker='>',markersize=5,markerfacecolor='none')
+            ax.plot(bds[1]+1,[x],color=clr, zorder=zOrder,marker='<',markersize=5,markerfacecolor='none')
+        ax.plot(y[0:2],[x]*2,'--',color=clr,zorder=zOrder,linewidth=lineWidth)
+        
+        ax.plot([y[0]]*2,[x-ddx,x+ddx],color=clr,zorder=zOrder,linewidth=lineWidth)
+        ax.plot([y[4]]*2,[x-ddx,x+ddx],color=clr,zorder=zOrder,linewidth=lineWidth)
+        
+        ddx2 = ddx/1.5
+        box = patches.Rectangle(xy=(y[1],x-ddx2),width=y[3]-y[1],height=ddx2*2,edgecolor=clr,facecolor='w',zorder=zOrder,linewidth=lineWidth)
+        ax.add_patch(box)
+        ax.plot([y[2]]*2,[x-ddx2,x+ddx2],color=clr,zorder=zOrder,linewidth=lineWidth)
+        ax.plot(y[3::],[x]*2,'--',color=clr,zorder=zOrder,linewidth=lineWidth)
     return ax
 
 def getKcdf(param,Vp_pct):
@@ -181,12 +209,12 @@ def getKcdf(param,Vp_pct):
 # =================================== CLASS: linModel
 class linModel:
     """Linear model class with a whole bunch of useful things that we can do with it."""
-    def __init__(self,fdr_i,WD,QgenPf=1.00,capShift=False,kDroop=None,aDroop=None):
+    def __init__(self,fdr_i,WD,QgenPf=1.00,setCapsModel='linModel',kDroop=None,aDroop=None):
         
         fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
         fdrNetModels = [0,0,0,0,0,1,1,0,1,2,-1,-1,-1,-1,0,-1,-1,0,0,2,2,2,2]
-        
         feeder = fdrs[fdr_i]
+        print('Loading linModel from linSvdCalcs. Feeder:'+feeder+', QgenPf:'+str(QgenPf))
         
         self.feeder = feeder
         self.WD = WD # for debugging
@@ -238,7 +266,8 @@ class linModel:
         self.updateFxdModel()
         self.nV, self.nS = self.KfixPu.shape
         
-        self.capShift=capShift
+        self.setCapsModel=setCapsModel
+        self.capPosLin = lp0data['capPosOut']
         self.loadNetModel()
         
         if kDroop!=None and aDroop!=None:
@@ -302,7 +331,7 @@ class linModel:
         
         self.xTotLds = np.concatenate((xhyLds0,xhdLds0))/self.linPoint
         
-        if self.capShift:
+        if self.setCapsModel==True:
             self.xTotLs = (self.xNomTot*self.loadPointLo)
             self.xTotHs = (self.xNomTot*self.loadPointHi)        
         else:
@@ -346,17 +375,36 @@ class linModel:
         hcGenAll = np.array([])
         genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
         genTotAll = np.nan*np.zeros((pdfData['nP'][0],nMc*pdfData['nP'][1])) # NB this gets flattened later
-        # PP = []
-        # PPpdfLin = []
         nV = self.KtotPu.shape[0]
         nS = self.KtotPu.shape[1]
         
+        if model=='nom':
+            NSetTot = np.arange(nV)
+            NSetFix = NSetTot
+        elif model=='std' or model=='cor':
+            if model=='std':
+                vars = self.varKtotU.copy() # <--- not yet implemented 'full' model.
+                varSortN = vars.argsort()[::-1]
+                NSetTot = varSortN[0:self.NSetStd[0]]
+                NSetFix = np.arange(nV)
+            elif model=='cor':
+                vars = self.varKfullU.copy()
+                varSortN = vars.argsort()[::-1]
+                NSet = np.array(varSortN[self.NSetCor[0]])
+                NSetTot = NSet[NSet<nV]
+                NSetFix = NSet[NSet>=nV] - nV
         tStart = time.process_time()
+        tStartClk = time.time()
+        
+        mvIdxNSet = np.where(self.vTotBase[NSetTot]>1000)[0] # as in mvIdx
+        lvIdxNSet = np.where(self.vTotBase[NSetTot]<1000)[0] # as in lvIdx
+        
+        KtotPuCalc = self.KtotPu[NSetTot]
+        KfixPuCalc = self.KfixPu[NSetFix]
 
         for i in range(pdfData['nP'][0]):
-            # pdf = hcPdfs(self.feeder,WD=self.WD,netModel=self.netModelNom,pdfName=pdfData['name'],prms=pdfData['prms'],clfnSolar=pdfData['clfnSolar'])
             Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
-            pdfMc, pdfMcU = pdf.genPdfMcSet(nMc,Mu,i) # pdfMc in kW (Mu is in W)
+            pdfMc = pdf.genPdfMcSet(nMc,Mu,i)[0] # pdfMc in kW (Mu is in W)
             
             genTot0 = np.sum(pdfMc,axis=0)
             genTotSort = genTot0.copy()
@@ -364,31 +412,31 @@ class linModel:
             genTotAll0 = np.outer(genTot0,pdfData['mu_k'])
             genTotAll[i] = genTotAll0.flatten()
             
-            if model=='nom':
-                NSet = np.arange(nV)
-                
-            elif model=='std' or model=='cor':
-                vars = self.varKtotU.copy()
-                varSortN = vars.argsort()[::-1]
-                if model=='std':
-                    NSet = varSortN[0:self.NSetStd[0]]
-                elif model=='cor':
-                    NSet = varSortN[self.NSetCor[0]]
             # DvMu0 = self.KtotU.dot(np.sqrt(pdfData['prms'])*np.ones(nS))
             
-            DelVout = (self.KtotPu[NSet].dot(pdfMc).T)*1e3 # KtotPu in V per W
-            ddVout = abs((self.KfixPu.dot(pdfMc).T)*1e3) # just get abs change
+            DelVout = (KtotPuCalc.dot(pdfMc).T)*1e3 # KtotPu in V per W
+            ddVout = abs((KfixPuCalc.dot(pdfMc).T)*1e3) # just get abs change
             
-            b0ls = self.b0ls[NSet]
-            b0hs = self.b0hs[NSet]
+            b0ls = self.b0ls[NSetTot]
+            b0hs = self.b0hs[NSetTot]
+            b0lsMv = b0ls[mvIdxNSet]
+            b0lsLv = b0ls[lvIdxNSet]
+            b0hsMv = b0hs[mvIdxNSet]
+            b0hsLv = b0hs[lvIdxNSet]
                 
             for jj in range(pdfData['nP'][-1]):
                 genTot = genTot0*pdfData['mu_k'][jj]
-
-                vLsMv = ((DelVout*pdfData['mu_k'][jj]) + b0ls)[:,self.mvIdx]
-                vLsLv = ((DelVout*pdfData['mu_k'][jj]) + b0ls)[:,self.lvIdx]
-                vHsMv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.mvIdx]
-                vHsLv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.lvIdx]
+                # vLsMv = ((DelVout*pdfData['mu_k'][jj]) + b0ls)[:,self.mvIdx]
+                # vLsLv = ((DelVout*pdfData['mu_k'][jj]) + b0ls)[:,self.lvIdx]
+                # vHsMv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.mvIdx]
+                # vHsLv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.lvIdx]
+                DVoP = DelVout*pdfData['mu_k'][jj]
+                DVoPmv = DVoP[:,mvIdxNSet]
+                DVoPlv = DVoP[:,lvIdxNSet]
+                vLsMv = DVoPmv + b0lsMv
+                vLsLv = DVoPlv + b0lsLv
+                vHsMv = DVoPmv + b0hsMv
+                vHsLv = DVoPlv + b0hsLv
                 vDv = ddVout*pdfData['mu_k'][jj]
                 # vDv = ddVout[:,self.mvIdx]*pdfData['mu_k'][jj]
                 
@@ -411,6 +459,7 @@ class linModel:
                 genTotSet[i,jj,3] = genTotSort[np.floor(len(genTotSort)*3.0/4.0).astype(int)]*pdfData['mu_k'][jj]
                 genTotSet[i,jj,4] = genTotSort[-1]*pdfData['mu_k'][jj]
         tEnd = time.process_time()
+        tEndClk = time.time()
         
         binNo = max(pdf.pdf['nP'])//2
         genTotAll = genTotAll.flatten()
@@ -438,10 +487,11 @@ class linModel:
         self.linHcRsl['hcGenAll'] = hcGenAll
         self.linHcRsl['genTotSet'] = genTotSet
         self.linHcRsl['runTime'] = tEnd - tStart
+        self.linHcRsl['runTimeClk'] = tEndClk - tStartClk
         self.linHcRsl['kCdf'] = 100*getKcdf(param,Vp_pct)[0]
         self.linHcRsl['kCdf'][np.isnan(self.linHcRsl['kCdf'])] = 100.0000011111
     
-    def runDssHc(self,pdf,DSSObj,genNames,BB0,SS0,regBand=0,capShift=False,runType='seq'):
+    def runDssHc(self,pdf,DSSObj,genNames,BB00,SS00,regBand=0,setCapsModel='linModel',runType='par'):
         DSSText = DSSObj.Text
         DSSCircuit = DSSObj.ActiveCircuit
         DSSSolution = DSSCircuit.Solution
@@ -473,6 +523,7 @@ class linModel:
             DSSText.Command='Batchedit regcontrol..* band='+str(regBand) # 1v seems to be as low as we can set without bit problems
                     
         tStart = time.process_time()
+        tStartClk = time.time()
         
         for i in range(pdfData['nP'][0]):
             if i%(max(pdfData['nP'])//4)==0:
@@ -502,6 +553,7 @@ class linModel:
                 vHsDss0 = np.zeros((nMc,nYVV),dtype=complex)
                 vDv0 = np.zeros((nMc,nYVV),dtype=complex)
                 
+                cpf_set_loads(DSSCircuit,BB00,SS00,1.0,setCaps=True) # <--- reset any previous settings
                 if runType=='seq': # nominal version
                     for j in range(nMc):
                         if j%(nMc//4)==0:
@@ -509,14 +561,14 @@ class linModel:
                         set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
                         
                         # first solve for the high load point [NB: This order seems best!]
-                        cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointHi,setCaps=capShift)
+                        cpf_set_loads(DSSCircuit,BB00,SS00,self.loadPointHi,setCaps=False)
                         
                         DSSSolution.Solve()
                         convHi = convHi+[DSSSolution.Converged]
                         vHsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
                         
                         # then low load point
-                        cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointLo,setCaps=capShift)
+                        cpf_set_loads(DSSCircuit,BB00,SS00,self.loadPointLo,setCaps=False)
                         
                         DSSSolution.Solve()
                         convLo = convLo+[DSSSolution.Converged]
@@ -540,7 +592,8 @@ class linModel:
                             vDv[j,:] = abs(abs(vLsDss0[j,:]) - abs(vDv0[j,:]))[3:][v_idx]/self.vTotBase
                 if runType=='par':
                     # first solve for the high load point
-                    cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointHi,setCaps=capShift)
+                    # cpf_set_loads(DSSCircuit,BB00,SS00,self.loadPointHi,setCaps=setCapsModel,capPos=self.capPosLin)
+                    cpf_set_loads(DSSCircuit,BB00,SS00,self.loadPointHi,setCaps=False) # <--- caps should be at nominal values
                     for j in range(nMc):
                         set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
                         DSSSolution.Solve()
@@ -548,7 +601,8 @@ class linModel:
                         vHsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
                         
                     # then low load point
-                    cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointLo,setCaps=capShift)
+                    # cpf_set_loads(DSSCircuit,BB00,SS00,self.loadPointLo,setCaps=setCapsModel,capPos=self.capPosLin)
+                    cpf_set_loads(DSSCircuit,BB00,SS00,self.loadPointLo,setCaps=False) # <--- caps should be at nominal values
                     DSSSolution.Solve()
                     tapSlns = {}
                     for j in range(nMc):
@@ -605,6 +659,7 @@ class linModel:
             if i%(max(pdfData['nP'])//4)==0:
                 print('MC complete.',time.process_time())
         tEnd = time.process_time()
+        tEndClk = time.time()
         binNo = max(pdf.pdf['nP'])//2
         genTotAll = genTotAll.flatten()
         hist1 = plt.hist(genTotAll,bins=binNo,range=(0,max(genTotAll)))
@@ -629,14 +684,27 @@ class linModel:
         self.dssHcRsl['hcGenAll'] = hcGenAll
         self.dssHcRsl['genTotSet'] = genTotSet
         self.dssHcRsl['runTime'] = tEnd - tStart
+        self.dssHcRsl['runTimeClk'] = tEndClk - tStartClk
         self.dssHcRsl['kCdf'] = 100*getKcdf(param,Vp_pct)[0]
         self.dssHcRsl['kCdf'][np.isnan(self.dssHcRsl['kCdf'])] = 100.0000011111
         
-    def getCovMat(self):
-        self.KtotUcov = self.KtotU.dot(self.KtotU.T)
-        covScaling = np.sqrt(np.diag(self.KtotUcov))
-        covScaling[covScaling==0] = np.inf # avoid divide by zero complaint
-        self.KtotUcorr = dsf.vmvM(1/covScaling,self.KtotUcov,1/covScaling)
+    def getCovMat(self,getTotCov=True,getFixCov=False,getFullCov=False):
+        if getTotCov:
+            self.KtotUcov = self.KtotU.dot(self.KtotU.T)
+            covScaling = np.sqrt(np.diag(self.KtotUcov))
+            covScaling[covScaling==0] = np.inf # avoid divide by zero complaint
+            self.KtotUcorr = dsf.vmvM(1/covScaling,self.KtotUcov,1/covScaling)        
+        if getFixCov:
+            self.KfixUcov = self.KfixU.dot(self.KfixU.T)
+            covScaling = np.sqrt(np.diag(self.KfixUcov))
+            covScaling[covScaling==0] = np.inf # avoid divide by zero complaint
+            self.KfixUcorr = dsf.vmvM(1/covScaling,self.KfixUcov,1/covScaling)
+        if getFullCov:
+            KfullU = np.concatenate((self.KtotU,self.KfixU),axis=0)
+            self.KfullUcov = KfullU.dot(KfullU.T)
+            covScaling = np.sqrt(np.diag(self.KfullUcov))
+            covScaling[covScaling==0] = np.inf # avoid divide by zero complaint
+            self.KfullUcorr = dsf.vmvM(1/covScaling,self.KfullUcov,1/covScaling)
     
     def busViolationVar(self,Sgm,lim='all',Mu=np.array([None]),calcSrsVals=False):
         if lim=='all':
@@ -666,6 +734,7 @@ class linModel:
         
         self.varKtotU = calcVar(self.KtotU)
         self.varKfixU = calcVar(self.KfixU)
+        self.varKfullU = np.concatenate((self.varKtotU,self.varKfixU))
         self.svdLim = limAct
         self.svdLimDv = limDV
         self.nStdKtotU = np.sign(self.svdLim)/np.sqrt(self.varKtotU)
@@ -707,7 +776,8 @@ class linModel:
         if Mu[0]==None:
             dMu = 0
             dvMu = np.zeros(self.b0ls.shape)
-            dvScale = (1.0+1e-10) # required so that min puts out a sensible answer?
+            dMuMv = np.zeros(self.b0MvMax.shape)
+            dMuLv = np.zeros(self.b0LvMax.shape)
         else:
             if Mu.shape==(1,):
                 Mu = np.ones((self.KtotPu.shape[1]))*Mu
@@ -808,26 +878,25 @@ class linModel:
         self.NSetStd = NSetStd
         
     def makeCorrModel(self,stdLim=0.99,corrLim=[0.95,0.98,0.99]):
-        vars = self.varKtotU.copy()
+        self.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
+        vars = self.varKfullU.copy()
+        
         varSortN = vars.argsort()[::-1]
 
         stds = np.sqrt(vars)
         stds = stds[varSortN]
-
         stds = stds/stds[0]
 
-        corr = abs(self.KtotUcorr)
+        corr = abs(self.KfullUcorr)
         corr = corr - np.diag(np.ones(len(corr)))
-
         corr = corr[varSortN][:,varSortN]
-
         
         NsetLen = []
         Nset = []
         for corrlim in corrLim:
             nset = [0]
             i=1
-            while stds[i] > (1-stdLim):
+            while (stds[i] > (1-stdLim)) and i<(len(stds)-1):
                 maxCorr = max(corr[i,nset])
                 if maxCorr < corrlim:
                     nset = nset + [i]
@@ -835,8 +904,74 @@ class linModel:
             Nset = Nset + [nset]
             NsetLen = NsetLen + [len(nset)]
         print('\nCorr model stdLim/corrLim:',stdLim,'/',corrLim)
-        print('Corr model nset:',NsetLen)
+        print('Corr model nset:',NsetLen,' out of ',len(vars))
+        
         self.NSetCor = Nset
+        
+        
+        # self.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
+        # vars = self.varKtotU.copy()
+        
+        # varSortN = vars.argsort()[::-1]
+
+        # stds = np.sqrt(vars)
+        # stds = stds[varSortN]
+        
+        
+        
+        # stds = stds/stds[0]
+
+        # corr = abs(self.KtotUcorr)
+        # corr = corr - np.diag(np.ones(len(corr)))
+
+        # corr = corr[varSortN][:,varSortN]
+        
+        # NsetLen = []
+        # Nset = []
+        # for corrlim in corrLim:
+            # nset = [0]
+            # i=1
+            # while (stds[i] > (1-stdLim)) and i<(len(stds)-1):
+                # maxCorr = max(corr[i,nset])
+                # if maxCorr < corrlim:
+                    # nset = nset + [i]
+                # i+=1
+            # Nset = Nset + [nset]
+            # NsetLen = NsetLen + [len(nset)]
+        # print('\nCorr model stdLim/corrLim:',stdLim,'/',corrLim)
+        # print('Corr model nset:',NsetLen)
+        # self.NSetCor = NsetFix
+        
+        # # NOTE: THIS is literally a copy of the above code with 'fix' changing 'tot'.
+        # varsFix = self.varKfixU.copy()
+        
+        # varSortNfix = varsFix.argsort()[::-1]
+
+        # stds = np.sqrt(varsFix)
+        # stds = stds[varSortNfix]
+
+        # stds = stds/stds[0]
+
+        # corr = abs(self.KfixUcorr)
+        # corr = corr - np.diag(np.ones(len(corr)))
+
+        # corr = corr[varSortNfix][:,varSortNfix]
+        
+        # NsetLen = []
+        # NsetFix = []
+        # for corrlim in corrLim:
+            # nset = [0]
+            # i=1
+            # while (stds[i] > (1-stdLim)) and i<(len(stds)-1):
+                # maxCorr = max(corr[i,nset])
+                # if maxCorr < corrlim:
+                    # nset = nset + [i]
+                # i+=1
+            # NsetFix = NsetFix + [nset]
+            # NsetLen = NsetLen + [len(nset)]
+        # print('\nCorr model stdLim/corrLim (fix):',stdLim,'/',corrLim)
+        # print('Corr model nset (fix):',NsetLen)
+        # self.NSetFixCor = NsetFix
         
         
     def updateDcpleModel(self,regVreg):
@@ -1250,7 +1385,7 @@ class hcPdfs:
             if len(prms)==0:
                 prms=np.array([[0.50,8]])
             self.pdf = {'name':pdfName,'prms':prms,'mu_k':mu_k,'nP':(len(prms),len(mu_k)),'clfnSolar':clfnSolar,'nMc':nMc}
-    
+        
     def halfLoadMean(self,scale,xhyN,xhdN):
         # scale suggested as: LM.scaleNom = lp0data['kLo'] - lp0data['k']
         
@@ -1284,20 +1419,24 @@ class hcPdfs:
                 Sgm = np.sqrt(frac*(Mu0**2 + Sgm0**2) - Mu**2) # see FrÃ¼hwirth-Schnatter chapter 1
         return Mu,Sgm # both in WATTS
         
-    def genPdfMcSet(self,nMc,Mu0,prmI):
+    def genPdfMcSet(self,nMc,Mu0,prmI,getMcU=False):
         np.random.seed(self.rndSeed)
         if self.pdf['name']=='gammaWght':
             k = self.pdf['prms'][prmI]
             pdfMc0 = np.random.gamma(k,1/np.sqrt(k),(len(Mu0),nMc))
             pdfMc = dsf.vmM( 1e-3*Mu0/np.sqrt(k),pdfMc0 ) # in kW
-            pdfMcU = pdfMc0 - np.sqrt(k) # zero mean, unit variance
+            if getMcU:
+                pdfMcU = pdfMc0 - np.sqrt(k) # zero mean, unit variance
             
         elif self.pdf['name']=='gammaFlat':
             k = self.pdf['prms'][prmI]
-            pdfMc0 = np.random.gamma(k,1/np.sqrt(k),(len(Mu0),nMc))
-            pdfMcU = pdfMc0 - np.sqrt(k) # zero mean, unit variance
             Mu0mean = Mu0.mean()
-            pdfMc = (1e-3*Mu0mean/np.sqrt(k))*pdfMc0
+            # pdfMc0 = np.random.gamma(shape=k,scale=1/np.sqrt(k),size=(len(Mu0),nMc))
+            # pdfMc = (1e-3*Mu0mean/np.sqrt(k))*pdfMc0
+            pdfMc0 = np.random.gamma(shape=k,scale=(1e-3*Mu0mean/np.sqrt(k))/np.sqrt(k),size=(len(Mu0),nMc))
+            if getMcU:
+                # pdfMcU = pdfMc0 - np.sqrt(k) # zero mean, unit variance
+                pdfMcU = (pdfMc0/(1e-3*Mu0mean/np.sqrt(k))) - np.sqrt(k) # zero mean, unit variance
         
         elif self.pdf['name']=='gammaFrac':
             clfnSolar = self.pdf['clfnSolar']
@@ -1308,8 +1447,8 @@ class hcPdfs:
             pdfMc = pdfGen*genIn
             pdfMeans = np.mean(pdfMc) # NB these are uniformly distributed
             pdfStd = np.std(pdfMc) # NB these are uniformly distributed
-            
-            pdfMcU = (pdfMc - pdfMeans)/pdfStd
+            if getMcU:
+                pdfMcU = (pdfMc - pdfMeans)/pdfStd
         elif self.pdf['name']=='gammaXoff':
             clfnSolar = self.clfnSolar
             
@@ -1322,9 +1461,10 @@ class hcPdfs:
             pdfMc = pdfGen*genIn
             pdfMeans = np.mean(pdfMc) # NB these are uniformly distributed
             pdfStd = np.std(pdfMc) # NB these are uniformly distributed
-            
-            pdfMcU = (pdfMc - pdfMeans)/pdfStd
-            
+            if getMcU:
+                pdfMcU = (pdfMc - pdfMeans)/pdfStd
+        if not getMcU:
+            pdfMcU = []
         return pdfMc, pdfMcU
         
         

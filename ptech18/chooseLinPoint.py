@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
 from dss_vlin_funcs import *
+from dss_voltage_funcs import getCapPstns
 from matplotlib import cm, rc
 
 # rc('text',usetex=True)
@@ -17,12 +18,11 @@ DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText=DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
-DSSSolution.Tolerance=1e-7
 
 pltVxtrm = True
-# pltVxtrm = False
+pltVxtrm = False
 savePts = True
-savePts = False
+# savePts = False
 saveBusCoords = True
 saveBusCoords = False
 saveBrchBuses = True
@@ -30,7 +30,8 @@ saveBrchBuses = False
 saveRegBandwidths = True
 saveRegBandwidths = False
 pltVxtrmSave = True
-# pltVxtrmSave = False # use this for plotting for the paper
+pltVxtrmSave = False # use this for plotting for the paper
+# pltCapPos = 1
 
 SDfig = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
@@ -46,8 +47,8 @@ VmMv = 0.95
 VmLv = 0.92
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i_set = [20]
-# fdr_i_set = [19]
+fdr_i_set = [6,8,9,17,18,22,19,20,21]
+# fdr_i_set = [18]
 for fdr_i in fdr_i_set:
     # fdr_i = 17
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
@@ -111,6 +112,7 @@ for fdr_i in fdr_i_set:
     mvMin = []
     lvMax = []
     lvMin = []
+    capPos = []
     
     for lm in loadMults:
         DSSSolution.LoadMult = lm
@@ -129,7 +131,8 @@ for fdr_i in fdr_i_set:
             lvMin = lvMin + [np.nan]
         
         cnvg = cnvg + [DSSSolution.Converged]
-
+        capPos.append(getCapPstns(DSSCircuit))
+    
     dV = 1e-5 # get rid of pesky cases just below 1.05
     vmaxCl = np.ceil((np.array(vmax)+dV)*roundInt)/roundInt
     vminFl = np.floor((np.array(vmin)-dV)*roundInt)/roundInt
@@ -180,6 +183,8 @@ for fdr_i in fdr_i_set:
         kOut = loadMults[(loadMults>load1).argmax() - 1]
     else:
         kOut = max([kOutVpMv,kOutVpLv,kOutVmMv,kOutVmLv])
+    kOutIdx = np.where(loadMults==kOut)[0][0]
+    capPosOut = capPos[kOutIdx]
     
     DSSCircuit.Vsources.First
     vSrcBuses = DSSCircuit.ActiveElement.BusNames
@@ -190,7 +195,7 @@ for fdr_i in fdr_i_set:
         srcReg = 0
     legLoc = {'eulv':'NorthEast','13bus':'NorthEast','34bus':'NorthWest','123bus':'NorthEast','8500node':'SouthEast','usLv':None,'epri5':'NorthWest','epri7':'NorthWest','epriJ1':'SouthEast','epriK1':'NorthWest','epriM1':'NorthWest','epri24':'NorthWest'}
     
-    dataOut = {'Feeder':feeder,'k':kOut,'kLo':load1,'kHi':load2,'VpMv':VpMv,'VpLv':VpLv,'VmMv':VmMv,'VmLv':VmLv,'mvIdxYz':mvIdxYz,'lvIdxYz':lvIdxYz,'nRegs':DSSCircuit.RegControls.Count,'vSrcBus':vSrcBuses[0],'srcReg':srcReg,'legLoc':legLoc[feeder]}
+    dataOut = {'Feeder':feeder,'k':kOut,'kLo':load1,'kHi':load2,'VpMv':VpMv,'VpLv':VpLv,'VmMv':VmMv,'VmLv':VmLv,'mvIdxYz':mvIdxYz,'lvIdxYz':lvIdxYz,'nRegs':DSSCircuit.RegControls.Count,'vSrcBus':vSrcBuses[0],'srcReg':srcReg,'legLoc':legLoc[feeder],'capPosOut':capPosOut}
 
     if pltVxtrm:
         fig = plt.figure(figsize=figSze0)
@@ -241,6 +246,12 @@ for fdr_i in fdr_i_set:
     print('No. converged:',sum(cnvg),'/',len(cnvg))
     # print('Vmax:',Vp,'pu\nVmin:',Vm,'pu')
     print('Kout:',kOut)
+    print('Cap Positions:', capPosOut)
+
+    if 'pltCapPos' in locals():
+        plt.plot(loadMults,np.sum(np.array(capPos),axis=1))
+        plt.plot(loadMults[kOutIdx],sum(capPosOut),'o'); plt.show()
+        
 
     if savePts:
         if not os.path.exists(SD):

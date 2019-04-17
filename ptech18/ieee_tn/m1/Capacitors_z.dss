@@ -1,3 +1,40 @@
+New Capacitor.Cap1_a Phases=1 Bus1=0x008C6578.1 kV=7.2 kvar=400 conn = wye enabled =true states=0 !closest to sub - these are not actually switched in in practise
+New Capacitor.Cap1_b Phases=1 Bus1=0x008C6578.2 kV=7.2 kvar=400 conn = wye enabled =true states=0 !closest to sub
+New Capacitor.Cap1_c Phases=1 Bus1=0x008C6578.3 kV=7.2 kvar=400 conn = wye enabled =true states=0 !closest to sub
+!new capcontrol.Cap1_ctrl Capacitor=Cap1 element=line.temp2 terminal=1 Delay=45 Delayoff=900
+!~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
+new capcontrol.Cap1_ctrl_a Capacitor=Cap1_a element=line.temp2 terminal=1 Delay=45 Delayoff=900
+~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
+new capcontrol.Cap1_ctrl_b Capacitor=Cap1_b element=line.temp2 terminal=1 Delay=45 Delayoff=900
+~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
+new capcontrol.Cap1_ctrl_c Capacitor=Cap1_c element=line.temp2 terminal=1 Delay=45 Delayoff=900
+~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
+
+New Capacitor.Cap2_a Phases=1 Bus1=0x008ED880.1 kV=7.2 kvar=400 conn = wye enabled =true states=1 ! NB this is not in at mean(0.2,0.66) = 0.43 (but does seem to come on for 0.66.)
+New Capacitor.Cap2_b Phases=1 Bus1=0x008ED880.2 kV=7.2 kvar=400 conn = wye enabled =true states=1
+New Capacitor.Cap2_c Phases=1 Bus1=0x008ED880.3 kV=7.2 kvar=400 conn = wye enabled =true states=1
+!new capcontrol.Cap2_ctrl Capacitor=Cap2 element=line.temp2 terminal=1 Delay=30 Delayoff=910 
+!~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
+new capcontrol.Cap2_ctrl_a Capacitor=Cap2_a element=line.temp2 terminal=1 Delay=30 Delayoff=910 
+~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
+new capcontrol.Cap2_ctrl_b Capacitor=Cap2_b element=line.temp2 terminal=1 Delay=30 Delayoff=910 
+~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
+new capcontrol.Cap2_ctrl_c Capacitor=Cap2_c element=line.temp2 terminal=1 Delay=30 Delayoff=910 
+~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
+
+New Capacitor.Cap3_a Phases=1 Bus1=0x008DBE00.1 kV=7.2 kvar=400 conn = wye enabled =true states=1 !Furthest from sub
+New Capacitor.Cap3_b Phases=1 Bus1=0x008DBE00.2 kV=7.2 kvar=400 conn = wye enabled =true states=1 !Furthest from sub
+New Capacitor.Cap3_c Phases=1 Bus1=0x008DBE00.3 kV=7.2 kvar=400 conn = wye enabled =true states=1 !Furthest from sub
+!new capcontrol.Cap3_ctrl Capacitor=Cap3 element=line.temp2 terminal=1 Delay=15 Delayoff=920
+!~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
+new capcontrol.Cap3_ctrl_a Capacitor=Cap3_a element=line.temp2 terminal=1 Delay=15 Delayoff=920
+~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
+new capcontrol.Cap3_ctrl_b Capacitor=Cap3_b element=line.temp2 terminal=1 Delay=15 Delayoff=920
+~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
+new capcontrol.Cap3_ctrl_c Capacitor=Cap3_c element=line.temp2 terminal=1 Delay=15 Delayoff=920
+~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
+
+/*
 !New Capacitor.Cap1_a Phases=1 Bus1=0x008C6578.1 kV=7.2 kvar=400 conn = wye enabled =true states=0 !closest to sub - these are not actually switched in in practise
 !New Capacitor.Cap1_b Phases=1 Bus1=0x008C6578.2 kV=7.2 kvar=400 conn = wye enabled =true states=0 !closest to sub
 !New Capacitor.Cap1_c Phases=1 Bus1=0x008C6578.3 kV=7.2 kvar=400 conn = wye enabled =true states=0 !closest to sub
@@ -15,4 +52,4 @@ New Capacitor.Cap3_b Phases=1 Bus1=0x008DBE00.2 kV=7.2 kvar=400 conn = wye enabl
 New Capacitor.Cap3_c Phases=1 Bus1=0x008DBE00.3 kV=7.2 kvar=400 conn = wye enabled =true states=1 !Furthest from sub
 !new capcontrol.Cap3_ctrl Capacitor=Cap3 element=line.temp2 terminal=1 Delay=15 Delayoff=920
 !~ type=kvar ON=540 OFF=-840 voltoverride=no vmax=126 vmin=114 ptratio=60
-
+*/
