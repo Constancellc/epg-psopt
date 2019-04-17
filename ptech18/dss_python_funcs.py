@@ -249,7 +249,6 @@ def cpf_set_loads(DSSCircuit,BB,SS,k,setCaps=True,capPos=None):
         j = DSSCircuit.Capacitors.First
         while j!=0:
             DSSCircuit.Capacitors.Name=BB[j+imax]
-            # DSSCircuit.Capacitors.kvar=k*SS[j+imax].imag
             DSSCircuit.Capacitors.kvar=capPos[j-1]*SS[j+imax].imag + 1e-4 # so that the # of caps doesn't change...
             j=DSSCircuit.Capacitors.Next
             

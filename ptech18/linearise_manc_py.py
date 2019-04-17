@@ -30,7 +30,7 @@ saveModel = True
 # saveModel = False
 saveCc = True
 saveCc = False
-calcReg=1
+# calcReg=1
 
 # test_cap_model=1
 
@@ -40,7 +40,7 @@ setCapsModel = 'linPoint'
 # fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14]
 fdr_i_set = [6,8,17,18,19,20,21]
-fdr_i_set = [9]
+fdr_i_set = [21]
 # fdr_i_set = [19]
 # fdr_i_set = [6,8,18,19]
 for fdr_i in fdr_i_set:
@@ -75,7 +75,7 @@ for fdr_i in fdr_i_set:
     dir0 = WD + '\\lin_models\\' + feeder
     sn0 = dir0 + '\\' + feeder + lp_taps
 
-    print('\nStart, feeder:',feeder,'\nSaving nom:',saveModel,'\nSaving cc:',saveCc,'\nLin Points:',lin_points,'\nCap pos model:',setCapsModel,'\n',time.process_time())
+    print('\nStart, feeder:',feeder,'\nSaving nom:',saveModel,'\nSaving cc:',saveCc,'\nLin Points:',lin_points,'\nCap pos model:',setCapsModel,'\nCap Pos points:',capPosLin,'\n',time.process_time())
     
     vve=np.zeros([k.size,lin_points.size])
     vae=np.zeros([k.size,lin_points.size])
@@ -96,6 +96,8 @@ for fdr_i in fdr_i_set:
             cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCapsModel,capPos=capPosLin)
             
             DSSSolution.Solve()
+            sYbstrd = get_sYsD(DSSCircuit)[0] # <---- for some annoying reason this gives different zeros to sY below; use for indexes
+            
             TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
         print('Load Ybus\n',time.process_time())
         
@@ -109,6 +111,7 @@ for fdr_i in fdr_i_set:
         # CHECK 1: YNodeOrder 
         DSSText.Command='Compile ('+fn+'.dss)'
         YZ0 = DSSCircuit.YNodeOrder
+        
         
         # Reproduce delta-y power flow eqns (1)
         DSSText.Command='Compile ('+fn+'.dss)'
@@ -132,11 +135,13 @@ for fdr_i in fdr_i_set:
         YNodeVnoLoad = tp_2_ar(DSSCircuit.YNodeVarray)
         
         cpf_set_loads(DSSCircuit,BB00,SS00,1.0,setCaps=True) # set back to 1
-        # if setCapsModel==True:
-            # cpf_set_loads(DSSCircuit,BB00,SS00,0.0,setCaps=False,capPos=capPosLin) # a trick to keep the caps in
-        # elif setCapsModel=='linPoint':
         cpf_set_loads(DSSCircuit,BB00,SS00,0.0,setCaps=setCapsModel,capPos=capPosLin)
+        
+        # DSSText.Command='batchedit capacitor..* states=1'
+        # DSSText.Command='batchedit capcontrol..* enabled=0'
         DSSSolution.Solve()
+        # DSSText.Command='batchedit capcontrol..* enabled=1'
+
         sYcap,sDcap = get_sYsD(DSSCircuit)[0:2]
         xhyCap0 = -1e3*s_2_x(sYcap[3:])
         xhdCap0 = -1e3*s_2_x(sDcap)
@@ -199,7 +204,8 @@ for fdr_i in fdr_i_set:
         v_idx = v_idx[v_idx>=0]
         YvbaseV = Yvbase[v_idx]
         
-        p_idx = np.array(sY[3:].nonzero())
+        # p_idx = np.array(sY[3:].nonzero())
+        p_idx = np.array(sYbstrd[3:].nonzero()) # this gives ever ever so slightly different answers to sY (see EPRI M1)
         s_idx = np.concatenate((p_idx,p_idx+len(sY)-3),axis=1)[0]
         
         MyV = My[v_idx,:][:,s_idx]

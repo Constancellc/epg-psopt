@@ -1030,11 +1030,14 @@ class linModel:
         self.b0LvMax = np.maximum(self.b0lsLv,self.b0hsLv)
         self.b0LvMin = np.minimum(self.b0lsLv,self.b0hsLv) 
         
-    def calcLinPdfError(self,otherRslt):
+    def calcLinPdfError(self,otherRslt,type='MAE'):
         Vp0 = 0.01*self.linHcRsl['Vp_pct']
         Vp1 = 0.01*otherRslt['Vp_pct']
-        regError = np.linalg.norm(Vp0-Vp1,ord=1)/(np.linalg.norm(Vp1,ord=1)+1) # this equivalent to: sum of errors/(regularised sum of function)
-        return regError
+        if type=='reg':
+            Error = np.linalg.norm(Vp0-Vp1,ord=1)/(np.linalg.norm(Vp1,ord=1)+1) # this equivalent to: sum of errors/(regularised sum of function)
+        elif type=='MAE':
+            Error = 100*np.mean(np.abs(Vp1 - Vp0)) # in %
+        return Error
     
     # --------------------------------- PLOTTING FUNCTIONS FROM HERE
     def corrPlot(self):

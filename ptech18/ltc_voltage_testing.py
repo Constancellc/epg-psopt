@@ -38,9 +38,9 @@ test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 save_model = True
-# save_model = False
+save_model = False
 ltcVoltageTestingFig = True
-ltcVoltageTestingFig = False
+# ltcVoltageTestingFig = False
 figSze0 = (5.2,3.3)
 SD = r"C:\Users\\"+getpass.getuser()+r"\\Documents\DPhil\papers\psfeb19\figures\\"
 
@@ -48,7 +48,7 @@ setCapsModel='linPoint'
 
 fdr_i_set = [5,6,8]
 fdr_i_set = [6,8]
-# fdr_i_set = [8]
+fdr_i_set = [6]
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
     feeder=fdrs[fdr_i]
@@ -336,14 +336,18 @@ for fdr_i in fdr_i_set:
     if ltcVoltageTestingFig:
         fig = plt.figure(figsize=figSze0)
         ax = fig.add_subplot(111)
-        ax.plot(k,vef,'k')
-        ax.plot(k,veR,'.-')
-        ax.plot(k,veL,'.-')
+        ax.plot(k,vef,'k',linewidth=1,markersize=4)
+        ax.plot(k,veR,'.-',linewidth=1,markersize=4)
+        ax.plot(k,veL,'.-',linewidth=1,markersize=4)
 
         # ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,ylm[1])), 
         ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,0.055)), 
         ax.set_xlabel('Power continuation factor, $\kappa$'), ax.set_ylabel('Voltage error, $||V_{\mathrm{DSS}} - V_{\mathrm{Lin}} ||_{2}\./\.||V_{\mathrm{DSS}}||_{2}$')
-        ax.legend(('Load flow model (locked taps)','Load flow model (unlocked taps)','Network model (unlocked taps)'))
+        legend=ax.legend(('Load flow model (locked taps)','Load flow model (unlocked taps)','Network model (unlocked taps)'),framealpha=1.0,fancybox=0,edgecolor='k',loc='upper right')
+        legend.get_frame().set_linewidth(0.4)
+        [i.set_linewidth(0.4) for i in ax.spines.values()]
+        ax.tick_params(direction="in",bottom=1,top=1,left=1,right=1,grid_linewidth=0.4,width=0.4,length=2.5)
+
         plt.tight_layout()
         plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.png',bbox_inches='tight',pad_inches=0)
         plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.pdf',bbox_inches='tight',pad_inches=0)

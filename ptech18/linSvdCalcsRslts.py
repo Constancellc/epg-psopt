@@ -11,15 +11,16 @@ SD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 
 pltShow = 1
-# pltSave = 1
+pltSave = 1
 # pltCc = 1
 # f_nStdBefore = 1
 # f_nStdAfter = 1
-# f_nStdVreg = 1
+f_nStdVreg = 1
 # f_nStdVregVal = 1
-f_nStdVreg_8500 = 1
+# f_nStdVreg_8500 = 1
 
 figsze0 = (5.2,3.0)
+figsze1 = (5.2,2.7)
 # ============================== 1. plotting EU LV and EPRI K1 for CC 
 if 'pltCc' in locals():
     fdr_i_set = [0,20]
@@ -117,15 +118,20 @@ if 'f_nStdVreg' in locals():
             j+=1
         print(time.time()-t)
 
-    plt.figure(figsize=figsze0)
-    plt.plot(np.outer(opts*LM.regVreg0/(166*120),[1]*len(N0)),N0.T,'.-')
-    plt.xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
+    fig = plt.figure(figsize=figsze1)
+    ax = fig.add_subplot(111)
+    ax.plot(np.outer(opts*LM.regVreg0/(166*120),[1]*len(N0)),N0.T,'.-',linewidth=1,markersize=4)
+    ax.set_xlabel('Regulator setpoint, pu')
 
-    plt.ylabel('Preconditioning metric, $\lambda$')
-    plt.legend(('1.0','0.98'),title='PF (lagging)'); 
-    plt.xlim(xlims); plt.ylim((-12,9))
+    ax.set_ylabel('Selection parameter, $\lambda$')
+    legend = ax.legend(('1.0','0.98'),title='PF (lag.)',framealpha=1.0,fancybox=0,edgecolor='k')
+    legend.get_frame().set_linewidth(0.4)
+    [i.set_linewidth(0.4) for i in ax.spines.values()]
+    ax.tick_params(direction="in",bottom=1,top=1,left=1,right=1,grid_linewidth=0.4,width=0.4,length=2.5)
+
+    plt.xlim(xlims); plt.ylim((-10.5,8))
     plt.xticks(xTickMatch,xTickMatchStr)
-    # plt.grid(True); 
+    plt.grid(True); 
     plt.tight_layout()
 
     if 'pltSave' in locals():

@@ -26,7 +26,7 @@ mcLinVal = False
 mcLinSns = True
 mcLinSns = False
 mcDssOn = True
-# mcDssOn = False
+mcDssOn = False
 # mcDssBw = 1
 # mcDssPar = 1
 mcFullSet = 1
@@ -58,8 +58,8 @@ fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [19] # slow 3
 # fdr_i_set = [22,19,20,21,9] # big networks with only decoupled regulator models
 # fdr_i_set = [22,19,9] # big networks with only decoupled regulator models
+# fdr_i_set = [19]
 fdr_i_set = [19]
-fdr_i_set = [6,8,18,19]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'; prms=np.array([]) 
@@ -138,6 +138,7 @@ for fdr_i in fdr_i_set:
         LM.makeCorrModel(stdLim=0.90,corrLim=[0.90])
         LM.runLinHc(pdfVal,model='cor') # equivalent at the moment
         linHcRslNmc = LM.linHcRsl
+        preCndLeft = len(LM.NSetCor[0])/len(LM.varKfullU)*100
         
         # Nominal DSS model:
         LM.runDssHc(pdf,DSSObj,genNames,BB00,SS00,regBand=regBand,setCapsModel=setCapsOpt)
@@ -152,12 +153,12 @@ for fdr_i in fdr_i_set:
         linHcRsl = LM.linHcRsl
         
         # calculate error:
-        nomError = LM.calcLinPdfError(linHcRslNom)
-        nmcError = LM.calcLinPdfError(linHcRslNmc)
-        dssNomError = LM.calcLinPdfError(dssHcRslNom)
-        dssTgtError = LM.calcLinPdfError(dssHcRslTgt)
+        nomMae = LM.calcLinPdfError(linHcRslNom)
+        nmcMae = LM.calcLinPdfError(linHcRslNmc)
+        dssNomMae = LM.calcLinPdfError(dssHcRslNom)
+        dssTgtMae = LM.calcLinPdfError(dssHcRslTgt)
         
-        rslt = {'linHcRsl':linHcRsl,'linHcRslNom':linHcRslNom,'linHcRslNmc':linHcRslNmc,'dssHcRslNom':dssHcRslNom,'dssHcRslTgt':dssHcRslTgt,'pdfData':pdf.pdf,'pdfDataNmc':pdfVal.pdf,'feeder':feeder,'nomError':nomError,'nmcError':nmcError,'dssNomError':dssNomError,'dssTgtError':dssTgtError}
+        rslt = {'linHcRsl':linHcRsl,'linHcRslNom':linHcRslNom,'linHcRslNmc':linHcRslNmc,'dssHcRslNom':dssHcRslNom,'dssHcRslTgt':dssHcRslTgt,'pdfData':pdf.pdf,'pdfDataNmc':pdfVal.pdf,'feeder':feeder,'nomMae':nomMae,'nmcMae':nmcMae,'dssNomMae':dssNomMae,'dssTgtMae':dssTgtMae,'preCndLeft':preCndLeft}
         if pltSave:
             SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_final.pkl')
             with open(SN,'wb') as file:
@@ -166,17 +167,17 @@ for fdr_i in fdr_i_set:
         
         
         
-    if mcLinOn:
+    if mcLinOn or mcLinSns or mcDssOn:
         LM.runLinHc(pdf) # equivalent at the moment
         
     if mcDssOn:
         LM.runDssHc(pdf,DSSObj,genNames,BB00,SS00,regBand=regBand,setCapsModel=setCapsOpt)
-        dssRegError = LM.calcLinPdfError(LM.dssHcRsl)
+        dssRegMae = LM.calcLinPdfError(LM.dssHcRsl)
         print('\n -------- Complete -------- ')
         
         if not os.path.exists(SD):
             os.makedirs(SD)
-        rslt = {'dssHcRsl':LM.dssHcRsl,'linHcRsl':LM.linHcRsl,'pdfData':pdf.pdf,'feeder':feeder,'regError':dssRegError}
+        rslt = {'dssHcRsl':LM.dssHcRsl,'linHcRsl':LM.linHcRsl,'pdfData':pdf.pdf,'feeder':feeder,'regMae':dssRegMae}
         if pltSave:
             SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_reg'+str(regBand)+'_new.pkl')
             with open(SN,'wb') as file:
@@ -184,10 +185,10 @@ for fdr_i in fdr_i_set:
     
     if 'mcDssBw' in locals():
         LM.runDssHc(pdf,DSSObj,genNames,BB00,SS00,regBand=1.0,setCapsModel=setCapsOpt)
-        dssRegError = LM.calcLinPdfError(LM.dssHcRsl)
+        dssRegMae = LM.calcLinPdfError(LM.dssHcRsl)
         print('\n -------- Complete -------- ')
         
-        rslt = {'dssHcRsl':LM.dssHcRsl,'linHcRsl':LM.linHcRsl,'pdfData':pdf.pdf,'feeder':feeder,'regError':dssRegError}
+        rslt = {'dssHcRsl':LM.dssHcRsl,'linHcRsl':LM.linHcRsl,'pdfData':pdf.pdf,'feeder':feeder,'regMae':dssRegMae}
         if pltSave:
             SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_reg'+str(regBand)+'_bw.pkl')
             with open(SN,'wb') as file:
@@ -203,11 +204,11 @@ for fdr_i in fdr_i_set:
         LMsns.runLinHc(pdf)
         rsl1 = LMsns.linHcRsl
         
-        snsRegErrors = [LM.calcLinPdfError(rsl0)]
-        snsRegErrors.append(LM.calcLinPdfError(rsl1))
+        snsRegMaes = [LM.calcLinPdfError(rsl0)]
+        snsRegMaes.append(LM.calcLinPdfError(rsl1))
         print('\n -------- Complete -------- ')
         
-        rslt = {'linHcRsl':LM.linHcRsl,'linHcSns0':rsl0,'linHcSns1':rsl1,'pdf':pdf.pdf,'feeder':feeder,'regErrors':snsRegErrors}
+        rslt = {'linHcRsl':LM.linHcRsl,'linHcSns0':rsl0,'linHcSns1':rsl1,'pdf':pdf.pdf,'feeder':feeder,'regMaes':snsRegMaes}
         if pltSave:
             SN = os.path.join(SD,'linHcCalcsSns_'+pdfName+'_new.pkl')
             with open(SN,'wb') as file:
