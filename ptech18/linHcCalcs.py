@@ -59,7 +59,7 @@ fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [22,19,20,21,9] # big networks with only decoupled regulator models
 # fdr_i_set = [22,19,9] # big networks with only decoupled regulator models
 # fdr_i_set = [19]
-fdr_i_set = [19]
+fdr_i_set = [19,9,22]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'; prms=np.array([]) 
