@@ -20,6 +20,7 @@ from scipy import random
 import scipy.linalg as spla
 from win32com.client import makepy
 from dss_stats_funcs import vmM, mvM, vmvM
+plt.style.use('tidySettings')
 
 print('Start.\n',time.process_time())
 
@@ -41,7 +42,7 @@ save_model = True
 save_model = False
 ltcVoltageTestingFig = True
 # ltcVoltageTestingFig = False
-figSze0 = (5.2,3.3)
+figSze0 = (5.2,2.8)
 SD = r"C:\Users\\"+getpass.getuser()+r"\\Documents\DPhil\papers\psfeb19\figures\\"
 
 setCapsModel='linPoint'
@@ -336,21 +337,17 @@ for fdr_i in fdr_i_set:
     if ltcVoltageTestingFig:
         fig = plt.figure(figsize=figSze0)
         ax = fig.add_subplot(111)
-        ax.plot(k,vef,'k',linewidth=1,markersize=4)
-        ax.plot(k,veR,'.-',linewidth=1,markersize=4)
-        ax.plot(k,veL,'.-',linewidth=1,markersize=4)
+        ax.plot(k,vef,'k',markersize=4)
+        ax.plot(k,veR,'.-',markersize=4)
+        ax.plot(k,veL,'.-',markersize=4)
 
-        # ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,ylm[1])), 
         ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,0.055)), 
-        ax.set_xlabel('Power continuation factor, $\kappa$'), ax.set_ylabel('Voltage error, $||V_{\mathrm{DSS}} - V_{\mathrm{Lin}} ||_{2}\./\.||V_{\mathrm{DSS}}||_{2}$')
-        legend=ax.legend(('Load flow model (locked taps)','Load flow model (unlocked taps)','Network model (unlocked taps)'),framealpha=1.0,fancybox=0,edgecolor='k',loc='upper right')
-        legend.get_frame().set_linewidth(0.4)
-        [i.set_linewidth(0.4) for i in ax.spines.values()]
-        ax.tick_params(direction="in",bottom=1,top=1,left=1,right=1,grid_linewidth=0.4,width=0.4,length=2.5)
+        ax.set_xlabel('Power continuation factor, $\kappa$'), ax.set_ylabel('Error, $||V_{\mathrm{DSS}} - V_{\mathrm{Lin}} ||_{2}$ / $||V_{\mathrm{DSS}}||_{2}$')
+        legend=ax.legend(('Load flow model (locked taps)','Load flow model (unlocked taps)','Network model (unlocked taps)'),fontsize='small',loc='upper right')
 
         plt.tight_layout()
-        plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.png',bbox_inches='tight',pad_inches=0)
-        plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.pdf',bbox_inches='tight',pad_inches=0)
+        plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.png')
+        plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.pdf')
         plt.show()
 
     if test_model_bus:

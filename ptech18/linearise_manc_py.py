@@ -30,7 +30,7 @@ saveModel = True
 # saveModel = False
 saveCc = True
 saveCc = False
-# calcReg=1
+calcReg=1
 
 # test_cap_model=1
 
@@ -40,7 +40,7 @@ setCapsModel = 'linPoint'
 # fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14]
 fdr_i_set = [6,8,17,18,19,20,21]
-fdr_i_set = [21]
+fdr_i_set = [20]
 # fdr_i_set = [19]
 # fdr_i_set = [6,8,18,19]
 for fdr_i in fdr_i_set:

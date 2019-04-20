@@ -20,7 +20,7 @@ feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
 
 # t_timeTable = 1 # timeTable
 # f_dssVlinWght = 1 # gammaFrac boxplot results
-# f_linMcVal = 1 # monte carlo no. validation
+f_linMcVal = 1 # monte carlo no. validation
 # f_logTimes = 1 # 
 # f_linMcSns = 1
 # f_dssVlinWghtErr = 1
@@ -38,7 +38,7 @@ FD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\
 rsltsFrac = {}; rsltsVal = {}; rsltsPar = {}; rsltsSns = {}
 for feeder in feeders:
     # RD = os.path.join(WD,feeder,'linHcCalcs'+rsltType+pdfName+num+regID+'.pkl')
-    RDval = os.path.join(WD,feeder,'linHcCalcsVal_gammaFrac50_new.pkl')
+    RDval = os.path.join(WD,feeder,'linHcCalcsVal_gammaFrac100_new.pkl')
     # RDfrac = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_reg0_new.pkl')
     RDfrac = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_reg0_bw.pkl') # bw as in reduced bw
     RDpar = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_reg0_par.pkl') # par as in parallel (faster for J1)
@@ -87,7 +87,7 @@ for rslt in rsltsSns.values():
     kCdfLinSns.append(rslt['linHcRsl']['kCdf'][[0,1,5,10,15,19,20]])
     kCdfSns0.append(rslt['linHcSns0']['kCdf'][[0,1,5,10,15,19,20]])
     kCdfSns1.append(rslt['linHcSns1']['kCdf'][[0,1,5,10,15,19,20]])
-    LsnsNorm.append(rslt['regErrors'])
+    # LsnsNorm.append(rslt['regErrors'])
     feederSnsSmart.append(feedersTidy[rslt['feeder']])
 KcdkLin = []; KcdkSeq = []; KcdkPar = []; # kCdfLin = []
 timeSeq = [];timePar = [];

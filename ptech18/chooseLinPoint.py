@@ -5,6 +5,7 @@ from dss_python_funcs import *
 from dss_vlin_funcs import *
 from dss_voltage_funcs import getCapPstns
 from matplotlib import cm, rc
+plt.style.use('tidySettings')
 
 # rc('text',usetex=True)
 figSze0=(5.2,3.0)
@@ -200,41 +201,37 @@ for fdr_i in fdr_i_set:
     if pltVxtrm:
         fig = plt.figure(figsize=figSze0)
         ax = fig.add_subplot(111)
-        clrs = cm.tab10([0,1])
+        
+        clrs = cm.matlab([0,1])
         ax.set_prop_cycle(color=clrs)
         
-        ax.plot(loadMults,mvMax,'x-',linewidth=1,markersize=4)
-        ax.plot(loadMults,mvMin,'x-',linewidth=1,markersize=4)
-        ax.plot(loadMults,lvMax,'.-',linewidth=1,markersize=4)
-        ax.plot(loadMults,lvMin,'.-',linewidth=1,markersize=4)
+        ax.plot(loadMults,mvMax,'x-',markersize=4,label='$\max|V_{\mathrm{MV}}|$')
+        ax.plot(loadMults,lvMax,'x-',markersize=4,label='$\max|V_{\mathrm{LV}}|$')
+        ax.plot(loadMults,mvMin,'.-',markersize=4,label='$\min|V_{\mathrm{MV}}|$')
+        ax.plot(loadMults,lvMin,'.-',markersize=4,label='$\min|V_{\mathrm{LV}}|$')
         
         xlm = ax.get_xlim()
         ylm = ax.get_ylim()
-        ax.plot(xlm,[VpMv,VpMv],'k:',linewidth=1)
-        ax.plot(xlm,[VmMv,VmMv],'k:',linewidth=1)
+        ax.plot(xlm,[VpMv,VpMv],'k:')
+        ax.plot(xlm,[VmMv,VmMv],'k:')
         
-        ax.plot(xlm,[VpLv,VpLv],'k--',linewidth=1)
-        ax.plot(xlm,[VmLv,VmLv],'k--',linewidth=1)
+        ax.plot(xlm,[VpLv,VpLv],'k--')
+        ax.plot(xlm,[VmLv,VmLv],'k--')
         
         yLow = 0.915
-        ax.plot([kOut,kOut],[yLow,ylm[1]],'k',linewidth=1)
+        ax.plot([kOut,kOut],[yLow,ylm[1]],'k')
         ax.set_xlim(xlm)
 
         ax.set_ylim([yLow,ylm[1]])
         ax.set_xlabel('Continuation factor, $\kappa$')
         ax.set_ylabel('Voltage (pu)')
-        legend = ax.legend(('$\max|V_{\mathrm{MV}}|$','$\min|V_{\mathrm{MV}}|$','$\max|V_{\mathrm{LV}}|$','$\min|V_{\mathrm{LV}}|$'),framealpha=1.0,fancybox=0,edgecolor='k',loc='upper right')
-        legend.get_frame().set_linewidth(0.4)
-        [i.set_linewidth(0.4) for i in ax.spines.values()]
-        ax.tick_params(direction="in",bottom=1,top=1,left=1,right=1,grid_linewidth=0.4,width=0.4,length=2.5)
+        ax.legend(loc='upper right')
 
         if pltVxtrmSave:
-            # ax.annotate('$\kappa_{\mathrm{Lin}}$',(kOut-0.16,ylm[1] - 0.020),rotation=90,fontsize=13)
-            # ax.annotate('Lin. pt.',(kOut-0.16,ylm[1] - 0.020),rotation=90)
             ax.annotate('Lin. point',(kOut-0.11,ylm[1] - 0.14),rotation=90)
             plt.tight_layout()
-            plt.savefig(SDfig+'pltVxtrm_'+feeder,bbox_inches='tight',pad_inches=0)
-            plt.savefig(SDfig+'pltVxtrm_'+feeder+'.pdf',bbox_inches='tight',pad_inches=0)
+            plt.savefig(SDfig+'pltVxtrm_'+feeder)
+            plt.savefig(SDfig+'pltVxtrm_'+feeder+'.pdf')
             plt.show()
         else:
             ax.grid(True)

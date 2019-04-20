@@ -5,6 +5,7 @@ import os, sys, getpass,time
 from math import gamma
 # from matplotlib import rc
 # rc('text',usetex=True)
+plt.style.use('tidySettings')
 
 
 # pltShow=1
@@ -49,12 +50,9 @@ gX = (X**(k-1))*np.exp(-X/th)/(gamma(k)*(th**k))
 fig = plt.figure(figsize=figSze0)
 ax = plt.subplot()
 
-ax.step(histx,histy,linewidth=1)
-ax.plot(X,gX,linewidth=1)
-legend = ax.legend(('California residential solar','Fitted gamma distribution'),framealpha=1.0,fancybox=0,edgecolor='k')
-# legend = plt.legend(framealpha=1.0,fancybox=0,edgecolor='k')
-legend.get_frame().set_linewidth(0.4)
-[i.set_linewidth(0.4) for i in ax.spines.values()]
+ax.step(histx,histy)
+ax.plot(X,gX)
+legend = ax.legend(('California residential solar','Fitted gamma distribution'))
 ax.tick_params(direction="in",bottom=1,top=1,left=1,right=1,grid_linewidth=0.4,width=0.4,length=2.5)
 ax.set_xlabel('AC System Size (kW)')
 ax.set_ylabel('Probability density')
@@ -63,12 +61,11 @@ ax.set_xlim((0,pmax))
 ax.set_ylim((0,ax.get_ylim()[1]))
 ax.set_xticks(np.arange(0,pmax+2,2))
 
-# ax.grid(True)
 plt.tight_layout()
 
 if 'pltSave' in locals():
-    plt.savefig(SD+"plot_california_pv.pdf",bbox_inches='tight',pad_inches=0)
-    plt.savefig(SD+"plot_california_pv.png",bbox_inches='tight',pad_inches=0)
+    plt.savefig(SD+"plot_california_pv.pdf")
+    plt.savefig(SD+"plot_california_pv.png")
 if 'pltShow' in locals():
     plt.show()
 

@@ -20,7 +20,7 @@ from linSvdCalcs import hcPdfs, linModel, cnsBdsCalc, plotCns, plotHcVltn, plotP
 from matplotlib import cm
 
 mcLinOn = True
-# mcLinOn = False
+mcLinOn = False
 mcLinVal = True
 mcLinVal = False
 mcLinSns = True
@@ -38,7 +38,7 @@ mcFullSet = 1
 # pltCns = 1
 # plotShow = 1
 
-nMc = 50 # nominal value of 50
+nMc = 100 # nominal value of 100
 
 pltSave = True # for saving both plots and results
 # pltSave = False
@@ -49,6 +49,9 @@ setCapsOpt = 'linModel' # opendss options. 'linModels' is the 'right' option, cf
 # CHOOSE Network
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14,17,18,20,21]
+fdr_i_set = [6,8,9,17,18,19,20,21,22]
+fdr_i_set = [9,22] # less 6,8, 17,18,20,21, || 9, 22
+
 # fdr_i_set = [5,6,8] # fast
 # fdr_i_set = [0,14,17,18] # medium length 1
 # fdr_i_set = [18] # medium length 1
@@ -59,7 +62,7 @@ fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [22,19,20,21,9] # big networks with only decoupled regulator models
 # fdr_i_set = [22,19,9] # big networks with only decoupled regulator models
 # fdr_i_set = [19]
-fdr_i_set = [19,9,22]
+# fdr_i_set = [22]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'; prms=np.array([]) 
@@ -135,7 +138,7 @@ for fdr_i in fdr_i_set:
         # precondition linear model + MC run 2
         Mu,Sgm = pdf.getMuStd(LM,0)
         LM.busViolationVar(Sgm)
-        LM.makeCorrModel(stdLim=0.90,corrLim=[0.90])
+        LM.makeCorrModel()
         LM.runLinHc(pdfVal,model='cor') # equivalent at the moment
         linHcRslNmc = LM.linHcRsl
         preCndLeft = len(LM.NSetCor[0])/len(LM.varKfullU)*100
@@ -153,14 +156,12 @@ for fdr_i in fdr_i_set:
         linHcRsl = LM.linHcRsl
         
         # calculate error:
-        nomMae = LM.calcLinPdfError(linHcRslNom)
-        nmcMae = LM.calcLinPdfError(linHcRslNmc)
-        dssNomMae = LM.calcLinPdfError(dssHcRslNom)
-        dssTgtMae = LM.calcLinPdfError(dssHcRslTgt)
+        maeVals = {'nomMae':LM.calcLinPdfError(linHcRslNom),'nmcMae':LM.calcLinPdfError(linHcRslNmc), 'dssNomMae':LM.calcLinPdfError(dssHcRslNom),'dssTgtMae':LM.calcLinPdfError(dssHcRslTgt)}
+        rgeVals = {'nomRge':LM.calcLinPdfError(linHcRslNom,type='reg'),'nmcRge':LM.calcLinPdfError(linHcRslNmc,type='reg'), 'dssNomRge':LM.calcLinPdfError(dssHcRslNom,type='reg'),'dssTgtRge':LM.calcLinPdfError(dssHcRslTgt,type='reg')}
         
-        rslt = {'linHcRsl':linHcRsl,'linHcRslNom':linHcRslNom,'linHcRslNmc':linHcRslNmc,'dssHcRslNom':dssHcRslNom,'dssHcRslTgt':dssHcRslTgt,'pdfData':pdf.pdf,'pdfDataNmc':pdfVal.pdf,'feeder':feeder,'nomMae':nomMae,'nmcMae':nmcMae,'dssNomMae':dssNomMae,'dssTgtMae':dssTgtMae,'preCndLeft':preCndLeft}
+        rslt = {'linHcRsl':linHcRsl,'linHcRslNom':linHcRslNom,'linHcRslNmc':linHcRslNmc,'dssHcRslNom':dssHcRslNom,'dssHcRslTgt':dssHcRslTgt,'pdfData':pdf.pdf,'pdfDataNmc':pdfVal.pdf,'feeder':feeder,'maeVals':maeVals,'rgeVals':rgeVals,'preCndLeft':preCndLeft}
         if pltSave:
-            SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_final.pkl')
+            SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_finale.pkl')
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
         
@@ -214,16 +215,16 @@ for fdr_i in fdr_i_set:
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
         
-    # if mcLinVal:
-        # LMval.runLinHc(pdfVal) # equivalent at the moment
-        # valRegErrors = LM.calcLinPdfError(LMval.linHcRsl)
-        # print('\n -------- Complete -------- ')
+    if mcLinVal:
+        LMval.runLinHc(pdfVal) # equivalent at the moment
+        valRegErrors = LM.calcLinPdfError(LMval.linHcRsl)
+        print('\n -------- Complete -------- ')
         
-        # rslt = {'linHcRsl':LM.linHcRsl,'linHcVal':LMval.linHcRsl,'pdfLin':pdf.pdf,'pdfVal':pdfVal.pdf,'feeder':feeder,'regError':valRegErrors}
-        # if pltSave:
-            # SN = os.path.join(SD,'linHcCalcsVal_'+pdfName+str(nMc)+'_new.pkl')
-            # with open(SN,'wb') as file:
-                # pickle.dump(rslt,file)
+        rslt = {'linHcRsl':LM.linHcRsl,'linHcVal':LMval.linHcRsl,'pdfLin':pdf.pdf,'pdfVal':pdfVal.pdf,'feeder':feeder,'regError':valRegErrors}
+        if pltSave:
+            SN = os.path.join(SD,'linHcCalcsVal_'+pdfName+str(nMc)+'_new.pkl')
+            with open(SN,'wb') as file:
+                pickle.dump(rslt,file)
         
         
 

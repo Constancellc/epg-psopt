@@ -877,7 +877,7 @@ class linModel:
         print('NSetStd:',NSetStd,', out of ', N0)
         self.NSetStd = NSetStd
         
-    def makeCorrModel(self,stdLim=0.99,corrLim=[0.95,0.98,0.99]):
+    def makeCorrModel(self,stdLim=0.70,corrLim=[0.95]): # as chosen running linSvdCalcs_run.py.
         self.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
         vars = self.varKfullU.copy()
         
@@ -1041,19 +1041,21 @@ class linModel:
     
     # --------------------------------- PLOTTING FUNCTIONS FROM HERE
     def corrPlot(self):
-        vars = self.varKtotU.copy()
+        # vars = self.varKtotU.copy()
+        vars = self.varKfullU.copy()
         varSortN = vars.argsort()[::-1]
         
-        corrLogAbs = np.log10(abs((1-self.KtotUcorr)) + np.diag(np.ones(len(self.KtotPu))) +1e-14 )
+        # corrLogAbs = np.log10(abs((1-self.KtotUcorr)) + np.diag(np.ones(len(self.KtotPu))) +1e-14 )
+        corrLogAbs = np.log10(abs((1-self.KfullUcorr)) + np.diag(np.ones(len(self.KfullUcorr))) +1e-14 )
         corrLogAbs = corrLogAbs[varSortN][:,varSortN]
 
-        wer = corrLogAbs<-1.3 # 95%
-        asd = corrLogAbs<-1.7 # 98%
-        qwe = corrLogAbs<-2. # 99%
-
-        plt.spy(wer,color=cm.viridis(0.),markersize=1,marker='.')
-        plt.spy(asd,color=cm.viridis(0.5),markersize=0.6,marker='.')
-        plt.spy(qwe,color=cm.viridis(1.),markersize=0.4,marker='.')
+        plt.spy(corrLogAbs<-1.0,color=cm.viridis(0.),markersize=1,marker='.') # 90%
+        plt.spy(corrLogAbs<-1.3,color=cm.viridis(0.33),markersize=1,marker='.') # 95%
+        plt.spy(corrLogAbs<-1.7,color=cm.viridis(0.66),markersize=1,marker='.') # 98%
+        plt.spy(corrLogAbs<-2.0,color=cm.viridis(0.99),markersize=1,marker='.') # 99%
+        # plt.spy(asd,color=cm.viridis(0.5),markersize=0.6,marker='.')
+        # plt.spy(qwe,color=cm.viridis(1.),markersize=0.4,marker='.')
+        plt
         plt.xticks([])
         plt.yticks([])
         plt.show()
@@ -1230,8 +1232,8 @@ class linModel:
             xcrd = xlm[1] - dx*0.2
 
         for i in range(100):
-            y1 = btm+(top-btm)*(i/100)
-            y2 = btm+(top-btm)*((i+1)/100)
+            y1 = btm+0.96*(top-btm)*(i/100)
+            y2 = btm+0.96*(top-btm)*((i+1)/100)
             ax.plot([xcrd,xcrd],[y1,y2],lw=6,c=cmap(i/100))
             
         if colorInvert:
@@ -1241,14 +1243,15 @@ class linModel:
         
         for i in range(3):
             y_ = btm+(top-btm)*(i/2)-((top-btm)*0.075)
-            ax.annotate('  '+tcks[i]+units,(xcrd,y_))
+            ax.annotate('  '+tcks[i]+units,(xcrd+dx*0.02,y_),fontsize='small')
         if loc=='resPlot24':
-            t = ax.annotate('# St. Dev.',(xcrd-dx*0.035,top + (top-btm)*0.12))
+            t = ax.annotate('# St. Dev.',(xcrd-dx*0.065,top + (top-btm)*0.145),fontsize='small')
             width_scale = 0.2 # epri K1
-            width_scale = 0.235 # epri 24
-            btmm_y = btm - 0.125*(top-btm)
-            xcrd_0 = xcrd - 0.05*dx
-            box = patches.Rectangle(xy=(xcrd_0,btmm_y),width=dx*width_scale,height=(top-btm)*1.42,edgecolor='k',facecolor='w',zorder=-10)
+            width_scale = 0.285 # epri 24
+            btmm_y = btm - 0.165*(top-btm)
+            xcrd_0 = xcrd - 0.09*dx
+            hghtScale = 1.49
+            box = patches.Rectangle(xy=(xcrd_0,btmm_y),width=dx*width_scale,height=(top-btm)*hghtScale,edgecolor='k',facecolor='w',zorder=-10)
             ax.add_patch(box)
             
         
@@ -1293,7 +1296,8 @@ class linModel:
         if type=='vLo' or type=='vHi':
             self.ccColorbar(ax,minMax0,loc=self.legLoc,units=' pu',roundNo=3,colorInvert=colorInvert,cmap=cmap)
         elif type=='logVar' or type=='nStd':
-            self.ccColorbar(ax,minMax0,loc=self.legLoc,colorInvert=colorInvert,cmap=cmap)
+            if self.legLog!=None:
+                self.ccColorbar(ax,minMax0,loc=self.legLoc,colorInvert=colorInvert,cmap=cmap)
         plt.xticks([])
         plt.yticks([])
         print('Complete')
@@ -1332,7 +1336,8 @@ class linModel:
 
 # =================================== CLASS: hcPdfs
 class hcPdfs:
-    def __init__(self,feeder,WD=None,netModel=0,dMu=None,pdfName=None,prms=np.array([]),clfnSolar=None,nMc=50,rndSeed=0):
+    # def __init__(self,feeder,WD=None,netModel=0,dMu=None,pdfName=None,prms=np.array([]),clfnSolar=None,nMc=50,rndSeed=0):
+    def __init__(self,feeder,WD=None,netModel=0,dMu=None,pdfName=None,prms=np.array([]),clfnSolar=None,nMc=100,rndSeed=0):
         
         self.rndSeed=rndSeed # 32 bit unsigned integer (up to 2**32)
         if pdfName==None or pdfName=='gammaWght' or pdfName=='gammaFlat':

@@ -24,48 +24,49 @@ feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7
 fdrs_i = 2
 # fdrs_i = 2
 fdrs_is = [6,8,9,19,20,21,17,18,22]
+# fdrs_is = [9,17,19,21,22]
 
-for fdrs_i in fdrs_is:
-    # LM = linModel(fdrs_is[fdrs_i],WD)
-    LM = linModel(fdrs_i,WD)
+stdLim = np.array([0.70])
+CorLim = np.array([0.95])
+
+# stdLim = np.array([0.66,0.7,0.75,0.8])
+# CorLim = np.array([0.9,0.95])
+
+Errors = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
+Times = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
+Sizes = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
+
+i=0;
+for i in range(len(fdrs_is)):
+    j=0
+    
+    LM = linModel(fdrs_is[i],WD)
     pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
-
-    LM.runLinHc(pdf)
-
-    rslA = LM.linHcRsl
-    rslAt = rslA['runTime']
-
-    Mu,Sgm = pdf.getMuStd(LM,0)
-    LM.busViolationVar(Sgm)
-    # LM.makeVarLinModel()
-    LM.makeCorrModel(stdLim=0.90,corrLim=[0.90])
-    # LM.corrPlot()
-
-    LM.runLinHc(pdf,model='cor')
-    rslB = LM.linHcRsl
-    rslBt = LM.linHcRsl['runTime']
-    error = np.mean(np.abs(rslB['Vp_pct']-rslA['Vp_pct']))
-
-    print('Error:',error)
-    print('Time A: ',rslAt,'Time B:', rslBt)
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-
-    plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rslA['Cns_pct'],pltShow=False,ax=ax)
-    plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rslB['Cns_pct'],pltShow=False,ax=ax,lineStyle='--')
-    plt.show()
-
-    # plt.plot(rslA['Vp_pct']);
-    # plt.plot(rslB['Vp_pct']);
-    # plt.show()
-
-
-    # print(qwe['runTime'])
-    # print(qwe['runTimeClk'])
-
-
-
+    for j in range( len(stdLim) ):
+        k=0
+        
+        for k in range( len(CorLim) ):
+            LM.runLinHc(pdf)
+            rslA = LM.linHcRsl
+            rslAt = rslA['runTime']
+            
+            Mu,Sgm = pdf.getMuStd(LM,0)
+            LM.busViolationVar(Sgm)
+            LM.makeCorrModel(stdLim=stdLim[j],corrLim=[CorLim[k]])
+            LM.runLinHc(pdf,model='cor')
+            rslB = LM.linHcRsl
+            
+            Errors[i,j,k] = np.mean(np.abs(rslB['Vp_pct']-rslA['Vp_pct']))
+            Times[i,j,k] = LM.linHcRsl['runTime']
+            Sizes[i,j,k] = len(LM.NSetCor[0])/len(LM.varKfullU)*100
+            k+=1
+            
+            plt.plot(rslA['Vp_pct'])
+            plt.plot(rslB['Vp_pct'])
+            plt.show()
+        j+=1    
+    i+=1
+    
 
 
 # # ==================== Attempting to use olkin and pratt. does not seem to work well at all. VVVVVVV
