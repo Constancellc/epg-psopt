@@ -27,10 +27,10 @@ test_model = False
 test_model_bus = True
 test_model_bus = False
 saveModel = True
-# saveModel = False
+saveModel = False
 saveCc = True
 saveCc = False
-calcReg=1
+# calcReg=1
 
 # test_cap_model=1
 
@@ -40,7 +40,7 @@ setCapsModel = 'linPoint'
 # fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14]
 fdr_i_set = [6,8,17,18,19,20,21]
-fdr_i_set = [20]
+fdr_i_set = [22]
 # fdr_i_set = [19]
 # fdr_i_set = [6,8,18,19]
 for fdr_i in fdr_i_set:
@@ -103,7 +103,7 @@ for fdr_i in fdr_i_set:
         
         # Ybus, YNodeOrder = create_tapped_ybus( DSSObj,fn_y,fn_ckt,TC_No0 ) # for LV networks
         Ybus, YNodeOrder = create_tapped_ybus_very_slow( DSSObj,fn_y,TC_No0 )
-        
+        print('Ybus shape:',Ybus.shape)
         # print('Calculate condition no.:\n',time.process_time()) # for debugging
         # cndY = np.linalg.cond(Ybus.toarray())
         # print(np.log10(cndY))
@@ -176,15 +176,23 @@ for fdr_i in fdr_i_set:
 
         if len(H)==0:
             print('Create linear models My:\n',time.process_time())
+            t = time.time()
             My,a = nrel_linearization_My( Ybus,Vh,V0 )
+            print('Time M:',time.time()-t)
             print('Create linear models Ky:\n',time.process_time())
+            t = time.time()
             Ky,b = nrel_linearization_Ky(My,Vh,sY)
+            print('Time K:',time.time()-t)
             Vh0 = My.dot(xhy0) + a # for validation
         else:
             print('Create linear models M:\n',time.process_time())
+            t = time.time()
             My,Md,a = nrel_linearization( Ybus,Vh,V0,H )
+            print('Time M:',time.time()-t)
             print('Create linear models K:\n',time.process_time())
+            t = time.time()
             Ky,Kd,b = nrel_linearization_K(My,Md,Vh,sY,sD)
+            print('Time K:',time.time()-t)
             Vh0 = My.dot(xhy0) + Md.dot(xhd0) + a # for validation
         
         print('\nYNodeOrder Check - matching:',YZ0==YNodeOrder)

@@ -12,19 +12,20 @@ SD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 
 pltShow = 1
-pltSave = 1
+# pltSave = 1
 # pltCc = 1
-f_nStdBefore = 1
-f_nStdAfter = 1
+# f_nStdBefore = 1
+# f_nStdAfter = 1
 # f_nStdVreg = 1
 # f_nStdVregVal = 1
 # f_corVars = 1
 
-# f_nStdVreg_M1 = 1
+# calculating setpoints for linHcCalcs:
 # f_nStdVreg_8500 = 1
-# f_nStdVreg_epriM1 = 1
+f_nStdVreg_epriM1 = 1
 # f_nStdVreg_epri24 = 1
 # f_nStdVreg_epriJ1 = 1
+# f_nStdVreg_epriK1 = 1
 
 figsze0 = (5.2,3.0)
 figsze1 = (5.2,2.7)
@@ -115,17 +116,17 @@ if 'f_corVars' in locals():
     corrLogAbs = corrLogAbs[varSortN][:,varSortN]
 
     fig,(ax1,ax0) = plt.subplots(figsize=(5.9,3.8),nrows=1,ncols=2, gridspec_kw = {'width_ratios':[1,1.8]})
-    ax0.spy(corrLogAbs<-2.0,color=cm.viridis(0.),markersize=1,marker='.',zorder=4) # 90%
-    ax0.spy(corrLogAbs<-1.7,color=cm.viridis(0.3),markersize=1,marker='.',zorder=3) # 95%
-    ax0.spy(corrLogAbs<-1.3,color=cm.viridis(0.6),markersize=1,marker='.',zorder=2) # 98%
-    ax0.spy(corrLogAbs<-1.0,color=cm.viridis(0.9),markersize=1,marker='.',zorder=1) # 99%
+    ax0.spy(corrLogAbs<-2.0,color=cm.Blues(0.9),markersize=1,marker='.',zorder=4,label='> 99%') # 99%
+    ax0.spy(corrLogAbs<-1.7,color=cm.Blues(0.7),markersize=1,marker='.',zorder=3,label='> 98%') # 98%
+    ax0.spy(corrLogAbs<-1.3,color=cm.Blues(0.5),markersize=1,marker='.',zorder=2,label='> 95%') # 95%
+    ax0.spy(corrLogAbs<-1.0,color=cm.Blues(0.3),markersize=1,marker='.',zorder=1,label='> 90%') # 90%
 
-    ax0.plot(0,0,'o',color=cm.viridis(0.9),label='> 90%')
-    ax0.plot(0,0,'o',color=cm.viridis(0.6),label='> 95%')
-    ax0.plot(0,0,'o',color=cm.viridis(0.3),label='> 98%')
-    ax0.plot(0,0,'o',color=cm.viridis(0.0),label='> 99%')
+    # ax0.plot(0,0,'o',color=cm.Blues(0.45))
+    # ax0.plot(0,0,'o',color=cm.Blues(0.6),label='> 98%')
+    # ax0.plot(0,0,'o',color=cm.Blues(0.75),label='> 95%')
+    # ax0.plot(0,0,'o',color=cm.Blues(0.9),label='> 90%')
 
-    legend = ax0.legend(loc='upper right',borderpad=0.55,fontsize='small',handletextpad=0.28)
+    legend = ax0.legend(loc='upper right',borderpad=0.55,fontsize='small',handletextpad=0.28,markerscale=10)
     ax0.set_xticks(ticks=[len(corrLogAbs)//4,len(corrLogAbs)//2,3*len(corrLogAbs)//4])
     ax0.set_yticks(ticks=[len(corrLogAbs)//4,len(corrLogAbs)//2,3*len(corrLogAbs)//4])
     ax0.set_xticklabels([])
@@ -260,33 +261,34 @@ if 'f_nStdVregVal' in locals():
     if 'pltShow' in locals():
         plt.show()
 
+# ============================ Finding regulator settings for linHcCalcs, 8500 node
+if 'f_nStdVreg_8500' in locals():
+    fdr_i = 9
+    pdfName = 'gammaFrac'
+    LM = linModel(fdr_i,WD,QgenPf=-0.95)
+    pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
+    Mu, Sgm = pdf.getMuStd(LM=LM,prmI=30) # in W. <---- UPDATED parameter here to 100% point
 
-# # ==========================================
-
-# # ============================ FIGURE 6: plotting our nice error AGAIN for the 8500 node network
-# if 'f_nStdVreg_8500' in locals():
-    # fdr_i = 9
-    # LM = linModel(fdr_i,WD,QgenPf=-0.95)
-    # pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
-    # Mu, Sgm = pdf.getMuStd(LM=LM,prmI=15) # in W. <---- UPDATED parameter here to 100% point
-
-    # LM.busViolationVar(Sgm,Mu=Mu,calcSrsVals=True)
-    # # LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno,pltShow=True)
-    # aFro = 1e-6
+    LM.busViolationVar(Sgm,Mu=Mu,calcSrsVals=True)
+    # LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno,pltShow=True)
+    aFro = 1e-2
     
-    # nOpts = 3
-    # t = time.time()
-    # opts = np.linspace(0.99,1.00,nOpts)
-    # N0 = np.zeros((len(LM.regVreg0),len(opts)))
-    # LM.updateDcpleModel(LM.regVreg0)
-    # LM.busViolationVar(Sgm,Mu=Mu,calcSrsVals=True)
-    # optMult0 = np.ones((len(LM.regVreg0)))
-    # optMult0[0] = 0.993*0.9975*0.9975
-    # optMult0[1] = 0.995
-    # optMult0[2] = 0.995*0.995
-    # optMult0[4] = 0.995
-    # optMult0[9] = 0.995*0.9975
-    # optMult0[10] = 0.995*0.9975
+    nOpts = 5
+    t = time.time()
+    opts = np.linspace(0.99,1.01,nOpts)
+    N0 = np.zeros((len(LM.regVreg0),len(opts)))
+    LM.updateDcpleModel(LM.regVreg0)
+    LM.busViolationVar(Sgm,Mu=Mu,calcSrsVals=True)
+    optMult0 = np.ones((len(LM.regVreg0)))
+    optMult0[0] = 0.995**3
+    optMult0[1] = 0.995
+    optMult0[2] = 0.995**2
+    optMult0[3] = 0.995**2
+    optMult0[4] = 0.995
+    optMult0[6] = 0.995
+    optMult0[9] = 0.995**3.0
+    optMult0[10] = 0.995**3.0
+    optMult0[11] = 0.995
     # for i in range(len(LM.regVreg0)):
         # optMult = optMult0.copy()
         # j=0
@@ -298,105 +300,152 @@ if 'f_nStdVregVal' in locals():
             # j+=1
         # print(time.time()-t)
     # print(np.diff(N0)[:,1])
-    # plt.figure(figsize=figsze0)
+    # fig,ax = plt.subplots()
+    # ax.set_prop_cycle(color=cm.tab20(np.arange(20)))
     # plt.plot(np.outer(opts,[1]*len(N0)),N0.T,'.-')
     # plt.xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
 
     # plt.ylabel('Preconditioning metric, $\lambda$')
     # plt.legend(('0','1','2','3','4','5','6','7','8','9','10','11'),title='PF (lagging)');
-    # # plt.xlim(xlims); 
-    # plt.ylim((-4,4))
-    # # plt.xticks(xTickMatch,xTickMatchStr)
-    # # plt.grid(True); 
-    # plt.tight_layout()
-
-    # if 'pltSave' in locals():
-        # plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0)
-        # plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
-    # if 'pltShow' in locals():
-        # plt.show()
-
-    # LM.updateDcpleModel(LM.regVreg0*optMult0)
-    # t = time.time()
-    # LM.runLinHc(pdf)
-    # print(time.time()-t)
-    # qwe = LM.linHcRsl
-    # LM.updateDcpleModel(LM.regVreg0)
-    # qwe2 = LM.runLinHc(pdf)
-    # qwe2 = LM.linHcRsl
-
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111)
-    # ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],qwe['Cns_pct'],ax=ax,pltShow=False)
-    # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],qwe2['Cns_pct'],ax=ax,pltShow=False,lineStyle='--')
-    # plt.show()
-
-    # LM.busViolationVar(Sgm,Mu=Mu,calcSrsVals=True)
-    # LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno,pltShow=True)
-
-# # ============================ FIGURE 6: plotting our nice error AGAIN for the 8500 node network
-# if 'f_nStdVreg_epriM1' in locals():
-    # fdr_i = 21
-    # pdfName = 'gammaFrac'
-    # LM = linModel(fdr_i,WD,QgenPf=-0.95)
-    # pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
-    # Mu, Sgm = pdf.getMuStd(LM=LM,prmI=15) # in W. <---- UPDATED parameter here to 100% point
-
-    # # LM.busViolationVar(Sgm,Mu=Mu,calcSrsVals=True)
-    # aFro = 1e-6
+    # # plt.ylim((-4,4))
+    # plt.tight_layout(); plt.show()
     
-    # nOpts = 30
-    # t = time.time()
-    # opts = np.linspace(0.95,1.00,nOpts)
-    # N0 = np.zeros((len(LM.regVreg0),len(opts)))
-    # LM.updateDcpleModel(LM.regVreg0)
+    LM.updateDcpleModel(LM.regVreg0*optMult0)
+    LM.runLinHc(pdf)
+    qwe = LM.linHcRsl
+    
+    LM = linModel(fdr_i,WD,QgenPf=1.00)
+    LM.runLinHc(pdf)
+    qwe2 = LM.linHcRsl
+
+    fig,ax = plt.subplots()
+    ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],qwe['Cns_pct'],ax=ax,pltShow=False)
+    plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],qwe2['Cns_pct'],ax=ax,pltShow=False,lineStyle='--')
+    plt.show()
+
+# ============================ TWEAKING regulator settings for EPRI M1
+if 'f_nStdVreg_epriM1' in locals():
+    fdr_i = 21
+    pdfName = 'gammaFrac'
+    LM = linModel(fdr_i,WD,QgenPf=-0.95)
+    pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
+    Mu, Sgm = pdf.getMuStd(LM=LM,prmI=15) # in W. <---- UPDATED parameter here to 100% point
+
     # LM.busViolationVar(Sgm,Mu=Mu,calcSrsVals=True)
-    # optMult0 = np.ones((len(LM.regVreg0)))
-    # for i in range(len(LM.regVreg0)):
-        # optMult = optMult0.copy()
-        # j=0
-        # for opt in opts:
-            # optMult[i] = opt*optMult0[i]
-            # LM.updateDcpleModel(LM.regVreg0*optMult)
-            # Kfro,Knstd = LM.updateNormCalc(Mu=Mu,inclSmallMu=True)
-            # N0[i,j] = Knstd - aFro*Kfro
-            # j+=1
-    # print(N0)
-    # print(np.diff(N0))
-    # plt.figure(figsize=figsze0)
-    # plt.plot(np.outer(opts,[1]*len(N0)),N0.T,'.-')
-    # plt.xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
+    aFro = 1e-6
+    
+    nOpts = 30
+    t = time.time()
+    opts = np.linspace(0.95,1.00,nOpts)
+    N0 = np.zeros((len(LM.regVreg0),len(opts)))
+    LM.updateDcpleModel(LM.regVreg0)
+    LM.busViolationVar(Sgm,Mu=Mu,calcSrsVals=True)
+    optMult0 = np.ones((len(LM.regVreg0)))
+    for i in range(len(LM.regVreg0)):
+        optMult = optMult0.copy()
+        j=0
+        for opt in opts:
+            optMult[i] = opt*optMult0[i]
+            LM.updateDcpleModel(LM.regVreg0*optMult)
+            Kfro,Knstd = LM.updateNormCalc(Mu=Mu,inclSmallMu=True)
+            N0[i,j] = Knstd - aFro*Kfro
+            j+=1
+    print(N0)
+    print(np.diff(N0))
+    plt.figure(figsize=figsze0)
+    plt.plot(np.outer(opts,[1]*len(N0)),N0.T,'.-')
+    plt.xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
 
-    # plt.ylabel('Preconditioning metric, $\lambda$')
-    # plt.legend(('0','1','2','3','4','5','6','7','8','9','10','11'),title='PF (lagging)');
-    # plt.ylim((-8,8))
-    # plt.tight_layout()
-    # plt.show()
+    plt.ylabel('Preconditioning metric, $\lambda$')
+    plt.legend(('0','1','2','3','4','5','6','7','8','9','10','11'),title='PF (lagging)');
+    plt.ylim((-8,8))
+    plt.tight_layout()
+    plt.show()
 
-    # chosenOpt = 0.984
-    # LM.updateDcpleModel(LM.regVreg0*chosenOpt)
-    # LM.runLinHc(pdf)
-    # qwe = LM.linHcRsl
+    chosenOpt = 0.980
+    LM.updateDcpleModel(LM.regVreg0*chosenOpt)
+    LM.runLinHc(pdf)
+    qwe = LM.linHcRsl
 
     # LM.QgenPf = 1.0
     # LM.loadNetModel(LM.netModelNom)
     # LM.updateFxdModel()
     # LM.updateDcpleModel(LM.regVreg0)
-    # qwe2 = LM.runLinHc(pdf)
-    # qwe2 = LM.linHcRsl
+    LM = linModel(fdr_i,WD,QgenPf=1.00)
+    LM.runLinHc(pdf)
+    qwe2 = LM.linHcRsl
 
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111)
-    # ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],qwe['Cns_pct'],ax=ax,pltShow=False)
-    # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],qwe2['Cns_pct'],ax=ax,pltShow=False,lineStyle='--')
-    # plt.show()
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],qwe['Cns_pct'],ax=ax,pltShow=False)
+    plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],qwe2['Cns_pct'],ax=ax,pltShow=False,lineStyle='--')
+    plt.show()
+    
+    
+# ============================ TWEAKING regulator settings for EPRI M1
+if 'f_nStdVreg_epriK1' in locals():
+    fdr_i = 20
+    pdfName = 'gammaFrac'
+    LM = linModel(fdr_i,WD,QgenPf=-0.95)
+    pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
+    Mu, Sgm = pdf.getMuStd(LM=LM,prmI=15) # in W. <---- UPDATED parameter here to 100% point
+
+    # LM.busViolationVar(Sgm,Mu=Mu,calcSrsVals=True)
+    aFro = 1e-6
+    
+    nOpts = 30
+    t = time.time()
+    opts = np.linspace(0.95,1.02,nOpts)
+    N0 = np.zeros((len(LM.regVreg0),len(opts)))
+    LM.updateDcpleModel(LM.regVreg0)
+    LM.busViolationVar(Sgm,Mu=Mu,calcSrsVals=True)
+    optMult0 = np.ones((len(LM.regVreg0)))
+    for i in range(len(LM.regVreg0)):
+        optMult = optMult0.copy()
+        j=0
+        for opt in opts:
+            optMult[i] = opt*optMult0[i]
+            LM.updateDcpleModel(LM.regVreg0*optMult)
+            Kfro,Knstd = LM.updateNormCalc(Mu=Mu,inclSmallMu=True)
+            N0[i,j] = Knstd - aFro*Kfro
+            j+=1
+    print(N0)
+    print(np.diff(N0))
+    plt.figure(figsize=figsze0)
+    plt.plot(np.outer(opts,[1]*len(N0)),N0.T,'.-')
+    plt.xlabel('Regulator setpoint, $V_{\mathrm{reg}}$ (pu)')
+
+    plt.ylabel('Preconditioning metric, $\lambda$')
+    plt.legend(('0','1','2','3','4','5','6','7','8','9','10','11'),title='PF (lagging)');
+    plt.ylim((-8,8))
+    plt.tight_layout()
+    plt.show()
+
+    chosenOpt = 0.984
+    LM.updateDcpleModel(LM.regVreg0*chosenOpt)
+    LM.runLinHc(pdf)
+    qwe = LM.linHcRsl
+
+    LM.QgenPf = 1.0
+    LM.loadNetModel(LM.netModelNom)
+    LM.updateFxdModel()
+    LM.updateDcpleModel(LM.regVreg0)
+    LM.runLinHc(pdf)
+    qwe2 = LM.linHcRsl
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],qwe['Cns_pct'],ax=ax,pltShow=False)
+    plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],qwe2['Cns_pct'],ax=ax,pltShow=False,lineStyle='--')
+    plt.show()
 
 
 # ============================ FIGURE 6: plotting our nice error AGAIN for the 8500 node network
 if 'f_nStdVreg_epri24' in locals():
     fdr_i = 22
     pdfName = 'gammaFrac'
-    LM = linModel(fdr_i,WD,QgenPf=-0.98)
+    # LM = linModel(fdr_i,WD,QgenPf=-0.98)
+    LM = linModel(fdr_i,WD,QgenPf=-0.95)
     pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
     Mu, Sgm = pdf.getMuStd(LM=LM,prmI=15) # in W. <---- UPDATED parameter here to 100% point
 
@@ -431,7 +480,7 @@ if 'f_nStdVreg_epri24' in locals():
 
     plt.show()
 
-    chosenOpt = 0.98
+    chosenOpt = 0.981
     LM.updateDcpleModel(LM.regVreg0*chosenOpt)
     LM.runLinHc(pdf)
     qwe = LM.linHcRsl
@@ -454,22 +503,24 @@ if 'f_nStdVreg_epri24' in locals():
 if 'f_nStdVreg_epriJ1' in locals():
     fdr_i = 19
     pdfName = 'gammaFrac'
-    LM = linModel(fdr_i,WD,QgenPf=-0.98)
+    # LM = linModel(fdr_i,WD,QgenPf=-0.98)
+    LM = linModel(fdr_i,WD,QgenPf=-0.95)
     pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
-    Mu, Sgm = pdf.getMuStd(LM=LM,prmI=15) # in W. <---- UPDATED parameter here to 100% point
+    Mu, Sgm = pdf.getMuStd(LM=LM,prmI=40) # in W. <---- UPDATED parameter here to 100% point
 
     # LM.busViolationVar(Sgm,Mu=Mu,calcSrsVals=True)
     aFro = 1e-6
     
-    nOpts = 2
+    # nOpts = 2
+    nOpts = 3
     t = time.time()
-    opts = np.linspace(0.98,1.01,nOpts)
+    opts = np.linspace(0.995,1.005,nOpts)
     N0 = np.zeros((len(LM.regVreg0),len(opts)))
     LM.updateDcpleModel(LM.regVreg0)
     LM.busViolationVar(Sgm,Mu=Mu,calcSrsVals=True)
     optMult0 = np.ones((len(LM.regVreg0)))
     optMult0[0] = 0.995**5
-    optMult0[1] = 0.995**3
+    optMult0[1] = 0.995**4
     optMult0[3] = 0.995
     optMult0[4] = 0.995**2
     optMult0[5] = 0.995**4
@@ -494,17 +545,18 @@ if 'f_nStdVreg_epriJ1' in locals():
     plt.legend(('0','1','2','3','4','5','6','7','8','9','10','11'),title='PF (lagging)');
     # plt.ylim((-8,8))
     plt.tight_layout()
-
     plt.show()
 
+    LM = linModel(fdr_i,WD,QgenPf=-0.98)
     LM.updateDcpleModel(LM.regVreg0*optMult0)
     LM.runLinHc(pdf)
     rsltAft = LM.linHcRsl
 
-    LM.QgenPf = 1.0
-    LM.loadNetModel(LM.netModelNom)
-    LM.updateFxdModel()
-    LM.updateDcpleModel(LM.regVreg0)
+    LM = linModel(fdr_i,WD,QgenPf=1.00)
+    # LM.QgenPf = 1.0 # NB: these do not seem to be doing well ATM !!!!
+    # LM.loadNetModel(LM.netModelNom)
+    # LM.updateFxdModel()
+    # LM.updateDcpleModel(LM.regVreg0)
     LM.runLinHc(pdf)
     rsltBef = LM.linHcRsl
 

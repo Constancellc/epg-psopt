@@ -19,11 +19,12 @@ feedersTidy = {'34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ
 feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
 
 # t_timeTable = 1 # timeTable
-t_rsltSvty = 1 # sensitivity table
+# t_rsltSvty = 1 # sensitivity table
 # f_dssVlinWght = 1 # gammaFrac boxplot results
+# f_mcLinUpg = 1
 # f_linMcSns = 1
-# f_plotCns = 1 # <--- also useful for debugging.
-# f_plotCns_paramUpdate = 1
+f_plotCns = 1 # <--- also useful for debugging.
+f_plotCns_paramUpdate = 1
 
 pltSave=True
 # pltShow=True
@@ -35,16 +36,19 @@ figSze3 = (5.2,2.2)
 TD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\tables\\"
 FD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
-rsltsFrac = {}; rsltsSns = {}
+rsltsFrac = {}; rsltsSns = {}; rsltsUpg = {}
 for feeder in feeders:
     RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_finale.pkl')
     with open(RD,'rb') as handle:
         rsltsFrac[feeder] = pickle.load(handle)
-
 for feeder in feeders_dcp:
     RDsns = os.path.join(WD,feeder,'linHcCalcsSns_gammaFrac_new.pkl')
+    RDupg = os.path.join(WD,feeder,'linHcCalcsUpg.pkl')
     with open(RDsns,'rb') as handle:
         rsltsSns[feeder] = pickle.load(handle)
+    with open(RDupg,'rb') as handle:
+        rsltsUpg[feeder] = pickle.load(handle)
+    
 
 kCdfLin = [];    kCdfDss = []; 
 LmeanNorm = []; feederTidySet = []
@@ -83,14 +87,17 @@ for rslt in rsltsSns.values():
     
     LsnsNorm.append(rslt['regMaes'])
     feederSnsSmart.append(feedersTidy[rslt['feeder']])
-KcdkLin = []; KcdkSeq = []; KcdkPar = []; # kCdfLin = []
-timeSeq = [];timePar = [];
+i=0
+linHcRsl = rslt['linHcRsl'] # for debugging
+
+kCdfUpgBef = []; kCdfUpgAft = []
+for rslt in rsltsUpg.values():
+    kCdfUpgBef.append(rslt['linHcRslBef']['kCdf'][[0,1,5,10,15,19,20]])
+    kCdfUpgAft.append(rslt['linHcRslAft']['kCdf'][[0,1,5,10,15,19,20]])
 
 print('Sensitivity errors:')
 print(*LsnsNorm,sep='\n')
 
-i=0
-linHcRsl = rslt['linHcRsl']
 
 # TABLE 1 - timings + MAE ======================= 
 if 't_timeTable' in locals():
@@ -173,6 +180,28 @@ if 'f_linMcSns' in locals():
     if 'pltShow' in locals():
         plt.show()
 
+if 'f_mcLinUpg' in locals():
+    fig, ax = plt.subplots(figsize=figSze1)
+    i=0
+    for x in Xsns:
+        ax = plotBoxWhisk(ax,x+dx,ddx,kCdfUpgBef[i][1:-1],clrA,bds=kCdfUpgBef[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x-dx,ddx,kCdfUpgAft[i][1:-1],clrE,bds=kCdfUpgAft[i][[0,-1]],transpose=True)
+        i+=1
+    ax.plot(0,0,'-',color=clrA,label='Before')
+    ax.plot(0,0,'-',color=clrE,label='After')
+    plt.xlim((-3,103))
+    plt.ylim((0.4,5.6))
+    plt.legend()
+    plt.grid(True)
+    plt.yticks(Xsns,feederSnsSmart)
+    plt.xlabel('Loads with PV installed, %')
+    plt.tight_layout()
+    if 'pltSave' in locals():
+        plt.savefig(FD+'mcLinUpg.png',pad_inches=0.02,bbox_inches='tight')
+        plt.savefig(FD+'mcLinUpg.pdf',pad_inches=0.02,bbox_inches='tight')
+    if 'pltShow' in locals():
+        plt.show()
+
 # RESULTS 7 - OpenDSS vs Linear pltCons
 if 'f_plotCns' in locals():
     feederPlot='8500node'
@@ -207,7 +236,7 @@ if 'f_plotCns' in locals():
     ax1.plot(x_vals,linRsl['Vp_pct'])
     ax1.plot(x_vals,dssRsl['Vp_pct'],'--')
     
-    ax1.legend(['Linear, $\hat{f}$','OpenDSS, $f$'],loc='center left', bbox_to_anchor=(1, 0.5),fontsize='small',title='Model')
+    ax1.legend(['Linear, $\hat{f}$','OpenDSS, $f$'],loc='center left', bbox_to_anchor=(1.01, 0.5),fontsize='small',title='Model')
     
     ax1.set_ylabel('Constraint violations, %');
     ax1.set_xlim((0,100))
@@ -245,8 +274,8 @@ if 'f_plotCns_paramUpdate' in locals():
     ax1.legend(['$V^{+}_{\mathrm{LV}}$, Hi $S_{\mathrm{Load}}$','$V^{+}_{\mathrm{MV}}$, Lo $S_{\mathrm{Load}}$','$V^{+}_{\mathrm{LV}}$, Lo $S_{\mathrm{Load}}$','$\Delta V$'],loc='center left', bbox_to_anchor=(1, 0.5),fontsize='small',title='Constraint Type')
     
     
-    ax1.annotate('Before',xytext=(10,80),xy=(19,54),arrowprops={'arrowstyle':'->','linewidth':1.0})
-    ax1.annotate('After',xytext=(50,50),xy=(65,24),arrowprops={'arrowstyle':'->','linewidth':1.0})
+    ax1.annotate('Before',xytext=(8,80),xy=(19,54),arrowprops={'arrowstyle':'->','linewidth':1.0})
+    ax1.annotate('After',xytext=(53,50),xy=(62,24),arrowprops={'arrowstyle':'->','linewidth':1.0})
     
     ax1.set_ylabel('Constraint violations, %');
     ax1.set_xlabel('Fraction of loads with PV, %');
@@ -257,10 +286,10 @@ if 'f_plotCns_paramUpdate' in locals():
     ax0.plot(x_vals,rsltBef['Vp_pct'],'-')
     ax0.plot(x_vals,rsltAft['Vp_pct'],'-.')
     
-    ax0.legend(['Before','After'],loc='center left', bbox_to_anchor=(1, 0.5),fontsize='small',title='Model')
+    ax0.legend(['Before','After'],loc='center left', bbox_to_anchor=(1.04, 0.5),fontsize='small',title='Model')
     
     ax0.set_ylabel('Constraint violations, %');
-    ax0.set_xlabel('Fraction of loads with PV, %');
+    # ax0.set_xlabel('Fraction of loads with PV, %');
     ax0.set_xlim((0,100))
     ax0.set_ylim((-3,103))
     ax0.grid(True)

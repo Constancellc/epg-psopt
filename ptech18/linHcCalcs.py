@@ -28,8 +28,8 @@ mcLinSns = False
 mcDssOn = True
 mcDssOn = False
 # mcDssBw = 1
-# mcDssPar = 1
-mcFullSet = 1
+# mcFullSet = 1
+mcLinUpg = 1
 
 # # PLOTTING options:
 # pltHcVltn = 1
@@ -50,7 +50,8 @@ setCapsOpt = 'linModel' # opendss options. 'linModels' is the 'right' option, cf
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14,17,18,20,21]
 fdr_i_set = [6,8,9,17,18,19,20,21,22]
-fdr_i_set = [9,22] # less 6,8, 17,18,20,21, || 9, 22
+# fdr_i_set = [9,19,20,21,22]
+fdr_i_set = [21] # less 6,8, 17,18,20,21, || 9, 22
 
 # fdr_i_set = [5,6,8] # fast
 # fdr_i_set = [0,14,17,18] # medium length 1
@@ -69,6 +70,11 @@ pdfName = 'gammaFrac'; prms=np.array([])
 # pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05) # to make it faster
 
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
+
+optMultJ1 = 0.995**np.array([5,4,0,1,2,4,0,5.5,4])
+optMult8500 = 0.995**np.array([3,1,2,2,1,0,1,0,0,3,3,1])
+upgReg = {'8500node':optMult8500,'epri24':0.981,'epriJ1':optMultJ1,'epriK1':0.984,'epriM1':0.980} #NB epri M1 is slightly lower than the actual optimal lambda of 0.984
+
 
 # opendss with 'early bindings'
 WD = os.path.dirname(sys.argv[0])
@@ -100,6 +106,9 @@ for fdr_i in fdr_i_set:
     if mcLinSns:
         LMsns = linModel(fdr_i,WD,setCapsModel=setCapsOpt)
         
+    if 'mcLinUpg' in locals():
+        LMupg = linModel(fdr_i,WD,QgenPf=-0.95)
+        LMupg.updateDcpleModel(LMupg.regVreg0*upgReg[feeder])
     
     # ADMIN =============================================
     SD = os.path.join(WD,'hcResults',feeder)
@@ -165,9 +174,6 @@ for fdr_i in fdr_i_set:
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
         
-        
-        
-        
     if mcLinOn or mcLinSns or mcDssOn:
         LM.runLinHc(pdf) # equivalent at the moment
         
@@ -226,6 +232,18 @@ for fdr_i in fdr_i_set:
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
         
+    if 'mcLinUpg' in locals():
+        LM.runLinHc(pdf)
+        linHcRslBef = LM.linHcRsl
+        
+        LMupg.runLinHc(pdf)
+        linHcRslAft = LMupg.linHcRsl
+        
+        rslt = {'linHcRslBef':linHcRslBef,'linHcRslAft':linHcRslAft,'pdfData':pdf.pdf,'feeder':feeder,'mae':LM.calcLinPdfError(linHcRslBef),'rge':LM.calcLinPdfError(linHcRslBef,type='reg')}
+        if pltSave:
+            SN = os.path.join(SD,'linHcCalcsUpg.pkl')
+            with open(SN,'wb') as file:
+                pickle.dump(rslt,file)
         
 
     
