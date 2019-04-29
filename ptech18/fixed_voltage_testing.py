@@ -79,11 +79,11 @@ for fdr_i in fdr_i_set:
 
     # 1. Load files' find nominal voltages, node orders, linear model
     DSSText.Command='Compile ('+fn+'.dss)'
-    BB00,SS00 = cpf_get_loads(DSSCircuit)
+    BB0,SS0 = cpf_get_loads(DSSCircuit)
     nRegs = DSSCircuit.RegControls.Count # NB is not necessarily the same as the number of transformers (e.g. 123 bus)
     # DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
     if lp_taps=='Lpt':
-        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCapsModel,capPos=capPosLin)
+        cpf_set_loads(DSSCircuit,BB0,SS0,lin_point,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
     YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 
@@ -156,7 +156,7 @@ for fdr_i in fdr_i_set:
         print('--- Start Testing, 1/2 --- \n',time.process_time())
         for i in range(len(k)):
             print(i,'/',len(k)-1)
-            cpf_set_loads(DSSCircuit,BB00,SS00,k[i],setCaps=setCapsModel,capPos=capPosLin)
+            cpf_set_loads(DSSCircuit,BB0,SS0,k[i],setCaps=setCapsModel,capPos=capPosLin)
             DSSSolution.Solve()
             Convrg.append(DSSSolution.Converged)
             TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
@@ -186,7 +186,7 @@ for fdr_i in fdr_i_set:
         DSSText.Command='set controlmode=static'
         for i in range(len(k)):
             print(i,'/',len(k)-1)
-            cpf_set_loads(DSSCircuit,BB00,SS00,k[i],setCaps=setCapsModel,capPos=capPosLin)
+            cpf_set_loads(DSSCircuit,BB0,SS0,k[i],setCaps=setCapsModel,capPos=capPosLin)
             DSSSolution.Solve()
             Convrg.append(DSSSolution.Converged)
             TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
@@ -220,12 +220,12 @@ for fdr_i in fdr_i_set:
         # vva_0_cap = np.zeros((len(k),len(v_idx)))
         # vva_l_cap = np.zeros((len(k),len(v_idx)))
         # print('Start cap model validation\n',time.process_time())
-        # # cpf_set_loads(DSSCircuit,BB00,SS00,1/lin_point,setCaps=True)
-        # cpf_set_loads(DSSCircuit,BB00,SS00,1,setCaps=True)
+        # # cpf_set_loads(DSSCircuit,BB0,SS0,1/lin_point,setCaps=True)
+        # cpf_set_loads(DSSCircuit,BB0,SS0,1,setCaps=True)
         # for i in range(len(k)):
             # print(i,'/',len(k))
-            # # cpf_set_loads(DSSCircuit,BB00,SS00,k[i]/lin_point,setCaps=False)
-            # cpf_set_loads(DSSCircuit,BB00,SS00,k[i],setCaps=setCapsModel,capPos=capPosLin)
+            # # cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point,setCaps=False)
+            # cpf_set_loads(DSSCircuit,BB0,SS0,k[i],setCaps=setCapsModel,capPos=capPosLin)
             # DSSSolution.Solve()
             # vva_0_cap[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray))[3:][v_idx]
             # sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)

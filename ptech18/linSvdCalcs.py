@@ -498,7 +498,7 @@ class linModel:
         self.linHcRsl['kCdf'] = 100*getKcdf(param,Vp_pct)[0]
         self.linHcRsl['kCdf'][np.isnan(self.linHcRsl['kCdf'])] = 100.0000011111
     
-    def runDssHc(self,pdf,DSSObj,genNames,BB00,SS00,regBand=0,setCapsModel='linModel',runType='par'):
+    def runDssHc(self,pdf,DSSObj,genNames,BB0,SS0,regBand=0,setCapsModel='linModel',runType='par'):
         DSSText = DSSObj.Text
         DSSCircuit = DSSObj.ActiveCircuit
         DSSSolution = DSSCircuit.Solution
@@ -562,7 +562,7 @@ class linModel:
                 vHsDss0 = np.zeros((nMc,nYVV),dtype=complex)
                 vDv0 = np.zeros((nMc,nYVV),dtype=complex)
                 
-                cpf_set_loads(DSSCircuit,BB00,SS00,1.0,setCaps=True) # <--- reset any previous settings
+                cpf_set_loads(DSSCircuit,BB0,SS0,1.0,setCaps=True) # <--- reset any previous settings
                 if runType=='seq': # nominal version
                     for j in range(nMc):
                         if j%(nMc//4)==0:
@@ -570,7 +570,7 @@ class linModel:
                         set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
                         
                         # first solve for the high load point [NB: This order seems best!]
-                        cpf_set_loads(DSSCircuit,BB00,SS00,self.loadPointHi,setCaps=False)
+                        cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointHi,setCaps=False)
                         
                         DSSSolution.Solve()
                         convHi = convHi+[DSSSolution.Converged]
@@ -578,7 +578,7 @@ class linModel:
                         vHsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
                         
                         # then low load point
-                        cpf_set_loads(DSSCircuit,BB00,SS00,self.loadPointLo,setCaps=False)
+                        cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointLo,setCaps=False)
                         
                         DSSSolution.Solve()
                         convLo = convLo+[DSSSolution.Converged]
@@ -604,8 +604,8 @@ class linModel:
                             vDv[j,:] = abs(abs(vLsDss0[j,:]) - abs(vDv0[j,:]))[3:][v_idx]/self.vTotBase
                 if runType=='par':
                     # first solve for the high load point
-                    # cpf_set_loads(DSSCircuit,BB00,SS00,self.loadPointHi,setCaps=setCapsModel,capPos=self.capPosLin)
-                    cpf_set_loads(DSSCircuit,BB00,SS00,self.loadPointHi,setCaps=False) # <--- caps should be at nominal values
+                    # cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointHi,setCaps=setCapsModel,capPos=self.capPosLin)
+                    cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointHi,setCaps=False) # <--- caps should be at nominal values
                     for j in range(nMc):
                         set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
                         DSSSolution.Solve()
@@ -614,8 +614,8 @@ class linModel:
                         vHsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
                         
                     # then low load point
-                    # cpf_set_loads(DSSCircuit,BB00,SS00,self.loadPointLo,setCaps=setCapsModel,capPos=self.capPosLin)
-                    cpf_set_loads(DSSCircuit,BB00,SS00,self.loadPointLo,setCaps=False) # <--- caps should be at nominal values
+                    # cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointLo,setCaps=setCapsModel,capPos=self.capPosLin)
+                    cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointLo,setCaps=False) # <--- caps should be at nominal values
                     DSSSolution.Solve()
                     tapSlns = {}
                     for j in range(nMc):
