@@ -12,12 +12,12 @@
 import pickle, os, sys, win32com.client, time, scipy.stats
 import numpy as np
 from dss_python_funcs import *
-import numpy.random as rnd
 import matplotlib.pyplot as plt
-from math import gamma
 import dss_stats_funcs as dsf
 from linSvdCalcs import hcPdfs, linModel, cnsBdsCalc, plotCns, plotHcVltn, plotPwrCdf, plotHcGen
-from matplotlib import cm
+# from math import gamma
+# import numpy.random as rnd
+# from matplotlib import cm
 
 mcLinOn = True
 mcLinOn = False
@@ -29,7 +29,8 @@ mcDssOn = True
 mcDssOn = False
 # mcDssBw = 1
 # mcFullSet = 1
-mcLinUpg = 1
+# mcLinUpg = 1
+mcLinLds = 1
 
 # # PLOTTING options:
 # pltHcVltn = 1
@@ -41,7 +42,7 @@ mcLinUpg = 1
 nMc = 100 # nominal value of 100
 
 pltSave = True # for saving both plots and results
-# pltSave = False
+pltSave = False
 
 regBand=0 # opendss options
 setCapsOpt = 'linModel' # opendss options. 'linModels' is the 'right' option, cf True/False
@@ -62,8 +63,8 @@ fdr_i_set = [21] # less 6,8, 17,18,20,21, || 9, 22
 # fdr_i_set = [19] # slow 3
 # fdr_i_set = [22,19,20,21,9] # big networks with only decoupled regulator models
 # fdr_i_set = [22,19,9] # big networks with only decoupled regulator models
-# fdr_i_set = [19]
-# fdr_i_set = [22]
+fdr_i_set = [18]
+# fdr_i_set = [6]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'; prms=np.array([]) 
