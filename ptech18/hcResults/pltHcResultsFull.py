@@ -224,7 +224,7 @@ if 'f_plotCns' in locals():
     ax0.plot(x_vals,y_dss,'--')
     ax0.set_xlabel('Fraction of loads with PV, %');
     
-    ax0.legend(['$V^{+}_{\mathrm{LV}}$, Hi $S_{\mathrm{Load}}$','$V^{+}_{\mathrm{MV}}$, Lo $S_{\mathrm{Load}}$','$V^{+}_{\mathrm{LV}}$, Lo $S_{\mathrm{Load}}$','$\Delta V$'],loc='center left', bbox_to_anchor=(1, 0.5),fontsize='small',title='Constraint Type')
+    ax0.legend(['$V_{+}^{\mathrm{LV}}$, Hi $S_{\mathrm{Load}}$','$V_{+}^{\mathrm{MV}}$, Lo $S_{\mathrm{Load}}$','$V_{+}^{\mathrm{LV}}$, Lo $S_{\mathrm{Load}}$','$\Delta V$ (Vlt. Dev.)'],loc='center left', bbox_to_anchor=(1, 0.5),fontsize='small',title='Constraint Type')
 
     ax0.annotate('OpenDSS',xytext=(53,62),xy=(69,38),arrowprops={'arrowstyle':'->','linewidth':1.0})
     ax0.annotate('Linear',xytext=(75,12),xy=(75,40),arrowprops={'arrowstyle':'->','linewidth':1.0})
@@ -271,7 +271,7 @@ if 'f_plotCns_paramUpdate' in locals():
     ax1.plot(x_vals,y_bef,'-')
     ax1.plot(x_vals,y_aft,'-.')
     
-    ax1.legend(['$V^{+}_{\mathrm{LV}}$, Hi $S_{\mathrm{Load}}$','$V^{+}_{\mathrm{MV}}$, Lo $S_{\mathrm{Load}}$','$V^{+}_{\mathrm{LV}}$, Lo $S_{\mathrm{Load}}$','$\Delta V$'],loc='center left', bbox_to_anchor=(1, 0.5),fontsize='small',title='Constraint Type')
+    ax1.legend(['$V_{+}^{\mathrm{LV}}$, Hi $S_{\mathrm{Load}}$','$V_{+}^{\mathrm{MV}}$, Lo $S_{\mathrm{Load}}$','$V_{+}^{\mathrm{LV}}$, Lo $S_{\mathrm{Load}}$','$\Delta V$ (Vlt. Dev.)'],loc='center left', bbox_to_anchor=(1, 0.5),fontsize='small',title='Constraint Type')
     
     
     ax1.annotate('Before',xytext=(8,80),xy=(19,54),arrowprops={'arrowstyle':'->','linewidth':1.0})

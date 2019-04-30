@@ -342,8 +342,8 @@ for fdr_i in fdr_i_set:
         ax.plot(k,veL,'.-',markersize=4)
 
         ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,0.055)), 
-        ax.set_xlabel('Power continuation factor, $\kappa$'), ax.set_ylabel('Error, $||V_{\mathrm{DSS}} - V_{\mathrm{Lin}} ||_{2}$ / $||V_{\mathrm{DSS}}||_{2}$')
-        legend=ax.legend(('Load flow model (locked taps)','Load flow model (unlocked taps)','Network model (unlocked taps)'),fontsize='small',loc='upper right')
+        ax.set_xlabel('Load power continuation factor, $\kappa$'), ax.set_ylabel('Error, $||V_{\mathrm{DSS}} - V_{\mathrm{Lin}} ||_{2}$ / $||V_{\mathrm{DSS}}||_{2}$')
+        legend=ax.legend(('Load flow // locked taps','Load flow // unlocked taps','Network // unlocked taps'),fontsize='small',loc='upper right',title='Linear // non-linear model:')
 
         plt.tight_layout()
         plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.png')

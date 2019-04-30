@@ -223,7 +223,7 @@ for fdr_i in fdr_i_set:
         ax.set_xlim(xlm)
 
         ax.set_ylim([yLow,ylm[1]])
-        ax.set_xlabel('Continuation factor, $\kappa$')
+        ax.set_xlabel('Load power continuation factor, $\kappa$')
         ax.set_ylabel('Voltage (pu)')
         ax.legend(loc='upper right')
 

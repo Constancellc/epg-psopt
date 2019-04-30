@@ -12,17 +12,17 @@ SD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
 
 pltShow = 1
-# pltSave = 1
+pltSave = 1
 # pltCc = 1
 # f_nStdBefore = 1
 # f_nStdAfter = 1
-# f_nStdVreg = 1
+f_nStdVreg = 1
 # f_nStdVregVal = 1
 # f_corVars = 1
 
 # calculating setpoints for linHcCalcs:
 # f_nStdVreg_8500 = 1
-f_nStdVreg_epriM1 = 1
+# f_nStdVreg_epriM1 = 1
 # f_nStdVreg_epri24 = 1
 # f_nStdVreg_epriJ1 = 1
 # f_nStdVreg_epriK1 = 1
@@ -159,20 +159,23 @@ if ('f_nStdVreg' in locals()) or ('f_nStdVregVal' in locals()):
     pdfName = 'gammaFrac'
     LM = linModel(fdr_i,WD,QgenPf=1.0)
     pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
-    Mu, Sgm = pdf.getMuStd(LM=LM,prmI=-1) # in W. <---- UPDATED parameter here to 100% point
+    # Mu, Sgm = pdf.getMuStd(LM=LM,prmI=-1) # in W. <---- UPDATED parameter here to 100% point
+    Mu, Sgm = pdf.getMuStd(LM=LM,prmI=-5) # in W. <---- UPDATED parameter here to 100% point
 
     xTickMatch = np.linspace(0.98,1.04,7)
     xTickMatchStr = ["%.2f" % x for x in xTickMatch]
     xlims = (0.975,1.045)
 
     Q_set = [1.0,-0.995,-0.98]
-    aFro = 1e-6
+    aFro = 1e-5
     
     nOpts = 61
+    
     t = time.time()
     opts = np.linspace(0.955,1.025,nOpts)
     N0 = np.zeros((len(Q_set),len(opts)))
     for i in range(len(Q_set)):
+        # LM = linModel(fdr_i,WD,QgenPf=Q_set[i]) # NB: here, the three lines below DO SEEM to do the right thing and the same as this (!!!)
         LM.QgenPf = Q_set[i]
         LM.loadNetModel(LM.netModelNom)
         LM.updateFxdModel()
@@ -187,7 +190,18 @@ if ('f_nStdVreg' in locals()) or ('f_nStdVregVal' in locals()):
         print(time.time()-t)
 
     fig,ax = plt.subplots(figsize=figsze1)
-    ax.plot(np.outer(opts*LM.regVreg0/(166*120),[1]*len(N0)),N0.T,'.-',markersize=4)
+    # ax.plot(np.outer(opts*LM.regVreg0/(166*120),[1]*len(N0)),N0.T,'.-',markersize=4)
+    ax.plot(opts*LM.regVreg0/(166*120),N0[0],'.-',markersize=4,zorder=10)
+    ax.plot(opts*LM.regVreg0/(166*120),N0[1],'.-',markersize=4,zorder=5)
+    ax.plot(opts*LM.regVreg0/(166*120),N0[2],'.-',markersize=4,zorder=0)
+
+    idxMax = np.argmax(N0,axis=1)
+    maxVals = N0[[0,1,2],idxMax]
+    maxArgs = opts[idxMax]*LM.regVreg0/(166*120)
+    ax.plot(maxArgs[0],maxVals[0],'k',marker='o',linestyle='',markerfacecolor='w',zorder=8)
+    ax.plot(maxArgs[1],maxVals[1],'k',marker='o',linestyle='',markerfacecolor='w',zorder=3)
+    ax.plot(maxArgs[2],maxVals[2],'k',marker='o',linestyle='',markerfacecolor='w',zorder=-2)
+
     ax.set_xlabel('Regulator setpoint, pu')
     ax.set_ylabel('Selection parameter, $\lambda$')
     ax.legend(('1.0','0.995','0.98'),title='PF (lag.)',loc='upper right')
@@ -199,6 +213,7 @@ if ('f_nStdVreg' in locals()) or ('f_nStdVregVal' in locals()):
     if 'pltSave' in locals():
         plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.png',bbox_inches='tight', pad_inches=0)
         plt.savefig(SD+'nStdVreg_'+fdrs[fdr_i]+'.pdf',bbox_inches='tight', pad_inches=0)
+
     if 'pltShow' in locals():
         plt.show()
 
