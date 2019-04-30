@@ -158,7 +158,7 @@ New Capacitor.Cap2 Bus1=611.3 phases=1 kVAR=100 kV=2.4
 new energymeter.msub element=transformer.sub
 new energymeter.mregS element=line.regS
 
-Batchedit load..* vminpu=0.33 vmaxpu=3 !model=1
+Batchedit load..* vminpu=0.33 vmaxpu=3 model=1
 Set Voltagebases=[115, 4.16, .48]
 calcv
 Solve

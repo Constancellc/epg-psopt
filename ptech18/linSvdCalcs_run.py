@@ -12,7 +12,7 @@ from scipy.stats.stats import pearsonr
 WD = os.path.dirname(sys.argv[0])
 
 prmI = 0
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy']
 
 pdfName = 'gammaWght'; prms=np.array([0.5]); prms=np.array([3.0])
 # pdfName = 'gammaFlat'; prms=np.array([0.5]); prms=np.array([3.0])

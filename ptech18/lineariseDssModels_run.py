@@ -4,8 +4,10 @@ import numpy as np
 
 FD = sys.argv[0]
 
-def main():
+def main(fdr_i=5,nrelTest=False):
     reload(lineariseDssModels)
-    blm = lineariseDssModels.buildLinModel(FD=FD,fdr_i=6,linPoints=np.array([1.0]))
     
-main()
+    blm = lineariseDssModels.buildLinModel(FD=FD,fdr_i=fdr_i,linPoints=np.array([1.0]),nrelTest=nrelTest)
+    return blm
+
+blm = main(5,True)

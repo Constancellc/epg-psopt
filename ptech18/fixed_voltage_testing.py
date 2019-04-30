@@ -46,7 +46,7 @@ fdr_i_set = [6,8,9,19,20,21,22]
 fdr_i_set = [9]
 # fdr_i_set = [6,8,19]
 for fdr_i in fdr_i_set:
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy']
     feeder=fdrs[fdr_i]
 
     k = np.arange(-1.5,1.6,0.025)

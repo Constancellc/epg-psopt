@@ -21,9 +21,9 @@ DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution=DSSCircuit.Solution
 
 pltVxtrm = True
-# pltVxtrm = False
+pltVxtrm = False
 savePts = True
-savePts = False
+# savePts = False
 saveBusCoords = True
 saveBusCoords = False
 saveBrchBuses = True
@@ -31,7 +31,7 @@ saveBrchBuses = False
 saveRegBandwidths = True
 saveRegBandwidths = False
 pltVxtrmSave = True
-# pltVxtrmSave = False # use this for plotting for the paper
+pltVxtrmSave = False # use this for plotting for the paper
 # pltCapPos = 1
 
 SDfig = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
@@ -50,10 +50,11 @@ VmLv = 0.92
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 fdr_i_set = [6,8,9,17,18,22,19,20,21]
 fdr_i_set = [20]
+fdr_i_set = [23]
 for fdr_i in fdr_i_set:
     # fdr_i = 17
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy']
     feeder=fdrs[fdr_i]
     # feeder='041'
 
@@ -63,48 +64,36 @@ for fdr_i in fdr_i_set:
     SBa = os.path.join(SD,'busCoordsAug')+'.pkl'
     SBr = os.path.join(SD,'branches')+'.pkl'
     SBreg = os.path.join(SD,'regBndwth')+'.pkl'
-    ckt = get_ckt(WD,feeder)
-    fn_ckt = ckt[0]
-    fn = ckt[1]
+    
+    fn_ckt,fn = get_ckt(WD,feeder)
 
     DSSText.Command='Compile ('+fn+'.dss)'
-    DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3 status=variable'
-    # DSSText.Command='Batchedit load..* vmin=0.33 vmax=3.0 model=1'
+    DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3 model=1 status=variable'
+
     DSSText.Command='set maxcontroliter=300' # if it isn't this high then J1 fails even for load=1.0!
     DSSText.Command='set maxiterations=300'
+    
     DSSSolution.Solve()
-
-    YZ = DSSCircuit.YNodeOrder
-    vBase = get_Yvbase(DSSCircuit)
-
     
     if pltVxtrmSave:
         loadMults = np.concatenate([np.linspace(-1.5,1.5,31+1)])
     else:
         loadMults = np.concatenate([np.linspace(-1.5,1.5,31+1),np.linspace(1.5,-1.5,31+1)])
-        if feeder=='epriJ1':
-            # required for EPRI J1 which is rather temporamental
-            loadMults = np.concatenate([np.linspace(-0.4,1.5,21+1),np.linspace(1.5,-0.4,21+1)])
-        elif feeder=='8500node':
-            # required for IEEE 8500
-            loadMults = np.concatenate([np.linspace(-0.2,1.0,13+1),np.linspace(1.0,-0.2,13+1)])
+        if feeder=='epriJ1': loadMults = np.concatenate([np.linspace(-0.4,1.5,21+1),np.linspace(1.5,-0.4,21+1)])
+        if feeder=='8500node': loadMults = np.concatenate([np.linspace(-0.2,1.0,13+1),np.linspace(1.0,-0.2,13+1)])
+        # if feeder=='4busYy': loadMults = np.concatenate([np.linspace(-1.5,1.4,30+1),np.linspace(1.4,-1.5,30+1)])    
 
     vmax = []
     vmin = []
     cnvg = []
-    DSSSolutionLoadMult = 1.0
     DSSSolution.Solve()
     
     Vmag0 = np.array(DSSCircuit.AllBusVmag)
-    VmagPu = np.array(DSSCircuit.AllBusVmagPu)#
-    # Vpu = Vmag/VmagPu
-    
-    DSSSolutionLoadMult = 2.0
-    DSSSolution.Solve()
-    
+    VmagPu = np.array(DSSCircuit.AllBusVmagPu)
+
     mvIdx = np.where(Vmag0[VmagPu>0.5]>1000)
     lvIdx = np.where(Vmag0[VmagPu>0.5]<=1000)
-    
+        
     VmagYz = abs(tp_2_ar(DSSCircuit.YNodeVarray))
     mvIdxYz = np.where(VmagYz>1000)
     lvIdxYz = np.where(VmagYz<=1000)
@@ -194,7 +183,7 @@ for fdr_i in fdr_i_set:
         srcReg = 1
     else:
         srcReg = 0
-    legLoc = {'eulv':'NorthEast','13bus':'NorthEast','34bus':'NorthWest','123bus':'NorthEast','8500node':'SouthEast','usLv':None,'epri5':'NorthWest','epri7':'NorthWest','epriJ1':'SouthEast','epriK1':'NorthWest','epriM1':'NorthWest','epri24':'NorthWest'}
+    legLoc = {'eulv':'NorthEast','13bus':'NorthEast','34bus':'NorthWest','123bus':'NorthEast','8500node':'SouthEast','usLv':None,'epri5':'NorthWest','epri7':'NorthWest','epriJ1':'SouthEast','epriK1':'NorthWest','epriM1':'NorthWest','epri24':'NorthWest','4busYy':None}
     
     dataOut = {'Feeder':feeder,'k':kOut,'kLo':load1,'kHi':load2,'VpMv':VpMv,'VpLv':VpLv,'VmMv':VmMv,'VmLv':VmLv,'mvIdxYz':mvIdxYz,'lvIdxYz':lvIdxYz,'nRegs':DSSCircuit.RegControls.Count,'vSrcBus':vSrcBuses[0],'srcReg':srcReg,'legLoc':legLoc[feeder],'capPosOut':capPosOut}
 

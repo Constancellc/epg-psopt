@@ -146,10 +146,10 @@ New Load.670a Bus1=670.1    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=17    kvar=10
 New Load.670b Bus1=670.2    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=66    kvar=38 
 New Load.670c Bus1=670.3    Phases=1 Conn=Wye  Model=1 kV=2.4  kW=117  kvar=68 
 
+*/
 !CAPACITOR DEFINITIONS
 New Capacitor.Cap1 Bus1=675 phases=3 kVAR=600 kV=4.16 
 New Capacitor.Cap2 Bus1=611.3 phases=1 kVAR=100 kV=2.4 
-*/
 
 !Transformer.Reg1.Taps=[1.0 1.0625]
 !Transformer.Reg2.Taps=[1.0 1.0500]

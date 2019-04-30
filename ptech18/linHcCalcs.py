@@ -70,7 +70,7 @@ pdfName = 'gammaWght'
 pdfName = 'gammaFrac'; prms=np.array([]) 
 # pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05) # to make it faster
 
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy']
 
 optMultJ1 = 0.995**np.array([5,4,0,1,2,4,0,5.5,4])
 optMult8500 = 0.995**np.array([3,1,2,2,1,0,1,0,0,3,3,1])

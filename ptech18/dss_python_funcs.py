@@ -115,6 +115,56 @@ def ld_vals( DSSCircuit ):
         jj=DSSCircuit.NextPDElement()
     return S,V,I,B,D,N
 
+def ldValsOnly( DSSCircuit ): 
+    # nicked from the oxemf converter
+    LDS = DSSCircuit.Loads
+    SetACE = DSSCircuit.SetActiveElement
+    ACE = DSSCircuit.ActiveElement
+    i = LDS.First
+    YZ = DSSCircuit.YNodeOrder[3:]
+    
+    sY = np.zeros(len(YZ),dtype=complex)
+    sD = np.zeros(len(YZ),dtype=complex)
+    while i:
+        SetACE('Load.'+LDS.Name)
+        actBus = ACE.BusNames[0].split('.')[0].upper()
+        nPh = ACE.NumPhases
+        phs = ACE.BusNames[0].split('.')[1:]
+        
+        if LDS.IsDelta:
+            if nPh==1:
+                if '1' in phs and '2' in phs:
+                    dIdx = YZ.index(actBus+'.1')
+                if '2' in phs and '3' in phs:
+                    dIdx = YZ.index(actBus+'.2')
+                if '3' in phs and '1' in phs:
+                    dIdx = YZ.index(actBus+'.3')
+                sD[dIdx] = sD[dIdx] + LDS.kW + 1j*LDS.kvar
+            if nPh==3:
+                for i in range(3):
+                    dIdx = YZ.index(actBus+'.'+str(i+1))
+                    sD[dIdx] = sD[dIdx] + (LDS.kW + 1j*LDS.kvar)/3
+            if nPh==2:
+                print('Warning! Load: ',LDS.Name,'2 phase Delta loads not yet implemented.')
+        else:
+            if '1' in phs or phs==[]:
+                yIdx = YZ.index(actBus+'.1')
+                sY[yIdx] = sY[yIdx] + (LDS.kW + 1j*LDS.kvar)/nPh
+            if '2' in phs or phs==[]:
+                yIdx = YZ.index(actBus+'.2')
+                sY[yIdx] = sY[yIdx] + (LDS.kW + 1j*LDS.kvar)/nPh
+            if '3' in phs or phs==[]:
+                yIdx = YZ.index(actBus+'.3')
+                sY[yIdx] = sY[yIdx] + (LDS.kW + 1j*LDS.kvar)/nPh
+        i = LDS.Next
+    iY = sY.nonzero()
+    iD = sD.nonzero()
+    # xY = -1e3*np.concatenate([sY[iY].real,sY[iY].imag])
+    xY = -1e3*np.concatenate([sY.real,sY.imag])
+    xD = -1e3*np.concatenate([sD[iD].real,sD[iD].imag])
+    
+    return xY, xD, iY, iD
+
 def find_node_idx(n2y,bus,D):
     idx = []
     BS = bus.split('.',1)
@@ -407,8 +457,8 @@ def print_node_array(YZ,thing):
         print(YZ[i]+': '+str(thing[i]))
 
 def get_ckt(WD,feeder):
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24',feeder]
-    # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24'] # for editing
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy',feeder]
+    # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy'] # for editing
     ckts = {'feeder_name':['fn_ckt','fn']}
     ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
     ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
@@ -433,6 +483,7 @@ def get_ckt(WD,feeder):
     ckts[fdrs[20]]=[WD+'\\ieee_tn\\k1',WD+'\\ieee_tn\\k1\\Master_NoPV_z']
     ckts[fdrs[21]]=[WD+'\\ieee_tn\\m1',WD+'\\ieee_tn\\m1\\Master_NoPV_z']
     ckts[fdrs[22]]=[WD+'\\ieee_tn\\ckt24',WD+'\\ieee_tn\\ckt24\\master_ckt24_z']
+    ckts[fdrs[23]]=[WD+'\\ieee_tn\\4Bus-YY-Bal',WD+'\\ieee_tn\\4Bus-YY-Bal\\4Bus-YY-Bal_z']
     
     if not feeder in ckts.keys() and len(feeder)==3:
         dir0 = WD+'\\manchester_models\\batch_manc_ntwx\\network_'+str(int(feeder[0:2]))+'\\Feeder_'+feeder[-1]

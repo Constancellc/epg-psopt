@@ -39,6 +39,7 @@ def nrel_linearization_My(Ybus,Vh,V0):
     return My,a
 
 def nrel_linearization_Ky(My,Vh,sY):
+    # an old version of this function; see nrelLinKy() below
     Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) )
     Vhai_diag = sparse.dia_matrix( (np.ones(len(Vh))/abs(Vh),0),shape=(len(Vh),len(Vh)) )
     Ky = Vhai_diag.dot( Vh_diag.dot(My).real )
@@ -46,12 +47,31 @@ def nrel_linearization_Ky(My,Vh,sY):
     return Ky, b
 
 def nrel_linearization_K(My,Md,Vh,sY,sD):
+    # an old version of this function; see nrelLinKy() below
     Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) )
     Vhai_diag = sparse.dia_matrix( (np.ones(len(Vh))/abs(Vh),0),shape=(len(Vh),len(Vh)) )
     Ky = Vhai_diag.dot( Vh_diag.dot(My).real )
     Kd = Vhai_diag.dot( Vh_diag.dot(Md).real )
     b = abs(Vh) - Ky.dot(-1e3*s_2_x(sY[3:]))- Kd.dot(-1e3*s_2_x(sD))
     return Ky, Kd, b
+
+def nrelLinKy(My,Vh,xY):
+    # based on nrel_linearization_Ky
+    Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) )
+    Vhai_diag = sparse.dia_matrix( (np.ones(len(Vh))/abs(Vh),0),shape=(len(Vh),len(Vh)) )
+    Ky = Vhai_diag.dot( Vh_diag.dot(My).real )
+    b = abs(Vh) - Ky.dot(xY)
+    return Ky, b
+
+def nrelLinK(My,Md,Vh,xY,xD):
+    # based on nrel_linearization_K
+    Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) )
+    Vhai_diag = sparse.dia_matrix( (np.ones(len(Vh))/abs(Vh),0),shape=(len(Vh),len(Vh)) )
+    Ky = Vhai_diag.dot( Vh_diag.dot(My).real )
+    Kd = Vhai_diag.dot( Vh_diag.dot(Md).real )
+    b = abs(Vh) - Ky.dot(xY) - Kd.dot(xD)
+    return Ky, Kd, b
+
 
 def fixed_point_itr(w,Ylli,V,sY,sD,H):
     iTtot_c = sY/V + H.T.dot(sD/(H.dot(V)))
