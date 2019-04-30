@@ -59,8 +59,8 @@ for fdr_i in fdr_i_set:
         # 2. Solve at the right linearization point
         DSSText.Command='Compile ('+fn+'.dss)'
         lin_point = lin_points[i]
-        BB00,SS00 = cpf_get_loads(DSSCircuit)
-        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCapsModel,capPos=capPosLin)
+        BB0,SS0 = cpf_get_loads(DSSCircuit)
+        cpf_set_loads(DSSCircuit,BB0,SS0,lin_point,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
         DSSText.Command='set controlmode=off'
         v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]

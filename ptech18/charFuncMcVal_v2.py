@@ -173,9 +173,9 @@ KtotPu = dsf.vmM(1/vBase,Ktot) # scale to be in pu
 # OPENDSS ADMIN =======================================
 # B1. load the appropriate model/DSS
 DSSText.Command='Compile ('+fn+'.dss)'
-BB0,SS0 = cpf_get_loads(DSSCircuit)
+BB,SS = cpf_get_loads(DSSCircuit)
 if lp_taps=='Lpt':
-    cpf_set_loads(DSSCircuit,BB0,SS0,load_point)
+    cpf_set_loads(DSSCircuit,BB,SS,load_point)
     DSSSolution.Solve()
 
 if not netModel:

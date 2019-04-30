@@ -92,9 +92,9 @@ for fdr_i in fdr_i_set:
     # # vecSlc(busSet,regBrIdx); vecSlc(brchSet,regBrIdx); vecSlc(trmlSet,regBrIdx)
     # printBrI(busSet,brchSet,Iprim)
     
-    BB00,SS00 = cpf_get_loads(DSSCircuit)
+    BB0,SS0 = cpf_get_loads(DSSCircuit)
     if lp_taps=='Lpt':
-        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCapsModel,capPos=capPosLin)
+        cpf_set_loads(DSSCircuit,BB0,SS0,lin_point,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
     YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 
@@ -239,7 +239,7 @@ for fdr_i in fdr_i_set:
         print('--- Start Testing, 1/2 --- \n',time.process_time())
         for i in range(len(k)):
             print(i,'/',len(k)-1)
-            cpf_set_loads(DSSCircuit,BB00,SS00,k[i],setCaps=setCapsModel,capPos=capPosLin)
+            cpf_set_loads(DSSCircuit,BB0,SS0,k[i],setCaps=setCapsModel,capPos=capPosLin)
             DSSSolution.Solve()
             Convrg.append(DSSSolution.Converged)
             
@@ -260,7 +260,7 @@ for fdr_i in fdr_i_set:
         DSSText.Command='set controlmode=static'
         for i in range(len(k)):
             print(i,'/',len(k)-1)
-            cpf_set_loads(DSSCircuit,BB00,SS00,k[i],setCaps=setCapsModel,capPos=capPosLin)
+            cpf_set_loads(DSSCircuit,BB0,SS0,k[i],setCaps=setCapsModel,capPos=capPosLin)
             DSSSolution.Solve()
             Convrg.append(DSSSolution.Converged)
             TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]

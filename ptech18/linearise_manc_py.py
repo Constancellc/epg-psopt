@@ -23,7 +23,7 @@ DSSSolution.Tolerance=1e-7
 
 # ------------------------------------------------------------ circuit info
 test_model = True
-test_model = False
+# test_model = False
 test_model_bus = True
 test_model_bus = False
 saveModel = True
@@ -38,11 +38,9 @@ saveCc = False
 # setCapsModel=False
 setCapsModel = 'linPoint'
 # fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-# fdr_i_set = [5,6,8,0,14]
 fdr_i_set = [6,8,17,18,19,20,21]
 fdr_i_set = [22]
-# fdr_i_set = [19]
-# fdr_i_set = [6,8,18,19]
+fdr_i_set = [6]
 for fdr_i in fdr_i_set:
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']; lp_taps='Nmt'
@@ -88,12 +86,12 @@ for fdr_i in fdr_i_set:
         # run the dss
         DSSText.Command='Compile ('+fn+'.dss)'
         DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
-        BB00,SS00 = cpf_get_loads(DSSCircuit)
+        BB0,SS0 = cpf_get_loads(DSSCircuit)
         if lp_taps=='Nmt':
             TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
         elif lp_taps=='Lpt':
-            # cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=True)
-            cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCapsModel,capPos=capPosLin)
+            # cpf_set_loads(DSSCircuit,BB0,SS0,lin_point,setCaps=True)
+            cpf_set_loads(DSSCircuit,BB0,SS0,lin_point,setCaps=setCapsModel,capPos=capPosLin)
             
             DSSSolution.Solve()
             sYbstrd = get_sYsD(DSSCircuit)[0] # <---- for some annoying reason this gives different zeros to sY below; use for indexes
@@ -120,22 +118,22 @@ for fdr_i in fdr_i_set:
         fix_tap_pos(DSSCircuit, TC_No0)
         DSSText.Command='Set Controlmode=off'
         DSSSolution.Solve()
-        # BB00,SS00 = cpf_get_loads(DSSCircuit)
+        # BB0,SS0 = cpf_get_loads(DSSCircuit)
         
         Yvbase = get_Yvbase(DSSCircuit)[3:]
 
-        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCapsModel,capPos=capPosLin)
+        cpf_set_loads(DSSCircuit,BB0,SS0,lin_point,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
         YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
         sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)
-        BB0,SS0 = cpf_get_loads(DSSCircuit,getCaps=setCapsModel)
+        BB,SS = cpf_get_loads(DSSCircuit,getCaps=setCapsModel)
         
-        cpf_set_loads(DSSCircuit,BB00,SS00,0.0,setCaps=setCapsModel,capPos=capPosLin)
+        cpf_set_loads(DSSCircuit,BB0,SS0,0.0,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
         YNodeVnoLoad = tp_2_ar(DSSCircuit.YNodeVarray)
         
-        cpf_set_loads(DSSCircuit,BB00,SS00,1.0,setCaps=True) # set back to 1
-        cpf_set_loads(DSSCircuit,BB00,SS00,0.0,setCaps=setCapsModel,capPos=capPosLin)
+        cpf_set_loads(DSSCircuit,BB0,SS0,1.0,setCaps=True) # set back to 1
+        cpf_set_loads(DSSCircuit,BB0,SS0,0.0,setCaps=setCapsModel,capPos=capPosLin)
         
         # DSSText.Command='batchedit capacitor..* states=1'
         # DSSText.Command='batchedit capcontrol..* enabled=0'
@@ -148,8 +146,8 @@ for fdr_i in fdr_i_set:
         if len(xhdCap0)==0 and len(sD)!=0:
             xhdCap0 = np.zeros(len(sD)*2)
         
-        # cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=False)
-        cpf_set_loads(DSSCircuit,BB00,SS00,lin_point,setCaps=setCapsModel,capPos=capPosLin)
+        # cpf_set_loads(DSSCircuit,BB0,SS0,lin_point,setCaps=False)
+        cpf_set_loads(DSSCircuit,BB0,SS0,lin_point,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
         sYlds,sDlds = get_sYsD(DSSCircuit)[0:2]
         xhyLds = -1e3*s_2_x(sYlds[3:])
@@ -271,7 +269,8 @@ for fdr_i in fdr_i_set:
             print('Start validation\n',time.process_time())
             for i in range(len(k)):
                 print(i,'/',len(k))
-                cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point,setCaps=setCapsModel,capPos=capPosLin)
+                # cpf_set_loads(DSSCircuit,BB,SS,k[i]/lin_point,setCaps=setCapsModel,capPos=capPosLin)
+                cpf_set_loads(DSSCircuit,BB0,SS0,k[i],setCaps=setCapsModel,capPos=capPosLin)
                 DSSSolution.Solve()
                 Convrg.append(DSSSolution.Converged)
                 TP[K,i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
@@ -303,12 +302,12 @@ for fdr_i in fdr_i_set:
                 # plt.plot(abs(v_0[i,3:]/Yvbase),'ko-')
         if 'test_cap_model' in locals():
             print('Start cap model validation\n',time.process_time())
-            # cpf_set_loads(DSSCircuit,BB0,SS0,1/lin_point,setCaps=True)
-            # cpf_set_loads(DSSCircuit,BB0,SS0,1/lin_point,setCaps=True,capPos=None)
-            cpf_set_loads(DSSCircuit,BB00,SS00,1,setCaps=True,capPos=None)
+            # cpf_set_loads(DSSCircuit,BB,SS,1/lin_point,setCaps=True)
+            # cpf_set_loads(DSSCircuit,BB,SS,1/lin_point,setCaps=True,capPos=None)
+            cpf_set_loads(DSSCircuit,BB0,SS0,1,setCaps=True,capPos=None)
             for i in range(len(k)):
                 print(i,'/',len(k))
-                cpf_set_loads(DSSCircuit,BB0,SS0,k[i]/lin_point,setCaps=setCapsModel,capPos=capPosLin)
+                cpf_set_loads(DSSCircuit,BB,SS,k[i]/lin_point,setCaps=setCapsModel,capPos=capPosLin)
                 DSSSolution.Solve()
                 vva_0_cap[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray))[3:][v_idx]
                 sY,sD,iY,iD,yzD,iTot,H = get_sYsD(DSSCircuit)

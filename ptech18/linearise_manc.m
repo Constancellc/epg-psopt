@@ -47,17 +47,17 @@ for K = 1:numel(lin_points)
 	DSSText.Command=['Compile (',fn,'.dss)'];
 	DSSText.Command=['Batchedit load..* vminpu=0.33 vmaxpu=3'];
 	DSSSolution.Solve;
-	[ BB00,SS00 ] = cpf_get_loads( DSSCircuit );
+	[ BB0,SS0 ] = cpf_get_loads( DSSCircuit );
 	
-	k00 = lin_point/real(SS00{1});
+	k00 = lin_point/real(SS0{1});
 	
-	[~] = cpf_set_loads(DSSCircuit,BB00,SS00,k00);
+	[~] = cpf_set_loads(DSSCircuit,BB0,SS0,k00);
 	DSSSolution.Solve;
 
 	% get the Y, D currents/powers
 	[B,V,I,S,D] = ld_vals( DSSCircuit );
 	[iD,sD,iY,sY] = calc_sYsD( YZNodeOrder,B,I,S,D );
-	[ BB0,SS0 ] = cpf_get_loads( DSSCircuit );
+	[ BB,SS ] = cpf_get_loads( DSSCircuit );
 
 	YNodeVarray = DSSCircuit.YNodeVarray';
 	YNodeV = YNodeVarray(1:2:end) + 1i*YNodeVarray(2:2:end);
@@ -84,7 +84,7 @@ for K = 1:numel(lin_points)
 		
 		[~] = set_taps(DSSCircuit.RegControls); % fix taps at their current positions
 		DSSText.Command=['Batchedit load..* vminpu=0.33 vmaxpu=3'];
-		[~] = cpf_set_loads(DSSCircuit,BB0,SS0,k(i)/lin_point);
+		[~] = cpf_set_loads(DSSCircuit,BB,SS,k(i)/lin_point);
 		DSSSolution.Solve;
 		
 		YNodeVarray = DSSCircuit.YNodeVarray';

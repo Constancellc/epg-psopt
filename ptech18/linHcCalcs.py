@@ -12,12 +12,12 @@
 import pickle, os, sys, win32com.client, time, scipy.stats
 import numpy as np
 from dss_python_funcs import *
-import numpy.random as rnd
 import matplotlib.pyplot as plt
-from math import gamma
 import dss_stats_funcs as dsf
 from linSvdCalcs import hcPdfs, linModel, cnsBdsCalc, plotCns, plotHcVltn, plotPwrCdf, plotHcGen
-from matplotlib import cm
+# from math import gamma
+# import numpy.random as rnd
+# from matplotlib import cm
 
 mcLinOn = True
 mcLinOn = False
@@ -29,7 +29,8 @@ mcDssOn = True
 mcDssOn = False
 # mcDssBw = 1
 # mcFullSet = 1
-mcLinUpg = 1
+# mcLinUpg = 1
+mcLinLds = 1
 
 # # PLOTTING options:
 # pltHcVltn = 1
@@ -41,7 +42,7 @@ mcLinUpg = 1
 nMc = 100 # nominal value of 100
 
 pltSave = True # for saving both plots and results
-# pltSave = False
+pltSave = False
 
 regBand=0 # opendss options
 setCapsOpt = 'linModel' # opendss options. 'linModels' is the 'right' option, cf True/False
@@ -62,8 +63,8 @@ fdr_i_set = [21] # less 6,8, 17,18,20,21, || 9, 22
 # fdr_i_set = [19] # slow 3
 # fdr_i_set = [22,19,20,21,9] # big networks with only decoupled regulator models
 # fdr_i_set = [22,19,9] # big networks with only decoupled regulator models
-# fdr_i_set = [19]
-# fdr_i_set = [22]
+fdr_i_set = [18]
+# fdr_i_set = [6]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'; prms=np.array([]) 
@@ -119,9 +120,9 @@ for fdr_i in fdr_i_set:
     # OPENDSS ADMIN =======================================
     # B1. load the appropriate model/DSS    
     DSSText.Command='Compile ('+fn+'.dss)'
-    BB00,SS00 = cpf_get_loads(DSSCircuit)
+    BB0,SS0 = cpf_get_loads(DSSCircuit)
     
-    cpf_set_loads(DSSCircuit,BB00,SS00,lp0data['kLo'],setCaps=setCapsOpt,capPos=lp0data['capPosOut'])
+    cpf_set_loads(DSSCircuit,BB0,SS0,lp0data['kLo'],setCaps=setCapsOpt,capPos=lp0data['capPosOut'])
     DSSSolution.Solve()
 
     if not LM.netModelNom:
@@ -153,11 +154,11 @@ for fdr_i in fdr_i_set:
         preCndLeft = len(LM.NSetCor[0])/len(LM.varKfullU)*100
         
         # Nominal DSS model:
-        LM.runDssHc(pdf,DSSObj,genNames,BB00,SS00,regBand=regBand,setCapsModel=setCapsOpt)
+        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,setCapsModel=setCapsOpt)
         dssHcRslNom = LM.dssHcRsl
         
         # Low BW DSS model:
-        LM.runDssHc(pdf,DSSObj,genNames,BB00,SS00,regBand=1.0,setCapsModel=setCapsOpt)
+        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=1.0,setCapsModel=setCapsOpt)
         dssHcRslTgt = LM.dssHcRsl
         
         # Finally run linear model to which everything is compared
@@ -178,7 +179,7 @@ for fdr_i in fdr_i_set:
         LM.runLinHc(pdf) # equivalent at the moment
         
     if mcDssOn:
-        LM.runDssHc(pdf,DSSObj,genNames,BB00,SS00,regBand=regBand,setCapsModel=setCapsOpt)
+        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,setCapsModel=setCapsOpt)
         dssRegMae = LM.calcLinPdfError(LM.dssHcRsl)
         print('\n -------- Complete -------- ')
         
@@ -191,7 +192,7 @@ for fdr_i in fdr_i_set:
                 pickle.dump(rslt,file)
     
     if 'mcDssBw' in locals():
-        LM.runDssHc(pdf,DSSObj,genNames,BB00,SS00,regBand=1.0,setCapsModel=setCapsOpt)
+        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=1.0,setCapsModel=setCapsOpt)
         dssRegMae = LM.calcLinPdfError(LM.dssHcRsl)
         print('\n -------- Complete -------- ')
         
