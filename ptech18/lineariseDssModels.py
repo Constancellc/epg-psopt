@@ -10,6 +10,7 @@ from dss_python_funcs import *
 from dss_vlin_funcs import *
 # from dss_voltage_funcs import get_regIdx, getRegWlineIdx, get_reIdx, get_regVreg
 from dss_voltage_funcs import *
+import dss_stats_funcs as dsf
 
 from win32com.client import makepy
 
@@ -45,45 +46,45 @@ class buildLinModel:
         self.createNrelModel(linPoints[0])
         self.createWmodel(linPoints[0])
         self.createTapModel(linPoints[0])
-        self.createFxdModel(linPoints[0])
+        vce,vae,kN = self.nrelModelTest(k=np.linspace(-0.5,1.2,18))
+        
+        if DSSObj.ActiveCircuit.RegControls.Count>0:
+            self.createFxdModel(linPoints[0])
+            self.createLtcModel(linPoints[0])
+            TL,TLcalc,TLerr,ice,vceI,k = self.wModelTest(k=np.linspace(-0.5,1.2,100))
+            vFxdeLck, vLckeLck, vFxdeFxd, vLckeFxd, kFxd = self.fxdModelTest()
+            vFxdeLck, vLckeLck, vFxdeFxd, vLckeFxd, kFxd = self.ltcModelTest()
         
         
-        vce,vae,k = self.nrelModelTest(k=np.linspace(-0.5,1.2,18))
-        TL,TLcalc,TLerr,ice,k = self.wModelTest(k=np.linspace(-0.5,1.2,100))
-        vFxdeLck, vLckeLck, vFxdeFxd, vLckeFxd, kFxd = self.fxdModelTest()
-        
-        
-        fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
-        ax0.plot(kFxd,vLckeLck);
-        ax0.plot(kFxd,vFxdeLck);
-        ax0.grid(True)
-        ax0.set_ylabel('Voltage Error')
-        ax0.set_xlabel('Continuation factor k')
-        ax1.plot(kFxd,vLckeFxd);
-        ax1.plot(kFxd,vFxdeFxd);
-        ax1.plot(kFxd,vLckeLck,'k--');
-        ax1.grid(True)
-        ax1.set_ylabel('Voltage Error')
-        ax1.set_xlabel('Continuation factor k')
-        plt.tight_layout()
-        plt.show()
     
-        # plt.plot(kFxd,vFxdeLck)
-        # plt.plot(kFxd,vLckeLck)
-        # plt.show()
-        
-        
         if nrelTest:
+            # Voltage errors
+            fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
+            ax0.plot(kN,abs(vce)); ax0.grid(True)
+            ax0.set_ylabel('Vc,e')
+            ax1.plot(kN,vae); ax1.grid(True)
+            ax1.set_ylabel('Va,e')
+            ax1.set_xlabel('Continuation factor k')
+            plt.tight_layout()
+            plt.show()
+            
+            # # Tap change tests
             # fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
-            # ax0.plot(k,abs(vce)); ax0.grid(True)
-            # ax0.set_ylabel('Vc,e')
-            # ax1.plot(k,vae); ax1.grid(True)
-            # ax1.set_ylabel('Va,e')
+            # ax0.plot(kFxd,vLckeLck);
+            # ax0.plot(kFxd,vFxdeLck);
+            # ax0.grid(True)
+            # ax0.set_ylabel('Voltage Error')
+            # ax0.set_xlabel('Continuation factor k')
+            # ax1.plot(kFxd,vLckeFxd);
+            # ax1.plot(kFxd,vFxdeFxd);
+            # ax1.plot(kFxd,vLckeLck,'k--');
+            # ax1.grid(True)
+            # ax1.set_ylabel('Voltage Error')
             # ax1.set_xlabel('Continuation factor k')
             # plt.tight_layout()
             # plt.show()
-            
 
+            # # Real and imag losses
             # fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
             # ax0.plot(k,TL.real)
             # ax0.plot(k,TLcalc.real,'x'); ax0.grid(True)
@@ -95,21 +96,26 @@ class buildLinModel:
             # plt.tight_layout()
             # plt.show()
         
-            fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
-            ax0.plot(k,TLerr);
-            ax0.grid(True)
-            ax0.set_ylabel('Loss Error')
-            ax0.set_xlabel('Continuation factor k')
-            ax1.plot(k,ice);
-            ax1.grid(True)
-            ax1.set_ylabel('Current Error')
-            ax1.set_xlabel('Continuation factor k')
-            plt.tight_layout()
-            plt.show()
+            # # Loss/current errors
+            # fig,[ax0,ax1,ax2] = plt.subplots(3,figsize=(4,8),sharex=True)
+            # ax0.plot(k,TLerr);
+            # ax0.grid(True)
+            # ax0.set_ylabel('Loss Error')
+            # ax0.set_xlabel('Continuation factor k')
+            # ax1.plot(k,ice);
+            # ax1.grid(True)
+            # ax1.set_ylabel('Current Error')
+            # ax1.set_xlabel('Continuation factor k')
+            # ax2.plot(k,vceI);
+            # ax2.grid(True)
+            # ax2.set_ylabel('Vprim error')
+            # ax2.set_xlabel('Continuation factor k')
+            # plt.tight_layout()
+            # plt.show()
         
-        if saveModel:
-            self.saveNrelModel()
-            print('\nSaving Model')
+        # if saveModel:
+            # self.saveNrelModel()
+            # print('\nSaving Model')
         
     def createNrelModel(self,lin_point=1.0):
         print('\nCreate NREL model, feeder:',self.feeder,'\nLin Point:',lin_point,'\nCap pos model:',self.setCapsModel,'\nCap Pos points:',self.capPosLin,'\n',time.process_time())
@@ -118,9 +124,12 @@ class buildLinModel:
         
         # >>> 1. Run the DSS; fix loads and capacitors at their linearization points, then load the Y-bus matrix at those points.
         DSSText.Command='Compile ('+self.fn+'.dss)'
-        DSSText.Command='Batchedit load..* vminpu=0.2 vmaxpu=5 model=1'
+        DSSText.Command='Batchedit load..* vminpu=0.02 vmaxpu=50 model=1 status=variable'
+        DSSSolution.Tolerance=1e-10
         DSSSolution.LoadMult = lin_point
         DSSSolution.Solve()
+        print('\nNominally converged:',DSSSolution.Converged)
+        
         self.TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
         
         Ybus, YNodeOrder = createYbus( DSSObj,self.TC_No0,self.capPosLin )
@@ -136,6 +145,22 @@ class buildLinModel:
             H = create_Hmat(DSSCircuit)[self.pdIdx[0]+3]
         else:
             H = []
+        
+        # sY,sD,iY,iD,yzD,iTot,Hold = get_sYsD(DSSCircuit) # useful for debugging
+        # self.xhy0 = -1e3*s_2_x(sY[3:])
+        # self.xhd0 = -1e3*s_2_x(sD)
+        # fig,[ax0,ax1] = plt.subplots(2)
+        # ax0.plot((self.xY-self.xhy0))
+        # ax1.plot((self.xD-self.xhd0)); 
+        # plt.show()
+        
+        
+        self.YZ = DSSCircuit.YNodeOrder[3:]
+        # plt.plot(self.xY); plt.plot(xhy0); plt.show()
+        # plt.plot((self.xY-xhy0)/xhy0); plt.show()
+        
+        self.Hold = get_sYsD(DSSCircuit)[6]
+        self.Hnew = H
         
         # >>> 3. Create linear models for voltage in S
         V0 = YNodeV[0:3]
@@ -166,7 +191,8 @@ class buildLinModel:
         print('\nVoltage abs error (lin point), Volts:',np.linalg.norm(Va0-abs(Vh))/np.linalg.norm(abs(Vh))) # Print checks
         print('Voltage abs error (no load point), Volts:',np.linalg.norm(abs(b)-abs(VnoLoad))/np.linalg.norm(abs(VnoLoad)),'\n') # Print checks
         
-        self.syIdx = self.xY.nonzero()[0]
+        # self.syIdx = self.xY.nonzero()[0]
+        self.syIdx = np.concatenate((self.pyIdx[0],self.pyIdx[0]+DSSCircuit.NumNodes-3))
         self.My = My[:,self.syIdx]
         self.Ky = Ky[:,self.syIdx]
         self.aV = a
@@ -185,7 +211,7 @@ class buildLinModel:
     def loadDssModel(self,loadMult=1.0):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         DSSText.Command='Compile ('+self.fn+')'
-        DSSText.Command='Batchedit load..* vminpu=0.2 vmaxpu=5 model=1 status=variable'
+        DSSText.Command='Batchedit load..* vminpu=0.02 vmaxpu=50 model=1 status=variable'
         fix_tap_pos(DSSCircuit, self.TC_No0)
         fix_cap_pos(DSSCircuit, self.capPosLin)
         DSSText.Command='Set controlmode=off'
@@ -295,37 +321,57 @@ class buildLinModel:
             regIdx,regBus = get_regIdx(DSSCircuit)
             self.reIdx = (np.array(get_reIdx(regIdx,DSSCircuit.NumNodes)[3:])-3).tolist()
             self.regVreg = get_regVreg(DSSCircuit)
+            
             self.Afxd, self.Bfxd = lmKronRed(self,self.reIdx,self.regVreg)
         else:
             print('No fxd model (no regulators).')
     
-    # def buildLtcModel(self):
-        # [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
-        # self.loadDssModel()
-        
-        # regIdx,regBus = get_regIdx(DSSCircuit)
-        # reIdx = (np.array(get_reIdx(regIdx,len(YZ))[3:])-3).tolist()
-        
-        # p_idx_yz = np.array(sY[3:].nonzero())
-        
-        # p_idx_shf,p_idx_new = idx_shf(p_idx_yz[0],reIdx)
-        # s_idx_shf = np.concatenate((p_idx_shf,p_idx_shf+len(p_idx_shf)))
-        # s_idx = np.concatenate((p_idx_yz,p_idx_yz+len(sY)-3),axis=1)[0] # used for comparison with 'before'
-        # s_idx_new = np.concatenate((p_idx_new,p_idx_new+len(sY)-3))
-
-        # yzI = yzD2yzI(yzD,node_to_YZ(DSSCircuit))
-        # yzI_shf,yzI_new = idx_shf(yzI,reIdx)
-        # # yzI = (np.array(yzI) - 3).tolist() # convert to the correct index numbers.
-
-        # YZp = vecSlc(YZ[3:],p_idx_new) # verified
-        # YZd = vecSlc(YZ,yzI_new) 
-        # Yvbase_new = get_Yvbase(DSSCircuit)[3:][v_idx_new]
-        # sD_idx_shf = np.concatenate((yzI_shf,yzI_shf+len(yzI_shf)))
-        
-        # regVreg = get_regVreg(DSSCircuit)
-        # # 4. Perform Kron reduction with these indices
-        # idxShf = [v_idx_shf,s_idx_shf,sD_idx_shf]
-        # Akron, Bkron = lmKronRed(LM,idxShf,regVreg)
+    def createLtcModel(self,linPoint=None):
+        if linPoint==None:
+            self.loadDssModel(loadMult=self.lin_point)
+        else:
+            self.loadDssModel(loadMult=self.currentLinPoint)
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+    
+        if DSSCircuit.RegControls.Count:
+            # regIdx,regBus = get_regIdx(DSSCircuit)
+            # self.reIdx = (np.array(get_reIdx(regIdx,DSSCircuit.NumNodes)[3:])-3).tolist()
+            # self.regVreg = get_regVreg(DSSCircuit)
+            rReg,xReg = getRxVltsMat(DSSCircuit)
+            Rreg = np.diag(rReg)
+            Xreg = np.diag(xReg)
+            
+            regIdx = get_regIdx(DSSCircuit)[0]
+            Vprim = tp_2_ar(DSSCircuit.YNodeVarray)[regIdx]
+            VprimAng = Vprim/abs(Vprim)
+            
+            
+            Vprim = tp_2_ar(DSSCircuit.YNodeVarray)[regIdx]
+            VprimAng = Vprim/abs(Vprim)
+            
+            WyRot = dsf.vmM(VprimAng.conj(),self.WyReg)
+            WdRot = dsf.vmM(VprimAng.conj(),self.WdReg)
+            
+            # WyS = -dsf.vmM(abs(Vprim),WyRot).conj()[:,s_idx_shf]
+            # WdS = -dsf.vmM(abs(Vprim),WdRot).conj()[:,sD_idx_shf]
+            self.WyS = -dsf.vmM(abs(Vprim),WyRot).conj()
+            self.WdS = -dsf.vmM(abs(Vprim),WdRot).conj()
+            
+            # regIdxMatYs = WyS[:,0:len(xhy0)//2].real
+            # regIdxMatDs = WdS[:,0:len(xhd0)//2].real
+            regIdxMatYs = self.WyS[:,0:len(self.pyIdx[0])].real
+            regIdxMatDs = self.WdS[:,0:len(self.pdIdx[0])].real
+            
+            self.regIdxMatVlts = -np.concatenate( (Rreg.dot(regIdxMatYs),Xreg.dot(regIdxMatYs),Rreg.dot(regIdxMatDs),Xreg.dot(regIdxMatDs)),axis=1 )
+            
+            self.Rreg =Rreg
+            self.Xreg =Xreg
+            
+            self.Altc,self.Bltc = lmLtcKronRed(self,self.reIdx,self.regVreg,self.regIdxMatVlts)
+            # self.Altc,self.Bltc = kron_red_ltc(KyR,KdR,KtR,bVR,regVreg,)
+            # ,self.KvReg
+        else:
+            print('No fxd model (no regulators).')
         
     def nrelModelTest(self,k = np.arange(-1.5,1.6,0.1)):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
@@ -370,10 +416,8 @@ class buildLinModel:
         
         print('Start W-model testing. \n',time.process_time())
         ice=np.zeros([k.size]) # current error
-        lce=np.zeros([k.size]) # (real power?) loss error
+        vce=np.zeros([k.size]) # voltage error
         
-        # vc0 = np.zeros((len(k),self.nV),dtype=complex)
-        # va0 = np.zeros((len(k),self.nV))
         Convrg = []
         TLout = np.zeros((len(k)),dtype=complex)
         TLest = np.zeros((len(k)),dtype=complex)
@@ -381,6 +425,7 @@ class buildLinModel:
         
         dMsl = np.concatenate((np.zeros(3,dtype=complex),self.My.dot(self.xY[self.syIdx]) + self.Md.dot(self.xD),np.zeros(1,dtype=complex)))[list(self.yzW2V)]
         aVsl = np.concatenate((self.V0,self.aV,np.array([0])))[list(self.yzW2V)]
+        
         dW = self.Wy.dot(self.xY[self.syIdx]) + self.Wd.dot(self.xD)
         
         for i in range(len(k)):
@@ -396,7 +441,7 @@ class buildLinModel:
             vOut = np.concatenate((tp_2_ar(DSSCircuit.YNodeVarray),np.array([0])))
             iOut = self.v2iBrY.dot(vOut[:-1])
             vBusOut=vOut[list(self.yzW2V)]
-            # TLcalc[i] = sum(vBusOut*(iOut.conj())) # for debugging
+            # TLest[i] = vBusOut.dot(iOut.conj()) # for debugging
             
             # now do the same with estimated quantities.
             iEst = dW*k[i] + self.aI
@@ -406,8 +451,9 @@ class buildLinModel:
             TLerr = abs(TLout - TLest)/abs(TLout)
             
             ice[i] = np.linalg.norm( (iOut - iEst) )/np.linalg.norm(iOut)
+            vce[i] = np.linalg.norm( (vBusEst - vBusOut) )/np.linalg.norm(vBusOut)
         print('wModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
-        return TLout,TLest,TLerr,ice,k
+        return TLout,TLest,TLerr,ice,vce,k
         
     def fxdModelTest(self,k = np.arange(-1.5,1.6,0.1)):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
@@ -416,6 +462,59 @@ class buildLinModel:
         print('Start fxd testing. \n',time.process_time())
         
         dF = self.Afxd.dot(np.concatenate((self.xY[self.syIdx],self.xD)))
+        dK = self.Ky.dot(self.xY[self.syIdx]) + self.Kd.dot(self.xD)
+        
+        vFxdeLck = np.zeros(len(k))
+        vLckeLck = np.zeros(len(k))
+        vFxdeFxd = np.zeros(len(k))
+        vLckeFxd = np.zeros(len(k))
+        
+        Convrg = []
+        
+        for i in range(len(k)):
+            if (i % (len(k)//4))==0: print('Solution:',i,'/',len(k)) # track progress
+            
+            DSSSolution.LoadMult = k[i]
+            DSSSolution.Solve()
+            
+            Convrg.append(DSSSolution.Converged)
+            
+            vOut = abs(tp_2_ar(DSSCircuit.YNodeVarray))[3:][self.reIdx]
+            
+            vFxd = dF*k[i] + self.Bfxd
+            vLck = (dK*k[i] + self.bV)[self.reIdx]
+            
+            vFxdeLck[i] = np.linalg.norm( vOut - vFxd )/np.linalg.norm(vOut)
+            vLckeLck[i] = np.linalg.norm( vOut - vLck )/np.linalg.norm(vOut)
+            
+        DSSText.Command='set controlmode=static'
+        for i in range(len(k)):
+            if (i % (len(k)//4))==0: print('Solution:',i,'/',len(k)) # track progress
+            
+            DSSSolution.LoadMult = k[i]
+            DSSSolution.Solve()
+            
+            Convrg.append(DSSSolution.Converged)
+            
+            vOut = abs(tp_2_ar(DSSCircuit.YNodeVarray))[3:][self.reIdx]
+            
+            vFxd = dF*k[i] + self.Bfxd
+            vLck = (dK*k[i] + self.bV)[self.reIdx]
+            
+            vFxdeFxd[i] = np.linalg.norm( vOut - vFxd )/np.linalg.norm(vOut)
+            vLckeFxd[i] = np.linalg.norm( vOut - vLck )/np.linalg.norm(vOut)
+        print('fxdModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
+        # print('Testing Complete.\n',time.process_time())
+        return vFxdeLck, vLckeLck, vFxdeFxd, vLckeFxd,k
+    
+    def ltcModelTest(self,k = np.concatenate((np.arange(-1.5,1.6,0.1),np.arange(1.5,-1.6,-0.1)))):
+        # NB: Currently a direct port of fxdModelTest!
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        self.loadDssModel()
+        
+        print('Start fxd testing. \n',time.process_time())
+        
+        dF = self.Altc.dot(np.concatenate((self.xY[self.syIdx],self.xD)))
         dK = self.Ky.dot(self.xY[self.syIdx]) + self.Kd.dot(self.xD)
         
         vFxdeLck = np.zeros(len(k))

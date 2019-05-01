@@ -133,13 +133,17 @@ def ldValsOnly( DSSCircuit ):
         
         if LDS.IsDelta:
             if nPh==1:
-                if '1' in phs and '2' in phs:
-                    dIdx = YZ.index(actBus+'.1')
-                if '2' in phs and '3' in phs:
-                    dIdx = YZ.index(actBus+'.2')
-                if '3' in phs and '1' in phs:
-                    dIdx = YZ.index(actBus+'.3')
-                sD[dIdx] = sD[dIdx] + LDS.kW + 1j*LDS.kvar
+                if len(phs)==2:
+                    if '1' in phs and '2' in phs:
+                        dIdx = YZ.index(actBus+'.1')
+                    if '2' in phs and '3' in phs:
+                        dIdx = YZ.index(actBus+'.2')
+                    if '3' in phs and '1' in phs:
+                        dIdx = YZ.index(actBus+'.3')
+                    sD[dIdx] = sD[dIdx] + LDS.kW + 1j*LDS.kvar
+                if len(phs)==1:
+                    yIdx = YZ.index(actBus+'.'+phs[0])
+                    sY[yIdx] = sY[yIdx] + (LDS.kW + 1j*LDS.kvar) # if only one phase, then is effectively D!
             if nPh==3:
                 for i in range(3):
                     dIdx = YZ.index(actBus+'.'+str(i+1))

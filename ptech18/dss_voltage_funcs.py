@@ -200,6 +200,14 @@ def lmKronRed(LM,idxShf,regVreg):
     Bkron = np.concatenate((Bnew,np.array(regVreg)))
     return Akron, Bkron
 
+def lmLtcKronRed(LM,idxShf,regVreg,KvReg):
+    KyR = LM.Ky[idxShf]
+    KdR = LM.Kd[idxShf]
+    KtR = LM.Kt[idxShf]
+    bVR = LM.bV[idxShf]
+    Akron,Bkron = kron_red_ltc(KyR,KdR,KtR,bVR,regVreg,KvReg)
+    return Akron, Bkron
+
 def lmKronRedVregUpdate(LM,idxShf,regVreg):
     v_idx_shf,s_idx_shf,sD_idx_shf = idxShf[:]
     bVR = LM['bV'][v_idx_shf]
