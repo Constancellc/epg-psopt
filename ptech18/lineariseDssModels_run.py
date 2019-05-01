@@ -12,5 +12,5 @@ def main(fdr_i=5,nrelTest=False,linPoint=1.0):
     return blm
 
 
-blm = main(23,nrelTest=False,linPoint=0.6)
-blm = main(5,nrelTest=False,linPoint=0.6)
+self = main(23,nrelTest=False,linPoint=0.6)
+self = main(5,nrelTest=False,linPoint=0.6)
