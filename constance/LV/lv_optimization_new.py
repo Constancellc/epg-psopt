@@ -722,6 +722,26 @@ class LVTestFeeder:
             v_tot[t] = v
             
         return v_tot
+
+    def get_all_voltages_mag(self,M,a,alpha,v0,scale=240):
+        v_tot = {}
+        for t in range(self.T):
+            y = [0.0]*self.nH*2
+            for hh in range(self.nH):
+                y[hh] -= self.hh_profiles[hh][t]*1000
+                y[hh] -= self.evs[hh][t]*1000
+            for hh in range(self.nH):
+                y[hh+self.nH] = alpha*y[hh]
+            y = np.array(y)
+
+            v = np.matmul(M,y)
+            v = v+a
+            #v = np.hstack((v0,v))
+            v = np.abs(v)[3:]/scale
+
+            v_tot[t] = v
+            
+        return v_tot
     
 
     def get_feeder_load(self):
