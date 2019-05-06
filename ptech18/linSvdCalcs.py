@@ -9,6 +9,10 @@ import dss_stats_funcs as dsf
 from matplotlib import cm, patches
 from sklearn.decomposition import TruncatedSVD
 from matplotlib.collections import LineCollection
+from random import sample, seed
+
+from cvxopt import matrix, solvers, msk
+from mosek import iparam
 
 
 def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,cns,DVmax=0.06):
@@ -54,6 +58,99 @@ def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,cns,DVmax=0.06):
     cnsPct = 100*np.array([sum(maxDv>DVmax),sum(vMaxLsMv>VpMv),sum(vMinLsMv<VmMv),sum(vMaxLsLv>VpLv),sum(vMinLsLv<VmLv),sum(vMaxHsMv>VpMv),sum(vMinHsMv<VmMv),sum(vMaxHsLv>VpLv),sum(vMinHsLv<VmLv)])/nMc
     inBounds = np.any(np.array([maxDv>DVmax,vMaxLsMv>VpMv,vMinLsMv<VmMv,vMaxLsLv>VpLv,vMinLsLv<VmLv,vMaxHsMv>VpMv,vMinHsMv<VmMv,vMaxHsLv>VpLv,vMinHsLv<VmLv]),axis=0)
     return cnsPct, inBounds
+
+
+def linPrgCalc(dVmv,dVlv,vDv,bLsMv,bHsMv,bLsLv,bHsLv,KtMv,KtLv,cns,DVmax=0.06):
+    # # Linear program based on https://cvxopt.org/examples/tutorial/lp.html
+    # # need the form A s(hat) d + b <V+, for example, to maximise d.
+    # # NB note that the inputs are from Ks, Kt rather than Ktot.
+    c = matrix([-1.0]+[0]*KtMv.shape[1])
+    
+    Amv = np.hstack((np.array([dVmv]).T,KtMv))[bLsMv>0.5]
+    Alv = np.hstack((np.array([dVlv]).T,KtLv))[bLsLv>0.5]
+    Adv = np.hstack((np.array([vDv]).T,np.zeros((len(vDv),KtMv.shape[1]))))
+    
+    bLsMv = bLsMv[bLsMv>0.5]
+    bHsMv = bHsMv[bHsMv>0.5]
+    bLsLv = bLsLv[bLsLv>0.5]
+    bHsLv = bHsLv[bHsLv>0.5]
+    
+    # build the b-matrix:
+    VpMv = cns.VpMv - np.maximum(bLsMv,bHsMv)
+    VpLv = cns.VpLv - np.maximum(bLsLv,bHsLv)
+    VmMv = cns.VmMv - np.minimum(bLsMv,bHsMv)
+    VmLv = cns.VmLv - np.minimum(bLsLv,bHsLv)
+    vDvCns = DVmax*np.ones((len(vDv)))
+    
+    A = matrix(np.concatenate((Amv,-Amv,Alv,-Alv,Adv,-Adv)))
+    b = matrix(np.concatenate((VpMv,-VmMv,VpLv,-VmLv,vDvCns,vDvCns)))
+    
+    # c = matrix([-1.0]+[0]*2*KtMv.shape[1])
+    
+    # Amv0 = np.hstack((np.array([dVmv]).T,KtMv,np.zeros(KtMv.shape)))[bLsMv>0.5]
+    # Amv1 = np.hstack((np.array([dVmv]).T,np.zeros(KtMv.shape),KtMv))[bLsMv>0.5]
+    # Alv0 = np.hstack((np.array([dVlv]).T,KtLv,np.zeros(KtLv.shape)))[bLsLv>0.5]
+    # Alv1 = np.hstack((np.array([dVlv]).T,np.zeros(KtLv.shape),KtLv))[bLsLv>0.5]
+    
+    # Adv = np.hstack((np.array([vDv]).T,np.zeros((len(vDv),KtMv.shape[1]*2))))
+    
+    # bLsMv = bLsMv[bLsMv>0.5]
+    # bHsMv = bHsMv[bHsMv>0.5]
+    # bLsLv = bLsLv[bLsLv>0.5]
+    # bHsLv = bHsLv[bHsLv>0.5]
+    
+    # # build the b-matrix:
+    # VpMvLs = cns.VpMv - bLsMv
+    # VpLvLs = cns.VpLv - bLsLv
+    # VmMvLs = cns.VmMv - bLsMv
+    # VmLvLs = cns.VmLv - bLsLv
+    # VpMvHs = cns.VpMv - bHsMv
+    # VpLvHs = cns.VpLv - bHsLv
+    # VmMvHs = cns.VmMv - bHsMv
+    # VmLvHs = cns.VmLv - bHsLv
+    # vDvCns = DVmax*np.ones((len(vDv)))
+    
+    # A = matrix(np.concatenate((Amv0,-Amv0,Alv0,-Alv0,Amv1,-Amv1,Alv1,-Alv1,Adv,-Adv)))
+    # b = matrix(np.concatenate((VpMvLs,-VmMvLs,VpLvLs,-VmLvLs,VpMvHs,-VmMvHs,VpLvHs,-VmLvHs,vDvCns,vDvCns)))
+    
+    msk.options = {iparam.log: 0}
+    sol = solvers.lp(c,A,b,solver='mosek')
+    
+    if sol['status']=='optimal':
+        sts = 0
+        sln = sol['x'][0]
+    else:
+        sts = 1
+        sln = np.nan
+    
+    return sln,sts
+    
+def linSnsCalc(dVmv,dVlv,vDv,bLsMv,bHsMv,bLsLv,bHsLv,cns,DVmax=0.06):
+    # as in the gm paper
+    dVmv = dVmv[bLsMv>0.5]
+    dVlv = dVlv[bLsLv>0.5]
+    bLsMv = bLsMv[bLsMv>0.5]
+    bHsMv = bHsMv[bHsMv>0.5]
+    bLsLv = bLsLv[bLsLv>0.5]
+    bHsLv = bHsLv[bHsLv>0.5]
+    
+    # build the b-matrix:
+    VpMv = cns.VpMv - np.maximum(bLsMv,bHsMv)
+    VpLv = cns.VpLv - np.maximum(bLsLv,bHsLv)
+    VmMv = cns.VmMv - np.minimum(bLsMv,bHsMv)
+    VmLv = cns.VmLv - np.minimum(bLsLv,bHsLv)
+    
+    vDvCnsU = DVmax*np.ones((len(vDv)))
+    vDvCnsL = -DVmax*np.ones((len(vDv)))
+    
+    cUp = np.concatenate((VpMv,VpLv,vDvCnsU))
+    cLo = np.concatenate((VmMv,VmLv,vDvCnsL))
+    kMult = np.concatenate((dVmv,dVlv,vDv))
+    
+    ltcUp = (cUp/kMult)[kMult>=0]
+    ltcLo = (cLo/kMult)[kMult<0]
+    x = np.min(np.concatenate((ltcUp,ltcLo)))
+    return x
 
 def pos2str(tapPos):
     hexPos = ''
@@ -163,8 +260,8 @@ def plotHcGen(mu_k,prms,hcGenSet,lineColor,ax=None):
 def plotBoxWhisk(ax,x,ddx,y,clr=cm.tab10(0),zOrder=10,lineWidth=1.0,bds=[None],transpose=False):
     if not transpose:
         if bds[0]!=None:
-            ax.plot([x],bds[0],color=clr, zorder=zOrder,marker='2')
-            ax.plot([x],bds[1],color=clr, zorder=zOrder,marker='1')
+            ax.plot([x],bds[0],color=clr, zorder=zOrder,marker='^',markersize=5,markerfacecolor='none')
+            ax.plot([x],bds[1],color=clr, zorder=zOrder,marker='v',markersize=5,markerfacecolor='none')
         ax.plot([x]*2,y[0:2],'--',color=clr,zorder=zOrder,linewidth=lineWidth)
         
         ax.plot([x-ddx,x+ddx],[y[0]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
@@ -177,8 +274,6 @@ def plotBoxWhisk(ax,x,ddx,y,clr=cm.tab10(0),zOrder=10,lineWidth=1.0,bds=[None],t
         ax.plot([x]*2,y[3::],'--',color=clr,zorder=zOrder,linewidth=lineWidth)
     if transpose:
         if bds[0]!=None:
-            # ax.plot(bds[0],[x],color=clr, zorder=zOrder,marker=5,markersize=5,markerfacecolor='none')
-            # ax.plot(bds[1],[x],color=clr, zorder=zOrder,marker=4,markersize=5,markerfacecolor='none')
             ax.plot(bds[0]-1,[x],color=clr, zorder=zOrder,marker='>',markersize=5,markerfacecolor='none')
             ax.plot(bds[1]+1,[x],color=clr, zorder=zOrder,marker='<',markersize=5,markerfacecolor='none')
         ax.plot(y[0:2],[x]*2,'--',color=clr,zorder=zOrder,linewidth=lineWidth)
@@ -268,6 +363,8 @@ class linModel:
         self.nV, self.nS = self.KfixPu.shape
         self.nSy = Kyfix.shape[1];         self.nSd = Kdfix.shape[1]
         self.nT = self.LMfxd['Kt'].shape[1]
+        self.KtPu = dsf.vmM(1/self.dvBase,self.LMfxd['Kt'])
+        
         self.pIs = np.concatenate( (np.arange(0,self.nSy//2),np.arange(self.nSy,self.nSy+self.nSd//2)) )
         self.qIs = np.concatenate( (np.arange(self.nSy//2,self.nSy),np.arange(self.nSy+self.nSd//2,self.nSy+self.nSd)) )
         
@@ -308,6 +405,8 @@ class linModel:
             Kfix = np.concatenate((KyPfix+k_Q*KyQfix,KdPfix + k_Q*KdQfix),axis=1)
             
         self.KfixPu = dsf.vmM(1/self.dvBase,Kfix)
+        self.Kfix0Pu = dsf.vmM(1/self.dvBase,np.concatenate((Ky,Kd),axis=1))
+        print(self.Kfix0Pu.shape)
         
     def loadNetModel(self,netModel=None):
         if netModel==None:
@@ -378,6 +477,7 @@ class linModel:
         
         Vp_pct = np.zeros(pdfData['nP'])
         Cns_pct = np.zeros(list(pdfData['nP'])+[nCnstr])
+        lpPct = np.zeros(list(pdfData['nP'])+[nMc])
         hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
         hcGenAll = np.array([])
         genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
@@ -452,6 +552,10 @@ class linModel:
                 Vp_pct[i,jj] = 100*sum(inBounds)/nMc
                 hcGen = genTot[inBounds]
                 
+                # Running the sensitivity analysis
+                for kk in range(nMc):
+                    lpPct[i,jj,kk] = linSnsCalc(DVoPmv[kk],DVoPlv[kk],vDv[kk],b0lsMv,b0hsMv,b0lsLv,b0hsLv,self)
+                
                 if len(hcGen)!=0:
                     hcGenAll = np.concatenate((hcGenAll,hcGen))
                     hcGen.sort()
@@ -491,6 +595,7 @@ class linModel:
         self.linHcRsl['hcGenSet'] = hcGenSet
         self.linHcRsl['Vp_pct'] = Vp_pct
         self.linHcRsl['Cns_pct'] = Cns_pct
+        self.linHcRsl['Lp_pct'] = lpPct
         self.linHcRsl['hcGenAll'] = hcGenAll
         self.linHcRsl['genTotSet'] = genTotSet
         self.linHcRsl['runTime'] = tEnd - tStart
@@ -704,6 +809,95 @@ class linModel:
         self.dssHcRsl['kCdf'][np.isnan(self.dssHcRsl['kCdf'])] = 100.0000011111
         self.dssHcRsl['capLo'] = capLoMc
         self.dssHcRsl['capHi'] = capHiMc
+        
+        
+    def runLinLp(self,pdf,model='nom'):
+        pdfData = pdf.pdf
+        nMc = pdfData['nMc']
+        
+        Vp_pct = np.zeros(pdfData['nP'])
+        lpPct = np.zeros(list(pdfData['nP'])+[nMc])
+        lpSts = np.zeros(list(pdfData['nP'])+[nMc])
+        
+        nV = self.KtotPu.shape[0]
+        nS = self.KtotPu.shape[1]
+
+        if model=='nom':
+            NSetTot = np.arange(nV)
+            NSetFix = NSetTot
+        elif model=='std' or model=='cor':
+            if model=='std':
+                vars = self.varKtotU.copy() # <--- not yet implemented 'full' model.
+                varSortN = vars.argsort()[::-1]
+                NSetTot = varSortN[0:self.NSetStd[0]]
+                NSetFix = np.arange(nV)
+            elif model=='cor':
+                vars = self.varKfullU.copy()
+                varSortN = vars.argsort()[::-1]
+                NSet = np.array(varSortN[self.NSetCor[0]])
+                NSetTot = NSet[NSet<nV]
+                NSetFix = NSet[NSet>=nV] - nV
+        tStart = time.process_time()
+        tStartClk = time.time()
+        
+        mvIdxNSet = np.where(self.vTotBase[NSetTot]>1000)[0] # as in mvIdxTot
+        lvIdxNSet = np.where(self.vTotBase[NSetTot]<1000)[0] # as in lvIdxTot
+        
+        KtotPuCalc = self.KtotPu[NSetTot]
+        
+        Kfix0PuCalc = self.Kfix0Pu[NSetFix] # for loads
+        KfixPuCalc = self.KfixPu[NSetFix] # for generators
+        
+        # for the LP stuff
+        KtPuCalc = self.KtPu[NSetFix]
+        KtPuCalcMv = KtPuCalc[mvIdxNSet]
+        KtPuCalcLv = KtPuCalc[lvIdxNSet]
+        
+        print(KtPuCalcMv.shape)
+        
+        b0lpLs = Kfix0PuCalc.dot(self.xTotLs)
+        b0lpHs = Kfix0PuCalc.dot(self.xTotHs)
+        b0lpLsMv = b0lpLs[mvIdxNSet]
+        b0lpLsLv = b0lpLs[lvIdxNSet]
+        b0lpHsMv = b0lpHs[mvIdxNSet]
+        b0lpHsLv = b0lpHs[lvIdxNSet]
+
+        for i in range(pdfData['nP'][0]):
+            print(i)
+            
+            Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
+            pdfMc = pdf.genPdfMcSet(nMc,Mu,i)[0] # pdfMc in kW (Mu is in W)
+            
+            DelVout = (KtotPuCalc.dot(pdfMc).T)*1e3 # KtotPu in V per W
+            ddVout = abs((KfixPuCalc.dot(pdfMc).T)*1e3) # just get abs change
+            
+            DelVlp = (KfixPuCalc.dot(pdfMc).T)*1e3
+            for jj in range(pdfData['nP'][-1]):
+                DVlP = DelVlp*pdfData['mu_k'][jj]
+                DVlPmv = DVlP[:,mvIdxNSet]
+                DVlPlv = DVlP[:,lvIdxNSet]
+                for kk in range(nMc):
+                    lpPct[i,jj,kk],lpSts[i,jj,kk] = linPrgCalc(DVlPmv[kk],DVlPlv[kk],DVlP[kk],b0lpLsMv,b0lpHsMv,b0lpLsLv,b0lpHsLv,KtPuCalcMv,KtPuCalcLv,self)
+                
+                Vp_pct[i,jj] = 100*np.sum(lpPct[i,jj]<1)/nMc
+                
+        tEnd = time.process_time()
+        tEndClk = time.time()
+        
+        if pdfData['name']=='gammaWght':
+            param = pdfData['mu_k']
+        elif pdfData['name']=='gammaFrac':
+            param = pdfData['prms']
+        
+        
+        self.linLpRsl = {}
+        self.linLpRsl['Vp_pct'] = Vp_pct
+        self.linLpRsl['lp_pct'] = lpPct
+        self.linLpRsl['runTime'] = tEnd - tStart
+        self.linLpRsl['runTimeClk'] = tEndClk - tStartClk
+        self.linLpRsl['kCdf'] = 100*getKcdf(param,Vp_pct)[0]
+        self.linLpRsl['kCdf'][np.isnan(self.linLpRsl['kCdf'])] = 100.0000011111
+        
         
     def getCovMat(self,getTotCov=True,getFixCov=False,getFullCov=False):
         if getTotCov:
@@ -1444,6 +1638,7 @@ class hcPdfs:
     def genPdfMcSet(self,nMc,Mu0,prmI,getMcU=False):
         # NB: Mu0 used in gammaFrac/gammaXoff
         np.random.seed(self.rndSeed)
+        seed(self.rndSeed) # used in the gammaFrac draw
         if self.pdf['name']=='gammaWght':
             k = self.pdf['prms'][prmI]
             pdfMc0 = np.random.gamma(k,1/np.sqrt(k),(len(Mu0),nMc))
@@ -1465,7 +1660,16 @@ class hcPdfs:
             clfnSolar = self.pdf['clfnSolar']
             frac = self.pdf['prms'][prmI]
             
-            genIn = np.random.binomial(1,frac,(len(Mu0),nMc))
+            # genIn = np.random.binomial(1,frac,(len(Mu0),nMc))
+            
+            genIn = np.zeros((len(Mu0),nMc))
+            nDraw = np.ceil(frac*len(Mu0)).astype(int)
+            for i in range(nMc):
+                idxs = sample(range(len(Mu0)),nDraw)
+                genIn[idxs,i] = 1
+            
+            # genIn = np.random.binomial(1,frac,(len(Mu0),nMc))
+            
             pdfGen = np.random.gamma(shape=clfnSolar['k'],scale=clfnSolar['th_kW'],size=(len(Mu0),nMc))
             pdfMc = pdfGen*genIn
             pdfMeans = np.mean(pdfMc) # NB these are uniformly distributed

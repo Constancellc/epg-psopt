@@ -17,15 +17,18 @@ pLoad = {'epriJ1':11.6,'epriK1':12.74,'epriM1':15.67,'epri5':16.3,'epri7':19.3,'
 feedersTidy = {'34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24'}
 
 feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
+feeders_lp = feeders_dcp
 
 # t_timeTable = 1 # timeTable
 # f_dssVlinWght = 1 # gammaFrac boxplot results
-f_linMcVal = 1 # monte carlo no. validation
+# f_linMcVal = 1 # monte carlo no. validation
 # f_logTimes = 1 # 
 # f_linMcSns = 1
 # f_dssVlinWghtErr = 1
 # f_dssSeqPar = 1
 # f_plotCns = 1
+# f_plotLp = 1
+f_plotLpScale = 1
 
 pltSave=True
 pltShow=True
@@ -35,7 +38,7 @@ figSze1 = (5.2,2.5)
 TD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\tables\\"
 FD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
-rsltsFrac = {}; rsltsVal = {}; rsltsPar = {}; rsltsSns = {}
+rsltsFrac = {}; rsltsVal = {}; rsltsPar = {}; rsltsSns = {}; rsltsLp = {}
 for feeder in feeders:
     # RD = os.path.join(WD,feeder,'linHcCalcs'+rsltType+pdfName+num+regID+'.pkl')
     RDval = os.path.join(WD,feeder,'linHcCalcsVal_gammaFrac100_new.pkl')
@@ -53,6 +56,11 @@ for feeder in feeders_dcp:
     RDsns = os.path.join(WD,feeder,'linHcCalcsSns_gammaFrac_new.pkl')
     with open(RDsns,'rb') as handle:
         rsltsSns[feeder] = pickle.load(handle)
+for feeder in feeders_lp:
+    RD = os.path.join(WD,feeder,'linHcPrg.pkl')
+    with open(RD,'rb') as handle:
+        rsltsLp[feeder] = pickle.load(handle)
+
 timeStrLin = [];    timeStrDss = []; timeLin = []; timeDss = []
 kCdfLin = [];    kCdfDss = []; 
 LrelNorm = []; LmeanNorm = []; feederTidySet = []
@@ -101,6 +109,17 @@ for rslt in rsltsPar.values():
     feederData[i].append('%.2f' %  (np.mean(np.abs(rslt['dssHcRslPar']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))) )
     i+=1
 
+kCdfLpNom = []; lpLpNom = [];kCdfLpUpg = []; lpLpUpg = [];kCdfLpPrg = []; lpLpPrg = [];
+feederLpSmart = []
+for rslt in rsltsLp.values():
+    kCdfLpNom.append(rslt['linHcRsl']['kCdf'][[0,1,5,10,15,19,20]])
+    lpLpNom.append(rslt['linHcRsl']['Lp_pct'])
+    kCdfLpUpg.append(rslt['linHcUpg']['kCdf'][[0,1,5,10,15,19,20]])
+    lpLpUpg.append(rslt['linHcUpg']['Lp_pct'])
+    kCdfLpPrg.append(rslt['linLpRsl']['kCdf'][[0,1,5,10,15,19,20]])
+    lpLpPrg.append(rslt['linLpRsl']['lp_pct'])
+    feederLpSmart.append(feedersTidy[rslt['feeder']])
+
 linHcRsl = rslt['linHcRsl']
 
 # TABLE 1 ======================= 
@@ -117,6 +136,7 @@ if 't_timeTable' in locals():
 
 dx = 0.175; ddx=dx/1.5
 X = np.arange(len(kCdfLin),0,-1)
+Xlp = np.arange(len(kCdfLpNom),0,-1)
 i=0
 clrA,clrB,clrC,clrD,clrE = cm.tab10(np.arange(5))
 
@@ -196,28 +216,6 @@ if 'f_linMcVal' in locals():
         plt.show()
 
         
-# RESULTS 4 - linear model vs linear rerun, seconds =====================
-if 'f_logTimes' in locals():
-    fig = plt.figure(figsize=figSze0)
-    ax = fig.add_subplot(111)
-    ax.bar(X+dx,timeLin,width=ddx*2,color=clrA,zorder=10)
-    ax.bar(X-dx,timeDss,width=ddx*2,color=clrB,zorder=10)
-    ax.plot(0,0,'-',color=clrA,label='Linear')
-    ax.plot(0,0,'-',color=clrB,label='OpenDSS')
-    ax.set_yscale('log')
-    ax.legend()
-    ax.set_xticks(X)
-    ax.set_xticklabels(feeders,rotation=90)
-    ax.grid(True)
-    ax.set_ylabel('Run time, min')
-    ax.set_ylim((10**-3,10**3))
-    plt.tight_layout()
-    if 'pltSave' in locals():
-        plt.savefig(FD+'logTimes.png',pad_inches=0.02,bbox_inches='tight')
-        plt.savefig(FD+'logTimes.pdf',pad_inches=0.02,bbox_inches='tight')
-    if 'pltShow' in locals():
-        plt.show()
-
 # RESULTS 5 =====================
 Xsns = np.arange(len(kCdfLinSns),0,-1)
 if 'f_linMcSns' in locals():
@@ -332,3 +330,51 @@ if 'f_plotCns' in locals():
     if 'pltSave' in locals():
         plt.savefig(FD+'plotCns.png',pad_inches=0.02,bbox_inches='tight')
         plt.savefig(FD+'plotCns.pdf',pad_inches=0.02,bbox_inches='tight')
+        
+
+
+if 'f_plotLp' in locals():
+    fig = plt.figure(figsize=figSze0)
+    ax = fig.add_subplot(111)
+    i=0
+    for x in Xlp:
+        ax = plotBoxWhisk(ax,x+dx,ddx*0.5,kCdfLpNom[i][1:-1],clrB,bds=kCdfLpNom[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x,ddx*0.5,kCdfLpUpg[i][1:-1],clrA,bds=kCdfLpUpg[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x-dx,ddx*0.5,kCdfLpPrg[i][1:-1],clrC,bds=kCdfLpPrg[i][[0,-1]],transpose=True)
+        i+=1
+    ax.plot(0,0,'-',color=clrA,label='Upg')
+    ax.plot(0,0,'-',color=clrB,label='Nom')
+    ax.plot(0,0,'-',color=clrC,label='LP')
+    plt.legend()
+    plt.yticks(Xlp,feederLpSmart)
+    plt.xlim((-2,102))
+    plt.grid(True)
+    plt.xlabel('Loads with PV installed, %')
+    plt.tight_layout()
+    if 'pltShow' in locals():
+        plt.show()
+        
+if 'f_plotLpScale' in locals():
+    fig,axs = plt.subplots(1,3,sharey=True,figsize=(6.5,4))
+    idx = 0
+    lpScales = [lpLpNom[idx],lpLpUpg[idx],lpLpPrg[idx]]
+    prms = np.linspace(100/len(lpLpNom[0]),100,len(lpLpNom[0]))
+    
+    ii=0
+    for lpScale in lpScales:
+        
+        jj = 0
+        for asd in lpScale[::2]:
+            pctls = np.percentile(asd,[5,25,50,75,95])
+            rngs = np.percentile(asd,[0,100])
+            plotBoxWhisk(axs[ii],prms[jj],1,pctls,bds=rngs)
+            jj+=2
+
+        axs[ii].plot([-0.5,100.5],[1,1],'k--',zorder=20)
+        axs[ii].set_xlim((-2.5,102.5))
+        axs[ii].set_ylim((0,2.5))
+        axs[ii].grid(True)
+        axs[ii].set_xlabel('% of loads with PV')
+        ii+=1
+    axs[0].set_ylabel('Linear scaling potential')
+    plt.show()

@@ -30,7 +30,8 @@ mcDssOn = False
 # mcDssBw = 1
 # mcFullSet = 1
 # mcLinUpg = 1
-mcLinLds = 1
+# mcLinLds = 1
+mcLinPrg = 1
 
 # # PLOTTING options:
 # pltHcVltn = 1
@@ -42,7 +43,7 @@ mcLinLds = 1
 nMc = 100 # nominal value of 100
 
 pltSave = True # for saving both plots and results
-pltSave = False
+# pltSave = False
 
 regBand=0 # opendss options
 setCapsOpt = 'linModel' # opendss options. 'linModels' is the 'right' option, cf True/False
@@ -64,7 +65,7 @@ fdr_i_set = [21] # less 6,8, 17,18,20,21, || 9, 22
 # fdr_i_set = [22,19,20,21,9] # big networks with only decoupled regulator models
 # fdr_i_set = [22,19,9] # big networks with only decoupled regulator models
 fdr_i_set = [18]
-# fdr_i_set = [6]
+fdr_i_set = [9,19,20,21,22]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'; prms=np.array([]) 
@@ -107,7 +108,7 @@ for fdr_i in fdr_i_set:
     if mcLinSns:
         LMsns = linModel(fdr_i,WD,setCapsModel=setCapsOpt)
         
-    if 'mcLinUpg' in locals():
+    if ('mcLinUpg' in locals()) or ('mcLinPrg' in locals()):
         LMupg = linModel(fdr_i,WD,QgenPf=-0.95)
         LMupg.updateDcpleModel(LMupg.regVreg0*upgReg[feeder])
     
@@ -246,7 +247,22 @@ for fdr_i in fdr_i_set:
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
         
-
+    if 'mcLinPrg' in locals():
+        LM.runLinHc(pdf)
+        linHcRsl = LM.linHcRsl
+        
+        LMupg.runLinHc(pdf)
+        linHcUpg = LMupg.linHcRsl
+        
+        LM.runLinLp(pdf)
+        linLpRsl = LM.linLpRsl
+        
+        rslt = {'linHcRsl':linHcRsl,'linHcUpg':linHcUpg,'linLpRsl':linLpRsl,'pdfData':pdf.pdf,'feeder':feeder}
+        if pltSave:
+            SN = os.path.join(SD,'linHcPrg.pkl')
+            with open(SN,'wb') as file:
+                pickle.dump(rslt,file)
+        
     
     
     # ================ PLOTTING FUNCTIONS FROM HERE
