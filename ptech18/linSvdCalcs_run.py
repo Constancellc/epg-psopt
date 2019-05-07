@@ -70,60 +70,63 @@ pdfName = 'gammaFrac'
         # j+=1    
     # i+=1
 
-def main(linModel=6):
-    reload(lsc)
-    # have a go at getting the LP version of the HC calcs working
-    LM = lsc.linModel(linModel,WD)
-    pdf = lsc.hcPdfs( LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,nMc=5 )
-    LM.runLinHc(pdf)
-    LM.runLinLp(pdf)
-    lsc.plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
+
+
+# # =============================== Getting the Linear Program version of the code up and running 
+# def main(linModel=6):
+    # reload(lsc)
+    # # have a go at getting the LP version of the HC calcs working
+    # LM = lsc.linModel(linModel,WD)
+    # pdf = lsc.hcPdfs( LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,nMc=5 )
+    # LM.runLinHc(pdf)
+    # LM.runLinLp(pdf)
+    # lsc.plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
     
-    # asd = LM.linLpRsl
-    asd = LM.linHcRsl
-    zxc = asd['Lp_pct']
+    # # asd = LM.linLpRsl
+    # asd = LM.linHcRsl
+    # zxc = asd['Lp_pct']
 
-    fig,ax = plt.subplots()
-    i = 0
-    for asd in zxc:
-        pctls = np.percentile(asd,[5,25,50,75,95])
-        rngs = np.percentile(asd,[0,100])
-        lsc.plotBoxWhisk(ax,pdf.pdf['prms'][i],0.01,pctls,bds=rngs)
-        i+=1
+    # fig,ax = plt.subplots()
+    # i = 0
+    # for asd in zxc:
+        # pctls = np.percentile(asd,[5,25,50,75,95])
+        # rngs = np.percentile(asd,[0,100])
+        # lsc.plotBoxWhisk(ax,pdf.pdf['prms'][i],0.01,pctls,bds=rngs)
+        # i+=1
 
-    ax.plot([-0.005,1.005],[1,1],'k--',zorder=20)
-    ax.set_xlim((-0.025,1.025))
-    ax.set_ylim((0,3.5))
-    ax.grid(True)
-    plt.show()
+    # ax.plot([-0.005,1.005],[1,1],'k--',zorder=20)
+    # ax.set_xlim((-0.025,1.025))
+    # ax.set_ylim((0,3.5))
+    # ax.grid(True)
+    # plt.show()
     
-    plt.plot(LM.linLpRsl['Vp_pct'])
-    plt.plot(LM.linHcRsl['Vp_pct'])
-    plt.show()
+    # plt.plot(LM.linLpRsl['Vp_pct'])
+    # plt.plot(LM.linHcRsl['Vp_pct'])
+    # plt.show()
     
-    return LM,pdf,zxc
+    # return LM,pdf,zxc
 
-LM,pdf,zxc = main(6)
+# LM,pdf,zxc = main(6)
 
-asd2 = LM.linLpRsl
-zxc2 = asd2['lp_pct']
+# asd2 = LM.linLpRsl
+# zxc2 = asd2['lp_pct']
 
-fig,ax = plt.subplots()
-i = 0
-for asd in zxc2:
-    pctls = np.percentile(asd,[5,25,50,75,95])
-    rngs = np.percentile(asd,[0,100])
-    lsc.plotBoxWhisk(ax,pdf.pdf['prms'][i],0.01,pctls,bds=rngs)
-    i+=1
+# fig,ax = plt.subplots()
+# i = 0
+# for asd in zxc2:
+    # pctls = np.percentile(asd,[5,25,50,75,95])
+    # rngs = np.percentile(asd,[0,100])
+    # lsc.plotBoxWhisk(ax,pdf.pdf['prms'][i],0.01,pctls,bds=rngs)
+    # i+=1
 
-ax.plot([-0.005,1.005],[1,1],'k--',zorder=20)
-ax.set_xlim((-0.025,1.025))
-ax.set_ylim((0,3.5))
-ax.grid(True)
-plt.show()
+# ax.plot([-0.005,1.005],[1,1],'k--',zorder=20)
+# ax.set_xlim((-0.025,1.025))
+# ax.set_ylim((0,3.5))
+# ax.grid(True)
+# plt.show()
 
-# qwe = asd2['Vp_pct']
-# qwe2 = 
+# # qwe = asd2['Vp_pct']
+# # qwe2 = 
 
 
 # # ==================== Attempting to use olkin and pratt. does not seem to work well at all. VVVVVVV

@@ -64,6 +64,7 @@ def linPrgCalc(dVmv,dVlv,vDv,bLsMv,bHsMv,bLsLv,bHsLv,KtMv,KtLv,cns,DVmax=0.06):
     # # Linear program based on https://cvxopt.org/examples/tutorial/lp.html
     # # need the form A s(hat) d + b <V+, for example, to maximise d.
     # # NB note that the inputs are from Ks, Kt rather than Ktot.
+    
     c = matrix([-1.0]+[0]*KtMv.shape[1])
     
     Amv = np.hstack((np.array([dVmv]).T,KtMv))[bLsMv>0.5]

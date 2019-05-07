@@ -73,10 +73,19 @@ pdfName = 'gammaFrac'; prms=np.array([])
 
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy']
 
-optMultJ1 = 0.995**np.array([5,4,0,1,2,4,0,5.5,4])
-optMult8500 = 0.995**np.array([3,1,2,2,1,0,1,0,0,3,3,1])
-upgReg = {'8500node':optMult8500,'epri24':0.981,'epriJ1':optMultJ1,'epriK1':0.984,'epriM1':0.980} #NB epri M1 is slightly lower than the actual optimal lambda of 0.984
 
+
+# # PF is -0.95
+# optMultJ1 = 0.995**np.array([5,4,0,1,2,4,0,5.5,4]) 
+# optMult8500 = 0.995**np.array([3,1,2,2,1,0,1,0,0,3,3,1])
+# upgReg = {'8500node':optMult8500,'epri24':0.981,'epriJ1':optMultJ1,'epriK1':0.984,'epriM1':0.980} #NB epri M1 is slightly lower than the actual optimal lambda of 0.984
+# upgPf = -0.95
+
+# PF is 1.00:
+optMultJ1 = 0.995**np.array([5,4,0,-1,2,4,0,5.5,4]) 
+optMult8500 = 0.995**np.array([3,1,2,2,1,0,1,0,0,3,3,1])
+upgReg = {'8500node':optMult8500,'epri24':0.980,'epriJ1':optMultJ1,'epriK1':0.99,'epriM1':0.983} #NB epri M1 is slightly lower than the actual optimal lambda of 0.984
+upgPf = 1.00
 
 # opendss with 'early bindings'
 WD = os.path.dirname(sys.argv[0])
@@ -109,7 +118,8 @@ for fdr_i in fdr_i_set:
         LMsns = linModel(fdr_i,WD,setCapsModel=setCapsOpt)
         
     if ('mcLinUpg' in locals()) or ('mcLinPrg' in locals()):
-        LMupg = linModel(fdr_i,WD,QgenPf=-0.95)
+        # LMupg = linModel(fdr_i,WD,QgenPf=-0.95)
+        LMupg = linModel(fdr_i,WD,QgenPf=upgPf)
         LMupg.updateDcpleModel(LMupg.regVreg0*upgReg[feeder])
     
     # ADMIN =============================================
@@ -254,12 +264,14 @@ for fdr_i in fdr_i_set:
         LMupg.runLinHc(pdf)
         linHcUpg = LMupg.linHcRsl
         
-        LM.runLinLp(pdf)
-        linLpRsl = LM.linLpRsl
+        # LM.runLinLp(pdf)
+        # linLpRsl = LM.linLpRsl
+        LMupg.runLinLp(pdf)
+        linLpRsl = LMupg.linLpRsl
         
         rslt = {'linHcRsl':linHcRsl,'linHcUpg':linHcUpg,'linLpRsl':linLpRsl,'pdfData':pdf.pdf,'feeder':feeder}
         if pltSave:
-            SN = os.path.join(SD,'linHcPrg.pkl')
+            SN = os.path.join(SD,'linHcPrgV0.pkl')
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
         

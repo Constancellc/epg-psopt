@@ -21,13 +21,13 @@ feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
 # t_timeTable = 1 # timeTable
 # t_rsltSvty = 1 # sensitivity table
 # f_dssVlinWght = 1 # gammaFrac boxplot results
-# f_mcLinUpg = 1
+f_mcLinUpg = 1
 # f_linMcSns = 1
-f_plotCns = 1 # <--- also useful for debugging.
-f_plotCns_paramUpdate = 1
+# f_plotCns = 1 # <--- also useful for debugging.
+# f_plotCns_paramUpdate = 1
 
-pltSave=True
-# pltShow=True
+# pltSave=True
+pltShow=True
 
 figSze0 = (5.2,3.4)
 figSze1 = (5.2,2.5)

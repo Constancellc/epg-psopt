@@ -57,7 +57,8 @@ for feeder in feeders_dcp:
     with open(RDsns,'rb') as handle:
         rsltsSns[feeder] = pickle.load(handle)
 for feeder in feeders_lp:
-    RD = os.path.join(WD,feeder,'linHcPrg.pkl')
+    # RD = os.path.join(WD,feeder,'linHcPrg.pkl')
+    RD = os.path.join(WD,feeder,'linHcPrgV0.pkl')
     with open(RD,'rb') as handle:
         rsltsLp[feeder] = pickle.load(handle)
 
@@ -330,8 +331,6 @@ if 'f_plotCns' in locals():
     if 'pltSave' in locals():
         plt.savefig(FD+'plotCns.png',pad_inches=0.02,bbox_inches='tight')
         plt.savefig(FD+'plotCns.pdf',pad_inches=0.02,bbox_inches='tight')
-        
-
 
 if 'f_plotLp' in locals():
     fig = plt.figure(figsize=figSze0)
@@ -356,9 +355,12 @@ if 'f_plotLp' in locals():
         
 if 'f_plotLpScale' in locals():
     fig,axs = plt.subplots(1,3,sharey=True,figsize=(6.5,4))
-    idx = 0
+    
+    idx = 4
     lpScales = [lpLpNom[idx],lpLpUpg[idx],lpLpPrg[idx]]
     prms = np.linspace(100/len(lpLpNom[0]),100,len(lpLpNom[0]))
+    
+    ttls = ['Nom','Upg','Lp']
     
     ii=0
     for lpScale in lpScales:
@@ -375,6 +377,7 @@ if 'f_plotLpScale' in locals():
         axs[ii].set_ylim((0,2.5))
         axs[ii].grid(True)
         axs[ii].set_xlabel('% of loads with PV')
+        axs[ii].set_title(ttls[ii])
         ii+=1
-    axs[0].set_ylabel('Linear scaling potential')
+    axs[0].set_ylabel('Linear scaling potential, '+feederLpSmart[idx])
     plt.show()
