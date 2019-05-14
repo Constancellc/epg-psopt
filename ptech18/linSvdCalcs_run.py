@@ -72,21 +72,23 @@ pdfName = 'gammaFrac'
 
 
 
-# # =============================== Getting the Linear Program version of the code up and running 
-# def main(linModel=6):
-    # reload(lsc)
-    # # have a go at getting the LP version of the HC calcs working
-    # LM = lsc.linModel(linModel,WD)
-    # pdf = lsc.hcPdfs( LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,nMc=5 )
-    # LM.runLinHc(pdf)
-    # LM.runLinLp(pdf)
+# =============================== Getting the Linear Program version of the code up and running 
+def main(linModel=6,tmax=0.1,qmax=0.2):
+    reload(lsc)
+    # have a go at getting the LP version of the HC calcs working
+    LM = lsc.linModel(linModel,WD)
+    pdf = lsc.hcPdfs( LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,nMc=5,prms=np.arange(0.05,1.05,0.05) )
+    LM.runLinHc(pdf)
+    LM.runLinLp(pdf,tmax=tmax,qmax=qmax)
     # lsc.plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
     
-    # # asd = LM.linLpRsl
-    # asd = LM.linHcRsl
-    # zxc = asd['Lp_pct']
-
-    # fig,ax = plt.subplots()
+    asd = LM.linHcRsl
+    zxc = asd['Lp_pct']
+    asd2 = LM.linLpRsl
+    zxc2 = asd2['Lp_pct']
+    # fig,[ax,ax2] = plt.subplots(2,sharey=True,sharex=True)
+    
+    # # fig,ax = plt.subplots()
     # i = 0
     # for asd in zxc:
         # pctls = np.percentile(asd,[5,25,50,75,95])
@@ -96,22 +98,70 @@ pdfName = 'gammaFrac'
 
     # ax.plot([-0.005,1.005],[1,1],'k--',zorder=20)
     # ax.set_xlim((-0.025,1.025))
-    # ax.set_ylim((0,3.5))
+    # # ax.set_ylim((0,3.5))
     # ax.grid(True)
-    # plt.show()
     
-    # plt.plot(LM.linLpRsl['Vp_pct'])
-    # plt.plot(LM.linHcRsl['Vp_pct'])
-    # plt.show()
     
-    # return LM,pdf,zxc
+    # i = 0
+    # for asd in zxc2:
+        # pctls = np.percentile(asd,[5,25,50,75,95])
+        # rngs = np.percentile(asd,[0,100])
+        # lsc.plotBoxWhisk(ax2,pdf.pdf['prms'][i],0.01,pctls,bds=rngs)
+        # i+=1
 
-# LM,pdf,zxc = main(6)
+    # ax2.plot([-0.005,1.005],[1,1],'k--',zorder=20)
+    # ax2.set_xlim((-0.025,1.025))
+    # # ax2.set_ylim((0,3.5))
+    # ax2.grid(True)
+    plt.show()
 
-# asd2 = LM.linLpRsl
-# zxc2 = asd2['lp_pct']
+    return LM,pdf,zxc,zxc2
+
+fdr_i = 21
+tmax=0.1
+def main2(fdr_i=6):
+    reload(lsc)
+    LM,pdf,zxc,zxc2 = main(fdr_i,tmax=tmax,qmax=0.2)
+    LM1 = main(fdr_i,tmax=tmax,qmax=0.0)[0]
+    LM2 = main(fdr_i,tmax=0.0,qmax=0.0)[0]
+
+    clrA,clrB,clrC,clrD = cm.matlab(range(4))
+
+    fig,ax = plt.subplots()
+
+    pctls = LM.linHcRsl['kCdf'][[1,4,9,-5,-2]]
+    rngs = LM.linHcRsl['kCdf'][[0,-1]]
+    lsc.plotBoxWhisk(ax,4,0.33,pctls,bds=rngs,clr=clrA,transpose=True)
+
+    pctls = LM2.linLpRsl['kCdf'][[1,4,9,-5,-2]]
+    rngs = LM2.linLpRsl['kCdf'][[0,-1]]
+    lsc.plotBoxWhisk(ax,3,0.33,pctls,bds=rngs,clr=clrB,transpose=True)
+
+    pctls = LM1.linLpRsl['kCdf'][[1,4,9,-5,-2]]
+    rngs = LM1.linLpRsl['kCdf'][[0,-1]]
+    lsc.plotBoxWhisk(ax,2,0.33,pctls,bds=rngs,clr=clrC,transpose=True)
+
+    pctls = LM.linLpRsl['kCdf'][[1,4,9,-5,-2]]
+    rngs = LM.linLpRsl['kCdf'][[0,-1]]
+    lsc.plotBoxWhisk(ax,1,0.33,pctls,bds=rngs,clr=clrD,transpose=True)
+
+    plt.plot(0,0,color=clrA,label='Lin (base)')
+    plt.plot(0,0,color=clrB,label='LP (no taps)')
+    plt.plot(0,0,color=clrC,label='LP (taps)')
+    plt.plot(0,0,color=clrD,label='LP (taps + Q)')
+
+    plt.legend()
+
+    plt.show()
+main2(6)
+
+# LM,pdf,zxc,zxc2 = main(6)
 
 # fig,ax = plt.subplots()
+
+# asd2 = LM.linLpRsl
+# zxc2 = asd2['Lp_pct']
+
 # i = 0
 # for asd in zxc2:
     # pctls = np.percentile(asd,[5,25,50,75,95])
@@ -125,8 +175,9 @@ pdfName = 'gammaFrac'
 # ax.grid(True)
 # plt.show()
 
-# # qwe = asd2['Vp_pct']
-# # qwe2 = 
+# plt.plot(LM.linLpRsl['Vp_pct'])
+# plt.plot(LM.linHcRsl['Vp_pct'])
+# plt.show()
 
 
 # # ==================== Attempting to use olkin and pratt. does not seem to work well at all. VVVVVVV

@@ -60,40 +60,21 @@ def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,cns,DVmax=0.06):
     return cnsPct, inBounds
 
 
-def linPrgCalc(dVmv,dVlv,vDv,bLsMv,bHsMv,bLsLv,bHsLv,KtMv,KtLv,cns,DVmax=0.06):
+def linPrgCalc(dVpmv,dVplv,dVqmv,dVqlv,vDvP,vDvQ,bLsMv,bHsMv,bLsLv,bHsLv,KtMv,KtLv,cns,DVmax=0.06,tmax=0.1,qmax=0.2):
     # # Linear program based on https://cvxopt.org/examples/tutorial/lp.html
-    # # need the form A s(hat) d + b <V+, for example, to maximise d.
-    # # NB note that the inputs are from Ks, Kt rather than Ktot.
+    # need the form A s(hat) d + b <V+, for example, to maximise d.
+    # NB note that the inputs are from Ks, Kt rather than Ktot.
+    # From Linearise regs: tap limits are in pu; qlims are as a fraction of P allowed.
     
-    c = matrix([-1.0]+[0]*KtMv.shape[1])
+    # c = matrix([-1.0]+[0]*KtMv.shape[1])
     
-    Amv = np.hstack((np.array([dVmv]).T,KtMv))[bLsMv>0.5]
-    Alv = np.hstack((np.array([dVlv]).T,KtLv))[bLsLv>0.5]
-    Adv = np.hstack((np.array([vDv]).T,np.zeros((len(vDv),KtMv.shape[1]))))
+    # Amv = np.hstack((np.array([dVpmv]).T,KtMv))[bLsMv>0.5]
+    # Alv = np.hstack((np.array([dVplv]).T,KtLv))[bLsLv>0.5]
+    # Adv = np.hstack((np.array([vDvP]).T,np.zeros((len(vDvP),KtMv.shape[1]))))
     
-    bLsMv = bLsMv[bLsMv>0.5]
-    bHsMv = bHsMv[bHsMv>0.5]
-    bLsLv = bLsLv[bLsLv>0.5]
-    bHsLv = bHsLv[bHsLv>0.5]
-    
-    # build the b-matrix:
-    VpMv = cns.VpMv - np.maximum(bLsMv,bHsMv)
-    VpLv = cns.VpLv - np.maximum(bLsLv,bHsLv)
-    VmMv = cns.VmMv - np.minimum(bLsMv,bHsMv)
-    VmLv = cns.VmLv - np.minimum(bLsLv,bHsLv)
-    vDvCns = DVmax*np.ones((len(vDv)))
-    
-    A = matrix(np.concatenate((Amv,-Amv,Alv,-Alv,Adv,-Adv)))
-    b = matrix(np.concatenate((VpMv,-VmMv,VpLv,-VmLv,vDvCns,vDvCns)))
-    
-    # c = matrix([-1.0]+[0]*2*KtMv.shape[1])
-    
-    # Amv0 = np.hstack((np.array([dVmv]).T,KtMv,np.zeros(KtMv.shape)))[bLsMv>0.5]
-    # Amv1 = np.hstack((np.array([dVmv]).T,np.zeros(KtMv.shape),KtMv))[bLsMv>0.5]
-    # Alv0 = np.hstack((np.array([dVlv]).T,KtLv,np.zeros(KtLv.shape)))[bLsLv>0.5]
-    # Alv1 = np.hstack((np.array([dVlv]).T,np.zeros(KtLv.shape),KtLv))[bLsLv>0.5]
-    
-    # Adv = np.hstack((np.array([vDv]).T,np.zeros((len(vDv),KtMv.shape[1]*2))))
+    # Acns = np.zeros((len(c)-1,len(c)))
+    # cnsIdx = (np.arange(len(c)-1),np.arange(len(c)-1)+1)
+    # Acns[cnsIdx] = 1
     
     # bLsMv = bLsMv[bLsMv>0.5]
     # bHsMv = bHsMv[bHsMv>0.5]
@@ -101,18 +82,57 @@ def linPrgCalc(dVmv,dVlv,vDv,bLsMv,bHsMv,bLsLv,bHsLv,KtMv,KtLv,cns,DVmax=0.06):
     # bHsLv = bHsLv[bHsLv>0.5]
     
     # # build the b-matrix:
-    # VpMvLs = cns.VpMv - bLsMv
-    # VpLvLs = cns.VpLv - bLsLv
-    # VmMvLs = cns.VmMv - bLsMv
-    # VmLvLs = cns.VmLv - bLsLv
-    # VpMvHs = cns.VpMv - bHsMv
-    # VpLvHs = cns.VpLv - bHsLv
-    # VmMvHs = cns.VmMv - bHsMv
-    # VmLvHs = cns.VmLv - bHsLv
-    # vDvCns = DVmax*np.ones((len(vDv)))
+    # VpMv = cns.VpMv - np.maximum(bLsMv,bHsMv)
+    # VpLv = cns.VpLv - np.maximum(bLsLv,bHsLv)
+    # VmMv = cns.VmMv - np.minimum(bLsMv,bHsMv)
+    # VmLv = cns.VmLv - np.minimum(bLsLv,bHsLv)
+    # vDvCns = DVmax*np.ones((len(vDvP)))
     
-    # A = matrix(np.concatenate((Amv0,-Amv0,Alv0,-Alv0,Amv1,-Amv1,Alv1,-Alv1,Adv,-Adv)))
-    # b = matrix(np.concatenate((VpMvLs,-VmMvLs,VpLvLs,-VmLvLs,VpMvHs,-VmMvHs,VpLvHs,-VmLvHs,vDvCns,vDvCns)))
+    # cnsCns = tmax*np.ones((KtMv.shape[1]))
+    
+    # A = matrix(np.concatenate((Amv,-Amv,Alv,-Alv,Adv,-Adv,Acns,-Acns)))
+    # b = matrix(np.concatenate((VpMv,-VmMv,VpLv,-VmLv,vDvCns,vDvCns,cnsCns,cnsCns)))
+    
+    # A = matrix(np.concatenate((Amv,Adv,-Adv,Acns,-Acns)))
+    # b = matrix(np.concatenate((VpMv,vDvCns,vDvCns,cnsCns,cnsCns)))
+    
+    c = matrix([-1.0]+[0]*2*(KtMv.shape[1] + 1)) # just one Q constraint
+    
+    Amv0 = np.hstack((np.array([dVpmv]).T,KtMv,np.zeros(KtMv.shape),np.array([dVqmv]).T,np.zeros((len(dVqmv),1))))[bLsMv>0.5]
+    Amv1 = np.hstack((np.array([dVpmv]).T,np.zeros(KtMv.shape),KtMv,np.zeros((len(dVqmv),1)),np.array([dVqmv]).T))[bLsMv>0.5]
+    Alv0 = np.hstack((np.array([dVplv]).T,KtLv,np.zeros(KtLv.shape),np.array([dVqlv]).T,np.zeros((len(dVqlv),1))))[bLsLv>0.5]
+    Alv1 = np.hstack((np.array([dVplv]).T,np.zeros(KtLv.shape),KtLv,np.zeros((len(dVqlv),1)),np.array([dVqlv]).T))[bLsLv>0.5]
+    
+    Adv0 = np.hstack((np.array([vDvP]).T,np.zeros((len(vDvP),KtMv.shape[1]*2)),np.array([vDvQ]).T,np.zeros((len(vDvQ),1))))
+    Adv1 = np.hstack((np.array([vDvP]).T,np.zeros((len(vDvP),KtMv.shape[1]*2)),np.zeros((len(vDvQ),1)),np.array([vDvQ]).T))
+    
+    Acns = np.zeros((len(c)-1,len(c)))
+    cnsIdx = (np.arange(len(c)-1),np.arange(len(c)-1)+1)
+    Acns[cnsIdx] = 1
+    
+    bLsMv = bLsMv[bLsMv>0.5]
+    bHsMv = bHsMv[bHsMv>0.5]
+    bLsLv = bLsLv[bLsLv>0.5]
+    bHsLv = bHsLv[bHsLv>0.5]
+    
+    # build the b-matrix:
+    VpMvLs = cns.VpMv - bLsMv
+    VpLvLs = cns.VpLv - bLsLv
+    VmMvLs = cns.VmMv - bLsMv
+    VmLvLs = cns.VmLv - bLsLv
+    VpMvHs = cns.VpMv - bHsMv
+    VpLvHs = cns.VpLv - bHsLv
+    VmMvHs = cns.VmMv - bHsMv
+    VmLvHs = cns.VmLv - bHsLv
+    vDvCns = DVmax*np.ones((len(vDvP)))
+    
+    cnsCns = np.concatenate((tmax*np.ones((KtMv.shape[1]*2)),np.array([qmax]*2) ))
+    
+    A = matrix(np.concatenate((Amv0,-Amv0,Alv0,-Alv0,Amv1,-Amv1,Alv1,-Alv1,Adv0,-Adv0,Adv1,-Adv1,Acns,-Acns)))
+    b = matrix(np.concatenate((VpMvLs,-VmMvLs,VpLvLs,-VmLvLs,VpMvHs,-VmMvHs,VpLvHs,-VmLvHs,vDvCns,vDvCns,vDvCns,vDvCns,cnsCns,cnsCns)))
+    
+    # A = matrix(np.concatenate((Amv0,-Amv0,Alv0,-Alv0,Amv1,-Amv1,Alv1,-Alv1,Adv0,-Adv0,Adv1,-Adv1,Acns,-Acns)))
+    # b = matrix(np.concatenate((VpMvLs,-VmMvLs,VpLvLs,-VmLvLs,VpMvHs,-VmMvHs,VpLvHs,-VmLvHs,vDvCns,vDvCns,vDvCns,vDvCns,cnsCns,cnsCns)))
     
     msk.options = {iparam.log: 0}
     sol = solvers.lp(c,A,b,solver='mosek')
@@ -120,6 +140,7 @@ def linPrgCalc(dVmv,dVlv,vDv,bLsMv,bHsMv,bLsLv,bHsLv,KtMv,KtLv,cns,DVmax=0.06):
     if sol['status']=='optimal':
         sts = 0
         sln = sol['x'][0]
+        # sln = sum(sol['x'][1:])
     else:
         sts = 1
         sln = np.nan
@@ -365,6 +386,7 @@ class linModel:
         self.nSy = Kyfix.shape[1];         self.nSd = Kdfix.shape[1]
         self.nT = self.LMfxd['Kt'].shape[1]
         self.KtPu = dsf.vmM(1/self.dvBase,self.LMfxd['Kt'])
+        self.bVfixPu = self.LMfxd['bV']/self.dvBase
         
         self.pIs = np.concatenate( (np.arange(0,self.nSy//2),np.arange(self.nSy,self.nSy+self.nSd//2)) )
         self.qIs = np.concatenate( (np.arange(self.nSy//2,self.nSy),np.arange(self.nSy+self.nSd//2,self.nSy+self.nSd)) )
@@ -407,7 +429,9 @@ class linModel:
             
         self.KfixPu = dsf.vmM(1/self.dvBase,Kfix)
         self.Kfix0Pu = dsf.vmM(1/self.dvBase,np.concatenate((Ky,Kd),axis=1))
-        print(self.Kfix0Pu.shape)
+        
+        self.KpFix0Pu = dsf.vmM(1/self.dvBase,np.concatenate((KyPfix,KdPfix),axis=1))
+        self.KqFix0Pu = dsf.vmM(1/self.dvBase,np.concatenate((KyQfix,KdQfix),axis=1)) # for gen reactive power control
         
     def loadNetModel(self,netModel=None):
         if netModel==None:
@@ -812,7 +836,7 @@ class linModel:
         self.dssHcRsl['capHi'] = capHiMc
         
         
-    def runLinLp(self,pdf,model='nom'):
+    def runLinLp(self,pdf,model='nom',tmax=0.1,qmax=0.2):
         pdfData = pdf.pdf
         nMc = pdfData['nMc']
         
@@ -850,18 +874,21 @@ class linModel:
         KfixPuCalc = self.KfixPu[NSetFix] # for generators
         
         # for the LP stuff
-        KtPuCalc = self.KtPu[NSetFix]
-        KtPuCalcMv = KtPuCalc[mvIdxNSet]
-        KtPuCalcLv = KtPuCalc[lvIdxNSet]
+        KtPuCalcMv = self.KtPu[NSetFix][mvIdxNSet]
+        KtPuCalcLv = self.KtPu[NSetFix][lvIdxNSet]
         
-        print(KtPuCalcMv.shape)
+        KpPu = self.KpFix0Pu[NSetFix]
+        KqPu = self.KqFix0Pu[NSetFix]
         
-        b0lpLs = Kfix0PuCalc.dot(self.xTotLs)
-        b0lpHs = Kfix0PuCalc.dot(self.xTotHs)
+        b0lpLs = Kfix0PuCalc.dot(self.xTotLs) + self.bVfixPu.T
+        b0lpHs = Kfix0PuCalc.dot(self.xTotHs) + self.bVfixPu.T
         b0lpLsMv = b0lpLs[mvIdxNSet]
         b0lpLsLv = b0lpLs[lvIdxNSet]
         b0lpHsMv = b0lpHs[mvIdxNSet]
         b0lpHsLv = b0lpHs[lvIdxNSet]
+        
+        self.b0lsLp = b0lpLs[np.argsort(NSetFix)]
+        self.b0hsLp = b0lpHs[np.argsort(NSetFix)]
 
         for i in range(pdfData['nP'][0]):
             print(i)
@@ -869,18 +896,29 @@ class linModel:
             Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
             pdfMc = pdf.genPdfMcSet(nMc,Mu,i)[0] # pdfMc in kW (Mu is in W)
             
-            DelVout = (KtotPuCalc.dot(pdfMc).T)*1e3 # KtotPu in V per W
-            ddVout = abs((KfixPuCalc.dot(pdfMc).T)*1e3) # just get abs change
+            # DelVout = (KtotPuCalc.dot(pdfMc).T)*1e3 # KtotPu in V per W #
+            # ddVout = abs((KfixPuCalc.dot(pdfMc).T)*1e3) # just get abs change
             
             DelVlp = (KfixPuCalc.dot(pdfMc).T)*1e3
+            
+            DelVlp = (KpPu.dot(pdfMc).T)*1e3
+            DelVlq = (KqPu.dot(pdfMc).T)*1e3
+            
             for jj in range(pdfData['nP'][-1]):
+                # DVlP = DelVlp*pdfData['mu_k'][jj]
+                # DVlPmv = DVlP[:,mvIdxNSet]
+                # DVlPlv = DVlP[:,lvIdxNSet]
                 DVlP = DelVlp*pdfData['mu_k'][jj]
                 DVlPmv = DVlP[:,mvIdxNSet]
                 DVlPlv = DVlP[:,lvIdxNSet]
-                for kk in range(nMc):
-                    lpPct[i,jj,kk],lpSts[i,jj,kk] = linPrgCalc(DVlPmv[kk],DVlPlv[kk],DVlP[kk],b0lpLsMv,b0lpHsMv,b0lpLsLv,b0lpHsLv,KtPuCalcMv,KtPuCalcLv,self)
+                DVlQ = DelVlq*pdfData['mu_k'][jj]
+                DVlQmv = DVlQ[:,mvIdxNSet]
+                DVlQlv = DVlQ[:,lvIdxNSet]
                 
-                Vp_pct[i,jj] = 100*np.sum(lpPct[i,jj]<1)/nMc
+                for kk in range(nMc):
+                    lpPct[i,jj,kk],lpSts[i,jj,kk] = linPrgCalc(DVlPmv[kk],DVlPlv[kk],DVlQmv[kk],DVlQlv[kk],DVlP[kk],DVlQ[kk],b0lpLsMv,b0lpHsMv,b0lpLsLv,b0lpHsLv,KtPuCalcMv,KtPuCalcLv,self,tmax=tmax,qmax=qmax)
+                
+                Vp_pct[i,jj] = 100*np.sum(np.maximum((lpPct[i,jj]<1),np.isnan(lpPct[i,jj])))/nMc
                 
         tEnd = time.process_time()
         tEndClk = time.time()
@@ -890,10 +928,9 @@ class linModel:
         elif pdfData['name']=='gammaFrac':
             param = pdfData['prms']
         
-        
         self.linLpRsl = {}
         self.linLpRsl['Vp_pct'] = Vp_pct
-        self.linLpRsl['lp_pct'] = lpPct
+        self.linLpRsl['Lp_pct'] = lpPct
         self.linLpRsl['runTime'] = tEnd - tStart
         self.linLpRsl['runTimeClk'] = tEndClk - tStartClk
         self.linLpRsl['kCdf'] = 100*getKcdf(param,Vp_pct)[0]

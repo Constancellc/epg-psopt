@@ -46,6 +46,7 @@ figSze0 = (5.2,2.8)
 SD = r"C:\Users\\"+getpass.getuser()+r"\\Documents\DPhil\papers\psfeb19\figures\\"
 
 setCapsModel='linPoint'
+setCapsModel=True
 
 fdr_i_set = [5,6,8]
 fdr_i_set = [6,8]
@@ -56,9 +57,10 @@ for fdr_i in fdr_i_set:
     print('\nStarting, feeder:',feeder)
     k = np.concatenate((np.arange(-1.5,1.6,0.05),np.arange(1.6,-1.5,-0.05)))
     # k = np.arange(-1.5,1.6,0.025)
+    
     if ltcVoltageTestingFig:
-        k = np.arange(-1.5,1.6,0.05)
-        k = -np.arange(-1.5,1.6,0.025)
+        k = np.arange(-1.5,1.6,0.10)
+        # k = -np.arange(-1.5,1.6,0.025)
 
     ckt = get_ckt(WD,feeder)
     fn_ckt = ckt[0]
@@ -76,6 +78,7 @@ for fdr_i in fdr_i_set:
     if setCapsModel=='linPoint':
         capPosLin=lp0data['capPosOut']
     else:
+        capPosLin=None
         print('Warning! not using linPoint, not implemented.')
 
     # 1. Nominal Voltage Solution at Linearization point. Load Linear models.
@@ -343,7 +346,7 @@ for fdr_i in fdr_i_set:
 
         ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,0.055)), 
         ax.set_xlabel('Load power continuation factor, $\kappa$'), ax.set_ylabel('Error, $||V_{\mathrm{DSS}} - V_{\mathrm{Lin}} ||_{2}$ / $||V_{\mathrm{DSS}}||_{2}$')
-        legend=ax.legend(('Load flow // locked taps','Load flow // unlocked taps','Network // unlocked taps'),fontsize='small',loc='upper right',title='Linear // non-linear model:')
+        legend=ax.legend(('Locked taps | Locked taps','Locked taps | unlocked taps','Unlocked taps | unlocked taps'),fontsize='small',loc='upper right',title='Linear Model | OpenDSS model:')
 
         plt.tight_layout()
         plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.png')

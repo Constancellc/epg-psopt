@@ -17,6 +17,7 @@ pLoad = {'epriJ1':11.6,'epriK1':12.74,'epriM1':15.67,'epri5':16.3,'epri7':19.3,'
 feedersTidy = {'34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24'}
 
 feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
+feeders_lp = ['8500node','epriJ1']
 feeders_lp = feeders_dcp
 
 # t_timeTable = 1 # timeTable
@@ -28,7 +29,8 @@ feeders_lp = feeders_dcp
 # f_dssSeqPar = 1
 # f_plotCns = 1
 # f_plotLp = 1
-f_plotLpScale = 1
+# f_plotLpScale = 1
+f_plotLpUpg = 1
 
 pltSave=True
 pltShow=True
@@ -57,8 +59,8 @@ for feeder in feeders_dcp:
     with open(RDsns,'rb') as handle:
         rsltsSns[feeder] = pickle.load(handle)
 for feeder in feeders_lp:
-    # RD = os.path.join(WD,feeder,'linHcPrg.pkl')
-    RD = os.path.join(WD,feeder,'linHcPrgV0.pkl')
+    RD = os.path.join(WD,feeder,'linHcPrg.pkl')
+    # RD = os.path.join(WD,feeder,'linHcPrgV0.pkl')
     with open(RD,'rb') as handle:
         rsltsLp[feeder] = pickle.load(handle)
 
@@ -110,15 +112,25 @@ for rslt in rsltsPar.values():
     feederData[i].append('%.2f' %  (np.mean(np.abs(rslt['dssHcRslPar']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))) )
     i+=1
 
-kCdfLpNom = []; lpLpNom = [];kCdfLpUpg = []; lpLpUpg = [];kCdfLpPrg = []; lpLpPrg = [];
+kCdfLpNom = []; lpLpNom = [];kCdfLpUpg = []; lpLpUpg = [];
+kCdfLpTQ = []; lpLpTQ = [];kCdfLpT0 = []; lpLpT0 = [];kCdfLp00 = []; lpLp00 = [];
 feederLpSmart = []
 for rslt in rsltsLp.values():
     kCdfLpNom.append(rslt['linHcRsl']['kCdf'][[0,1,5,10,15,19,20]])
     lpLpNom.append(rslt['linHcRsl']['Lp_pct'])
+    
     kCdfLpUpg.append(rslt['linHcUpg']['kCdf'][[0,1,5,10,15,19,20]])
     lpLpUpg.append(rslt['linHcUpg']['Lp_pct'])
-    kCdfLpPrg.append(rslt['linLpRsl']['kCdf'][[0,1,5,10,15,19,20]])
-    lpLpPrg.append(rslt['linLpRsl']['lp_pct'])
+    
+    kCdfLpTQ.append(rslt['linLpRslTQ']['kCdf'][[0,1,5,10,15,19,20]])
+    lpLpTQ.append(rslt['linLpRslTQ']['Lp_pct'])
+    
+    kCdfLpT0.append(rslt['linLpRslT0']['kCdf'][[0,1,5,10,15,19,20]])
+    lpLpT0.append(rslt['linLpRslT0']['Lp_pct'])
+    
+    kCdfLp00.append(rslt['linLpRsl00']['kCdf'][[0,1,5,10,15,19,20]])
+    lpLp00.append(rslt['linLpRsl00']['Lp_pct'])
+    
     feederLpSmart.append(feedersTidy[rslt['feeder']])
 
 linHcRsl = rslt['linHcRsl']
@@ -139,7 +151,7 @@ dx = 0.175; ddx=dx/1.5
 X = np.arange(len(kCdfLin),0,-1)
 Xlp = np.arange(len(kCdfLpNom),0,-1)
 i=0
-clrA,clrB,clrC,clrD,clrE = cm.tab10(np.arange(5))
+clrA,clrB,clrC,clrD,clrE,clrF,clrG = cm.matlab(np.arange(7))
 
 # # RESULTS 1 - opendss vs linear model, k =====================
 # if 'f_dssVlinWght' in locals():
@@ -381,3 +393,26 @@ if 'f_plotLpScale' in locals():
         ii+=1
     axs[0].set_ylabel('Linear scaling potential, '+feederLpSmart[idx])
     plt.show()
+    
+if 'f_plotLpUpg' in locals():
+    i=0
+    for x in Xlp:
+        fig,ax = plt.subplots(figsize=figSze1)
+        ax = plotBoxWhisk(ax,5,0.2,kCdfLpNom[i][1:-1],clrA,bds=kCdfLpNom[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,4,0.2,kCdfLpUpg[i][1:-1],clrA,bds=kCdfLpUpg[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,3,0.2,kCdfLp00[i][1:-1],clrF,bds=kCdfLp00[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,2,0.2,kCdfLpT0[i][1:-1],clrF,bds=kCdfLpT0[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,1,0.2,kCdfLpTQ[i][1:-1],clrF,bds=kCdfLpTQ[i][[0,-1]],transpose=True)
+        # ax.plot(0,0,'-',color=clrA,label='Upg')
+        # ax.plot(0,0,'-',color=clrB,label='Nom')
+        # ax.plot(0,0,'-',color=clrC,label='LP')
+        # plt.legend()
+        plt.yticks([5,4,3,2,1],['Nom','Upg','00','T0','TQ'])
+        plt.xlim((-2,102))
+        plt.grid(True)
+        plt.xlabel('Loads with PV installed, %')
+        plt.title(feederLpSmart[i])
+        plt.tight_layout()
+        if 'pltShow' in locals():
+            plt.show()
+        i+=1
