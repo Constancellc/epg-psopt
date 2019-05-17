@@ -17,20 +17,22 @@ feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7
 feedersTidy = {'34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24'}
 
 feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
-feeders_lp = ['8500node','epriJ1']
+# feeders_lp = ['8500node','epriJ1']
+feeders_lp = feeders_dcp
 
 # t_timeTable = 1 # timeTable
 # t_rsltSvty = 1 # sensitivity table
 # f_dssVlinWght = 1 # gammaFrac boxplot results
 # f_mcLinUpg = 1
-f_mcLinCmp = 1
+# f_mcLinCmp = 1
 # f_linMcSns = 1
 # f_plotCns = 1 # <--- also useful for debugging.
-# f_plotCns_paramUpdate = 1
-# f_plotLpUpg = 1
+f_plotCns_paramUpdate = 1
+f_plotLpUpg = 1
+f_plotLp = 1
 
 pltSave=True
-# pltShow=True
+pltShow=True
 
 figSze0 = (5.2,3.4)
 figSze1 = (5.2,2.5)
@@ -40,7 +42,7 @@ figSze4 = (5.2,1.8)
 TD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\tables\\"
 FD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
-rsltsFrac = {}; rsltsSns = {}; rsltsUpg = {}; rsltsLp = {}
+rsltsFrac = {}; rsltsSns = {}; rsltsUpg = {}; rsltsLp = {}; rsltsUnom = {}
 for feeder in feeders:
     RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_finale.pkl')
     with open(RD,'rb') as handle:
@@ -55,8 +57,12 @@ for feeder in feeders_dcp:
         rsltsUpg[feeder] = pickle.load(handle)
 for feeder in feeders_lp:
     RD = os.path.join(WD,feeder,'linHcPrg.pkl')
+    RDupgNom = os.path.join(WD,feeder,'linHcCalcsUpgNom.pkl')
+    
     with open(RD,'rb') as handle:
         rsltsLp[feeder] = pickle.load(handle)
+    with open(RDupgNom,'rb') as handle:
+        rsltsUnom[feeder] = pickle.load(handle)
 
 kCdfLin = [];    kCdfDss = []; kCdfNom = []; 
 LmeanNorm = []; feederTidySet = []
@@ -112,15 +118,17 @@ feederLpSmart = []
 for rslt in rsltsLp.values():
     kCdfLpNom.append(rslt['linHcRsl']['kCdf'][[0,1,5,10,15,19,20]])
     # lpLpNom.append(rslt['linHcRsl']['Lp_pct'])
-    
     kCdfLpUpg.append(rslt['linHcUpg']['kCdf'][[0,1,5,10,15,19,20]])
     kCdfLpTQ.append(rslt['linLpRslTQ']['kCdf'][[0,1,5,10,15,19,20]])
     kCdfLpT0.append(rslt['linLpRslT0']['kCdf'][[0,1,5,10,15,19,20]])
     kCdfLp00.append(rslt['linLpRsl00']['kCdf'][[0,1,5,10,15,19,20]])
-    
     feederLpSmart.append(feedersTidy[rslt['feeder']])
 Xlp = np.arange(len(kCdfLpNom),0,-1)
 
+kCdfUpgNomBef = []; kCdfUpgNomAft = []
+for rslt in rsltsUnom.values():
+    kCdfUpgNomBef.append(rslt['linHcRslBef']['kCdf'][[0,1,5,10,15,19,20]])
+    kCdfUpgNomAft.append(rslt['linHcRslAft']['kCdf'][[0,1,5,10,15,19,20]])
 
 
 print('Sensitivity errors:')
@@ -301,9 +309,8 @@ if 'f_plotCns_paramUpdate' in locals():
     
     ax1.legend(['$V_{+}^{\mathrm{LV}}$, Hi $S_{\mathrm{Load}}$','$V_{+}^{\mathrm{MV}}$, Lo $S_{\mathrm{Load}}$','$V_{+}^{\mathrm{LV}}$, Lo $S_{\mathrm{Load}}$','$\Delta V$ (Vlt. Dev.)'],loc='center left', bbox_to_anchor=(1, 0.5),fontsize='small',title='Constraint Type')
     
-    
     ax1.annotate('Before',xytext=(8,80),xy=(19,54),arrowprops={'arrowstyle':'->','linewidth':1.0})
-    ax1.annotate('After',xytext=(53,50),xy=(62,24),arrowprops={'arrowstyle':'->','linewidth':1.0})
+    ax1.annotate('After',xytext=(56,50),xy=(65,24),arrowprops={'arrowstyle':'->','linewidth':1.0})
     
     ax1.set_ylabel('Constraint violations, %');
     ax1.set_xlabel('Fraction of loads with PV, %');
@@ -312,7 +319,7 @@ if 'f_plotCns_paramUpdate' in locals():
     ax1.grid(True)
     
     ax0.plot(x_vals,rsltBef['Vp_pct'],'-')
-    ax0.plot(x_vals,rsltAft['Vp_pct'],'-.')
+    ax0.plot(x_vals,rsltAft['Vp_pct'],'-.',color=clrA)
     
     ax0.legend(['Before','After'],loc='center left', bbox_to_anchor=(1.04, 0.5),fontsize='small',title='Model')
     
@@ -365,8 +372,10 @@ if 'f_plotLpUpg' in locals():
     i=0
     for x in Xlp:
         fig,ax = plt.subplots(figsize=figSze4)
-        ax = plotBoxWhisk(ax,2,0.2,kCdfLpNom[i][1:-1],clrA,bds=kCdfLpNom[i][[0,-1]],transpose=True)
-        ax = plotBoxWhisk(ax,1,0.2,kCdfLpUpg[i][1:-1],clrA,bds=kCdfLpUpg[i][[0,-1]],transpose=True)
+        # ax = plotBoxWhisk(ax,2,0.2,kCdfLpNom[i][1:-1],clrA,bds=kCdfLpNom[i][[0,-1]],transpose=True)
+        # ax = plotBoxWhisk(ax,1,0.2,kCdfLpUpg[i][1:-1],clrA,bds=kCdfLpUpg[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,2,0.2,kCdfUpgNomBef[i][1:-1],clrA,bds=kCdfUpgNomBef[i][[0,-1]],transpose=True) # NB not checked!
+        ax = plotBoxWhisk(ax,1,0.2,kCdfUpgNomAft[i][1:-1],clrA,bds=kCdfUpgNomAft[i][[0,-1]],transpose=True)
         ax = plotBoxWhisk(ax,5,0.2,kCdfLp00[i][1:-1],clrG,bds=kCdfLp00[i][[0,-1]],transpose=True)
         ax = plotBoxWhisk(ax,4,0.2,kCdfLpT0[i][1:-1],clrG,bds=kCdfLpT0[i][[0,-1]],transpose=True)
         ax = plotBoxWhisk(ax,3,0.2,kCdfLpTQ[i][1:-1],clrG,bds=kCdfLpTQ[i][[0,-1]],transpose=True)
@@ -382,3 +391,31 @@ if 'f_plotLpUpg' in locals():
         if 'pltShow' in locals():
             plt.show()
         i+=1
+
+if 'f_plotLp' in locals():
+    fig = plt.figure(figsize=figSze3)
+    ax = fig.add_subplot(111)
+    i=0
+    for x in Xlp:
+        # ax = plotBoxWhisk(ax,x+1.3*dx,ddx*0.5,kCdfLpNom[i][1:-1],clrA,bds=kCdfLpNom[i][[0,-1]],transpose=True)
+        # ax = plotBoxWhisk(ax,x,ddx*0.5,kCdfLpUpg[i][1:-1],clrE,bds=kCdfLpUpg[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x+1.3*dx,ddx*0.5,kCdfUpgNomBef[i][1:-1],clrA,bds=kCdfUpgNomBef[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x,ddx*0.5,kCdfUpgNomAft[i][1:-1],clrE,bds=kCdfUpgNomAft[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x-1.3*dx,ddx*0.5,kCdfLpTQ[i][1:-1],clrG,bds=kCdfLpTQ[i][[0,-1]],transpose=True)
+        i+=1
+    ax.plot(0,0,'-',color=clrA,label='Dcpld. (Nom)')
+    ax.plot(0,0,'-',color=clrE,label='Dcpld. (Upg)')
+    ax.plot(0,0,'-',color=clrG,label='DERMS')
+    plt.legend(title='Linear Model:',fontsize='small',loc='center left', bbox_to_anchor=(1.01, 0.5))
+    plt.yticks(Xlp,feederLpSmart)
+    plt.xlim((-2,102))
+    plt.ylim((0.6,5.4))
+    plt.grid(True)
+    plt.xlabel('Loads with PV installed, %')
+    plt.tight_layout()
+    if 'pltSave' in locals():
+        plt.savefig(FD+'plotLp.png',pad_inches=0.02,bbox_inches='tight')
+        plt.savefig(FD+'plotLp.pdf',pad_inches=0.02,bbox_inches='tight')
+    if 'pltShow' in locals():
+        plt.show()
+        

@@ -12,16 +12,17 @@ SD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy']
 
 pltShow = 1
-pltSave = 1
+# pltSave = 1
 # pltCc = 1
 # f_nStdBefore = 1
 # f_nStdAfter = 1
 # f_nStdVreg = 1
 # f_nStdVregVal = 1
 # f_corVars = 1
+# f_hcParamSlctnCaseStudy = 1
 
 # # calculating setpoints for linHcCalcs:
-f_nStdVreg_8500 = 1
+# f_nStdVreg_8500 = 1
 # f_nStdVreg_epriM1 = 1
 # f_nStdVreg_epri24 = 1
 # f_nStdVreg_epriJ1 = 1
@@ -82,9 +83,11 @@ if ('f_nStdBefore' in locals()) or ('f_nStdAfter' in locals()):
     if 'pltShow' in locals():
         plt.show()
 
-    optVal = 0.98
-    LM.updateDcpleModel(LM.regVreg0*optVal)
+    # optVal = 0.98
+    # LM.updateDcpleModel(LM.regVreg0*optVal)
+    LM = linModel(fdr_i,WD,QgenPf=-0.98)
     LM.busViolationVar(Sgm,Mu=Mu)
+    LM.legLoc = 'resPlot24'
     LM.plotNetBuses('nStd',pltType='max',minMax=[-3.,6.],cmap=cm.inferno,pltShow=False)
     LM.plotSub(LM.currentAx,pltSrcReg=False)
     if 'pltSave' in locals():
@@ -116,10 +119,10 @@ if 'f_corVars' in locals():
     corrLogAbs = corrLogAbs[varSortN][:,varSortN]
 
     fig,(ax1,ax0) = plt.subplots(figsize=(5.9,3.8),nrows=1,ncols=2, gridspec_kw = {'width_ratios':[1,1.8]})
-    ax0.spy(corrLogAbs<-2.0,color=cm.Blues(0.9),markersize=1,marker='.',zorder=4,label='> 99%') # 99%
-    ax0.spy(corrLogAbs<-1.7,color=cm.Blues(0.7),markersize=1,marker='.',zorder=3,label='> 98%') # 98%
-    ax0.spy(corrLogAbs<-1.3,color=cm.Blues(0.5),markersize=1,marker='.',zorder=2,label='> 95%') # 95%
-    ax0.spy(corrLogAbs<-1.0,color=cm.Blues(0.3),markersize=1,marker='.',zorder=1,label='> 90%') # 90%
+    ax0.spy(corrLogAbs<-2.0,color=cm.Blues(0.9),markersize=1,marker='.',zorder=4,label='99%') # 99%
+    ax0.spy(corrLogAbs<-1.7,color=cm.Blues(0.7),markersize=1,marker='.',zorder=3,label='98%') # 98%
+    ax0.spy(corrLogAbs<-1.3,color=cm.Blues(0.5),markersize=1,marker='.',zorder=2,label='95%') # 95%
+    ax0.spy(corrLogAbs<-1.0,color=cm.Blues(0.3),markersize=1,marker='.',zorder=1,label='90%') # 90%
 
     # ax0.plot(0,0,'o',color=cm.Blues(0.45))
     # ax0.plot(0,0,'o',color=cm.Blues(0.6),label='> 98%')
@@ -136,7 +139,8 @@ if 'f_corVars' in locals():
 
     ax1.plot(vars[varSortN]/vars[varSortN][0])
     ax1.set_xlim((-50,len(corrLogAbs+50)))
-    ax1.set_xlabel('Bus Index')
+    ax1.set_xlabel('Bus Index $i$')
+    ax1.set_ylabel('Var(Bus $i$), normalised')
     ax1.set_yscale('log')
     ax1.set_xticks(ticks=[len(corrLogAbs)//4,len(corrLogAbs)//2,3*len(corrLogAbs)//4])
     ax1.set_xticklabels([])
@@ -195,15 +199,16 @@ if ('f_nStdVreg' in locals()) or ('f_nStdVregVal' in locals()):
     ax.plot(opts*LM.regVreg0/(166*120),N0[1],'.-',markersize=4,zorder=5)
     ax.plot(opts*LM.regVreg0/(166*120),N0[2],'.-',markersize=4,zorder=0)
 
-    idxMax = np.argmax(N0,axis=1)
-    maxVals = N0[[0,1,2],idxMax]
-    maxArgs = opts[idxMax]*LM.regVreg0/(166*120)
-    ax.plot(maxArgs[0],maxVals[0],'k',marker='o',linestyle='',markerfacecolor='w',zorder=8)
-    ax.plot(maxArgs[1],maxVals[1],'k',marker='o',linestyle='',markerfacecolor='w',zorder=3)
-    ax.plot(maxArgs[2],maxVals[2],'k',marker='o',linestyle='',markerfacecolor='w',zorder=-2)
+    # idxMax = np.argmax(N0,axis=1)
+    # maxVals = N0[[0,1,2],idxMax]
+    # maxArgs = opts[idxMax]*LM.regVreg0/(166*120)
+    # ax.plot(maxArgs[0],maxVals[0],'k',marker='o',linestyle='',markerfacecolor='w',zorder=8)
+    # ax.plot(maxArgs[1],maxVals[1],'k',marker='o',linestyle='',markerfacecolor='w',zorder=3)
+    # ax.plot(maxArgs[2],maxVals[2],'k',marker='o',linestyle='',markerfacecolor='w',zorder=-2)
 
     ax.set_xlabel('Regulator setpoint, pu')
-    ax.set_ylabel('Selection parameter, $\lambda$')
+    # ax.set_ylabel('Min. no. of std. deviations, $\hat{\sigma}_{\mathrm{min}}$')
+    ax.set_ylabel('Min. no. of std. deviations, $\\bar{\sigma}_{\mathrm{min}}$')
     ax.legend(('1.0','0.995','0.98'),title='PF (lag.)',loc='upper right')
     plt.xlim(xlims); plt.ylim((-10.5,8))
     plt.xticks(xTickMatch,xTickMatchStr)
@@ -569,26 +574,36 @@ if 'f_nStdVreg_epriJ1' in locals():
     plt.tight_layout()
     plt.show()
 
+if 'f_hcParamSlctnCaseStudy' in locals():
+    fdr_i = 19
+
+    LM = linModel(fdr_i,WD,QgenPf=-0.95)
     # LM = linModel(fdr_i,WD,QgenPf=-0.98)
-    # LM.updateDcpleModel(LM.regVreg0*optMult0)
-    # LM.runLinHc(pdf)
-    # rsltAft = LM.linHcRsl
+    optMult0 = np.ones((len(LM.regVreg0)))
+    # optMult0 = 0.995**np.array([5,4,0,-1,2,4,0,5.5,4])
+    LM.updateDcpleModel(LM.regVreg0*optMult0)
+    
+    pdfName = 'gammaFrac'
+    pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
+    
+    LM.runLinHc(pdf)
+    rsltAft = LM.linHcRsl
 
-    # LM = linModel(fdr_i,WD,QgenPf=1.00)
-    # # LM.QgenPf = 1.0 # NB: these do not seem to be doing well ATM !!!!
-    # # LM.loadNetModel(LM.netModelNom)
-    # # LM.updateFxdModel()
-    # # LM.updateDcpleModel(LM.regVreg0)
-    # LM.runLinHc(pdf)
-    # rsltBef = LM.linHcRsl
+    LM = linModel(fdr_i,WD,QgenPf=1.00)
+    # LM.QgenPf = 1.0 # NB: these do not seem to be doing well ATM !!!!
+    # LM.loadNetModel(LM.netModelNom)
+    # LM.updateFxdModel()
+    # LM.updateDcpleModel(LM.regVreg0)
+    LM.runLinHc(pdf)
+    rsltBef = LM.linHcRsl
 
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111)
-    # ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rsltAft['Cns_pct'],ax=ax,pltShow=False)
-    # plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rsltBef['Cns_pct'],ax=ax,pltShow=False,lineStyle='--')
-    # plt.show()
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rsltAft['Cns_pct'],ax=ax,pltShow=False)
+    plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rsltBef['Cns_pct'],ax=ax,pltShow=False,lineStyle='--')
+    plt.show()
 
-    # rslts = {'pdf':pdf,'rsltBef':rsltBef,'rsltAft':rsltAft}
-    # SN = os.path.join(WD,'hcResults','hcParamSlctnCaseStudy.pkl')
-    # with open(SN,'wb') as file:
-        # pickle.dump(rslts,file)
+    rslts = {'pdf':pdf,'rsltBef':rsltBef,'rsltAft':rsltAft}
+    SN = os.path.join(WD,'hcResults','hcParamSlctnCaseStudy.pkl')
+    with open(SN,'wb') as file:
+        pickle.dump(rslts,file)

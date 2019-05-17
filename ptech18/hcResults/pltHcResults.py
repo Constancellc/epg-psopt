@@ -351,7 +351,7 @@ if 'f_plotLp' in locals():
     for x in Xlp:
         ax = plotBoxWhisk(ax,x+dx,ddx*0.5,kCdfLpNom[i][1:-1],clrB,bds=kCdfLpNom[i][[0,-1]],transpose=True)
         ax = plotBoxWhisk(ax,x,ddx*0.5,kCdfLpUpg[i][1:-1],clrA,bds=kCdfLpUpg[i][[0,-1]],transpose=True)
-        ax = plotBoxWhisk(ax,x-dx,ddx*0.5,kCdfLpPrg[i][1:-1],clrC,bds=kCdfLpPrg[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x-dx,ddx*0.5,kCdfLpTQ[i][1:-1],clrC,bds=kCdfLpTQ[i][[0,-1]],transpose=True)
         i+=1
     ax.plot(0,0,'-',color=clrA,label='Upg')
     ax.plot(0,0,'-',color=clrB,label='Nom')

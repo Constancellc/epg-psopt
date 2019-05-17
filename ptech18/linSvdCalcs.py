@@ -1545,7 +1545,8 @@ class linModel:
         if type=='vLo' or type=='vHi':
             self.ccColorbar(ax,minMax0,loc=self.legLoc,units=' pu',roundNo=3,colorInvert=colorInvert,cmap=cmap)
         elif type=='logVar' or type=='nStd':
-            if self.legLog!=None:
+            # if self.legLog!=None:
+            if self.legLoc!=None:
                 self.ccColorbar(ax,minMax0,loc=self.legLoc,colorInvert=colorInvert,cmap=cmap)
         plt.xticks([])
         plt.yticks([])
@@ -1705,9 +1706,7 @@ class hcPdfs:
             for i in range(nMc):
                 idxs = sample(range(len(Mu0)),nDraw)
                 genIn[idxs,i] = 1
-            
             # genIn = np.random.binomial(1,frac,(len(Mu0),nMc))
-            
             pdfGen = np.random.gamma(shape=clfnSolar['k'],scale=clfnSolar['th_kW'],size=(len(Mu0),nMc))
             pdfMc = pdfGen*genIn
             pdfMeans = np.mean(pdfMc) # NB these are uniformly distributed

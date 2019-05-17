@@ -29,9 +29,9 @@ mcDssOn = True
 mcDssOn = False
 # mcDssBw = 1
 # mcFullSet = 1
-# mcLinUpg = 1
+mcLinUpg = 1
 # mcLinLds = 1
-mcLinPrg = 1
+# mcLinPrg = 1
 
 # # PLOTTING options:
 # pltHcVltn = 1
@@ -75,17 +75,23 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 
 tmax = 0.1 # for LP HC runs
 
-# PF is -0.95
-optMultJ1 = 0.995**np.array([5,4,0,1,2,4,0,5.5,4]) 
-optMult8500 = 0.995**np.array([3,1,2,2,1,0,1,0,0,3,3,1])
-upgReg = {'8500node':optMult8500,'epri24':0.981,'epriJ1':optMultJ1,'epriK1':0.984,'epriM1':0.980} #NB epri M1 is slightly lower than the actual optimal lambda of 0.984
-upgPf = -0.95
+# # PF is -0.95
+# optMultJ1 = 0.995**np.array([5,4,0,1,2,4,0,5.5,4]) 
+# optMult8500 = 0.995**np.array([3,1,2,2,1,0,1,0,0,3,3,1])
+# upgReg = {'8500node':optMult8500,'epri24':0.981,'epriJ1':optMultJ1,'epriK1':0.984,'epriM1':0.980} #NB epri M1 is slightly lower than the actual optimal lambda of 0.984
+# upgPf = -0.95
 
 # # PF is 1.00:
 # optMultJ1 = 0.995**np.array([5,4,0,-1,2,4,0,5.5,4]) 
 # optMult8500 = 0.995**np.array([3,1,2,2,1,0,1,0,0,3,3,1])
 # upgReg = {'8500node':optMult8500,'epri24':0.980,'epriJ1':optMultJ1,'epriK1':0.99,'epriM1':0.983} #NB epri M1 is slightly lower than the actual optimal lambda of 0.984
 # upgPf = 1.00
+
+# PF is -0.95, nominal taps
+optMultJ1 = np.ones((0.995**np.array([5,4,0,1,2,4,0,5.5,4]) ).shape)
+optMult8500 = np.ones((0.995**np.array([3,1,2,2,1,0,1,0,0,3,3,1])).shape)
+upgReg = {'8500node':optMult8500,'epri24':1.0,'epriJ1':optMultJ1,'epriK1':1.0,'epriM1':1.0} #NB epri M1 is slightly lower than the actual optimal lambda of 0.984
+upgPf = -0.95
 
 # opendss with 'early bindings'
 WD = os.path.dirname(sys.argv[0])
@@ -253,7 +259,8 @@ for fdr_i in fdr_i_set:
         
         rslt = {'linHcRslBef':linHcRslBef,'linHcRslAft':linHcRslAft,'pdfData':pdf.pdf,'feeder':feeder,'mae':LM.calcLinPdfError(linHcRslBef),'rge':LM.calcLinPdfError(linHcRslBef,type='reg')}
         if pltSave:
-            SN = os.path.join(SD,'linHcCalcsUpg.pkl')
+            # SN = os.path.join(SD,'linHcCalcsUpg.pkl')
+            SN = os.path.join(SD,'linHcCalcsUpgNom.pkl')
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
         
