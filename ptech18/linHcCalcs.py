@@ -28,8 +28,8 @@ mcLinSns = False
 mcDssOn = True
 mcDssOn = False
 # mcDssBw = 1
-# mcFullSet = 1
-mcLinUpg = 1
+mcFullSet = 1
+# mcLinUpg = 1
 # mcLinLds = 1
 # mcLinPrg = 1
 
@@ -53,7 +53,9 @@ fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14,17,18,20,21]
 fdr_i_set = [6,8,9,17,18,19,20,21,22]
 # fdr_i_set = [9,19,20,21,22]
-fdr_i_set = [21] # less 6,8, 17,18,20,21, || 9, 22
+# fdr_i_set = [21] # less 6,8, 17,18,20,21, || 9, 22
+
+fdr_i_set = [9,22]
 
 # fdr_i_set = [5,6,8] # fast
 # fdr_i_set = [0,14,17,18] # medium length 1
@@ -64,7 +66,7 @@ fdr_i_set = [21] # less 6,8, 17,18,20,21, || 9, 22
 # fdr_i_set = [19] # slow 3
 # fdr_i_set = [22,19,20,21,9] # big networks with only decoupled regulator models
 # fdr_i_set = [22,19,9] # big networks with only decoupled regulator models
-fdr_i_set = [9,19,20,21,22]
+# fdr_i_set = [9,19,20,21,22]
 # fdr_i_set = [9]
 
 pdfName = 'gammaWght'
@@ -157,18 +159,24 @@ for fdr_i in fdr_i_set:
     
     # PART A.2 - choose distributions and reduce linear model ===========================
     if 'mcFullSet' in locals():
-        
         # 'nominal' linear
-        LM.runLinHc(pdf) # equivalent at the moment
+        LM.runLinHc(pdf,fast=True) # equivalent at the moment
         linHcRslNom = LM.linHcRsl
         
         # precondition linear model + MC run 2
         Mu,Sgm = pdf.getMuStd(LM,0)
         LM.busViolationVar(Sgm)
         LM.makeCorrModel()
-        LM.runLinHc(pdfVal,model='cor') # equivalent at the moment
+        LM.runLinHc(pdfVal,model='cor',fast=True) # equivalent at the moment. PDFVAL is what changes this here cf 'pdf'.
         linHcRslNmc = LM.linHcRsl
         preCndLeft = len(LM.NSetCor[0])/len(LM.varKfullU)*100
+        print('Pre conditioning left:',preCndLeft)
+        
+        # Finally run linear model to which everything is compared
+        LM.runLinHc(pdf,model='cor',fast=True)
+        linHcRsl = LM.linHcRsl
+        print('Linear Run Time:',linHcRsl['runTime'])
+        print('Sampling Time:',linHcRsl['runTimeSample'])
         
         # Nominal DSS model:
         LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,setCapsModel=setCapsOpt)
@@ -178,17 +186,16 @@ for fdr_i in fdr_i_set:
         LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=1.0,setCapsModel=setCapsOpt)
         dssHcRslTgt = LM.dssHcRsl
         
-        # Finally run linear model to which everything is compared
-        LM.runLinHc(pdf,model='cor')
-        linHcRsl = LM.linHcRsl
+        dssMae = LM.calcLinPdfError(dssHcRslNom,model='dss')
+        dssReg = LM.calcLinPdfError(dssHcRslNom,type='reg',model='dss')
         
         # calculate error:
-        maeVals = {'nomMae':LM.calcLinPdfError(linHcRslNom),'nmcMae':LM.calcLinPdfError(linHcRslNmc), 'dssNomMae':LM.calcLinPdfError(dssHcRslNom),'dssTgtMae':LM.calcLinPdfError(dssHcRslTgt)}
-        rgeVals = {'nomRge':LM.calcLinPdfError(linHcRslNom,type='reg'),'nmcRge':LM.calcLinPdfError(linHcRslNmc,type='reg'), 'dssNomRge':LM.calcLinPdfError(dssHcRslNom,type='reg'),'dssTgtRge':LM.calcLinPdfError(dssHcRslTgt,type='reg')}
+        maeVals = {'nomMae':LM.calcLinPdfError(linHcRslNom),'nmcMae':LM.calcLinPdfError(linHcRslNmc), 'dssNomMae':LM.calcLinPdfError(dssHcRslNom),'dssTgtMae':LM.calcLinPdfError(dssHcRslTgt),'dssMae':dssMae}
+        rgeVals = {'nomRge':LM.calcLinPdfError(linHcRslNom,type='reg'),'nmcRge':LM.calcLinPdfError(linHcRslNmc,type='reg'), 'dssNomRge':LM.calcLinPdfError(dssHcRslNom,type='reg'),'dssTgtRge':LM.calcLinPdfError(dssHcRslTgt,type='reg'),'dssReg':dssReg}
         
         rslt = {'linHcRsl':linHcRsl,'linHcRslNom':linHcRslNom,'linHcRslNmc':linHcRslNmc,'dssHcRslNom':dssHcRslNom,'dssHcRslTgt':dssHcRslTgt,'pdfData':pdf.pdf,'pdfDataNmc':pdfVal.pdf,'feeder':feeder,'maeVals':maeVals,'rgeVals':rgeVals,'preCndLeft':preCndLeft}
         if pltSave:
-            SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_finale.pkl')
+            SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_finale_dpndnt.pkl')
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
         

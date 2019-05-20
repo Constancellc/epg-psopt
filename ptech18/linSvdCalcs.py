@@ -9,11 +9,10 @@ import dss_stats_funcs as dsf
 from matplotlib import cm, patches
 from sklearn.decomposition import TruncatedSVD
 from matplotlib.collections import LineCollection
-from random import sample, seed
+from random import sample, seed, shuffle
 
 from cvxopt import matrix, solvers, msk
 from mosek import iparam
-
 
 def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,cns,DVmax=0.06):
     nMc = vLsMv.shape[0]
@@ -190,6 +189,30 @@ def calcVar(X):
         i+=1
     return var
     
+def calcDp1rSqrt(d,e,n):
+    # Calculates the diagonal and off-diagonal elements of a 
+    # matrix with diagonal elements d and off-diagonal elements
+    # e, of dimension n x n. 
+    # e.g. A = np.diag(np.ones(n))*(d-e) + np.ones((n,n))*e
+    # X = la.sqrtm(A)
+    # a2 = X[0,0]**2
+    # b2 = X[1,0]**2
+    
+    a = 4*(n-1) + (n-2)**2
+    b = -( 2*(n-2)*e + 4*d )
+    c = e**2
+    
+    b2ii = (-b-np.sqrt( b**2 - 4*a*c ))/(2*a) # <- this seems to give the right solution
+    a2ii = d - (n-1)*b2ii
+    
+    dSqrt = np.sqrt(a2ii)
+    eSqrt = -np.sqrt(b2ii)
+    # X = (d-e)*np.diag(np.ones(n)) + e*np.ones((n,n)) # remember during testing to do X.dot(X) (not X*X!)
+    return dSqrt, eSqrt
+
+def dp1rMv(M,d,e): # diagonal d plus rank-1 e right multiplication
+    return M*(d-e) + np.outer(e*(np.sum(M,axis=1)),np.ones(M.shape[1]))
+
 # =================================== PLOTTING FUNCTIONS
 
 def plotCns(mu_k,prms,Cns_pct,ax=None,pltShow=True,feeder=None,lineStyle='-',clrs=None):
@@ -494,7 +517,7 @@ class linModel:
         self.SyYNodeOrderTot = LM['SyYNodeOrder']
         self.SdYNodeOrderTot = LM['SdYNodeOrder']
         
-    def runLinHc(self,pdf,model='nom'):
+    def runLinHc(self,pdf,model='nom',fast=False):
         nCnstr = 9
         
         pdfData = pdf.pdf
@@ -502,13 +525,17 @@ class linModel:
         
         Vp_pct = np.zeros(pdfData['nP'])
         Cns_pct = np.zeros(list(pdfData['nP'])+[nCnstr])
-        lpPct = np.zeros(list(pdfData['nP'])+[nMc])
         hcGenSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
         hcGenAll = np.array([])
         genTotSet = np.nan*np.zeros((pdfData['nP'][0],pdfData['nP'][1],nCnstr))
         genTotAll = np.nan*np.zeros((pdfData['nP'][0],nMc*pdfData['nP'][1])) # NB this gets flattened later
         nV = self.KtotPu.shape[0]
         nS = self.KtotPu.shape[1]
+        if fast:
+            lpPct = np.nan
+        else:
+            lpPct = np.zeros(list(pdfData['nP'])+[nMc])
+        
         
         if model=='nom':
             NSetTot = np.arange(nV)
@@ -525,6 +552,15 @@ class linModel:
                 NSet = np.array(varSortN[self.NSetCor[0]])
                 NSetTot = NSet[NSet<nV]
                 NSetFix = NSet[NSet>=nV] - nV
+                
+        # draw samples before the clock, as this proving quite slow.        
+        tStartSample = time.time()
+        Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
+        pdfMcAll = []
+        for i in range(pdfData['nP'][0]):
+            pdfMcAll.append(pdf.genPdfMcSet(nMc,Mu,i)[0]) # pdfMc in kW (Mu is in W)#
+        tSampling = time.time() - tStartSample
+        
         tStart = time.process_time()
         tStartClk = time.time()
         
@@ -535,8 +571,9 @@ class linModel:
         KfixPuCalc = self.KfixPu[NSetFix]
 
         for i in range(pdfData['nP'][0]):
-            Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
-            pdfMc = pdf.genPdfMcSet(nMc,Mu,i)[0] # pdfMc in kW (Mu is in W)
+            # Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
+            # pdfMc = pdf.genPdfMcSet(nMc,Mu,i)[0] # pdfMc in kW (Mu is in W)
+            pdfMc = pdfMcAll[i]
             
             genTot0 = np.sum(pdfMc,axis=0)
             genTotSort = genTot0.copy()
@@ -558,10 +595,12 @@ class linModel:
                 
             for jj in range(pdfData['nP'][-1]):
                 genTot = genTot0*pdfData['mu_k'][jj]
+                
                 # vLsMv = ((DelVout*pdfData['mu_k'][jj]) + b0ls)[:,self.mvIdxTot]
                 # vLsLv = ((DelVout*pdfData['mu_k'][jj]) + b0ls)[:,self.lvIdxTot]
                 # vHsMv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.mvIdxTot]
                 # vHsLv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.lvIdxTot]
+                
                 DVoP = DelVout*pdfData['mu_k'][jj]
                 DVoPmv = DVoP[:,mvIdxNSet]
                 DVoPlv = DVoP[:,lvIdxNSet]
@@ -569,7 +608,9 @@ class linModel:
                 vLsLv = DVoPlv + b0lsLv
                 vHsMv = DVoPmv + b0hsMv
                 vHsLv = DVoPlv + b0hsLv
+                
                 vDv = ddVout*pdfData['mu_k'][jj]
+                
                 # vDv = ddVout[:,self.mvIdxTot]*pdfData['mu_k'][jj]
                 
                 Cns_pct[i,jj], inBounds = cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,self)
@@ -577,10 +618,11 @@ class linModel:
                 Vp_pct[i,jj] = 100*sum(inBounds)/nMc
                 hcGen = genTot[inBounds]
                 
-                # Running the sensitivity analysis
-                for kk in range(nMc):
-                    lpPct[i,jj,kk] = linSnsCalc(DVoPmv[kk],DVoPlv[kk],vDv[kk],b0lsMv,b0hsMv,b0lsLv,b0hsLv,self)
-                
+                if not fast:
+                    # Running the sensitivity analysis
+                    for kk in range(nMc):
+                        lpPct[i,jj,kk] = linSnsCalc(DVoPmv[kk],DVoPlv[kk],vDv[kk],b0lsMv,b0hsMv,b0lsLv,b0hsLv,self)
+
                 if len(hcGen)!=0:
                     hcGenAll = np.concatenate((hcGenAll,hcGen))
                     hcGen.sort()
@@ -625,6 +667,7 @@ class linModel:
         self.linHcRsl['genTotSet'] = genTotSet
         self.linHcRsl['runTime'] = tEnd - tStart
         self.linHcRsl['runTimeClk'] = tEndClk - tStartClk
+        self.linHcRsl['runTimeSample'] = tSampling
         self.linHcRsl['kCdf'] = 100*getKcdf(param,Vp_pct)[0]
         self.linHcRsl['kCdf'][np.isnan(self.linHcRsl['kCdf'])] = 100.0000011111
     
@@ -658,7 +701,15 @@ class linModel:
         
         if regBand!=0:
             DSSText.Command='Batchedit regcontrol..* band='+str(regBand) # 1v seems to be as low as we can set without bit problems
-                    
+        
+        # draw samples before the clock, as this proving quite slow.        
+        tStartSample = time.time()
+        Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
+        pdfMcAll = []
+        for i in range(pdfData['nP'][0]):
+            pdfMcAll.append(pdf.genPdfMcSet(nMc,Mu,i)[0]) # pdfMc in kW (Mu is in W)#
+        tSampling = time.time() - tStartSample
+        
         tStart = time.process_time()
         tStartClk = time.time()
         
@@ -666,8 +717,9 @@ class linModel:
         for i in range(pdfData['nP'][0]):
             if i%(max(pdfData['nP'])//4)==0:
                 print('---- Start MC ----',time.process_time(),i+1,'/',pdfData['nP'][0])
-            Mu0 = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot)
-            pdfGen = pdf.genPdfMcSet(nMc,Mu0,i)[0]
+            # Mu0 = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot)
+            # pdfGen = pdf.genPdfMcSet(nMc,Mu0,i)[0]
+            pdfGen = pdfMcAll[i]
             
             genTot0 = np.sum(pdfGen,axis=0)
             genTotSort = genTot0.copy()
@@ -974,12 +1026,17 @@ class linModel:
             # limAct[self.b0ls<0.5] = np.inf
             # limAct[self.lvIdxTot] = np.inf
             
-        if Sgm.shape==(1,):
-            self.KtotU = dsf.vmM(1/limAct,self.KtotPu)*Sgm
-            self.KfixU = dsf.vmM(1/limDV,self.KfixPu)*Sgm
-        else:
-            self.KtotU = dsf.vmvM(1/limAct,self.KtotPu,Sgm)
-            self.KfixU = dsf.vmvM(1/limDV,self.KfixPu,Sgm)
+        
+        
+        # VVV These uused to be used a lot so may need reinstating at some point...!
+        # if Sgm.shape==(1,):
+            # self.KtotU = dsf.vmM(1/limAct,self.KtotPu)*Sgm
+            # self.KfixU = dsf.vmM(1/limDV,self.KfixPu)*Sgm
+        # else:
+            # self.KtotU = dsf.vmvM(1/limAct,self.KtotPu,Sgm)
+            # self.KfixU = dsf.vmvM(1/limDV,self.KfixPu,Sgm)
+        self.KtotU = dp1rMv( dsf.vmM(1/limAct,self.KtotPu),self.CovSqrt[0],self.CovSqrt[1] )
+        self.KfixU = dp1rMv( dsf.vmM(1/limDV,self.KfixPu),self.CovSqrt[0],self.CovSqrt[1] )
         
         self.varKtotU = calcVar(self.KtotU)
         self.varKfixU = calcVar(self.KfixU)
@@ -988,7 +1045,7 @@ class linModel:
         self.svdLimDv = limDV
         self.nStdKtotU = np.sign(self.svdLim)/np.sqrt(self.varKtotU)
         self.nStdKfixU = np.sign(self.svdLimDv)/np.sqrt(self.varKfixU)
-        # self.nStdU = np.min(np.array((self.nStdKtotU,self.nStdKfixU)),axis=0)
+        
         self.nStdU = np.minimum( self.nStdKtotU,self.nStdKfixU )
         
         if calcSrsVals: # for speedy 'updateNormCalc'
@@ -1078,7 +1135,6 @@ class linModel:
         # print('Start Svd calcs...',time.process_time())
         # LM.makeSvdModel(Sgm,evSvdLim=[0.95,0.98,0.99,0.995,0.999],nMax=3500)
         
-        
         self.busViolationVar(Sgm)
         
         nSvdMax = min([nMax,min(self.KtotPu.shape)]) - 1
@@ -1127,25 +1183,43 @@ class linModel:
         self.NSetStd = NSetStd
         
     def makeCorrModel(self,stdLim=0.70,corrLim=[0.95]): # as chosen running linSvdCalcs_run.py.
-        self.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
+        # self.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
         vars = self.varKfullU.copy()
         
         varSortN = vars.argsort()[::-1]
-
+        
         stds = np.sqrt(vars)
         stds = stds[varSortN]
-        stds = stds/stds[0]
-
-        corr = abs(self.KfullUcorr)
-        corr = corr - np.diag(np.ones(len(corr)))
-        corr = corr[varSortN][:,varSortN]
+        stdNorm = stds/stds[0]
+        
+        # first find which buses should be in. from https://stackoverflow.com/questions/9868653/find-first-sequence-item-that-matches-a-criterion
+        nOut = next(n for n in range(len(stdNorm)) if stdNorm[n]<(1-stdLim))
+        stdOut = stds[:nOut]
+        varSortNout = varSortN[:nOut]
+        
+        # KfullU = np.concatenate((self.KtotU,self.KfixU),axis=0)
+        # self.KfullUcov = KfullU.dot(KfullU.T)
+        # covScaling = np.sqrt(np.diag(self.KfullUcov))
+        # covScaling[covScaling==0] = np.inf # avoid divide by zero complaint
+        # self.KfullUcorr = dsf.vmvM(1/covScaling,self.KfullUcov,1/covScaling)
+        
+        # corr = abs(self.KfullUcorr)
+        # corr = corr - np.diag(np.ones(len(corr)))
+        # corr = corr[varSortN][:,varSortN]
+        
+        KfullUoutNorm = dsf.vmM(1/stdOut,(np.concatenate((self.KtotU,self.KfixU),axis=0)[varSortNout]))
+        corr = abs(KfullUoutNorm.dot(KfullUoutNorm.T))
+        for i in range(len(corr)):
+            corr[i,i] = 0
+        # print(corr[0])
         
         NsetLen = []
         Nset = []
         for corrlim in corrLim:
             nset = [0]
             i=1
-            while (stds[i] > (1-stdLim)) and i<(len(stds)-1):
+            # while (stds[i] > (1-stdLim)) and i<(len(stds)-1):
+            while i<(len(stdOut)-1):
                 maxCorr = max(corr[i,nset])
                 if maxCorr < corrlim:
                     nset = nset + [i]
@@ -1156,8 +1230,6 @@ class linModel:
         print('Corr model nset:',NsetLen,' out of ',len(vars))
         
         self.NSetCor = Nset
-        
-        
         # self.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
         # vars = self.varKtotU.copy()
         
@@ -1279,8 +1351,12 @@ class linModel:
         self.b0LvMax = np.maximum(self.b0lsLv,self.b0hsLv)
         self.b0LvMin = np.minimum(self.b0lsLv,self.b0hsLv) 
         
-    def calcLinPdfError(self,otherRslt,type='MAE'):
-        Vp0 = 0.01*self.linHcRsl['Vp_pct']
+    def calcLinPdfError(self,otherRslt,type='MAE',model='lin'):
+        if model=='lin':
+            Vp0 = 0.01*self.linHcRsl['Vp_pct']
+        if model=='dss':
+            Vp0 = 0.01*self.dssHcRsl['Vp_pct']
+        
         Vp1 = 0.01*otherRslt['Vp_pct']
         if type=='reg':
             Error = np.linalg.norm(Vp0-Vp1,ord=1)/(np.linalg.norm(Vp1,ord=1)+1) # this equivalent to: sum of errors/(regularised sum of function)
@@ -1672,6 +1748,13 @@ class hcPdfs:
                 Sgm0 = np.sqrt(k)*th*1e3
                 Mu = np.array([frac*Mu0])
                 Sgm = np.sqrt(frac*(Mu0**2 + Sgm0**2) - Mu**2) # see FrÃ¼hwirth-Schnatter chapter 1
+                
+                var = Sgm**2
+                covar = (Mu0**2)*frac*(frac-1)/(LM.nS - 1)
+                
+                LM.Cov = [var,covar] # only represent the diagonal and off-diagonal elements
+                LM.CovSqrt = calcDp1rSqrt(var,covar,LM.nS) # NEW! :D
+                
         return Mu,Sgm # both in WATTS
         
     def genPdfMcSet(self,nMc,Mu0,prmI,getMcU=False):
@@ -1699,14 +1782,17 @@ class hcPdfs:
             clfnSolar = self.pdf['clfnSolar']
             frac = self.pdf['prms'][prmI]
             
-            # genIn = np.random.binomial(1,frac,(len(Mu0),nMc))
-            
             genIn = np.zeros((len(Mu0),nMc))
             nDraw = np.ceil(frac*len(Mu0)).astype(int)
+            # rangeMu0 = np.arange(len(Mu0),dtype=int)
             for i in range(nMc):
+                # idxs = shuffle(rangeMu0)
+                # idxs = np.random.choice(rangeMu0,nDraw,replace=False)
                 idxs = sample(range(len(Mu0)),nDraw)
                 genIn[idxs,i] = 1
+                
             # genIn = np.random.binomial(1,frac,(len(Mu0),nMc))
+            
             pdfGen = np.random.gamma(shape=clfnSolar['k'],scale=clfnSolar['th_kW'],size=(len(Mu0),nMc))
             pdfMc = pdfGen*genIn
             pdfMeans = np.mean(pdfMc) # NB these are uniformly distributed
