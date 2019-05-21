@@ -171,16 +171,41 @@ def kron_red_vregUpdate(Kt,bV,Vreg):
     Bnew = bVb + Abt.dot(spla.solve(Art,(Vreg - bVr)))
     return Bnew
 
+# def lmKronRed(LM,idxShf,regVreg):
+    # v_idx_shf,s_idx_shf,sD_idx_shf = idxShf[:]
+    # KyR = LM['Ky'][v_idx_shf,:][:,s_idx_shf] # not completely clear if s_idx_shf required?
+    # KdR = LM['Kd'][v_idx_shf,:][:,sD_idx_shf] # not completely clear if sD_idx_shf required?
+    # bVR = LM['bV'][v_idx_shf]
+    # KtR = LM['Kt'][v_idx_shf,:]
+    # Anew,Bnew = kron_red(KyR,KdR,KtR,bVR,regVreg)
+
+    # Akron = np.concatenate(( Anew,np.zeros((len(regVreg),Anew.shape[1])) ))
+    # Bkron = np.concatenate((Bnew,np.array(regVreg)))
+    # return Akron, Bkron
 def lmKronRed(LM,idxShf,regVreg):
-    v_idx_shf,s_idx_shf,sD_idx_shf = idxShf[:]
-    KyR = LM['Ky'][v_idx_shf,:][:,s_idx_shf] # not completely clear if s_idx_shf required?
-    KdR = LM['Kd'][v_idx_shf,:][:,sD_idx_shf] # not completely clear if sD_idx_shf required?
-    bVR = LM['bV'][v_idx_shf]
-    KtR = LM['Kt'][v_idx_shf,:]
+    if len(idxShf)==3: 
+        v_idx_shf,s_idx_shf,sD_idx_shf = idxShf[:]
+        KyR = LM['Ky'][v_idx_shf,:][:,s_idx_shf] # not completely clear if s_idx_shf required?
+        KdR = LM['Kd'][v_idx_shf,:][:,sD_idx_shf] # not completely clear if sD_idx_shf required?
+        bVR = LM['bV'][v_idx_shf]
+        KtR = LM['Kt'][v_idx_shf,:]
+    else:
+        KyR = LM.Ky[idxShf]
+        KdR = LM.Kd[idxShf]
+        KtR = LM.Kt[idxShf]
+        bVR = LM.bV[idxShf]
     Anew,Bnew = kron_red(KyR,KdR,KtR,bVR,regVreg)
 
     Akron = np.concatenate(( Anew,np.zeros((len(regVreg),Anew.shape[1])) ))
     Bkron = np.concatenate((Bnew,np.array(regVreg)))
+    return Akron, Bkron
+
+def lmLtcKronRed(LM,idxShf,regVreg,KvReg):
+    KyR = LM.Ky[idxShf]
+    KdR = LM.Kd[idxShf]
+    KtR = LM.Kt[idxShf]
+    bVR = LM.bV[idxShf]
+    Akron,Bkron = kron_red_ltc(KyR,KdR,KtR,bVR,regVreg,KvReg)
     return Akron, Bkron
 
 def lmKronRedVregUpdate(LM,idxShf,regVreg):

@@ -6,9 +6,14 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from math import gamma
 import dss_stats_funcs as dsf
-from linSvdCalcs import linModel, calcVar, hcPdfs, plotCns, plotHcVltn
-from scipy.stats.stats import pearsonr
+# from linSvdCalcs import linModel, calcVar, hcPdfs, plotCns, plotHcVltn
+from linSvdCalcs import *
+import linSvdCalcs as lsc
 
+
+
+from scipy.stats.stats import pearsonr
+from importlib import reload
 WD = os.path.dirname(sys.argv[0])
 
 prmI = 0
@@ -20,53 +25,171 @@ pdfName = 'gammaFrac'
 # pdfName = 'gammaXoff'; prms=(np.concatenate((0.33*np.ones((1,19)),np.array([30*np.arange(0.05,1.0,0.05)])),axis=0)).T
 
 # ================== RUN through each of the networks and see if we can get the analysis running reasonably well
+# feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
 feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
-fdrs_i = 2
-# fdrs_i = 2
 fdrs_is = [6,8,9,19,20,21,17,18,22]
-# fdrs_is = [9,17,19,21,22]
+# fdrs_is = [22]
 
-stdLim = np.array([0.70])
+stdLim = np.array([0.7])
 CorLim = np.array([0.95])
 
 # stdLim = np.array([0.66,0.7,0.75,0.8])
-# CorLim = np.array([0.9,0.95])
+# CorLim = np.array([0.9,0.95]) 
 
 Errors = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
 Times = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
 Sizes = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
+CovCalcTimes = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
 
 i=0;
 for i in range(len(fdrs_is)):
     j=0
-    
     LM = linModel(fdrs_is[i],WD)
     pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
+    LM.runLinHc(pdf,fast=True)
+    rslA = LM.linHcRsl
+    rslAt = rslA['runTime']
+    Mu,Sgm = pdf.getMuStd(LM,0)
     for j in range( len(stdLim) ):
         k=0
-        
         for k in range( len(CorLim) ):
-            LM.runLinHc(pdf)
-            rslA = LM.linHcRsl
-            rslAt = rslA['runTime']
-            
-            Mu,Sgm = pdf.getMuStd(LM,0)
+            tCov0 = time.time()
             LM.busViolationVar(Sgm)
-            LM.makeCorrModel(stdLim=stdLim[j],corrLim=[CorLim[k]])
-            LM.runLinHc(pdf,model='cor')
+            LM.makeCorrModel(stdLim=stdLim[j],corrLim=[CorLim[k]]) # this takes ages and ages!
+            CovCalcTimes[i,j,k] = time.time() - tCov0
+            LM.runLinHc(pdf,model='cor',fast=True)
             rslB = LM.linHcRsl
             
             Errors[i,j,k] = np.mean(np.abs(rslB['Vp_pct']-rslA['Vp_pct']))
+            
             Times[i,j,k] = LM.linHcRsl['runTime']
             Sizes[i,j,k] = len(LM.NSetCor[0])/len(LM.varKfullU)*100
-            k+=1
             
-            plt.plot(rslA['Vp_pct'])
-            plt.plot(rslB['Vp_pct'])
-            plt.show()
+            k+=1
+            # plt.plot(rslA['Vp_pct'])
+            # plt.plot(rslB['Vp_pct'])
+            # plt.show()
         j+=1    
     i+=1
+
+def cmain(fdr_i=6):
+    reload(lsc)
+    LM = lsc.linModel(fdr_i,WD)
+    pdf = lsc.hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
+    Mu,Sgm = pdf.getMuStd(LM,0)
+    tCov0 = time.time()
+    LM.busViolationVar(Sgm)
+    print(time.time() - tCov0)
+    LM.makeCorrModel() # this takes ages and ages!
+    print(time.time() - tCov0)
+
+
+# =============================== Getting the Linear Program version of the code up and running 
+def main(linModel=6,tmax=0.1,qmax=0.2):
+    reload(lsc)
+    # have a go at getting the LP version of the HC calcs working
+    LM = lsc.linModel(linModel,WD)
+    pdf = lsc.hcPdfs( LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName,nMc=5,prms=np.arange(0.05,1.05,0.05) )
+    LM.runLinHc(pdf)
+    LM.runLinLp(pdf,tmax=tmax,qmax=qmax)
+    # lsc.plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=LM.feeder)
     
+    asd = LM.linHcRsl
+    zxc = asd['Lp_pct']
+    asd2 = LM.linLpRsl
+    zxc2 = asd2['Lp_pct']
+    # fig,[ax,ax2] = plt.subplots(2,sharey=True,sharex=True)
+    
+    # # fig,ax = plt.subplots()
+    # i = 0
+    # for asd in zxc:
+        # pctls = np.percentile(asd,[5,25,50,75,95])
+        # rngs = np.percentile(asd,[0,100])
+        # lsc.plotBoxWhisk(ax,pdf.pdf['prms'][i],0.01,pctls,bds=rngs)
+        # i+=1
+
+    # ax.plot([-0.005,1.005],[1,1],'k--',zorder=20)
+    # ax.set_xlim((-0.025,1.025))
+    # # ax.set_ylim((0,3.5))
+    # ax.grid(True)
+    
+    
+    # i = 0
+    # for asd in zxc2:
+        # pctls = np.percentile(asd,[5,25,50,75,95])
+        # rngs = np.percentile(asd,[0,100])
+        # lsc.plotBoxWhisk(ax2,pdf.pdf['prms'][i],0.01,pctls,bds=rngs)
+        # i+=1
+
+    # ax2.plot([-0.005,1.005],[1,1],'k--',zorder=20)
+    # ax2.set_xlim((-0.025,1.025))
+    # # ax2.set_ylim((0,3.5))
+    # ax2.grid(True)
+    plt.show()
+
+    return LM,pdf,zxc,zxc2
+
+fdr_i = 21
+tmax=0.1
+def main2(fdr_i=6):
+    reload(lsc)
+    LM,pdf,zxc,zxc2 = main(fdr_i,tmax=tmax,qmax=0.2)
+    LM1 = main(fdr_i,tmax=tmax,qmax=0.0)[0]
+    LM2 = main(fdr_i,tmax=0.0,qmax=0.0)[0]
+
+    clrA,clrB,clrC,clrD = cm.matlab(range(4))
+
+    fig,ax = plt.subplots()
+
+    pctls = LM.linHcRsl['kCdf'][[1,4,9,-5,-2]]
+    rngs = LM.linHcRsl['kCdf'][[0,-1]]
+    lsc.plotBoxWhisk(ax,4,0.33,pctls,bds=rngs,clr=clrA,transpose=True)
+
+    pctls = LM2.linLpRsl['kCdf'][[1,4,9,-5,-2]]
+    rngs = LM2.linLpRsl['kCdf'][[0,-1]]
+    lsc.plotBoxWhisk(ax,3,0.33,pctls,bds=rngs,clr=clrB,transpose=True)
+
+    pctls = LM1.linLpRsl['kCdf'][[1,4,9,-5,-2]]
+    rngs = LM1.linLpRsl['kCdf'][[0,-1]]
+    lsc.plotBoxWhisk(ax,2,0.33,pctls,bds=rngs,clr=clrC,transpose=True)
+
+    pctls = LM.linLpRsl['kCdf'][[1,4,9,-5,-2]]
+    rngs = LM.linLpRsl['kCdf'][[0,-1]]
+    lsc.plotBoxWhisk(ax,1,0.33,pctls,bds=rngs,clr=clrD,transpose=True)
+
+    plt.plot(0,0,color=clrA,label='Lin (base)')
+    plt.plot(0,0,color=clrB,label='LP (no taps)')
+    plt.plot(0,0,color=clrC,label='LP (taps)')
+    plt.plot(0,0,color=clrD,label='LP (taps + Q)')
+
+    plt.legend()
+
+    plt.show()
+# main2(6)
+
+# LM,pdf,zxc,zxc2 = main(6)
+
+# fig,ax = plt.subplots()
+
+# asd2 = LM.linLpRsl
+# zxc2 = asd2['Lp_pct']
+
+# i = 0
+# for asd in zxc2:
+    # pctls = np.percentile(asd,[5,25,50,75,95])
+    # rngs = np.percentile(asd,[0,100])
+    # lsc.plotBoxWhisk(ax,pdf.pdf['prms'][i],0.01,pctls,bds=rngs)
+    # i+=1
+
+# ax.plot([-0.005,1.005],[1,1],'k--',zorder=20)
+# ax.set_xlim((-0.025,1.025))
+# ax.set_ylim((0,3.5))
+# ax.grid(True)
+# plt.show()
+
+# plt.plot(LM.linLpRsl['Vp_pct'])
+# plt.plot(LM.linHcRsl['Vp_pct'])
+# plt.show()
 
 
 # # ==================== Attempting to use olkin and pratt. does not seem to work well at all. VVVVVVV

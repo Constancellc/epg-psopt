@@ -183,7 +183,7 @@ for fdr_i in fdr_i_set:
         srcReg = 1
     else:
         srcReg = 0
-    legLoc = {'eulv':'NorthEast','13bus':'NorthEast','34bus':'NorthWest','123bus':'NorthEast','8500node':'SouthEast','usLv':None,'epri5':'NorthWest','epri7':'NorthWest','epriJ1':'SouthEast','epriK1':'NorthWest','epriM1':'NorthWest','epri24':'NorthWest','4busYy':None}
+    legLoc = {'eulv':'NorthEast','13bus':'NorthEast','34bus':'NorthWest','37bus':None,'123bus':'NorthEast','8500node':'SouthEast','usLv':None,'epri5':'NorthWest','epri7':'NorthWest','epriJ1':'SouthEast','epriK1':'NorthWest','epriM1':'NorthWest','epri24':'NorthWest','4busYy':None}
     
     dataOut = {'Feeder':feeder,'k':kOut,'kLo':load1,'kHi':load2,'VpMv':VpMv,'VpLv':VpLv,'VmMv':VmMv,'VmLv':VmLv,'mvIdxYz':mvIdxYz,'lvIdxYz':lvIdxYz,'nRegs':DSSCircuit.RegControls.Count,'vSrcBus':vSrcBuses[0],'srcReg':srcReg,'legLoc':legLoc[feeder],'capPosOut':capPosOut}
 

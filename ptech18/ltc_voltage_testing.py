@@ -56,8 +56,9 @@ for fdr_i in fdr_i_set:
     print('\nStarting, feeder:',feeder)
     k = np.concatenate((np.arange(-1.5,1.6,0.05),np.arange(1.6,-1.5,-0.05)))
     # k = np.arange(-1.5,1.6,0.025)
+    
     if ltcVoltageTestingFig:
-        k = np.arange(-1.5,1.6,0.05)
+        k = np.arange(-1.5,1.6,0.10)
         k = -np.arange(-1.5,1.6,0.025)
 
     ckt = get_ckt(WD,feeder)
@@ -343,7 +344,7 @@ for fdr_i in fdr_i_set:
 
         ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,0.055)), 
         ax.set_xlabel('Load power continuation factor, $\kappa$'), ax.set_ylabel('Error, $||V_{\mathrm{DSS}} - V_{\mathrm{Lin}} ||_{2}$ / $||V_{\mathrm{DSS}}||_{2}$')
-        legend=ax.legend(('Load flow // locked taps','Load flow // unlocked taps','Network // unlocked taps'),fontsize='small',loc='upper right',title='Linear // non-linear model:')
+        legend=ax.legend(('Lin: Locked     DSS: Locked','Lin: Locked     DSS: Unlocked','Lin: Unlocked $\, $DSS: Unlocked'),fontsize='small',loc='upper right',title='Tap control settings')
 
         plt.tight_layout()
         plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.png')

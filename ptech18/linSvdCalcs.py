@@ -9,7 +9,10 @@ import dss_stats_funcs as dsf
 from matplotlib import cm, patches
 from sklearn.decomposition import TruncatedSVD
 from matplotlib.collections import LineCollection
+from random import sample, seed, shuffle
 
+from cvxopt import matrix, solvers, msk
+from mosek import iparam
 
 def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,cns,DVmax=0.06):
     nMc = vLsMv.shape[0]
@@ -55,6 +58,121 @@ def cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,cns,DVmax=0.06):
     inBounds = np.any(np.array([maxDv>DVmax,vMaxLsMv>VpMv,vMinLsMv<VmMv,vMaxLsLv>VpLv,vMinLsLv<VmLv,vMaxHsMv>VpMv,vMinHsMv<VmMv,vMaxHsLv>VpLv,vMinHsLv<VmLv]),axis=0)
     return cnsPct, inBounds
 
+
+def linPrgCalc(dVpmv,dVplv,dVqmv,dVqlv,vDvP,vDvQ,bLsMv,bHsMv,bLsLv,bHsLv,KtMv,KtLv,cns,DVmax=0.06,tmax=0.1,qmax=0.2):
+    # # Linear program based on https://cvxopt.org/examples/tutorial/lp.html
+    # need the form A s(hat) d + b <V+, for example, to maximise d.
+    # NB note that the inputs are from Ks, Kt rather than Ktot.
+    # From Linearise regs: tap limits are in pu; qlims are as a fraction of P allowed.
+    
+    # c = matrix([-1.0]+[0]*KtMv.shape[1])
+    
+    # Amv = np.hstack((np.array([dVpmv]).T,KtMv))[bLsMv>0.5]
+    # Alv = np.hstack((np.array([dVplv]).T,KtLv))[bLsLv>0.5]
+    # Adv = np.hstack((np.array([vDvP]).T,np.zeros((len(vDvP),KtMv.shape[1]))))
+    
+    # Acns = np.zeros((len(c)-1,len(c)))
+    # cnsIdx = (np.arange(len(c)-1),np.arange(len(c)-1)+1)
+    # Acns[cnsIdx] = 1
+    
+    # bLsMv = bLsMv[bLsMv>0.5]
+    # bHsMv = bHsMv[bHsMv>0.5]
+    # bLsLv = bLsLv[bLsLv>0.5]
+    # bHsLv = bHsLv[bHsLv>0.5]
+    
+    # # build the b-matrix:
+    # VpMv = cns.VpMv - np.maximum(bLsMv,bHsMv)
+    # VpLv = cns.VpLv - np.maximum(bLsLv,bHsLv)
+    # VmMv = cns.VmMv - np.minimum(bLsMv,bHsMv)
+    # VmLv = cns.VmLv - np.minimum(bLsLv,bHsLv)
+    # vDvCns = DVmax*np.ones((len(vDvP)))
+    
+    # cnsCns = tmax*np.ones((KtMv.shape[1]))
+    
+    # A = matrix(np.concatenate((Amv,-Amv,Alv,-Alv,Adv,-Adv,Acns,-Acns)))
+    # b = matrix(np.concatenate((VpMv,-VmMv,VpLv,-VmLv,vDvCns,vDvCns,cnsCns,cnsCns)))
+    
+    # A = matrix(np.concatenate((Amv,Adv,-Adv,Acns,-Acns)))
+    # b = matrix(np.concatenate((VpMv,vDvCns,vDvCns,cnsCns,cnsCns)))
+    
+    c = matrix([-1.0]+[0]*2*(KtMv.shape[1] + 1)) # just one Q constraint
+    
+    Amv0 = np.hstack((np.array([dVpmv]).T,KtMv,np.zeros(KtMv.shape),np.array([dVqmv]).T,np.zeros((len(dVqmv),1))))[bLsMv>0.5]
+    Amv1 = np.hstack((np.array([dVpmv]).T,np.zeros(KtMv.shape),KtMv,np.zeros((len(dVqmv),1)),np.array([dVqmv]).T))[bLsMv>0.5]
+    Alv0 = np.hstack((np.array([dVplv]).T,KtLv,np.zeros(KtLv.shape),np.array([dVqlv]).T,np.zeros((len(dVqlv),1))))[bLsLv>0.5]
+    Alv1 = np.hstack((np.array([dVplv]).T,np.zeros(KtLv.shape),KtLv,np.zeros((len(dVqlv),1)),np.array([dVqlv]).T))[bLsLv>0.5]
+    
+    Adv0 = np.hstack((np.array([vDvP]).T,np.zeros((len(vDvP),KtMv.shape[1]*2)),np.array([vDvQ]).T,np.zeros((len(vDvQ),1))))
+    Adv1 = np.hstack((np.array([vDvP]).T,np.zeros((len(vDvP),KtMv.shape[1]*2)),np.zeros((len(vDvQ),1)),np.array([vDvQ]).T))
+    
+    Acns = np.zeros((len(c)-1,len(c)))
+    cnsIdx = (np.arange(len(c)-1),np.arange(len(c)-1)+1)
+    Acns[cnsIdx] = 1
+    
+    bLsMv = bLsMv[bLsMv>0.5]
+    bHsMv = bHsMv[bHsMv>0.5]
+    bLsLv = bLsLv[bLsLv>0.5]
+    bHsLv = bHsLv[bHsLv>0.5]
+    
+    # build the b-matrix:
+    VpMvLs = cns.VpMv - bLsMv
+    VpLvLs = cns.VpLv - bLsLv
+    VmMvLs = cns.VmMv - bLsMv
+    VmLvLs = cns.VmLv - bLsLv
+    VpMvHs = cns.VpMv - bHsMv
+    VpLvHs = cns.VpLv - bHsLv
+    VmMvHs = cns.VmMv - bHsMv
+    VmLvHs = cns.VmLv - bHsLv
+    vDvCns = DVmax*np.ones((len(vDvP)))
+    
+    cnsCns = np.concatenate((tmax*np.ones((KtMv.shape[1]*2)),np.array([qmax]*2) ))
+    
+    A = matrix(np.concatenate((Amv0,-Amv0,Alv0,-Alv0,Amv1,-Amv1,Alv1,-Alv1,Adv0,-Adv0,Adv1,-Adv1,Acns,-Acns)))
+    b = matrix(np.concatenate((VpMvLs,-VmMvLs,VpLvLs,-VmLvLs,VpMvHs,-VmMvHs,VpLvHs,-VmLvHs,vDvCns,vDvCns,vDvCns,vDvCns,cnsCns,cnsCns)))
+    
+    # A = matrix(np.concatenate((Amv0,-Amv0,Alv0,-Alv0,Amv1,-Amv1,Alv1,-Alv1,Adv0,-Adv0,Adv1,-Adv1,Acns,-Acns)))
+    # b = matrix(np.concatenate((VpMvLs,-VmMvLs,VpLvLs,-VmLvLs,VpMvHs,-VmMvHs,VpLvHs,-VmLvHs,vDvCns,vDvCns,vDvCns,vDvCns,cnsCns,cnsCns)))
+    
+    msk.options = {iparam.log: 0}
+    sol = solvers.lp(c,A,b,solver='mosek')
+    
+    if sol['status']=='optimal':
+        sts = 0
+        sln = sol['x'][0]
+        # sln = sum(sol['x'][1:])
+    else:
+        sts = 1
+        sln = np.nan
+    
+    return sln,sts
+    
+def linSnsCalc(dVmv,dVlv,vDv,bLsMv,bHsMv,bLsLv,bHsLv,cns,DVmax=0.06):
+    # as in the gm paper
+    dVmv = dVmv[bLsMv>0.5]
+    dVlv = dVlv[bLsLv>0.5]
+    bLsMv = bLsMv[bLsMv>0.5]
+    bHsMv = bHsMv[bHsMv>0.5]
+    bLsLv = bLsLv[bLsLv>0.5]
+    bHsLv = bHsLv[bHsLv>0.5]
+    
+    # build the b-matrix:
+    VpMv = cns.VpMv - np.maximum(bLsMv,bHsMv)
+    VpLv = cns.VpLv - np.maximum(bLsLv,bHsLv)
+    VmMv = cns.VmMv - np.minimum(bLsMv,bHsMv)
+    VmLv = cns.VmLv - np.minimum(bLsLv,bHsLv)
+    
+    vDvCnsU = DVmax*np.ones((len(vDv)))
+    vDvCnsL = -DVmax*np.ones((len(vDv)))
+    
+    cUp = np.concatenate((VpMv,VpLv,vDvCnsU))
+    cLo = np.concatenate((VmMv,VmLv,vDvCnsL))
+    kMult = np.concatenate((dVmv,dVlv,vDv))
+    
+    ltcUp = (cUp/kMult)[kMult>=0]
+    ltcLo = (cLo/kMult)[kMult<0]
+    x = np.min(np.concatenate((ltcUp,ltcLo)))
+    return x
+
 def pos2str(tapPos):
     hexPos = ''
     for pos in tapPos:
@@ -71,6 +189,30 @@ def calcVar(X):
         i+=1
     return var
     
+def calcDp1rSqrt(d,e,n):
+    # Calculates the diagonal and off-diagonal elements of a 
+    # matrix with diagonal elements d and off-diagonal elements
+    # e, of dimension n x n. 
+    # e.g. A = np.diag(np.ones(n))*(d-e) + np.ones((n,n))*e
+    # X = la.sqrtm(A)
+    # a2 = X[0,0]**2
+    # b2 = X[1,0]**2
+    
+    a = 4*(n-1) + (n-2)**2
+    b = -( 2*(n-2)*e + 4*d )
+    c = e**2
+    
+    b2ii = (-b-np.sqrt( b**2 - 4*a*c ))/(2*a) # <- this seems to give the right solution
+    a2ii = d - (n-1)*b2ii
+    
+    dSqrt = np.sqrt(a2ii)
+    eSqrt = -np.sqrt(b2ii)
+    # X = (d-e)*np.diag(np.ones(n)) + e*np.ones((n,n)) # remember during testing to do X.dot(X) (not X*X!)
+    return dSqrt, eSqrt
+
+def dp1rMv(M,d,e): # diagonal d plus rank-1 e right multiplication
+    return M*(d-e) + np.outer(e*(np.sum(M,axis=1)),np.ones(M.shape[1]))
+
 # =================================== PLOTTING FUNCTIONS
 
 def plotCns(mu_k,prms,Cns_pct,ax=None,pltShow=True,feeder=None,lineStyle='-',clrs=None):
@@ -163,8 +305,8 @@ def plotHcGen(mu_k,prms,hcGenSet,lineColor,ax=None):
 def plotBoxWhisk(ax,x,ddx,y,clr=cm.tab10(0),zOrder=10,lineWidth=1.0,bds=[None],transpose=False):
     if not transpose:
         if bds[0]!=None:
-            ax.plot([x],bds[0],color=clr, zorder=zOrder,marker='2')
-            ax.plot([x],bds[1],color=clr, zorder=zOrder,marker='1')
+            ax.plot([x],bds[0],color=clr, zorder=zOrder,marker='^',markersize=5,markerfacecolor='none')
+            ax.plot([x],bds[1],color=clr, zorder=zOrder,marker='v',markersize=5,markerfacecolor='none')
         ax.plot([x]*2,y[0:2],'--',color=clr,zorder=zOrder,linewidth=lineWidth)
         
         ax.plot([x-ddx,x+ddx],[y[0]]*2,color=clr,zorder=zOrder,linewidth=lineWidth)
@@ -177,8 +319,6 @@ def plotBoxWhisk(ax,x,ddx,y,clr=cm.tab10(0),zOrder=10,lineWidth=1.0,bds=[None],t
         ax.plot([x]*2,y[3::],'--',color=clr,zorder=zOrder,linewidth=lineWidth)
     if transpose:
         if bds[0]!=None:
-            # ax.plot(bds[0],[x],color=clr, zorder=zOrder,marker=5,markersize=5,markerfacecolor='none')
-            # ax.plot(bds[1],[x],color=clr, zorder=zOrder,marker=4,markersize=5,markerfacecolor='none')
             ax.plot(bds[0]-1,[x],color=clr, zorder=zOrder,marker='>',markersize=5,markerfacecolor='none')
             ax.plot(bds[1]+1,[x],color=clr, zorder=zOrder,marker='<',markersize=5,markerfacecolor='none')
         ax.plot(y[0:2],[x]*2,'--',color=clr,zorder=zOrder,linewidth=lineWidth)
@@ -268,6 +408,9 @@ class linModel:
         self.nV, self.nS = self.KfixPu.shape
         self.nSy = Kyfix.shape[1];         self.nSd = Kdfix.shape[1]
         self.nT = self.LMfxd['Kt'].shape[1]
+        self.KtPu = dsf.vmM(1/self.dvBase,self.LMfxd['Kt'])
+        self.bVfixPu = self.LMfxd['bV']/self.dvBase
+        
         self.pIs = np.concatenate( (np.arange(0,self.nSy//2),np.arange(self.nSy,self.nSy+self.nSd//2)) )
         self.qIs = np.concatenate( (np.arange(self.nSy//2,self.nSy),np.arange(self.nSy+self.nSd//2,self.nSy+self.nSd)) )
         
@@ -308,6 +451,10 @@ class linModel:
             Kfix = np.concatenate((KyPfix+k_Q*KyQfix,KdPfix + k_Q*KdQfix),axis=1)
             
         self.KfixPu = dsf.vmM(1/self.dvBase,Kfix)
+        self.Kfix0Pu = dsf.vmM(1/self.dvBase,np.concatenate((Ky,Kd),axis=1))
+        
+        self.KpFix0Pu = dsf.vmM(1/self.dvBase,np.concatenate((KyPfix,KdPfix),axis=1))
+        self.KqFix0Pu = dsf.vmM(1/self.dvBase,np.concatenate((KyQfix,KdQfix),axis=1)) # for gen reactive power control
         
     def loadNetModel(self,netModel=None):
         if netModel==None:
@@ -370,7 +517,7 @@ class linModel:
         self.SyYNodeOrderTot = LM['SyYNodeOrder']
         self.SdYNodeOrderTot = LM['SdYNodeOrder']
         
-    def runLinHc(self,pdf,model='nom'):
+    def runLinHc(self,pdf,model='nom',fast=False):
         nCnstr = 9
         
         pdfData = pdf.pdf
@@ -384,6 +531,11 @@ class linModel:
         genTotAll = np.nan*np.zeros((pdfData['nP'][0],nMc*pdfData['nP'][1])) # NB this gets flattened later
         nV = self.KtotPu.shape[0]
         nS = self.KtotPu.shape[1]
+        if fast:
+            lpPct = np.nan
+        else:
+            lpPct = np.zeros(list(pdfData['nP'])+[nMc])
+        
         
         if model=='nom':
             NSetTot = np.arange(nV)
@@ -400,6 +552,15 @@ class linModel:
                 NSet = np.array(varSortN[self.NSetCor[0]])
                 NSetTot = NSet[NSet<nV]
                 NSetFix = NSet[NSet>=nV] - nV
+                
+        # draw samples before the clock, as this proving quite slow.        
+        tStartSample = time.time()
+        Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
+        pdfMcAll = []
+        for i in range(pdfData['nP'][0]):
+            pdfMcAll.append(pdf.genPdfMcSet(nMc,Mu,i)[0]) # pdfMc in kW (Mu is in W)#
+        tSampling = time.time() - tStartSample
+        
         tStart = time.process_time()
         tStartClk = time.time()
         
@@ -410,8 +571,9 @@ class linModel:
         KfixPuCalc = self.KfixPu[NSetFix]
 
         for i in range(pdfData['nP'][0]):
-            Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
-            pdfMc = pdf.genPdfMcSet(nMc,Mu,i)[0] # pdfMc in kW (Mu is in W)
+            # Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
+            # pdfMc = pdf.genPdfMcSet(nMc,Mu,i)[0] # pdfMc in kW (Mu is in W)
+            pdfMc = pdfMcAll[i]
             
             genTot0 = np.sum(pdfMc,axis=0)
             genTotSort = genTot0.copy()
@@ -433,10 +595,12 @@ class linModel:
                 
             for jj in range(pdfData['nP'][-1]):
                 genTot = genTot0*pdfData['mu_k'][jj]
+                
                 # vLsMv = ((DelVout*pdfData['mu_k'][jj]) + b0ls)[:,self.mvIdxTot]
                 # vLsLv = ((DelVout*pdfData['mu_k'][jj]) + b0ls)[:,self.lvIdxTot]
                 # vHsMv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.mvIdxTot]
                 # vHsLv = ((DelVout*pdfData['mu_k'][jj]) + b0hs)[:,self.lvIdxTot]
+                
                 DVoP = DelVout*pdfData['mu_k'][jj]
                 DVoPmv = DVoP[:,mvIdxNSet]
                 DVoPlv = DVoP[:,lvIdxNSet]
@@ -444,7 +608,9 @@ class linModel:
                 vLsLv = DVoPlv + b0lsLv
                 vHsMv = DVoPmv + b0hsMv
                 vHsLv = DVoPlv + b0hsLv
+                
                 vDv = ddVout*pdfData['mu_k'][jj]
+                
                 # vDv = ddVout[:,self.mvIdxTot]*pdfData['mu_k'][jj]
                 
                 Cns_pct[i,jj], inBounds = cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,self)
@@ -452,6 +618,11 @@ class linModel:
                 Vp_pct[i,jj] = 100*sum(inBounds)/nMc
                 hcGen = genTot[inBounds]
                 
+                if not fast:
+                    # Running the sensitivity analysis
+                    for kk in range(nMc):
+                        lpPct[i,jj,kk] = linSnsCalc(DVoPmv[kk],DVoPlv[kk],vDv[kk],b0lsMv,b0hsMv,b0lsLv,b0hsLv,self)
+
                 if len(hcGen)!=0:
                     hcGenAll = np.concatenate((hcGenAll,hcGen))
                     hcGen.sort()
@@ -491,10 +662,12 @@ class linModel:
         self.linHcRsl['hcGenSet'] = hcGenSet
         self.linHcRsl['Vp_pct'] = Vp_pct
         self.linHcRsl['Cns_pct'] = Cns_pct
+        self.linHcRsl['Lp_pct'] = lpPct
         self.linHcRsl['hcGenAll'] = hcGenAll
         self.linHcRsl['genTotSet'] = genTotSet
         self.linHcRsl['runTime'] = tEnd - tStart
         self.linHcRsl['runTimeClk'] = tEndClk - tStartClk
+        self.linHcRsl['runTimeSample'] = tSampling
         self.linHcRsl['kCdf'] = 100*getKcdf(param,Vp_pct)[0]
         self.linHcRsl['kCdf'][np.isnan(self.linHcRsl['kCdf'])] = 100.0000011111
     
@@ -528,7 +701,15 @@ class linModel:
         
         if regBand!=0:
             DSSText.Command='Batchedit regcontrol..* band='+str(regBand) # 1v seems to be as low as we can set without bit problems
-                    
+        
+        # draw samples before the clock, as this proving quite slow.        
+        tStartSample = time.time()
+        Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
+        pdfMcAll = []
+        for i in range(pdfData['nP'][0]):
+            pdfMcAll.append(pdf.genPdfMcSet(nMc,Mu,i)[0]) # pdfMc in kW (Mu is in W)#
+        tSampling = time.time() - tStartSample
+        
         tStart = time.process_time()
         tStartClk = time.time()
         
@@ -536,8 +717,9 @@ class linModel:
         for i in range(pdfData['nP'][0]):
             if i%(max(pdfData['nP'])//4)==0:
                 print('---- Start MC ----',time.process_time(),i+1,'/',pdfData['nP'][0])
-            Mu0 = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot)
-            pdfGen = pdf.genPdfMcSet(nMc,Mu0,i)[0]
+            # Mu0 = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot)
+            # pdfGen = pdf.genPdfMcSet(nMc,Mu0,i)[0]
+            pdfGen = pdfMcAll[i]
             
             genTot0 = np.sum(pdfGen,axis=0)
             genTotSort = genTot0.copy()
@@ -705,6 +887,108 @@ class linModel:
         self.dssHcRsl['capLo'] = capLoMc
         self.dssHcRsl['capHi'] = capHiMc
         
+        
+    def runLinLp(self,pdf,model='nom',tmax=0.1,qmax=0.2):
+        pdfData = pdf.pdf
+        nMc = pdfData['nMc']
+        
+        Vp_pct = np.zeros(pdfData['nP'])
+        lpPct = np.zeros(list(pdfData['nP'])+[nMc])
+        lpSts = np.zeros(list(pdfData['nP'])+[nMc])
+        
+        nV = self.KtotPu.shape[0]
+        nS = self.KtotPu.shape[1]
+
+        if model=='nom':
+            NSetTot = np.arange(nV)
+            NSetFix = NSetTot
+        elif model=='std' or model=='cor':
+            if model=='std':
+                vars = self.varKtotU.copy() # <--- not yet implemented 'full' model.
+                varSortN = vars.argsort()[::-1]
+                NSetTot = varSortN[0:self.NSetStd[0]]
+                NSetFix = np.arange(nV)
+            elif model=='cor':
+                vars = self.varKfullU.copy()
+                varSortN = vars.argsort()[::-1]
+                NSet = np.array(varSortN[self.NSetCor[0]])
+                NSetTot = NSet[NSet<nV]
+                NSetFix = NSet[NSet>=nV] - nV
+        tStart = time.process_time()
+        tStartClk = time.time()
+        
+        mvIdxNSet = np.where(self.vTotBase[NSetTot]>1000)[0] # as in mvIdxTot
+        lvIdxNSet = np.where(self.vTotBase[NSetTot]<1000)[0] # as in lvIdxTot
+        
+        KtotPuCalc = self.KtotPu[NSetTot]
+        
+        Kfix0PuCalc = self.Kfix0Pu[NSetFix] # for loads
+        KfixPuCalc = self.KfixPu[NSetFix] # for generators
+        
+        # for the LP stuff
+        KtPuCalcMv = self.KtPu[NSetFix][mvIdxNSet]
+        KtPuCalcLv = self.KtPu[NSetFix][lvIdxNSet]
+        
+        KpPu = self.KpFix0Pu[NSetFix]
+        KqPu = self.KqFix0Pu[NSetFix]
+        
+        b0lpLs = Kfix0PuCalc.dot(self.xTotLs) + self.bVfixPu.T
+        b0lpHs = Kfix0PuCalc.dot(self.xTotHs) + self.bVfixPu.T
+        b0lpLsMv = b0lpLs[mvIdxNSet]
+        b0lpLsLv = b0lpLs[lvIdxNSet]
+        b0lpHsMv = b0lpHs[mvIdxNSet]
+        b0lpHsLv = b0lpHs[lvIdxNSet]
+        
+        self.b0lsLp = b0lpLs[np.argsort(NSetFix)]
+        self.b0hsLp = b0lpHs[np.argsort(NSetFix)]
+
+        for i in range(pdfData['nP'][0]):
+            print(i)
+            
+            Mu = pdf.halfLoadMean(self.loadScaleNom,self.xhyNtot,self.xhdNtot) # in W
+            pdfMc = pdf.genPdfMcSet(nMc,Mu,i)[0] # pdfMc in kW (Mu is in W)
+            
+            # DelVout = (KtotPuCalc.dot(pdfMc).T)*1e3 # KtotPu in V per W #
+            # ddVout = abs((KfixPuCalc.dot(pdfMc).T)*1e3) # just get abs change
+            
+            DelVlp = (KfixPuCalc.dot(pdfMc).T)*1e3
+            
+            DelVlp = (KpPu.dot(pdfMc).T)*1e3
+            DelVlq = (KqPu.dot(pdfMc).T)*1e3
+            
+            for jj in range(pdfData['nP'][-1]):
+                # DVlP = DelVlp*pdfData['mu_k'][jj]
+                # DVlPmv = DVlP[:,mvIdxNSet]
+                # DVlPlv = DVlP[:,lvIdxNSet]
+                DVlP = DelVlp*pdfData['mu_k'][jj]
+                DVlPmv = DVlP[:,mvIdxNSet]
+                DVlPlv = DVlP[:,lvIdxNSet]
+                DVlQ = DelVlq*pdfData['mu_k'][jj]
+                DVlQmv = DVlQ[:,mvIdxNSet]
+                DVlQlv = DVlQ[:,lvIdxNSet]
+                
+                for kk in range(nMc):
+                    lpPct[i,jj,kk],lpSts[i,jj,kk] = linPrgCalc(DVlPmv[kk],DVlPlv[kk],DVlQmv[kk],DVlQlv[kk],DVlP[kk],DVlQ[kk],b0lpLsMv,b0lpHsMv,b0lpLsLv,b0lpHsLv,KtPuCalcMv,KtPuCalcLv,self,tmax=tmax,qmax=qmax)
+                
+                Vp_pct[i,jj] = 100*np.sum(np.maximum((lpPct[i,jj]<1),np.isnan(lpPct[i,jj])))/nMc
+                
+        tEnd = time.process_time()
+        tEndClk = time.time()
+        
+        if pdfData['name']=='gammaWght':
+            param = pdfData['mu_k']
+        elif pdfData['name']=='gammaFrac':
+            param = pdfData['prms']
+        
+        self.linLpRsl = {}
+        self.linLpRsl['Vp_pct'] = Vp_pct
+        self.linLpRsl['Lp_pct'] = lpPct
+        self.linLpRsl['runTime'] = tEnd - tStart
+        self.linLpRsl['runTimeClk'] = tEndClk - tStartClk
+        self.linLpRsl['kCdf'] = 100*getKcdf(param,Vp_pct)[0]
+        self.linLpRsl['kCdf'][np.isnan(self.linLpRsl['kCdf'])] = 100.0000011111
+        
+        
     def getCovMat(self,getTotCov=True,getFixCov=False,getFullCov=False):
         if getTotCov:
             self.KtotUcov = self.KtotU.dot(self.KtotU.T)
@@ -742,12 +1026,17 @@ class linModel:
             # limAct[self.b0ls<0.5] = np.inf
             # limAct[self.lvIdxTot] = np.inf
             
-        if Sgm.shape==(1,):
-            self.KtotU = dsf.vmM(1/limAct,self.KtotPu)*Sgm
-            self.KfixU = dsf.vmM(1/limDV,self.KfixPu)*Sgm
-        else:
-            self.KtotU = dsf.vmvM(1/limAct,self.KtotPu,Sgm)
-            self.KfixU = dsf.vmvM(1/limDV,self.KfixPu,Sgm)
+        
+        
+        # VVV These uused to be used a lot so may need reinstating at some point...!
+        # if Sgm.shape==(1,):
+            # self.KtotU = dsf.vmM(1/limAct,self.KtotPu)*Sgm
+            # self.KfixU = dsf.vmM(1/limDV,self.KfixPu)*Sgm
+        # else:
+            # self.KtotU = dsf.vmvM(1/limAct,self.KtotPu,Sgm)
+            # self.KfixU = dsf.vmvM(1/limDV,self.KfixPu,Sgm)
+        self.KtotU = dp1rMv( dsf.vmM(1/limAct,self.KtotPu),self.CovSqrt[0],self.CovSqrt[1] )
+        self.KfixU = dp1rMv( dsf.vmM(1/limDV,self.KfixPu),self.CovSqrt[0],self.CovSqrt[1] )
         
         self.varKtotU = calcVar(self.KtotU)
         self.varKfixU = calcVar(self.KfixU)
@@ -756,7 +1045,7 @@ class linModel:
         self.svdLimDv = limDV
         self.nStdKtotU = np.sign(self.svdLim)/np.sqrt(self.varKtotU)
         self.nStdKfixU = np.sign(self.svdLimDv)/np.sqrt(self.varKfixU)
-        # self.nStdU = np.min(np.array((self.nStdKtotU,self.nStdKfixU)),axis=0)
+        
         self.nStdU = np.minimum( self.nStdKtotU,self.nStdKfixU )
         
         if calcSrsVals: # for speedy 'updateNormCalc'
@@ -846,7 +1135,6 @@ class linModel:
         # print('Start Svd calcs...',time.process_time())
         # LM.makeSvdModel(Sgm,evSvdLim=[0.95,0.98,0.99,0.995,0.999],nMax=3500)
         
-        
         self.busViolationVar(Sgm)
         
         nSvdMax = min([nMax,min(self.KtotPu.shape)]) - 1
@@ -895,25 +1183,43 @@ class linModel:
         self.NSetStd = NSetStd
         
     def makeCorrModel(self,stdLim=0.70,corrLim=[0.95]): # as chosen running linSvdCalcs_run.py.
-        self.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
+        # self.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
         vars = self.varKfullU.copy()
         
         varSortN = vars.argsort()[::-1]
-
+        
         stds = np.sqrt(vars)
         stds = stds[varSortN]
-        stds = stds/stds[0]
-
-        corr = abs(self.KfullUcorr)
-        corr = corr - np.diag(np.ones(len(corr)))
-        corr = corr[varSortN][:,varSortN]
+        stdNorm = stds/stds[0]
+        
+        # first find which buses should be in. from https://stackoverflow.com/questions/9868653/find-first-sequence-item-that-matches-a-criterion
+        nOut = next(n for n in range(len(stdNorm)) if stdNorm[n]<(1-stdLim))
+        stdOut = stds[:nOut]
+        varSortNout = varSortN[:nOut]
+        
+        # KfullU = np.concatenate((self.KtotU,self.KfixU),axis=0)
+        # self.KfullUcov = KfullU.dot(KfullU.T)
+        # covScaling = np.sqrt(np.diag(self.KfullUcov))
+        # covScaling[covScaling==0] = np.inf # avoid divide by zero complaint
+        # self.KfullUcorr = dsf.vmvM(1/covScaling,self.KfullUcov,1/covScaling)
+        
+        # corr = abs(self.KfullUcorr)
+        # corr = corr - np.diag(np.ones(len(corr)))
+        # corr = corr[varSortN][:,varSortN]
+        
+        KfullUoutNorm = dsf.vmM(1/stdOut,(np.concatenate((self.KtotU,self.KfixU),axis=0)[varSortNout]))
+        corr = abs(KfullUoutNorm.dot(KfullUoutNorm.T))
+        for i in range(len(corr)):
+            corr[i,i] = 0
+        # print(corr[0])
         
         NsetLen = []
         Nset = []
         for corrlim in corrLim:
             nset = [0]
             i=1
-            while (stds[i] > (1-stdLim)) and i<(len(stds)-1):
+            # while (stds[i] > (1-stdLim)) and i<(len(stds)-1):
+            while i<(len(stdOut)-1):
                 maxCorr = max(corr[i,nset])
                 if maxCorr < corrlim:
                     nset = nset + [i]
@@ -924,8 +1230,6 @@ class linModel:
         print('Corr model nset:',NsetLen,' out of ',len(vars))
         
         self.NSetCor = Nset
-        
-        
         # self.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
         # vars = self.varKtotU.copy()
         
@@ -1047,8 +1351,12 @@ class linModel:
         self.b0LvMax = np.maximum(self.b0lsLv,self.b0hsLv)
         self.b0LvMin = np.minimum(self.b0lsLv,self.b0hsLv) 
         
-    def calcLinPdfError(self,otherRslt,type='MAE'):
-        Vp0 = 0.01*self.linHcRsl['Vp_pct']
+    def calcLinPdfError(self,otherRslt,type='MAE',model='lin'):
+        if model=='lin':
+            Vp0 = 0.01*self.linHcRsl['Vp_pct']
+        if model=='dss':
+            Vp0 = 0.01*self.dssHcRsl['Vp_pct']
+        
         Vp1 = 0.01*otherRslt['Vp_pct']
         if type=='reg':
             Error = np.linalg.norm(Vp0-Vp1,ord=1)/(np.linalg.norm(Vp1,ord=1)+1) # this equivalent to: sum of errors/(regularised sum of function)
@@ -1313,7 +1621,8 @@ class linModel:
         if type=='vLo' or type=='vHi':
             self.ccColorbar(ax,minMax0,loc=self.legLoc,units=' pu',roundNo=3,colorInvert=colorInvert,cmap=cmap)
         elif type=='logVar' or type=='nStd':
-            if self.legLog!=None:
+            # if self.legLog!=None:
+            if self.legLoc!=None:
                 self.ccColorbar(ax,minMax0,loc=self.legLoc,colorInvert=colorInvert,cmap=cmap)
         plt.xticks([])
         plt.yticks([])
@@ -1439,11 +1748,19 @@ class hcPdfs:
                 Sgm0 = np.sqrt(k)*th*1e3
                 Mu = np.array([frac*Mu0])
                 Sgm = np.sqrt(frac*(Mu0**2 + Sgm0**2) - Mu**2) # see FrÃ¼hwirth-Schnatter chapter 1
+                
+                var = Sgm**2
+                covar = (Mu0**2)*frac*(frac-1)/(LM.nS - 1)
+                
+                LM.Cov = [var,covar] # only represent the diagonal and off-diagonal elements
+                LM.CovSqrt = calcDp1rSqrt(var,covar,LM.nS) # NEW! :D
+                
         return Mu,Sgm # both in WATTS
         
     def genPdfMcSet(self,nMc,Mu0,prmI,getMcU=False):
         # NB: Mu0 used in gammaFrac/gammaXoff
         np.random.seed(self.rndSeed)
+        seed(self.rndSeed) # used in the gammaFrac draw
         if self.pdf['name']=='gammaWght':
             k = self.pdf['prms'][prmI]
             pdfMc0 = np.random.gamma(k,1/np.sqrt(k),(len(Mu0),nMc))
@@ -1465,7 +1782,17 @@ class hcPdfs:
             clfnSolar = self.pdf['clfnSolar']
             frac = self.pdf['prms'][prmI]
             
-            genIn = np.random.binomial(1,frac,(len(Mu0),nMc))
+            genIn = np.zeros((len(Mu0),nMc))
+            nDraw = np.ceil(frac*len(Mu0)).astype(int)
+            # rangeMu0 = np.arange(len(Mu0),dtype=int)
+            for i in range(nMc):
+                # idxs = shuffle(rangeMu0)
+                # idxs = np.random.choice(rangeMu0,nDraw,replace=False)
+                idxs = sample(range(len(Mu0)),nDraw)
+                genIn[idxs,i] = 1
+                
+            # genIn = np.random.binomial(1,frac,(len(Mu0),nMc))
+            
             pdfGen = np.random.gamma(shape=clfnSolar['k'],scale=clfnSolar['th_kW'],size=(len(Mu0),nMc))
             pdfMc = pdfGen*genIn
             pdfMeans = np.mean(pdfMc) # NB these are uniformly distributed

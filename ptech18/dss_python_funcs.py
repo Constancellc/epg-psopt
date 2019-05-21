@@ -133,13 +133,17 @@ def ldValsOnly( DSSCircuit ):
         
         if LDS.IsDelta:
             if nPh==1:
-                if '1' in phs and '2' in phs:
-                    dIdx = YZ.index(actBus+'.1')
-                if '2' in phs and '3' in phs:
-                    dIdx = YZ.index(actBus+'.2')
-                if '3' in phs and '1' in phs:
-                    dIdx = YZ.index(actBus+'.3')
-                sD[dIdx] = sD[dIdx] + LDS.kW + 1j*LDS.kvar
+                if len(phs)==2:
+                    if '1' in phs and '2' in phs:
+                        dIdx = YZ.index(actBus+'.1')
+                    if '2' in phs and '3' in phs:
+                        dIdx = YZ.index(actBus+'.2')
+                    if '3' in phs and '1' in phs:
+                        dIdx = YZ.index(actBus+'.3')
+                    sD[dIdx] = sD[dIdx] + LDS.kW + 1j*LDS.kvar
+                if len(phs)==1:
+                    yIdx = YZ.index(actBus+'.'+phs[0])
+                    sY[yIdx] = sY[yIdx] + (LDS.kW + 1j*LDS.kvar) # if only one phase, then is effectively D!
             if nPh==3:
                 for i in range(3):
                     dIdx = YZ.index(actBus+'.'+str(i+1))
@@ -245,6 +249,8 @@ def get_sYsD(DSSCircuit):
     # print_node_array(yzD,abs(chkb))
     return sY,sD,iY,iD,yzD,iTot,H
     
+    
+    
 def create_Hmat(DSSCircuit):
     n2y = node_to_YZ(DSSCircuit)
     Hmat = np.zeros((DSSCircuit.NumNodes,DSSCircuit.NumNodes))
@@ -318,7 +324,51 @@ def fix_tap_pos(DSSCircuit, TC_No):
         DSSCircuit.RegControls.TapNumber = TC_No[i-1]
         i = DSSCircuit.RegControls.Next
 
-        
+def fix_cap_pos(DSSCircuit, CP_No):
+    # warning: side effect disables capacitors not in CP_No from here.
+    i = DSSCircuit.Capacitors.First
+    while i!=0:
+        DSSCircuit.SetActiveElement('Capacitor.'+DSSCircuit.Capacitors.Name)
+        DSSCircuit.ActiveElement.Enabled=CP_No[i-1]
+        i = DSSCircuit.Capacitors.Next
+
+def createYbus( DSSObj,tapNo,capNo ):
+    # DSSObj.Text.Command='Compile ('+fn+')'
+    ctrlModel = DSSObj.ActiveCircuit.Solution.ControlMode
+    print('Load Ybus\n',time.process_time())
+    fix_tap_pos(DSSObj.ActiveCircuit, tapNo)
+    fix_cap_pos(DSSObj.ActiveCircuit, capNo)
+    DSSObj.Text.Command='set controlmode=off'
+    DSSObj.Text.Command='vsource.source.enabled=no';
+    DSSObj.Text.Command='batchedit load..* enabled=no';
+    DSSObj.ActiveCircuit.Solution.Solve()
+    
+    SysY = DSSObj.ActiveCircuit.SystemY
+    SysY_dct = {}
+    i = 0
+    for i in range(len(SysY)):
+        if i%2 == 0:
+            Yi = SysY[i] + 1j*SysY[i+1]
+            if abs(Yi)!=0.0:
+                j = i//2
+                SysY_dct[j] = Yi
+    del SysY
+    print('Ybus loaded\n',time.process_time())
+    
+    SysYV = np.array(list(SysY_dct.values()))
+    SysYK = np.array(list(SysY_dct.keys()))
+    Ybus0 = sparse.coo_matrix((SysYV,(SysYK,np.zeros(len(SysY_dct),dtype=int))))
+    n = int(np.sqrt(Ybus0.shape[0]))
+    Ybus = Ybus0.reshape((n,n))
+    Ybus = Ybus.tocsc()
+
+    YNodeOrder = DSSObj.ActiveCircuit.YNodeOrder
+    
+    DSSObj.ActiveCircuit.Solution.ControlMode = ctrlModel # return control to nominal state
+    print('Ybus formatted\n',time.process_time())
+    return Ybus, YNodeOrder
+
+
 def create_tapped_ybus_very_slow( DSSObj,fn_y,TC_No0 ):
     DSSObj.Text.Command='Compile ('+fn_y+')'
     fix_tap_pos(DSSObj.ActiveCircuit, TC_No0)
@@ -744,7 +794,6 @@ def countBranchNodes(DSSCircuit):
 
 def getBranchYprims(DSSCircuit,branchNames):
     nbNodes = countBranchNodes(DSSCircuit)
-    # YprimMat = np.zeros((nbNodes,nbNodes),dtype=complex)
     YprimMat = sparse.lil_matrix((nbNodes,nbNodes),dtype=complex)
     Yprim_i = 0
     busSet = []
@@ -781,6 +830,18 @@ def getBranchYprims(DSSCircuit,branchNames):
     
     return YprimMat.tocsr(), tuple(busSet), tuple(brchSet), tuple(trmlSet), tuple(unqIdent)
     # return sparse.csr_matrix(YprimMat), tuple(busSet), tuple(brchSet), tuple(trmlSet), tuple(unqIdent)
+
+def getYzW2V(WbusSet,YZ):
+    yzW2V = []
+    for wbus in WbusSet:
+        try:
+            yzW2V.append(YZ.index(wbus.upper()))
+        except:
+            if wbus[-1]=='0':
+                yzW2V.append(-1) # ground node error
+            else:
+                print('No node',wbus.upper())
+    return tuple(yzW2V)
 
 def getV2iBrY(DSSCircuit,YprimMat,busSet):
     # get the modified voltage to branch current matrix for finding branch currents from voltages
