@@ -92,3 +92,39 @@ def fixed_point_solve(Ybus,YNodeV,sY,sD,H): # seems to give comparable results t
         dV = V1 - V0
         V0 = V1
     return V0
+    
+    
+def cvrLinearizationMy(Ybus,Vh,V0,H,pCvr,qCvr,kvYbase,kvDbase):
+    # based on nrel_linearization
+    Yll = Ybus[3:,3:].tocsc()
+    Yl0 = Ybus[3:,0:3].tocsc()
+    H0 = sparse.csc_matrix(H[:,3:])
+    
+    Ylli = spla.inv(Yll)
+    
+    Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) ).tocsc() # NB: this looks slow
+    Vh_diagi = spla.inv(Vh_diag)
+
+    HVh_diag = sparse.dia_matrix( (H0.dot(Vh.conj()),0) ,shape=(H0.shape[0],H0.shape[0]) ).tocsc() # NB: this looks slow
+    try:
+        HVh_diagi = spla.inv(HVh_diag)
+    except:
+        HVh_diagi = H0
+    
+    pYcvr_diag = sparse.dia_matrix( ( abs(Vh/kvYbase)**pCvr,0 ),shape=(len(Vh),len(Vh)) ).tocsc()
+    qYcvr_diag = sparse.dia_matrix( ( abs(Vh/kvYbase)**qCvr,0 ),shape=(len(Vh),len(Vh)) ).tocsc() 
+    pDcvr_diag = sparse.dia_matrix( ( abs(H0.dot(Vh)/kvDbase)**pCvr,0 ),shape=(H0.shape[0],H0.shape[0]) ).tocsc() 
+    qDcvr_diag = sparse.dia_matrix( ( abs(H0.dot(Vh)/kvDbase)**qCvr,0 ),shape=(H0.shape[0],H0.shape[0]) ).tocsc() 
+    
+    My_0 = Ylli.dot(Vh_diagi)
+    Md_0 = Ylli.dot(H0.T.dot(HVh_diagi))
+
+    My = sparse.hstack((My_0.dot(pYcvr_diag),-1j*My_0.dot(qYcvr_diag))).toarray()
+    try:
+        Md = sparse.hstack((Md_0.dot(pDcvr_diag),-1j*Md_0.dot(qDcvr_diag))).toarray()
+    except:
+        Md = H0.T
+    
+    a = -Ylli.dot(Yl0.dot(V0))
+    
+    return My,Md,a

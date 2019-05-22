@@ -212,6 +212,7 @@ New Capacitor.C92c      Bus1=92.3    Phases=1     kVAR=50      kV=2.402
 
 ! SPOT LOADS -- REDIRECT INPUT STREAM TO LOAD DEFINITIONS FILE
 Redirect IEEE123Loads.DSS
+!Redirect IEEE123Loads_cvr.DSS
 batchedit load..* vminpu=0.33 vmaxpu=3.0
 ! All devices in the test feeder are now defined.
 !

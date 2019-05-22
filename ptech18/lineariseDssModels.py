@@ -45,6 +45,15 @@ class buildLinModel:
         
         self.createCvrModel(linPoints[0])
         
+        vce,kN = self.cvrModelTest(k=np.linspace(-0.5,1.2,18))
+        
+        fig,ax = plt.subplots()
+        ax.plot(kN,abs(vce)); ax.grid(True)
+        ax.set_ylabel('Vc,e')
+        ax.set_xlabel('Continuation factor k')
+        plt.tight_layout()
+        plt.show()
+        
         # self.createNrelModel(linPoints[0])
         # self.createWmodel(linPoints[0])
         # self.createTapModel(linPoints[0])
@@ -224,95 +233,91 @@ class buildLinModel:
         print('Ybus shape:',Ybus.shape)
         
         # >>> 2. Reproduce delta-y power flow eqns (1)
-        # self.loadDssModel(loadMult=lin_point)
         self.loadCvrModel(pCvr,qCvr,loadMult=lin_point)
-        self.vKvbase = get_Yvbase(DSSCircuit)[3:]
         YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
         
-        self.xY, self.xD, self.pyIdx, self.pdIdx,  = ldValsOnly( DSSCircuit ) # NB these do not change with the circuit!
+        self.xY, self.xD, self.pyIdx, self.pdIdx  = ldValsOnly( DSSCircuit ) # NB these do not change with the circuit!
         
-        print(len(self.xY),len(self.pyIdx[0]))
+        self.vKvbase = get_Yvbase(DSSCircuit)[3:]
+        self.vKvbaseD = self.vKvbase[self.pdIdx[0]]*np.sqrt(3)
         
+        if len(self.pdIdx[0])>0:
+            H = create_Hmat(DSSCircuit)[self.pdIdx[0]+3]
+        else:
+            H = np.zeros((0,Ybus.shape[0]))
+        
+        # # Only consider single phase loads for now.
         VhYpu = abs(YNodeV[3:]/self.vKvbase)
+        VhDpu = abs(H.dot(YNodeV)/self.vKvbaseD)
+        self.kYcvr = np.concatenate((VhYpu**pCvr,VhYpu**qCvr))
+        self.kDcvr = np.concatenate((VhDpu**pCvr,VhDpu**qCvr))
         
-        # plt.plot(VhYpu); plt.show()
+        xYcvr = lin_point*self.xY*self.kYcvr
+        xDcvr = lin_point*self.xD*self.kDcvr
         
-        self.xYcalc = self.xY*( 1 + np.concatenate((pCvr*(VhYpu - 1),qCvr*(VhYpu - 1))) )
-        self.xYcalc = self.xY*np.concatenate((VhYpu**pCvr,VhYpu**qCvr))
-        # self.xYcalc = self.xY
+        # [sY0,sD0] = get_sYsD(DSSCircuit)[0:2] # useful for debugging
+        # xY0 = -1e3*s_2_x(sY0[3:])
+        # xD0 = -1e3*s_2_x(sD0)
+        # err0 = xY0[:len(xYcvr)//2] - xYcvr[:len(xYcvr)//2] # ignore Q for now (coz of caps)
+        # err1 = xY0[:len(xYcvr)//2] - self.xY[:len(xYcvr)//2]
+        # err0 = xD0 - xDcvr
+        # err1 = xD0 - self.xD
+        # plt.plot(err0); plt.plot(err1); plt.show()
         
-        [sY0,sD0] = get_sYsD(DSSCircuit)[0:2]
-        self.xY0 = -1e3*s_2_x(sY0[3:])
-        self.xD0 = -1e3*s_2_x(sD0)
+        # sY,sD,iY,iD,yzD,iTot,Hold = get_sYsD(DSSCircuit) # useful for debugging
+        # self.xhy0 = -1e3*s_2_x(sY[3:])
+        # self.xhd0 = -1e3*s_2_x(sD)
+        # fig,[ax0,ax1] = plt.subplots(2)
+        # ax0.plot((self.xY-self.xhy0))
+        # ax1.plot((self.xD-self.xhd0)); 
+        # plt.show()
         
-        # plt.plot((self.xY0[:len(self.xYcalc)//2] - self.xYcalc[:len(self.xYcalc)//2])/(VhYpu  - 1),label='dss')
-        plt.plot((self.xY0[:len(self.xYcalc)//2] - self.xYcalc[:len(self.xYcalc)//2]),label='dss')
-        # plt.plot(self.xYcalc[:len(self.xYcalc)//2],label='lin')
-        # print('Norm error:',np.linalg.norm(self.xY0[:len(self.xYcalc)//2]-self.xYcalc[:len(self.xYcalc)//2])/np.linalg.norm(self.xY0[:len(self.xYcalc)//2]) )
-        plt.show()
+        self.YZ = DSSCircuit.YNodeOrder[3:]
         
-        # if len(self.pdIdx[0])>0:
-            # H = create_Hmat(DSSCircuit)[self.pdIdx[0]+3]
-        # else:
-            # H = []
+        # >>> 3. Create linear models for voltage in S
+        V0 = YNodeV[0:3]
+        Vh = YNodeV[3:]
+        DSSSolution.LoadMult=0.0
+        DSSSolution.Solve()
+        VnoLoad = tp_2_ar(DSSCircuit.YNodeVarray)[3:]
+
         
-        # # sY,sD,iY,iD,yzD,iTot,Hold = get_sYsD(DSSCircuit) # useful for debugging
-        # # self.xhy0 = -1e3*s_2_x(sY[3:])
-        # # self.xhd0 = -1e3*s_2_x(sD)
-        # # fig,[ax0,ax1] = plt.subplots(2)
-        # # ax0.plot((self.xY-self.xhy0))
-        # # ax1.plot((self.xD-self.xhd0)); 
-        # # plt.show()
+        print('Create linear models My + Md:\n',time.process_time()); t = time.time()
+        My,Md,a = cvrLinearizationMy( Ybus,Vh,V0,H,pCvr,qCvr,self.vKvbase,self.vKvbaseD )
+        print('Time M:',time.time()-t,'\nCreate linear models Ky + Kd:\n',time.process_time()); t = time.time()
+        # Ky,Kd,b = nrelLinK(My,Md,Vh,lin_point*self.xY*self.kYcvr,lin_point*self.xD*self.kDcvr)
+        # print('Time K:',time.time()-t)
         
-        # self.YZ = DSSCircuit.YNodeOrder[3:]
-        # # plt.plot(self.xY); plt.plot(xhy0); plt.show()
-        # # plt.plot((self.xY-xhy0)/xhy0); plt.show()
+        print(self.xD.shape)
+        print(H.shape)
         
-        # # >>> 3. Create linear models for voltage in S
-        # V0 = YNodeV[0:3]
-        # Vh = YNodeV[3:]
-        # DSSSolution.LoadMult=0.0
-        # DSSSolution.Solve()
-        # VnoLoad = tp_2_ar(DSSCircuit.YNodeVarray)[3:]
-        
-        # if len(H)==0:
-            # print('Create linear models My:\n',time.process_time());  t = time.time()
-            # My,a = nrel_linearization_My( Ybus,Vh,V0 )
-            # print('Time M:',time.time()-t,'\nCreate linear models Ky:\n',time.process_time()); t = time.time()
-            # Ky,b = nrelLinKy(My,Vh,self.xY*lin_point)
-            # print('Time K:',time.time()-t)
-            # Md = np.zeros((len(Vh),0), dtype=complex); Kd = np.zeros((len(Vh),0))
-        # else:
-            # print('Create linear models My + Md:\n',time.process_time()); t = time.time()
-            # My,Md,a = nrel_linearization( Ybus,Vh,V0,H )
-            # print('Time M:',time.time()-t,'\nCreate linear models Ky + Kd:\n',time.process_time()); t = time.time()
-            # Ky,Kd,b = nrelLinK(My,Md,Vh,self.xY*lin_point,self.xD*lin_point)
-            # print('Time K:',time.time()-t)
-        
-        # Vh0 = (My.dot(self.xY) + Md.dot(self.xD))*lin_point + a # for validation
+        Vh0 = (My.dot(self.xY) + Md.dot(self.xD))*lin_point + a # for validation
         # Va0 = (Ky.dot(self.xY) + Kd.dot(self.xD))*lin_point + b # for validation
         
-        # print('\nVoltage clx error (lin point), Volts:',np.linalg.norm(Vh0-Vh)/np.linalg.norm(Vh)) # Print checks
-        # print('Voltage clx error (no load point), Volts:',np.linalg.norm(a-VnoLoad)/np.linalg.norm(VnoLoad),'\n') # Print checks
+        print('\nVoltage clx error (lin point), Volts:',np.linalg.norm(Vh0-Vh)/np.linalg.norm(Vh)) # Print checks
+        print('Voltage clx error (no load point), Volts:',np.linalg.norm(a-VnoLoad)/np.linalg.norm(VnoLoad),'\n') # Print checks
         # print('\nVoltage abs error (lin point), Volts:',np.linalg.norm(Va0-abs(Vh))/np.linalg.norm(abs(Vh))) # Print checks
         # print('Voltage abs error (no load point), Volts:',np.linalg.norm(abs(b)-abs(VnoLoad))/np.linalg.norm(abs(VnoLoad)),'\n') # Print checks
         
-        # # self.syIdx = self.xY.nonzero()[0]
-        # self.syIdx = np.concatenate((self.pyIdx[0],self.pyIdx[0]+DSSCircuit.NumNodes-3))
-        # self.My = My[:,self.syIdx]
+        # self.syIdx = self.xY.nonzero()[0]
+        self.syIdx = np.concatenate((self.pyIdx[0],self.pyIdx[0]+DSSCircuit.NumNodes-3))
+        self.My = My[:,self.syIdx]
         # self.Ky = Ky[:,self.syIdx]
-        # self.aV = a
+        self.aV = a
         # self.bV = b
-        # self.H = H
-        # self.V0 = V0
-        # self.nV = len(a)
+        self.H = H
+        self.V0 = V0
+        self.nV = len(a)
         
-        # self.vYNodeOrder = YNodeOrder[3:]
-        # self.SyYNodeOrder = vecSlc(self.vYNodeOrder,self.pyIdx)
-        # self.SdYNodeOrder = vecSlc(self.vYNodeOrder,self.pdIdx)
-        # self.Md = Md
+        self.vYNodeOrder = YNodeOrder[3:]
+        self.SyYNodeOrder = vecSlc(self.vYNodeOrder,self.pyIdx)
+        self.SdYNodeOrder = vecSlc(self.vYNodeOrder,self.pdIdx)
+        self.Md = Md
         # self.Kd = Kd
-        # self.currentLinPoint = lin_point
+        self.currentLinPoint = lin_point
+        
+        self.pCvr = pCvr
+        self.qCvr = qCvr
     
     def loadDssModel(self,loadMult=1.0):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
@@ -525,6 +530,45 @@ class buildLinModel:
             vae[i] = np.linalg.norm( (vaL[i] - va0[i])/self.vKvbase )/np.linalg.norm(va0[i]/self.vKvbase)
         print('nrelModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
         return vce,vae,k
+
+    def cvrModelTest(self,k = np.arange(-1.5,1.6,0.1)):
+    
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        self.loadCvrModel(pCvr=self.pCvr,qCvr=self.qCvr)
+        
+        print('Start CVR testing. \n',time.process_time())
+        vce=np.zeros([k.size])
+        # vae=np.zeros([k.size])
+        vc0 = np.zeros((len(k),self.nV),dtype=complex)
+        va0 = np.zeros((len(k),self.nV))
+        vcL = np.zeros((len(k),self.nV),dtype=complex)
+        # vaL = np.zeros((len(k),self.nV))
+        Convrg = []
+        TP = np.zeros((len(k)),dtype=complex)
+        
+        dM = self.My.dot(self.xY[self.syIdx]) + self.Md.dot(self.xD)
+        # dK = self.Ky.dot(self.xY[self.syIdx]) + self.Kd.dot(self.xD)
+        
+        for i in range(len(k)):
+            if (i % (len(k)//4))==0: print('Solution:',i,'/',len(k)) # track progress
+            
+            DSSSolution.LoadMult = k[i]
+            DSSSolution.Solve()
+            
+            Convrg.append(DSSSolution.Converged) # for debugging
+            TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1] # for debugging
+            
+            vc0[i] = tp_2_ar(DSSCircuit.YNodeVarray)[3:]
+            va0[i] = abs(vc0[i])
+            
+            vcL[i] = dM*k[i] + self.aV
+            # vaL[i] = dK*k[i] + self.bV
+            
+            vce[i] = np.linalg.norm( (vcL[i] - vc0[i])/self.vKvbase )/np.linalg.norm(vc0[i]/self.vKvbase)
+            # vae[i] = np.linalg.norm( (vaL[i] - va0[i])/self.vKvbase )/np.linalg.norm(va0[i]/self.vKvbase)
+        print('nrelModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
+        # return vce,vae,k
+        return vce,k
         
     def wModelTest(self,k = np.arange(-1.5,1.6,0.1)):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff

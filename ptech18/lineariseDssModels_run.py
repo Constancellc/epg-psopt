@@ -13,14 +13,13 @@ def main(fdr_i=5,nrelTest=False,linPoint=1.0):
     
     return blm
 
-
-
 # self = main(23,nrelTest=False,linPoint=0.6)
 # self = main(5,nrelTest=False,linPoint=0.6)
 # self = main(5,True,0.6)
-self = main(17)
+self = main(5,linPoint=0.6)
 
 
 # TODAY: start creating and validating a model that takes 
 # load CVR stuff into account.
+
 

@@ -17,6 +17,7 @@ Redirect xfmrs.dss
 Redirect loadShapes.dss
 Redirect services.dss
 Redirect loads.dss
+!Redirect loads_cvr.dss
 Redirect Capacitors.dss
 
 Set voltagebases = [69.0, 13.2, .4156922]

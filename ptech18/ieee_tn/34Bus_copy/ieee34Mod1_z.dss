@@ -119,8 +119,10 @@ New Load.D818_820ra Bus1=820.1 Phases=1 Conn=Wye   Model=2 kV= 14.376 kW=  17.0 
 New Load.D820_822sa Bus1=820.1 Phases=1 Conn=Wye   Model=1 kV= 14.376 kW=  67.5 kVAR=  35.0
 New Load.D820_822ra Bus1=822.1 Phases=1 Conn=Wye   Model=1 kV= 14.376 kW=  67.5 kVAR=  35.0
 
-New Load.D816_824sb Bus1=816.2 Phases=1 Conn=Delta Model=5 kV= 24.900 kW=   2.5 kVAR=   1.0 ! THESE BASTARDS!!!
-New Load.D816_824rb Bus1=824.2 Phases=1 Conn=Delta Model=5 kV= 24.900 kW=   2.5 kVAR=   1.0 ! THESE BASTARDS!!!
+!New Load.D816_824sb Bus1=816.2 Phases=1 Conn=Delta Model=5 kV= 24.900 kW=   2.5 kVAR=   1.0 ! THESE BASTARDS!!!
+!New Load.D816_824rb Bus1=824.2 Phases=1 Conn=Delta Model=5 kV= 24.900 kW=   2.5 kVAR=   1.0 ! THESE BASTARDS!!!
+New Load.D816_824sb Bus1=816.2 Phases=1 Conn=Delta Model=5 kV= 14.376 kW=   2.5 kVAR=   1.0 ! THESE BASTARDS!!!
+New Load.D816_824rb Bus1=824.2 Phases=1 Conn=Delta Model=5 kV= 14.376 kW=   2.5 kVAR=   1.0 ! THESE BASTARDS!!!
 
 New Load.D824_826sb Bus1=824.2 Phases=1 Conn=Wye   Model=5 kV= 14.376 kW=  20.0 kVAR=  10.0
 New Load.D824_826rb Bus1=826.2 Phases=1 Conn=Wye   Model=5 kV= 14.376 kW=  20.0 kVAR=  10.0
@@ -133,12 +135,21 @@ New Load.D828_830ra Bus1=830.1 Phases=1 Conn=Wye   Model=1 kV= 14.376 kW=   3.5 
 New Load.D854_856sb Bus1=854.2 Phases=1 Conn=Wye   Model=1 kV= 14.376 kW=   2.0 kVAR=   1.0
 New Load.D854_856rb Bus1=856.2 Phases=1 Conn=Wye   Model=1 kV= 14.376 kW=   2.0 kVAR=   1.0
 
+/*
 New Load.D832_858sa Bus1=832.1 Phases=1 Conn=Delta Model=2 kV= 24.900 kW=   3.5 kVAR=   1.5 ! THESE BASTARDS!!!
 New Load.D832_858ra Bus1=858.1 Phases=1 Conn=Delta Model=2 kV= 24.900 kW=   3.5 kVAR=   1.5 ! THESE BASTARDS!!!
 New Load.D832_858sb Bus1=832.2 Phases=1 Conn=Delta Model=2 kV= 24.900 kW=   1.0 kVAR=   0.5 ! THESE BASTARDS!!!
 New Load.D832_858rb Bus1=858.2 Phases=1 Conn=Delta Model=2 kV= 24.900 kW=   1.0 kVAR=   0.5 ! THESE BASTARDS!!!
 New Load.D832_858sc Bus1=832.3 Phases=1 Conn=Delta Model=2 kV= 24.900 kW=   3.0 kVAR=   1.5 ! THESE BASTARDS!!!
 New Load.D832_858rc Bus1=858.3 Phases=1 Conn=Delta Model=2 kV= 24.900 kW=   3.0 kVAR=   1.5 ! THESE BASTARDS!!!
+*/
+New Load.D832_858sa Bus1=832.1 Phases=1 Conn=Delta Model=2 kV= 14.376 kW=   3.5 kVAR=   1.5 ! THESE BASTARDS!!!
+New Load.D832_858ra Bus1=858.1 Phases=1 Conn=Delta Model=2 kV= 14.376 kW=   3.5 kVAR=   1.5 ! THESE BASTARDS!!!
+New Load.D832_858sb Bus1=832.2 Phases=1 Conn=Delta Model=2 kV= 14.376 kW=   1.0 kVAR=   0.5 ! THESE BASTARDS!!!
+New Load.D832_858rb Bus1=858.2 Phases=1 Conn=Delta Model=2 kV= 14.376 kW=   1.0 kVAR=   0.5 ! THESE BASTARDS!!!
+New Load.D832_858sc Bus1=832.3 Phases=1 Conn=Delta Model=2 kV= 14.376 kW=   3.0 kVAR=   1.5 ! THESE BASTARDS!!!
+New Load.D832_858rc Bus1=858.3 Phases=1 Conn=Delta Model=2 kV= 14.376 kW=   3.0 kVAR=   1.5 ! THESE BASTARDS!!!
+
 
 ! 9-17-10 858-864 changed to phase A per error report
 New Load.D858_864sb Bus1=858.1 Phases=1 Conn=Wye   Model=1 kV= 14.376 kW=   1.0 kVAR=   0.5

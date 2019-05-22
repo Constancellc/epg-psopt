@@ -1,7 +1,16 @@
 import numpy as np
-import os, time
+import os, time, win32com.client
 from scipy import sparse
 from cvxopt import matrix
+
+from win32com.client import makepy
+
+def loadDss():
+    sys.argv=["makepy","OpenDSSEngine.DSS"]
+    makepy.main()
+    DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
+    return DSSObj,DSSObj.Text,DSSObj.ActiveCircuit,DSSObj.ActiveCircuit.Solution
+    # [DSSObj, DSSText, DSSCircuit,DSSSolution] = loadDss()
 
 def tp_2_ar(tuple_ex):
     ar = np.array(tuple_ex[0::2]) + 1j*np.array(tuple_ex[1::2])
