@@ -258,7 +258,15 @@ def get_sYsD(DSSCircuit):
     # print_node_array(yzD,abs(chkb))
     return sY,sD,iY,iD,yzD,iTot,H
     
-    
+def returnXyXd(DSSCircuit,n2y):
+    S,V,I,B,D,N = ld_vals( DSSCircuit )
+    V0 = tp_2_ar(DSSCircuit.YNodeVarray)*1e-3 # kV
+    YZ = DSSCircuit.YNodeOrder
+    iY, sY, iD, sD = calc_sYsD( YZ,B,I,V,S,D,n2y )
+    sD = sD[iD.nonzero()]
+    xY = -1e3*s_2_x(sY[3:])
+    xD = -1e3*s_2_x(sD)
+    return xY,xD
     
 def create_Hmat(DSSCircuit):
     n2y = node_to_YZ(DSSCircuit)

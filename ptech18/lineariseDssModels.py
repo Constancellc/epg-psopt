@@ -42,17 +42,40 @@ class buildLinModel:
         else:
             self.capPosLin=None
         
-        
-        self.createCvrModel(linPoints[0])
-        
-        vce,kN = self.cvrModelTest(k=np.linspace(-0.5,1.2,18))
+        self.createCvrModel(linPoints[0],pCvr=0.75)
+        vce,vae,dvce,dvae,TL,TLq,TLa,TLp,TL0,kN = self.cvrModelTest(k=np.linspace(-0.5,1.2,18))
         
         fig,ax = plt.subplots()
-        ax.plot(kN,abs(vce)); ax.grid(True)
-        ax.set_ylabel('Vc,e')
+        ax.plot(kN,TL.real - TL.real,label='p=0.75 DSS');
+        ax.plot(kN,TLq.real - TL.real,label='p=0.75 QP');
+        ax.plot(kN,TL0.real - TL.real,label='p=0.0 QP');
+        # ax.plot(kN,TLa2.real - 1e3*TL.real,label='p=0.75 DSS');
+        # ax.plot(kN,TLp2.real - 1e3*TL.real,label='p=0.75 QP')
+        ax.set_ylabel('Total loss,e')
         ax.set_xlabel('Continuation factor k')
+        ax.legend()
         plt.tight_layout()
         plt.show()
+        
+        
+        # fig,ax = plt.subplots()
+        # ax.plot(kN,vce); ax.grid(True)
+        # ax.plot(kN,vae); ax.grid(True)
+        # ax.plot(kN,dvce,'--'); ax.grid(True)
+        # ax.plot(kN,dvae,'--'); ax.grid(True)
+        # ax.set_ylabel('Vc,e')
+        # ax.set_xlabel('Continuation factor k')
+        # plt.tight_layout()
+        # plt.show()
+        
+        # fig,ax = plt.subplots()
+        # ax.plot(kN,pe); ax.grid(True)
+        # ax.plot(kN,p0e); ax.grid(True)
+        # ax.set_ylabel('P,e')
+        # ax.set_xlabel('Continuation factor k')
+        # plt.tight_layout()
+        # plt.show()
+        
         
         # self.createNrelModel(linPoints[0])
         # self.createWmodel(linPoints[0])
@@ -213,7 +236,7 @@ class buildLinModel:
         self.Kd = Kd
         self.currentLinPoint = lin_point
     
-    def createCvrModel(self,lin_point=1.0,pCvr=2.0,qCvr=0.0):
+    def createCvrModel(self,lin_point=1.0,pCvr=0.5,qCvr=0.0):
         # NOTE: opendss and the documentation have different definitions of CVR factor (!) one uses linear, one uses exponential. Results suggest tt seems to be an exponential model...?
         print('\nCreate NREL model, feeder:',self.feeder,'\nLin Point:',lin_point,'\npCvr, qCvr:',pCvr,qCvr,'\nCap Pos points:',self.capPosLin,'\n',time.process_time())
         
@@ -239,7 +262,9 @@ class buildLinModel:
         self.xY, self.xD, self.pyIdx, self.pdIdx  = ldValsOnly( DSSCircuit ) # NB these do not change with the circuit!
         
         self.vKvbase = get_Yvbase(DSSCircuit)[3:]
+        self.vKvbaseY = self.vKvbase[self.pyIdx[0]]
         self.vKvbaseD = self.vKvbase[self.pdIdx[0]]*np.sqrt(3)
+        self.vKvbaseX = np.concatenate( (self.vKvbaseY,self.vKvbaseY,self.vKvbaseD,self.vKvbaseD) )
         
         if len(self.pdIdx[0])>0:
             H = create_Hmat(DSSCircuit)[self.pdIdx[0]+3]
@@ -252,16 +277,15 @@ class buildLinModel:
         self.kYcvr = np.concatenate((VhYpu**pCvr,VhYpu**qCvr))
         self.kDcvr = np.concatenate((VhDpu**pCvr,VhDpu**qCvr))
         
-        xYcvr = lin_point*self.xY*self.kYcvr
-        xDcvr = lin_point*self.xD*self.kDcvr
-        
+        # xYcvr = lin_point*self.xY*self.kYcvr
+        # xDcvr = lin_point*self.xD*self.kDcvr
         # [sY0,sD0] = get_sYsD(DSSCircuit)[0:2] # useful for debugging
         # xY0 = -1e3*s_2_x(sY0[3:])
         # xD0 = -1e3*s_2_x(sD0)
         # err0 = xY0[:len(xYcvr)//2] - xYcvr[:len(xYcvr)//2] # ignore Q for now (coz of caps)
         # err1 = xY0[:len(xYcvr)//2] - self.xY[:len(xYcvr)//2]
-        # err0 = xD0 - xDcvr
-        # err1 = xD0 - self.xD
+        # # err0 = xD0 - xDcvr
+        # # err1 = xD0 - self.xD
         # plt.plot(err0); plt.plot(err1); plt.show()
         
         # sY,sD,iY,iD,yzD,iTot,Hold = get_sYsD(DSSCircuit) # useful for debugging
@@ -277,34 +301,44 @@ class buildLinModel:
         # >>> 3. Create linear models for voltage in S
         V0 = YNodeV[0:3]
         Vh = YNodeV[3:]
+        dVh = H.dot(YNodeV)
         DSSSolution.LoadMult=0.0
         DSSSolution.Solve()
-        VnoLoad = tp_2_ar(DSSCircuit.YNodeVarray)[3:]
+        VoffLoad = tp_2_ar(DSSCircuit.YNodeVarray) 
+        VnoLoad = VoffLoad[3:]
+        dVnoLoad = H.dot(VoffLoad)
 
         
         print('Create linear models My + Md:\n',time.process_time()); t = time.time()
-        My,Md,a = cvrLinearizationMy( Ybus,Vh,V0,H,pCvr,qCvr,self.vKvbase,self.vKvbaseD )
+        My,Md,a,dMy,dMd,da = cvrLinearization( Ybus,Vh,V0,H,pCvr,qCvr,self.vKvbase,self.vKvbaseD )
         print('Time M:',time.time()-t,'\nCreate linear models Ky + Kd:\n',time.process_time()); t = time.time()
-        # Ky,Kd,b = nrelLinK(My,Md,Vh,lin_point*self.xY*self.kYcvr,lin_point*self.xD*self.kDcvr)
-        # print('Time K:',time.time()-t)
+        Ky,Kd,b = nrelLinK( My,Md,Vh,lin_point*self.xY,lin_point*self.xD )
         
-        print(self.xD.shape)
-        print(H.shape)
+        dKy,dKd,db = nrelLinK( dMy,dMd,dVh,lin_point*self.xY,lin_point*self.xD )
+        
+        print('Time K:',time.time()-t)
         
         Vh0 = (My.dot(self.xY) + Md.dot(self.xD))*lin_point + a # for validation
-        # Va0 = (Ky.dot(self.xY) + Kd.dot(self.xD))*lin_point + b # for validation
+        Va0 = (Ky.dot(self.xY) + Kd.dot(self.xD))*lin_point + b # for validation
+        dVh0 = (dMy.dot(self.xY) + dMd.dot(self.xD))*lin_point + da # for validation
+        dVa0 = (dKy.dot(self.xY) + dKd.dot(self.xD))*lin_point + db # for validation
         
-        print('\nVoltage clx error (lin point), Volts:',np.linalg.norm(Vh0-Vh)/np.linalg.norm(Vh)) # Print checks
-        print('Voltage clx error (no load point), Volts:',np.linalg.norm(a-VnoLoad)/np.linalg.norm(VnoLoad),'\n') # Print checks
-        # print('\nVoltage abs error (lin point), Volts:',np.linalg.norm(Va0-abs(Vh))/np.linalg.norm(abs(Vh))) # Print checks
-        # print('Voltage abs error (no load point), Volts:',np.linalg.norm(abs(b)-abs(VnoLoad))/np.linalg.norm(abs(VnoLoad)),'\n') # Print checks
+        # # Print checks:
+        # print('\nVoltage clx error (lin point), Volts:',np.linalg.norm(Vh0-Vh)/np.linalg.norm(Vh))
+        # print('Voltage clx error (no load point), Volts:',np.linalg.norm(a-VnoLoad)/np.linalg.norm(VnoLoad),'\n') 
+        # print('\nVoltage abs error (lin point), Volts:',np.linalg.norm(Va0-abs(Vh))/np.linalg.norm(abs(Vh))) 
+        # print('Voltage abs error (no load point), Volts:',np.linalg.norm(abs(b)-abs(VnoLoad))/np.linalg.norm(abs(VnoLoad)),'\n') 
+        # print('\n Delta voltage clx error (lin point), Volts:',np.linalg.norm(dVh0-dVh)/np.linalg.norm(dVh)) 
+        # print('Delta voltage clx error (no load point), Volts:',np.linalg.norm(da-dVnoLoad)/np.linalg.norm(dVnoLoad),'\n') 
+        # print('\nDelta voltage abs error (lin point), Volts:',np.linalg.norm(dVa0-abs(dVh))/np.linalg.norm(abs(dVh))) 
+        # print('Delta voltage abs error (no load point), Volts:',np.linalg.norm(abs(db)-abs(dVnoLoad))/np.linalg.norm(abs(dVnoLoad)),'\n')
         
         # self.syIdx = self.xY.nonzero()[0]
         self.syIdx = np.concatenate((self.pyIdx[0],self.pyIdx[0]+DSSCircuit.NumNodes-3))
         self.My = My[:,self.syIdx]
-        # self.Ky = Ky[:,self.syIdx]
+        self.Ky = Ky[:,self.syIdx]
         self.aV = a
-        # self.bV = b
+        self.bV = b
         self.H = H
         self.V0 = V0
         self.nV = len(a)
@@ -313,11 +347,48 @@ class buildLinModel:
         self.SyYNodeOrder = vecSlc(self.vYNodeOrder,self.pyIdx)
         self.SdYNodeOrder = vecSlc(self.vYNodeOrder,self.pdIdx)
         self.Md = Md
-        # self.Kd = Kd
+        self.Kd = Kd
         self.currentLinPoint = lin_point
         
         self.pCvr = pCvr
         self.qCvr = qCvr
+        self.n2y = node_to_YZ(DSSObj.ActiveCircuit)
+        
+        self.dMy = dMy[:,self.syIdx]
+        self.dMd = dMd
+        self.daV = da
+        self.dKy = dKy[:,self.syIdx]
+        self.dKd = dKd
+        self.dbV = db
+        
+        self.nxYp = len(self.xY)//2
+        self.nxDp = len(self.xD)//2
+        self.nYp = self.My.shape[1]//2
+        self.nDp = self.Md.shape[1]//2
+        self.nx = 2*(self.nYp + self.nDp)
+        
+        # BUILD the quadradtic matrices for finding the total load.
+        iH = np.zeros( (self.nx,self.nx) )
+        iH[range(self.nYp),range(self.nYp)] = 1
+        iH[range(self.nYp*2,self.nYp*2+self.nDp),range(self.nYp*2,self.nYp*2+self.nDp)] = 1
+        
+        self.KtotPu = np.block( [[dsf.vmM(1/self.vKvbase,self.Ky),dsf.vmM(1/self.vKvbase,self.Kd)],[dsf.vmM(1/self.vKvbaseD,self.dKy),dsf.vmM(1/self.vKvbaseD,self.dKd)]] )
+        self.yKPu = np.block( [[dsf.vmM(1/self.vKvbase,self.Ky),dsf.vmM(1/self.vKvbase,self.Kd)]] )
+        self.dKPu = np.block( [[dsf.vmM(1/self.vKvbaseD,self.dKy),dsf.vmM(1/self.vKvbaseD,self.dKd)]] )
+        
+        self.bTotPu = np.concatenate( (self.bV/self.vKvbase,self.dbV/self.vKvbaseD) )
+        self.bYpu = self.bV/self.vKvbase
+        self.bDpu = self.dbV/self.vKvbaseD
+        
+        self.kYcvrK = np.concatenate( (self.pCvr*self.yKPu,self.qCvr*self.yKPu))
+        self.kYcvr0 = np.concatenate(( (1-self.pCvr) + self.pCvr*self.bYpu,(1-self.qCvr) + self.qCvr*self.bYpu))
+        
+        self.kDcvrK = np.concatenate( (self.pCvr*self.dKPu,self.qCvr*self.dKPu))
+        self.kDcvr0 = np.concatenate(( (1-self.pCvr) + self.pCvr*self.bDpu,(1-self.qCvr) + self.qCvr*self.bDpu))
+        self.qpQ = iH.dot(np.concatenate( (self.kYcvrK[self.syIdx],self.kDcvrK) )) # kCvr K
+        self.qpL = iH.dot(np.concatenate( (self.kYcvr0[self.syIdx],self.kDcvr0) )) # kCvr0 offset
+        
+        
     
     def loadDssModel(self,loadMult=1.0):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
@@ -532,23 +603,33 @@ class buildLinModel:
         return vce,vae,k
 
     def cvrModelTest(self,k = np.arange(-1.5,1.6,0.1)):
-    
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         self.loadCvrModel(pCvr=self.pCvr,qCvr=self.qCvr)
         
         print('Start CVR testing. \n',time.process_time())
         vce=np.zeros([k.size])
-        # vae=np.zeros([k.size])
-        vc0 = np.zeros((len(k),self.nV),dtype=complex)
-        va0 = np.zeros((len(k),self.nV))
-        vcL = np.zeros((len(k),self.nV),dtype=complex)
-        # vaL = np.zeros((len(k),self.nV))
-        Convrg = []
+        vae=np.zeros([k.size])
+        dvce=np.zeros([k.size])
+        dvae=np.zeros([k.size])
         TP = np.zeros((len(k)),dtype=complex)
+        TLss = np.zeros((len(k)),dtype=complex)
+        TL = np.zeros((len(k)),dtype=complex)
+        TLq = np.zeros((len(k)),dtype=complex)
+        TLp = np.zeros([k.size])
+        TLa = np.zeros([k.size])
+        TL0 = np.zeros([k.size])
+        Convrg = []
+        
+        X0 = np.concatenate((self.xY[self.syIdx],self.xD))
         
         dM = self.My.dot(self.xY[self.syIdx]) + self.Md.dot(self.xD)
-        # dK = self.Ky.dot(self.xY[self.syIdx]) + self.Kd.dot(self.xD)
+        dK = self.Ky.dot(self.xY[self.syIdx]) + self.Kd.dot(self.xD)
+        ddM = self.dMy.dot(self.xY[self.syIdx]) + self.dMd.dot(self.xD)
+        ddK = self.dKy.dot(self.xY[self.syIdx]) + self.dKd.dot(self.xD)
         
+        dKtotPu = self.KtotPu.dot(X0)
+        
+        # lin_point*self.xY*self.kYcvr
         for i in range(len(k)):
             if (i % (len(k)//4))==0: print('Solution:',i,'/',len(k)) # track progress
             
@@ -557,18 +638,52 @@ class buildLinModel:
             
             Convrg.append(DSSSolution.Converged) # for debugging
             TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1] # for debugging
+            TLss[i] = 1e-3*(DSSCircuit.Losses[0] + 1j*DSSCircuit.Losses[1]) # for debugging
+            TL[i] = TP[i] + TLss[i]
             
-            vc0[i] = tp_2_ar(DSSCircuit.YNodeVarray)[3:]
-            va0[i] = abs(vc0[i])
+            vc0 = tp_2_ar(DSSCircuit.YNodeVarray)[3:]
+            va0 = abs(vc0)
+            dvc0 = self.H[:,3:].dot(vc0)
+            dva0 = abs(dvc0)
             
-            vcL[i] = dM*k[i] + self.aV
-            # vaL[i] = dK*k[i] + self.bV
+            X = k[i]*np.concatenate((self.xY[self.syIdx],self.xD))
+            TLq[i] = 1e-3*( X.dot(self.qpL + self.qpQ.dot(X)) )
             
-            vce[i] = np.linalg.norm( (vcL[i] - vc0[i])/self.vKvbase )/np.linalg.norm(vc0[i]/self.vKvbase)
-            # vae[i] = np.linalg.norm( (vaL[i] - va0[i])/self.vKvbase )/np.linalg.norm(va0[i]/self.vKvbase)
+            vcL = dM*k[i] + self.aV
+            vaL = dK*k[i] + self.bV
+            dvcL = ddM*k[i] + self.daV
+            dvaL = ddK*k[i] + self.dbV
+            
+            # vYpu = abs(vcL/self.vKvbase)
+            # vDpu = abs(dvcL/self.vKvbaseD)
+            vYpu = vaL/self.vKvbase
+            vDpu = dvaL/self.vKvbaseD
+            
+            # kYcvr = np.concatenate((vYpu**self.pCvr,vYpu**self.qCvr))
+            # kDcvr = np.concatenate((vDpu**self.pCvr,vDpu**self.qCvr))
+            kYcvr = np.concatenate(( (1-self.pCvr) + self.pCvr*vYpu,(1-self.qCvr) + self.qCvr*vYpu))
+            kDcvr = np.concatenate(( (1-self.pCvr) + self.pCvr*vDpu,(1-self.qCvr) + self.qCvr*vDpu))
+            
+            xYpred = k[i]*self.xY*kYcvr
+            xDpred = k[i]*self.xD*kDcvr
+            
+            xYactl,xDactl = returnXyXd(DSSCircuit,self.n2y)
+            pActl = np.concatenate((xYactl[:len(xYactl)//2],xDactl[:len(xDactl)//2])) # ignore Q for now (coz of caps)
+            
+            pPred = np.concatenate((xYpred[:len(xYpred)//2],xDpred[:len(xDpred)//2]))
+            p0pred = k[i]*np.concatenate((self.xY[:len(self.xY)//2],self.xD[:len(self.xD)//2]))
+            
+            vce[i] = np.linalg.norm( (vcL - vc0)/self.vKvbase )/np.linalg.norm(vc0/self.vKvbase)
+            vae[i] = np.linalg.norm( (vaL - va0)/self.vKvbase )/np.linalg.norm(va0/self.vKvbase)
+            dvce[i] = np.linalg.norm( (dvcL - dvc0)/self.vKvbaseD )/np.linalg.norm(dvc0/self.vKvbaseD)
+            dvae[i] = np.linalg.norm( (dvaL - dva0)/self.vKvbaseD )/np.linalg.norm(dva0/self.vKvbaseD)
+            
+            TLa[i] = sum(pActl)
+            TLp[i] = sum(pPred)
+            TL0[i] = sum(1e-3*p0pred)
+            
         print('nrelModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
-        # return vce,vae,k
-        return vce,k
+        return vce,vae,dvce,dvae,TL,TLq,TLa,TLp,TL0,k
         
     def wModelTest(self,k = np.arange(-1.5,1.6,0.1)):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff

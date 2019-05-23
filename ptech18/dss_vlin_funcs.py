@@ -94,8 +94,9 @@ def fixed_point_solve(Ybus,YNodeV,sY,sD,H): # seems to give comparable results t
     return V0
     
     
-def cvrLinearizationMy(Ybus,Vh,V0,H,pCvr,qCvr,kvYbase,kvDbase):
-    # based on nrel_linearization
+def cvrLinearization(Ybus,Vh,V0,H,pCvr,qCvr,kvYbase,kvDbase):
+    # based on nrel_linearization.
+    # Y-bit:
     Yll = Ybus[3:,3:].tocsc()
     Yl0 = Ybus[3:,0:3].tocsc()
     H0 = sparse.csc_matrix(H[:,3:])
@@ -127,4 +128,18 @@ def cvrLinearizationMy(Ybus,Vh,V0,H,pCvr,qCvr,kvYbase,kvDbase):
     
     a = -Ylli.dot(Yl0.dot(V0))
     
-    return My,Md,a
+    # D-bit:
+    dMy = H0.dot(My)
+    dMd = H0.dot(Md)
+    da = H0.dot(a)
+    
+    return My,Md,a,dMy,dMd,da
+    
+# def nrelLinKd(My,Md,Vh,xY,xD,H):
+    # # based on nrelLinKd
+    # Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) )
+    # Vhai_diag = sparse.dia_matrix( (np.ones(len(Vh))/abs(Vh),0),shape=(len(Vh),len(Vh)) )
+    # Ky = Vhai_diag.dot( Vh_diag.dot(My).real )
+    # Kd = Vhai_diag.dot( Vh_diag.dot(Md).real )
+    # b = abs(Vh) - Ky.dot(xY) - Kd.dot(xD)
+    # return Ky, Kd, b
