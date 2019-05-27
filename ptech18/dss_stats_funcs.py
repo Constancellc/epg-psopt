@@ -149,7 +149,7 @@ def getHcV2(V,Cdf,v0):
     return pHc
 
 def vmM(vec,Mat): # Rowwise multiplication, i.e. np.diag(vec).dot(Mat)]
-    if len(vec)!=len(Mat):
+    if vec.shape[0]!=Mat.shape[0]:
         print('Warning! vector length is not the same length as the matrix row no.')
     MatOut = Mat*vec[:,None] # see https://stackoverflow.com/questions/18522216/multiplying-across-in-a-numpy-array
     # MatOut = np.zeros(np.shape(Mat),dtype=Mat.dtype); i = 0

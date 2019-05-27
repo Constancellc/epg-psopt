@@ -23,6 +23,7 @@ New Transformer.Sub Phases=3 Windings=2   XHL=(8 1000 /)
 ! FEEDER 1-PHASE VOLTAGE REGULATORS
 ! Define low-impedance 2-wdg transformer
 
+/*
 New Transformer.RegS1 phases=1 XHL=0.01 kVAs=[1666 1666]
 ~ Buses=[650.1 RG60r0.1] kVs=[2.4  2.4] %LoadLoss=0.01
 new regcontrol.RegS1  transformer=RegS1 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=3   X=9 
@@ -34,8 +35,23 @@ new regcontrol.RegS2  transformer=RegS2 winding=2  vreg=122  band=2  ptratio=20 
 New Transformer.RegS3 phases=1 XHL=0.01 kVAs=[1666 1666]
 ~ Buses=[650.3 RG60r0.3] kVs=[2.4  2.4] %LoadLoss=0.01
 new regcontrol.RegS3  transformer=RegS3 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=3   X=9 
+*/
+
+new transformer.regs phases=3 kVAs=[5000 5000] conns=[wye wye]
+~ Buses=[650,650r] kVs=[4.16,4.16] %loadloss=0.01 XHL=0.01
+
+New Transformer.RegS1 phases=1 XHL=0.00001 kVAs=[1666 1666]
+~ Buses=[650r.1 RG60r0.1] kVs=[2.4  2.4] %LoadLoss=0.00001
+new regcontrol.RegS1  transformer=RegS1 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=3   X=9 
+New Transformer.RegS2 phases=1 XHL=0.00001 kVAs=[1666 1666]
+~ Buses=[650r.2 RG60r0.2] kVs=[2.4  2.4] %LoadLoss=0.00001
+new regcontrol.RegS2  transformer=RegS2 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=3   X=9 
+New Transformer.RegS3 phases=1 XHL=0.00001 kVAs=[1666 1666]
+~ Buses=[650r.3 RG60r0.3] kVs=[2.4  2.4] %LoadLoss=0.00001
+new regcontrol.RegS3  transformer=RegS3 winding=2  vreg=122  band=2  ptratio=20 ctprim=700  R=3   X=9 
 
 new line.RegS bus1=RG60r0 bus2=RG60 phases=3 switch=true
+
 !TRANSFORMER DEFINITION 
 New Transformer.XFM1  Phases=3   Windings=2  XHL=2
 ~ wdg=1 bus=633       conn=Wye kv=4.16    kva=500    %r=.55     XHT=1

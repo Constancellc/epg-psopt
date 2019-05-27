@@ -5,6 +5,15 @@ from cvxopt import matrix
 
 from win32com.client import makepy
 
+def get_regXfmr2(DSSCircuit): # copy of get_regXfmr from dss_voltage_funcs
+    i = DSSCircuit.RegControls.First
+    regXfmr = []
+    while i:
+        regXfmr.append(DSSCircuit.RegControls.Transformer)
+        i = DSSCircuit.RegControls.Next
+    return regXfmr
+
+
 def loadDss():
     sys.argv=["makepy","OpenDSSEngine.DSS"]
     makepy.main()
@@ -85,15 +94,42 @@ def add_generators(DSSObj,genBuses,delta):
         genNames = genNames+[genName]
     return genNames
 
-def set_generators(DSSCircuit,genNames,S):
+def getTotkW(DSSCircuit):
+    GEN = DSSCircuit.Generators
+    i = GEN.First
+    kwGen = 0
+    while i:
+        kwGen = kwGen + GEN.kW
+        i = GEN.Next
+    return kwGen
+    
+def runCircuit(DSSCircuit,DSSSolution):
+    # NB assumes all generators are constant power.
+    DSSSolution.Solve()
+    TG = getTotkW(DSSCircuit)
+    TP = -DSSCircuit.TotalPower[0]
+    TL = 1e-3*DSSCircuit.Losses[0]
+    PL = -(DSSCircuit.TotalPower[0] + 1e-3*DSSCircuit.Losses[0] - TG)
+    YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
+    return TP,TG,TL,PL,YNodeV
+    
+
+def set_generators(DSSCircuit,genNames,P):
     i = 0
     for genName in genNames:
         DSSCircuit.Generators.Name=genName
-        DSSCircuit.Generators.kW = S[i]
-        
+        DSSCircuit.Generators.kW = P[i]
         i+=1
     return
 
+def setGenPq(DSSCircuit,genNames,P,Q):
+    i = 0
+    for genName in genNames:
+        DSSCircuit.Generators.Name=genName
+        DSSCircuit.Generators.kW = P[i]
+        DSSCircuit.Generators.kvar = Q[i]
+        i+=1
+    return
 
 def ld_vals( DSSCircuit ):
     ii = DSSCircuit.FirstPCElement()
@@ -124,7 +160,7 @@ def ld_vals( DSSCircuit ):
         jj=DSSCircuit.NextPDElement()
     return S,V,I,B,D,N
 
-def ldValsOnly( DSSCircuit ): 
+def ldValsOnly( DSSCircuit ):
     # nicked from the oxemf converter
     LDS = DSSCircuit.Loads
     SetACE = DSSCircuit.SetActiveElement
@@ -370,7 +406,6 @@ def createYbus( DSSObj,tapNo,capNo ):
                 j = i//2
                 SysY_dct[j] = Yi
     del SysY
-    print('Ybus loaded\n',time.process_time())
     
     SysYV = np.array(list(SysY_dct.values()))
     SysYK = np.array(list(SysY_dct.keys()))
@@ -382,7 +417,7 @@ def createYbus( DSSObj,tapNo,capNo ):
     YNodeOrder = DSSObj.ActiveCircuit.YNodeOrder
     
     DSSObj.ActiveCircuit.Solution.ControlMode = ctrlModel # return control to nominal state
-    print('Ybus formatted\n',time.process_time())
+    print('Ybus loaded\n',time.process_time())
     return Ybus, YNodeOrder
 
 
@@ -786,13 +821,23 @@ def getBranchBuses(DSSCircuit):
         i = DSSCircuit.PDElements.Next
     return branches
     
-def getBranchNames(DSSCircuit):
-    i = DSSCircuit.PDElements.First
-    branchNames = []
-    while i:
-        if not DSSCircuit.PDElements.IsShunt:
-            branchNames = branchNames + [DSSCircuit.PDElements.Name]
-        i = DSSCircuit.PDElements.Next
+def getBranchNames(DSSCircuit,xfmrSet=False):
+    if not xfmrSet:
+        i = DSSCircuit.PDElements.First
+        branchNames = []
+        while i:
+            if not DSSCircuit.PDElements.IsShunt:
+                branchNames = branchNames + [DSSCircuit.PDElements.Name]
+            i = DSSCircuit.PDElements.Next
+    elif xfmrSet:
+        # nb this does NOT get the current in regulators because that changes with tap positions.
+        regXfmrs = get_regXfmr2(DSSCircuit)
+        i = DSSCircuit.Transformers.First
+        branchNames = []
+        while i:
+            if DSSCircuit.Transformers.Name not in regXfmrs:
+                branchNames = branchNames + ['Transformer.'+DSSCircuit.Transformers.Name]
+            i = DSSCircuit.Transformers.Next
     return tuple(branchNames)
 
 def makeYprim(yprimTuple):
@@ -842,9 +887,13 @@ def getBranchYprims(DSSCircuit,branchNames):
             NodeSet = NodeSet + [node]
             trmlSet = trmlSet + [bus_i]
             unqIdent = unqIdent + [DSSCircuit.ActiveElement.Name+'..'+busSet[-1]]
+            
         if bus_i + 1 < len(Buses):
             print('Warning: not been through all buses in branches.')
     
+    if YprimMat[-1,-1]==0:
+        print('--- NOTE: YprimMat final element zero; removing additional elements.')
+        YprimMat = YprimMat[:Yprim_i,:Yprim_i]
     return YprimMat.tocsr(), tuple(busSet), tuple(brchSet), tuple(trmlSet), tuple(unqIdent)
     # return sparse.csr_matrix(YprimMat), tuple(busSet), tuple(brchSet), tuple(trmlSet), tuple(unqIdent)
 

@@ -72,6 +72,15 @@ def nrelLinK(My,Md,Vh,xY,xD):
     b = abs(Vh) - Ky.dot(xY) - Kd.dot(xD)
     return Ky, Kd, b
 
+def lineariseMfull(My,Md,Mt,f0,xY,xD,xT):
+    # based on nrelLinK
+    f0_diag = sparse.dia_matrix( (f0.conj(),0),shape=(len(f0),len(f0)) )
+    f0ai_diag = sparse.dia_matrix( (np.ones(len(f0))/abs(f0),0),shape=(len(f0),len(f0)) )
+    Ky = f0ai_diag.dot( f0_diag.dot(My).real )
+    Kd = f0ai_diag.dot( f0_diag.dot(Md).real )
+    Kt = f0ai_diag.dot( f0_diag.dot(Mt).real )
+    b = abs(f0) - Ky.dot(xY) - Kd.dot(xD) - Kt.dot(xT)
+    return Ky, Kd, Kt, b
 
 def fixed_point_itr(w,Ylli,V,sY,sD,H):
     iTtot_c = sY/V + H.T.dot(sD/(H.dot(V)))
@@ -135,11 +144,14 @@ def cvrLinearization(Ybus,Vh,V0,H,pCvr,qCvr,kvYbase,kvDbase):
     
     return My,Md,a,dMy,dMd,da
     
-# def nrelLinKd(My,Md,Vh,xY,xD,H):
-    # # based on nrelLinKd
-    # Vh_diag = sparse.dia_matrix( (Vh.conj(),0),shape=(len(Vh),len(Vh)) )
-    # Vhai_diag = sparse.dia_matrix( (np.ones(len(Vh))/abs(Vh),0),shape=(len(Vh),len(Vh)) )
-    # Ky = Vhai_diag.dot( Vh_diag.dot(My).real )
-    # Kd = Vhai_diag.dot( Vh_diag.dot(Md).real )
-    # b = abs(Vh) - Ky.dot(xY) - Kd.dot(xD)
-    # return Ky, Kd, b
+def pdTest(A):
+    # first find the symmetric part of A, then try the cholesky decomposition.
+    S = 0.5*(A + A.T)
+    try:
+        np.linalg.cholesky(S)
+        pd = True
+    except:
+        pd = False
+    return pd
+    
+    
