@@ -46,8 +46,6 @@ class buildLinModel:
         else:
             self.capPosLin=None
         
-        
-        pCvr = 0.8
         self.pCvr = pCvr
         self.qCvr = 0.0
         # self.createCvrModel(linPoints[0])
@@ -288,10 +286,7 @@ class buildLinModel:
         # control (c) variables (in order): Pgen(Y then D) (kW),Qgen(Y then D) (kvar),t (pu).
         # notation as 'departure2arrival'
         self.nPctrl = self.nPy+self.nPd
-        # self.nCtrl = len(self.X0ctrl)
         self.nCtrl = self.nPctrl*2 + self.nT
-        # ctrlScale = np.ones(self.nCtrl)
-        # ctrlScale[:self.nPctrl*2] = 1e-3
         
         self.X0 = np.concatenate( (xYcvr[self.syIdx],xDcvr,np.zeros(self.nT)) )
         self.X0ctrl = np.concatenate( (xYcvr[self.pyIdx[0]],xDcvr[:self.nPd],xYcvr[self.qyIdx[0]],xDcvr[self.nPd::],np.zeros(self.nT)) )
@@ -312,6 +307,13 @@ class buildLinModel:
         Kc2pC = np.concatenate((xYcvr[self.pyIdx[0]],xDcvr[:self.nPd]))
         Kc2p =  dsf.vmM(Kc2pC*self.pCvr,Kc2vloadpu)
         
+        Kc2qC = np.concatenate((xYcvr[self.qyIdx[0]],xDcvr[self.nPd::]))
+        
+        Kc2x = np.concatenate( (dsf.vmM(Kc2pC*self.pCvr,Kc2vloadpu),
+                                dsf.vmM(Kc2qC*self.qCvr,Kc2vloadpu),
+                                np.zeros((self.nT,self.nCtrl)) ) ) # with self.x0ctrl give the load point
+        
+        
         
         Mmid = np.concatenate((self.My[:,:self.nPy],self.Md[:,:self.nPd],self.My[:,self.nPy::],self.Md[:,self.nPd::],self.Mt),axis=1)
         M = np.block([[np.zeros((3,len(self.X0)),dtype=complex)],[Mmid],[np.zeros((1,len(self.X0)),dtype=complex)]])
@@ -329,15 +331,33 @@ class buildLinModel:
         P[range(len(self.yzW2V)),self.yzW2V] = 1
         P = np.delete(P,self.wregIdxs,axis=0)
         
-        P[range(len(self.yzW2Vred)),self.yzW2Vred] = 1
+        # P[range(len(self.yzW2Vred)),self.yzW2Vred] = 1 # WTF is this doing here?
         
         PT = P.T
-        qpQlss = 1e-3*np.real( (M.T).dot(PT.dot(Wcnj)) )
-        self.qpQlss = 0.5*(qpQlss + qpQlss.T) # make symmetric.
-        self.qpLlss0 = 1e-3*np.real( aV.dot(PT.dot(Wcnj)) + aIcnj.dot(P.dot(M)) )
-        self.qpLlss = self.qpLlss0 + 2*self.qpQlss.dot(self.X0ctrl)
-        self.qpClss0 = 1e-3*np.real( aV.dot(PT.dot(aIcnj)) )
-        self.qpClss = self.qpClss0 + self.X0ctrl.dot( self.qpLlss0 + self.qpQlss.dot(self.X0ctrl))
+        
+        # qpQlss = 1e-3*np.real( (M.T).dot(PT.dot(Wcnj)) )
+        # self.qpQlss = 0.5*(qpQlss + qpQlss.T) # make symmetric.
+        # self.qpLlss0 = 1e-3*np.real( aV.dot(PT.dot(Wcnj)) + aIcnj.dot(P.dot(M)) )
+        # self.qpLlss = self.qpLlss0 + 2*self.qpQlss.dot(self.X0ctrl)
+        # self.qpClss0 = 1e-3*np.real( aV.dot(PT.dot(aIcnj)) )
+        # self.qpClss = self.qpClss0 + self.X0ctrl.dot( self.qpLlss0 + self.qpQlss.dot(self.X0ctrl))
+        
+        Kshift = np.eye(self.nCtrl) + Kc2x
+        
+        self.qpQlss0 = np.real( (M.T).dot(PT.dot(Wcnj)) )
+        
+        # xCtrlShift = Kshift.dot(self.X0ctrl) + 
+        
+        qpQlss = (Kshift.T).dot(self.qpQlss0.dot(Kshift))
+        
+        self.qpQlss = 0.5*(qpQlss + qpQlss.T) # make symmetric
+        
+        self.qpLlss0 = np.real( aV.dot(PT.dot(Wcnj)) + aIcnj.dot(P.dot(M)) )
+        self.qpLlss = self.qpLlss0 + self.qpQlss0.dot(Kshift.dot(self.X0ctrl)) \
+                                    + self.X0ctrl.dot((Kshift.T).dot(self.qpQlss0))
+        
+        self.qpClss0 = np.real( aV.dot(PT.dot(aIcnj)) )
+        self.qpClss = self.qpClss0 + self.X0ctrl.dot( self.qpLlss0 + self.qpQlss0.dot(self.X0ctrl))
         
         self.ploadL = -1e-3*np.sum(Kc2p,axis=0)
         self.ploadC = -1e-3*sum(Kc2pC)
@@ -365,15 +385,13 @@ class buildLinModel:
         self.loadCvrModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
         print('Start CVR QP testing. \n',time.process_time())
         
-        # NEXT put a generator on all houses for modification of P and Q
-        # TO DO
-        
         # Test 1. Putting taps up and down one. Things to check:
         # - voltages; currents; loads; losses; generation
         tapChng = [-2,1,1,1,1]
         dxScale = np.array([-2,-1,0,1,2])*0.1/16
         TL = np.zeros(5)
         TLest = np.zeros(5)
+        TLcalc = np.zeros(5)
         PL = np.zeros(5)
         PLest = np.zeros(5)
         vErr = np.zeros(5)
@@ -382,6 +400,15 @@ class buildLinModel:
         
         xCtrl = np.zeros(self.nCtrl)
         xCtrl[-self.nT::] = 1
+        
+        
+        
+        # P = np.zeros((len(self.yzW2V),self.nV+3))
+        # P[range(len(self.yzW2V)),self.yzW2V] = 1
+        # P = np.delete(P,self.wregIdxs,axis=0)
+        # v2iBrYdel = np.delete(self.v2iBrY.toarray(),self.wregIdxs,axis=0)
+        
+        # print(v2iBrYdel.shape)
         
         for i in range(5):
             # set all of the taps at one above
@@ -401,11 +428,31 @@ class buildLinModel:
             TLest[i],PLest[i],Vest,Iest = self.runQp(dx)
             vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
             iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
+            
+            vOut = np.concatenate((tp_2_ar(DSSCircuit.YNodeVarray),np.array([0])))
+            # vOut = np.concatenate((YNodeV,np.array([0])))
+            iOut = self.v2iBrY.dot(vOut[:-1])
+            # iOut = v2iBrYdel.dot(vOut[:-1])
+            
+            # vBusOut=vOut[list(self.yzW2V)]
+            vBusOut=YNodeV[list(self.yzW2V)]
+            # vBusOut=YNodeV[list(self.yzW2Vred)]
+            
+            # TLcalc[i] = 1e-3*vBusOut.dot(iOut.conj())
+            TLcalc[i] = sum(np.delete(1e-3*vBusOut*iOut.conj(),self.wregIdxs)) # <----- just fixed here. need to go back and check all code that uses this
+        
+        print(len(YNodeV))
+        print(self.yzW2V)
+            
+        print(TLcalc)
+        print(TL)
         
         # fig,[ax0,ax1,ax2,ax3] = plt.subplots(4)
-        # ax0.plot(dxScale,TL)
-        # ax0.plot(dxScale,TLest)
+        # ax0.plot(dxScale,TL,label='dss')
+        # ax0.plot(dxScale,TLest,label='apx')
+        # ax0.plot(dxScale,TLcalc,label='calc')
         # ax0.set_title('Losses')
+        # ax0.legend()
         # ax1.plot(dxScale,PL)
         # ax1.plot(dxScale,PLest)
         # ax1.set_title('Load power')
@@ -466,7 +513,7 @@ class buildLinModel:
         
         return
     def runQp(self,dx):
-        TL = dx.dot(self.qpQlss.dot(dx) + self.qpLlss) + self.qpClss
+        TL = 1e-3*(dx.dot(self.qpQlss.dot(dx) + self.qpLlss) + self.qpClss)
         PL = dx.dot(self.ploadL) + self.ploadC
         Vest = self.Kc2v.dot(dx) + self.Kc2v.dot(self.X0ctrl) + self.bV
         Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
