@@ -307,17 +307,11 @@ class buildLinModel:
         Kc2pC = np.concatenate((xYcvr[self.pyIdx[0]],xDcvr[:self.nPd]))
         Kc2p =  dsf.vmM(Kc2pC*self.pCvr,Kc2vloadpu)
         
-        Kc2qC = np.concatenate((xYcvr[self.qyIdx[0]],xDcvr[self.nPd::]))
-        
-        Kc2x = np.concatenate( (dsf.vmM(Kc2pC*self.pCvr,Kc2vloadpu),
-                                dsf.vmM(Kc2qC*self.qCvr,Kc2vloadpu),
-                                np.zeros((self.nT,self.nCtrl)) ) ) # with self.x0ctrl give the load point
-        
-        
-        
         Mmid = np.concatenate((self.My[:,:self.nPy],self.Md[:,:self.nPd],self.My[:,self.nPy::],self.Md[:,self.nPd::],self.Mt),axis=1)
         M = np.block([[np.zeros((3,len(self.X0)),dtype=complex)],[Mmid],[np.zeros((1,len(self.X0)),dtype=complex)]])
         print(M.shape)
+        
+        self.Mmid = Mmid # useful for debugging
         
         Wcnj = np.concatenate((self.Wy[:,:self.nPy],self.Wd[:,:self.nPd],self.Wy[:,self.nPy::],self.Wd[:,self.nPd::],self.Wt),axis=1).conj()
         aIcnj = (self.aI).conj()
@@ -330,39 +324,17 @@ class buildLinModel:
         P = np.zeros((len(self.yzW2V),len(M)))
         P[range(len(self.yzW2V)),self.yzW2V] = 1
         P = np.delete(P,self.wregIdxs,axis=0)
-        
-        # P[range(len(self.yzW2Vred)),self.yzW2Vred] = 1 # WTF is this doing here?
-        
         PT = P.T
         
-        # qpQlss = 1e-3*np.real( (M.T).dot(PT.dot(Wcnj)) )
-        # self.qpQlss = 0.5*(qpQlss + qpQlss.T) # make symmetric.
-        # self.qpLlss0 = 1e-3*np.real( aV.dot(PT.dot(Wcnj)) + aIcnj.dot(P.dot(M)) )
-        # self.qpLlss = self.qpLlss0 + 2*self.qpQlss.dot(self.X0ctrl)
-        # self.qpClss0 = 1e-3*np.real( aV.dot(PT.dot(aIcnj)) )
-        # self.qpClss = self.qpClss0 + self.X0ctrl.dot( self.qpLlss0 + self.qpQlss.dot(self.X0ctrl))
-        
-        Kshift = np.eye(self.nCtrl) + Kc2x
-        
-        self.qpQlss0 = np.real( (M.T).dot(PT.dot(Wcnj)) )
-        
-        # xCtrlShift = Kshift.dot(self.X0ctrl) + 
-        
-        qpQlss = (Kshift.T).dot(self.qpQlss0.dot(Kshift))
-        
-        self.qpQlss = 0.5*(qpQlss + qpQlss.T) # make symmetric
-        
+        qpQlss = np.real( (M.T).dot(PT.dot(Wcnj)) )
+        self.qpQlss = 0.5*(qpQlss + qpQlss.T) # make symmetric.
         self.qpLlss0 = np.real( aV.dot(PT.dot(Wcnj)) + aIcnj.dot(P.dot(M)) )
-        self.qpLlss = self.qpLlss0 + self.qpQlss0.dot(Kshift.dot(self.X0ctrl)) \
-                                    + self.X0ctrl.dot((Kshift.T).dot(self.qpQlss0))
-        
+        self.qpLlss = self.qpLlss0 + 2*self.qpQlss.dot(self.X0ctrl)
         self.qpClss0 = np.real( aV.dot(PT.dot(aIcnj)) )
-        self.qpClss = self.qpClss0 + self.X0ctrl.dot( self.qpLlss0 + self.qpQlss0.dot(self.X0ctrl))
+        self.qpClss = self.qpClss0 + self.X0ctrl.dot( self.qpLlss0 + self.qpQlss.dot(self.X0ctrl))
         
         self.ploadL = -1e-3*np.sum(Kc2p,axis=0)
         self.ploadC = -1e-3*sum(Kc2pC)
-        
-        
         
         self.loadCvrModel(self.pCvr,self.qCvr,loadMult=lin_point)
         self.log.info('Actual losses:'+str(DSSCircuit.Losses))
@@ -370,8 +342,8 @@ class buildLinModel:
         self.log.info('TLoad:'+str(-DSSCircuit.TotalPower[0] - 1e-3*DSSCircuit.Losses[0]))
         self.log.info('TLoadEst:'+str(-1e-3*sum(Kc2pC)))
         
-        # print('PD test:',pdTest(self.qpQlss))
-        # print('PD test:',pdTest(self.qpQlss + np.linalg.norm(self.qpQlss)*1e-20*np.eye(self.nCtrl)))
+        print('PD test:',pdTest(self.qpQlss))
+        print('PD test:',pdTest(self.qpQlss + np.linalg.norm(self.qpQlss)*1e-20*np.eye(self.nCtrl)))
         
         # self.log.info('Power load error:',
         
@@ -401,15 +373,6 @@ class buildLinModel:
         xCtrl = np.zeros(self.nCtrl)
         xCtrl[-self.nT::] = 1
         
-        
-        
-        # P = np.zeros((len(self.yzW2V),self.nV+3))
-        # P[range(len(self.yzW2V)),self.yzW2V] = 1
-        # P = np.delete(P,self.wregIdxs,axis=0)
-        # v2iBrYdel = np.delete(self.v2iBrY.toarray(),self.wregIdxs,axis=0)
-        
-        # print(v2iBrYdel.shape)
-        
         for i in range(5):
             # set all of the taps at one above
             j = DSSCircuit.RegControls.First
@@ -426,91 +389,87 @@ class buildLinModel:
             
             dx = xCtrl*dxScale[i]
             TLest[i],PLest[i],Vest,Iest = self.runQp(dx)
+            
             vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
             iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
             
-            vOut = np.concatenate((tp_2_ar(DSSCircuit.YNodeVarray),np.array([0])))
-            # vOut = np.concatenate((YNodeV,np.array([0])))
-            iOut = self.v2iBrY.dot(vOut[:-1])
-            # iOut = v2iBrYdel.dot(vOut[:-1])
-            
-            # vBusOut=vOut[list(self.yzW2V)]
-            vBusOut=YNodeV[list(self.yzW2V)]
-            # vBusOut=YNodeV[list(self.yzW2Vred)]
-            
-            # TLcalc[i] = 1e-3*vBusOut.dot(iOut.conj())
-            TLcalc[i] = sum(np.delete(1e-3*vBusOut*iOut.conj(),self.wregIdxs)) # <----- just fixed here. need to go back and check all code that uses this
+            VcplxEst = self.Mmid.dot(self.X0ctrl + dx) + self.aV
+            YNodeVaug = np.concatenate((YNodeV[:3],VcplxEst,np.array([0])))
+            iOut = self.v2iBrY.dot(YNodeVaug[:-1])
+            vBusOut=YNodeVaug[list(self.yzW2V)]
+            TLcalc[i] = sum(np.delete(1e-3*vBusOut*iOut.conj(),self.wregIdxs).real) # for debugging
         
-        print(len(YNodeV))
-        print(self.yzW2V)
-            
-        print(TLcalc)
-        print(TL)
-        
-        # fig,[ax0,ax1,ax2,ax3] = plt.subplots(4)
-        # ax0.plot(dxScale,TL,label='dss')
-        # ax0.plot(dxScale,TLest,label='apx')
-        # ax0.plot(dxScale,TLcalc,label='calc')
-        # ax0.set_title('Losses')
-        # ax0.legend()
-        # ax1.plot(dxScale,PL)
-        # ax1.plot(dxScale,PLest)
-        # ax1.set_title('Load power')
-        # ax2.plot(dxScale,vErr)
-        # ax3.plot(dxScale,iErr)
-        # plt.tight_layout()
-        # plt.show()
-        
-        # plt.plot(1e-3*np.diff(TL))
-        # plt.plot(1e-3*np.diff(TLest))
-        # plt.plot(np.diff(PL),'--')
-        # plt.plot(np.diff(PLest),'--')
-        # plt.show()
+        fig,[ax0,ax1,ax2,ax3] = plt.subplots(ncols=4,figsize=(11,4))
+        ax0.plot(dxScale,TL - np.mean(TL),label='dss'); ax0.grid(True)
+        ax0.plot(dxScale,TLest - np.mean(TL),label='apx')
+        ax0.set_title('Losses'); ax0.set_xlabel('Tap (pu)')
+        ax0.legend()
+        ax1.plot(dxScale,PL - np.mean(PL)); ax1.grid(True)
+        ax1.plot(dxScale,PLest - np.mean(PL))
+        ax1.set_title('Load power'); ax1.set_xlabel('Tap (pu)')
+        ax2.plot(dxScale,vErr); ax2.grid(True)
+        ax2.set_title('Abs voltage error'); ax2.set_xlabel('Tap (pu)')
+        ax3.plot(dxScale,iErr); ax3.grid(True)
+        ax3.set_title('Abs current error'); ax3.set_xlabel('Tap (pu)')
+        plt.tight_layout()
+        plt.show()
         
         # Test 2. Put a whole load of generators in and change real and reactive powers.
-        self.loadCvrModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
-        genNamesY = add_generators(DSSObj,vecSlc(self.YZ,self.pyIdx[0]),False)
-        genNamesD = add_generators(DSSObj,vecSlc(self.YZ,self.pdIdx[0]),True)
-        genNames = genNamesY + genNamesD
-        
-        Qset = 100*np.linspace(-1,1,100)*1e3
-        xCtrl = np.zeros(self.nCtrl)
-        # xCtrl[self.nPctrl:-self.nT] = 1
-        xCtrl[:self.nPctrl] = 1
-        
-        TL = np.zeros(len(Qset))
-        TLest = np.zeros(len(Qset))
-        PL = np.zeros(len(Qset))
-        PLest = np.zeros(len(Qset))
-        vErr = np.zeros(len(Qset))
-        iErr = np.zeros(len(Qset))
-        
-        for i in range(len(Qset)):
-            # setGenPq(DSSCircuit,genNames,np.zeros(self.nPctrl),np.ones(self.nPctrl)*Qset[i]*1e-3)
-            setGenPq(DSSCircuit,genNames,np.ones(self.nPctrl)*Qset[i]*1e-3,np.zeros(self.nPctrl))
-            TL[i],PL[i],YNodeV = runCircuit(DSSCircuit,DSSSolution)[2::]
-            absYNodeV = abs(YNodeV[3:])
-            Icalc = abs(self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
+        for ii in range(2):
+            self.loadCvrModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
+            genNamesY = add_generators(DSSObj,vecSlc(self.YZ,self.pyIdx[0]),False)
+            genNamesD = add_generators(DSSObj,vecSlc(self.YZ,self.pdIdx[0]),True)
+            genNames = genNamesY + genNamesD
             
-            dx = xCtrl*Qset[i]
-            TLest[i],PLest[i],Vest,Iest = self.runQp(dx)
+            Sset = 100*np.linspace(-1,1,100)*1e3
+            xCtrl = np.zeros(self.nCtrl)
             
-            vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
-            iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
-        
-        # fig,[ax0,ax1,ax2,ax3] = plt.subplots(4)
-        # ax0.plot(Qset,TL)
-        # ax0.plot(Qset,TLest)
-        # ax0.set_title('Losses')
-        # ax1.plot(Qset,PL)
-        # ax1.plot(Qset,PLest)
-        # ax1.set_title('Load power')
-        # ax2.plot(Qset,vErr)
-        # ax3.plot(Qset,iErr)
-        # plt.tight_layout()
-        # plt.show()
-        
-        
+            if ii==0:
+                xCtrl[self.nPctrl:-self.nT] = 1
+            elif ii==1:
+                xCtrl[:self.nPctrl] = 1
+            
+            TL = np.zeros(len(Sset))
+            TLest = np.zeros(len(Sset))
+            PL = np.zeros(len(Sset))
+            PLest = np.zeros(len(Sset))
+            vErr = np.zeros(len(Sset))
+            iErr = np.zeros(len(Sset))
+            
+            for i in range(len(Sset)):
+                if ii==0:
+                    setGenPq(DSSCircuit,genNames,np.zeros(self.nPctrl),np.ones(self.nPctrl)*Sset[i]*1e-3)
+                elif ii==1:
+                    setGenPq(DSSCircuit,genNames,np.ones(self.nPctrl)*Sset[i]*1e-3,np.zeros(self.nPctrl))
+                TL[i],PL[i],YNodeV = runCircuit(DSSCircuit,DSSSolution)[2::]
+                absYNodeV = abs(YNodeV[3:])
+                Icalc = abs(self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
+                
+                dx = xCtrl*Sset[i]
+                TLest[i],PLest[i],Vest,Iest = self.runQp(dx)
+                
+                vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
+                iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
+            
+            
+            if ii==0:
+                xlbl = 'Reactive power per load (kvar)'
+            elif ii==1:
+                xlbl = 'Real power per load (kW)'
+            fig,[ax0,ax1,ax2,ax3] = plt.subplots(ncols=4,figsize=(11,4))
+            ax0.plot(Sset,TL - np.mean(TL),label='dss'); ax0.grid(True)
+            ax0.plot(Sset,TLest - np.mean(TL),label='apx')
+            ax0.set_title('Losses (kW)'); ax0.set_xlabel(xlbl)
+            ax0.legend()
+            ax1.plot(Sset,PL-np.mean(PL)); ax1.grid(True)
+            ax1.plot(Sset,PLest-np.mean(PL))
+            ax1.set_title('Load power (kW)'); ax1.set_xlabel(xlbl)
+            ax2.plot(Sset,vErr); ax2.grid(True)
+            ax2.set_title('Abs voltage error'); ax2.set_xlabel(xlbl)
+            ax3.plot(Sset,iErr); ax3.grid(True)
+            ax3.set_title('Abs current error'); ax3.set_xlabel(xlbl)
+            plt.tight_layout()
+            plt.show()
         return
     def runQp(self,dx):
         TL = 1e-3*(dx.dot(self.qpQlss.dot(dx) + self.qpLlss) + self.qpClss)
@@ -518,6 +477,7 @@ class buildLinModel:
         Vest = self.Kc2v.dot(dx) + self.Kc2v.dot(self.X0ctrl) + self.bV
         Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
         return TL,PL,Vest,Iest
+
         
     def createNrelModel(self,lin_point=1.0):
         print('\nCreate NREL model, feeder:',self.feeder,'\nLin Point:',lin_point,'\nCap pos model:',self.setCapsModel,'\nCap Pos points:',self.capPosLin,'\n',time.process_time())
@@ -820,7 +780,7 @@ class buildLinModel:
         self.yzW2V = getYzW2V(self.WbusSet,DSSCircuit.YNodeOrder)
         
         regXfmrs = get_regXfmr(DSSCircuit)
-        wregIdxs = np.array([])
+        wregIdxs = np.array([],dtype=int)
         for reg in regXfmrs:
             wregIdxs = np.concatenate((wregIdxs,np.where(np.array(self.WbrchSet)=='Transformer.'+reg)[0]))
         
@@ -908,7 +868,7 @@ class buildLinModel:
             else:
                 self.loadDssModel(loadMult=self.currentLinPoint)
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
-        self.loadDssModel(loadMult=linPoint)
+        # self.loadDssModel(loadMult=linPoint) # <--- should this be here (!) (NO...!)
         
         j = DSSCircuit.RegControls.First
         dVdt = np.zeros((self.nV,DSSCircuit.RegControls.Count))
