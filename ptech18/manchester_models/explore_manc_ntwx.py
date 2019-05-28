@@ -32,7 +32,7 @@ for dir in Dir0:
             if fdr[0:7]=='Feeder_':
                 os.chdir(fdr)
                 print('Running ' + dir + ', ' + fdr)
-                DSSText.command="Compile (" + os.getcwd() + "\\Master.dss)"
+                DSSText.Command="Compile (" + os.getcwd() + "\\Master.dss)"
                 TP = TP + [DSSC.TotalPower[0] + 1j*DSSC.TotalPower[1]]
                 TL = TL + [DSSC.Losses[0] + 1j*DSSC.Losses[1]]
                 MxV = MxV + [max(DSSC.AllBusVmagPu)]
