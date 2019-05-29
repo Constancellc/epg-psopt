@@ -16,7 +16,8 @@ def main(fdr_i=5,nrelTest=False,linPoint=1.0,pCvr=0.8):
 # self = main(23,nrelTest=False,linPoint=0.6)
 # self = main(5,nrelTest=False,linPoint=0.6)
 # self = main(5,True,0.6)
-self = main(5,pCvr=0.3)
+# self = main(8,pCvr=0.3,nrelTest=True)
+self = main(5,pCvr=0.3,nrelTest=True)
 
 
 # TODAY: start creating and validating a model that takes 

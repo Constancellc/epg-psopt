@@ -10,6 +10,7 @@ from dss_python_funcs import *
 from dss_vlin_funcs import *
 from dss_voltage_funcs import *
 import dss_stats_funcs as dsf
+from importlib import reload
 
 from cvxopt import matrix, solvers
 
@@ -59,7 +60,7 @@ class buildLinModel:
         self.linPoint = linPoints[0]
         
         self.makeCvrQp()
-        # self.testCvrQp()
+        self.testCvrQp()
         # self.runCvrQp()
         
         # vce,vae,kN = self.nrelModelTest(k=np.linspace(-0.5,1.2,18))
@@ -233,7 +234,13 @@ class buildLinModel:
         dVnoLoad = H.dot(VoffLoad)
         
         print('Create linear models:\n',time.process_time()); t = time.time()
-        My,Md,a,dMy,dMd,da = cvrLinearization( Ybus,Vh,V0,H,0,0,self.vKvbase,self.vKvbaseD )
+        
+        My,Md,a,dMy,dMd,da = firstOrderTaylor( Ybus,Vh,V0,xYcvr,xDcvr,H[:,3:] ); \
+                            print('===== Using the FOT method =====')
+        # My,Md,a,dMy,dMd,da = cvrLinearization( Ybus,Vh,V0,H,0,0,self.vKvbase,self.vKvbaseD ) \
+                            # print('Using the FLP method')
+        
+        
         self.nV = len(a)
         self.createTapModel(lin_point,cvrModel=True) # this seems to be ok. creates Kt and Mt matrices.
         self.nT = self.Mt.shape[1]
@@ -330,7 +337,13 @@ class buildLinModel:
         P = np.delete(P,self.wregIdxs,axis=0)
         PT = P.T
         
-        qpQlss = 1e-3*np.real( (M.T).dot(PT.dot(Wcnj)) )
+        
+        D = np.eye(self.nCtrl)
+        D[range(-3,0),range(-3,0)] = 1e-6
+        # D[range(-3,0),range(-3,0)] = 1
+        
+        # qpQlss = 1e-3*np.real( (M.T).dot(PT.dot(Wcnj)) )
+        qpQlss = 1e-3*np.real( (D.dot(M.T)).dot(PT.dot(Wcnj.dot(D))) )
         self.qpQlss = 0.5*(qpQlss + qpQlss.T) # make symmetric.
         self.qpLlss0 = 1e-3*np.real( aV.dot(PT.dot(Wcnj)) + aIcnj.dot(P.dot(M)) )
         self.qpLlss = self.qpLlss0 + 2*self.qpQlss.dot(self.X0ctrl)
@@ -350,8 +363,12 @@ class buildLinModel:
         self.log.info('TLoad:'+str(-DSSCircuit.TotalPower[0] - 1e-3*DSSCircuit.Losses[0]))
         self.log.info('TLoadEst:'+str(-1e-3*sum(Kc2pC)))
         
-        print('PD test:',pdTest(self.qpQlss))
-        print('PD test:',pdTest(self.qpQlss + np.linalg.norm(self.qpQlss)*1e-20*np.eye(self.nCtrl)))
+        import dss_vlin_funcs # for debugging
+        reload(dss_vlin_funcs)
+        # print('PD test:',pdTest(self.qpQlss))
+        print('PD test:',dss_vlin_funcs.pdTest(self.qpQlss))
+        
+        # print('PD test:',pdTest(self.qpQlss + np.linalg.norm(self.qpQlss)*1e-20*np.eye(self.nCtrl)))
         
         # self.log.info('Power load error:',
         return

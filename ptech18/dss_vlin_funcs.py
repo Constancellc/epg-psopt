@@ -4,6 +4,7 @@ from scipy import sparse
 from cvxopt import matrix
 import scipy.sparse.linalg as spla
 from dss_python_funcs import *
+import matplotlib.pyplot as plt
 
 def nrel_linearization(Ybus,Vh,V0,H):
     Yll = Ybus[3:,3:].tocsc()
@@ -146,12 +147,102 @@ def cvrLinearization(Ybus,Vh,V0,H,pCvr,qCvr,kvYbase,kvDbase):
     
 def pdTest(A):
     # first find the symmetric part of A, then try the cholesky decomposition.
-    S = 0.5*(A + A.T)
-    try:
-        np.linalg.cholesky(S)
+    nP = len(A)//2
+    eigs = np.linalg.eigvals(A)
+    
+    # print(sum(np.linalg.eig(A)[-1][:nP,-1]))
+    # print(sum(np.linalg.eig(A)[-1][:nP,-2]))
+    
+    # plt.plot(np.linalg.eig(A)[-1][:,-1],'x-')
+    # plt.plot(np.linalg.eig(A)[-1][:,-2],'x-')
+    # plt.show()
+    
+    # plt.plot(np.log10(eigs + (0/(eigs>0))),'x-'); 
+    # plt.plot(np.log10(-eigs + (0/(eigs<0)) ),'x-')
+    # plt.show()
+    
+    if np.min(eigs)>0:
         pd = True
-    except:
+    else:
         pd = False
+    # S = 0.5*(A + A.T)
+    # try:
+        # np.linalg.cholesky(S)
+        # pd = True
+    # except:
+        # pd = False
     return pd
     
+
+def firstOrderTaylor(Ybus,V,V0,xhy,xhd,H):
+    # based on the m-file firstOrderTaylor.
+    # V is YNodeV[3:]
     
+    jay = np.sqrt(-1 + 0j)
+    
+    YLL = Ybus[3:,3:]
+    YL0 = Ybus[3:,:3]
+    
+    shy = xhy[0:len(xhy)//2] + 1j*xhy[len(xhy)//2:]
+    shd = xhd[0:len(xhd)//2] + 1j*xhd[len(xhd)//2:]
+    
+    IdeltaConj = np.diag(1/H.dot(V)).dot(shd)
+    sizeV = len(V)
+    sizeD = len(xhd)//2
+    
+    M1 = np.diag( (H.T).dot(IdeltaConj) );
+    M2 = np.diag(V).dot(H.T);
+    # M3 = np.diag(V).dot(YLL.conj());
+    M3 = (( YLL.dot( np.diag(V.conj()) )).T).conj();
+    M4 = np.diag( (YL0.conj()).dot(V0.conj()) + (YLL.conj()).dot(V.conj()) );
+    M5 = np.diag(H.dot(V));
+    M6 = np.diag(IdeltaConj).dot(H);
+    Uwye = np.concatenate( (np.eye(sizeV),jay*np.eye(sizeV)),axis=1 )
+    Udelta = np.concatenate( (np.eye(sizeD),jay*np.eye(sizeD)),axis=1 )
+    
+    A1 = np.concatenate( ( (M1-M3-M4).real, (-M1-M3+M4).imag, M2.real, M2.imag ), axis=1  )
+    A2 = np.concatenate( ( (M1 - M3 - M4).imag, (M1 + M3 - M4).real, M2.imag, -M2.real ), axis=1  )
+    A3 = np.concatenate( ( M6.real, -M6.imag, M5.real, M5.imag ), axis=1 )
+    A4 = np.concatenate( ( M6.imag, M6.real, M5.imag, -M5.real ),axis=1 )
+    
+    A = np.concatenate( (A1,A2,A3,A4), axis=0 )
+    
+    Bwye = np.concatenate( (-Uwye.real,-Uwye.imag, np.zeros((sizeD,2*sizeV)),np.zeros((sizeD,2*sizeV)) ),axis=0 )
+    Bdelta = np.concatenate( (np.zeros((sizeV,2*sizeD)),np.zeros((sizeV,2*sizeD)),Udelta.real, Udelta.imag ),axis=0 )
+    
+    # % For each injection i (ordered as [P_1;...;P_N; Q_1;...;Q_N]), we solve A*x = B(:, i) to obtain the derivatives
+    # % of voltages and phase-to-phase currents wrt injection i.
+    
+    derivVP = np.zeros((sizeV,0),dtype=complex)
+    for i in range(sizeV):
+        x = np.linalg.solve( A,Bwye[:,i] )
+        derivVP = np.c_[derivVP,x[:sizeV] + jay*x[sizeV:2*sizeV]]
+    derivVQ = np.zeros((sizeV,0),dtype=complex)
+    for i in range(sizeV,2*sizeV):
+        x = np.linalg.solve( A,Bwye[:,i] )
+        derivVQ = np.c_[derivVQ,x[:sizeV] + jay*x[sizeV:2*sizeV]]
+    derivWye = np.c_[derivVP,derivVQ]
+    
+    
+    
+    derivVP = np.zeros((sizeV,0),dtype=complex)
+    for i in range(sizeD):
+        x = np.linalg.solve( A,Bdelta[:,i] )
+        derivVP = np.c_[derivVP,x[:sizeV] + jay*x[sizeV:2*sizeV]]
+    
+    derivVQ = np.zeros((sizeV,0),dtype=complex)
+    for i in range(sizeD,2*sizeD):
+        x = np.linalg.solve( A,Bdelta[:,i] )
+        derivVQ = np.c_[derivVQ,x[:sizeV] + jay*x[sizeV:2*sizeV]]
+    
+    derivVDelta = np.c_[derivVP,derivVQ];
+    
+    My = derivWye
+    Md = derivVDelta
+    a = V - My.dot(xhy) - Md.dot(xhd)
+    
+    dMy = H.dot(My)
+    dMd = H.dot(Md)
+    da = H.dot(a)
+    
+    return My,Md,a,dMy,dMd,da
