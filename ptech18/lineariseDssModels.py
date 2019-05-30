@@ -60,8 +60,20 @@ class buildLinModel:
         self.linPoint = linPoints[0]
         
         self.makeCvrQp()
-        self.testCvrQp()
-        # self.runCvrQp()
+        
+        # self.vHi = 1.06*self.vKvbase
+        # self.vLo = 0.97*self.vKvbase
+        self.vHi = 1.05*self.vKvbase
+        self.vLo = 0.95*self.vKvbase
+        
+        self.pLim = 500. # only a lower bound (curtailment), W
+        self.qLim = 1e4 # kVAr
+        self.tLim = 0.1 # pu
+        
+        # self.testCvrQp()
+        
+        self.runCvrQp()
+        self.showQpSln()
         
         # vce,vae,kN = self.nrelModelTest(k=np.linspace(-0.5,1.2,18))
         
@@ -235,10 +247,10 @@ class buildLinModel:
         
         print('Create linear models:\n',time.process_time()); t = time.time()
         
-        My,Md,a,dMy,dMd,da = firstOrderTaylor( Ybus,Vh,V0,xYcvr,xDcvr,H[:,3:] ); \
-                            print('===== Using the FOT method =====')
-        # My,Md,a,dMy,dMd,da = cvrLinearization( Ybus,Vh,V0,H,0,0,self.vKvbase,self.vKvbaseD ) \
-                            # print('Using the FLP method')
+        # My,Md,a,dMy,dMd,da = firstOrderTaylor( Ybus,Vh,V0,xYcvr,xDcvr,H[:,3:] ); \
+                            # print('===== Using the FOT method =====')
+        My,Md,a,dMy,dMd,da = cvrLinearization( Ybus,Vh,V0,H,0,0,self.vKvbase,self.vKvbaseD ); \
+                            print('Using the FLP method')
         
         
         self.nV = len(a)
@@ -338,12 +350,7 @@ class buildLinModel:
         PT = P.T
         
         
-        D = np.eye(self.nCtrl)
-        D[range(-3,0),range(-3,0)] = 1e-6
-        # D[range(-3,0),range(-3,0)] = 1
-        
-        # qpQlss = 1e-3*np.real( (M.T).dot(PT.dot(Wcnj)) )
-        qpQlss = 1e-3*np.real( (D.dot(M.T)).dot(PT.dot(Wcnj.dot(D))) )
+        qpQlss = 1e-3*np.real( (M.T).dot(PT.dot(Wcnj)) )
         self.qpQlss = 0.5*(qpQlss + qpQlss.T) # make symmetric.
         self.qpLlss0 = 1e-3*np.real( aV.dot(PT.dot(Wcnj)) + aIcnj.dot(P.dot(M)) )
         self.qpLlss = self.qpLlss0 + 2*self.qpQlss.dot(self.X0ctrl)
@@ -363,66 +370,100 @@ class buildLinModel:
         self.log.info('TLoad:'+str(-DSSCircuit.TotalPower[0] - 1e-3*DSSCircuit.Losses[0]))
         self.log.info('TLoadEst:'+str(-1e-3*sum(Kc2pC)))
         
-        import dss_vlin_funcs # for debugging
-        reload(dss_vlin_funcs)
-        # print('PD test:',pdTest(self.qpQlss))
-        print('PD test:',dss_vlin_funcs.pdTest(self.qpQlss))
-        
-        # print('PD test:',pdTest(self.qpQlss + np.linalg.norm(self.qpQlss)*1e-20*np.eye(self.nCtrl)))
-        
-        # self.log.info('Power load error:',
+        print('Q PD test:',pdTest(self.qpQlss))
         return
     
     def runCvrQp(self):
         # minimize    (1/2)*x'*P*x + q'*x
         # subject to  G*x <= h
         # A*x = b.
-        # Q = 2*matrix([[2,.5],[.5,1]])
-        # p = matrix([1.0,1.0])
-        # G = matrix([[-1.,0.0],[0.0,-1.0]])
-        # h = matrix([0.0,0.0])
-        # A = matrix([1.0,1.0],(1,2))
-        # b = matrix(1.0)
         # sol = solvers.qp(Q,p,G,h,A,b)
         
         # OBJECTIVE FUNCTION
         # losses, load, curtailment
         Q = matrix( 2*self.qpQlss )
         p = matrix( self.qpLlss + self.ploadL + self.pcurtL )
-        
-        
+
         # INEQUALITY CONSTRAINTS
         # Upper Control variables, then voltages, then currents; then repeat but lower.
-        xLimUp = matrix( np.concatenate(( np.zeros(self.nPctrl),np.ones(self.nPctrl)*1e3,np.ones(self.nT)*0.05/16.)) )
-        xLimLo = matrix( np.concatenate(( np.ones(self.nPctrl)*500.,np.ones(self.nPctrl)*1e3,-np.ones(self.nT)*0.05/16.)) )
+        # xLo <= Ax <= xHi
+        # xLimUp = matrix( np.concatenate(( np.zeros(self.nPctrl),np.ones(self.nPctrl)*1e3,np.ones(self.nT)*0.05/16.)) )
+        # xLimLo = matrix( np.concatenate(( np.ones(self.nPctrl)*500.,np.ones(self.nPctrl)*1e3,-np.ones(self.nT)*0.05/16.)) )
         
-        vLimUp = matrix( 1.07*self.vKvbase - self.bV - self.Kc2v.dot(self.X0ctrl) )
-        vLimLo = matrix( 0.93*self.vKvbase - self.bV - self.Kc2v.dot(self.X0ctrl) )
+        xLimUp = matrix( np.concatenate(( np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim)) )
+        xLimLo = matrix( np.concatenate(( -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim)) )
+        
+        vLimUp = matrix( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )
+        vLimLo = matrix( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )
         
         iLim = matrix( self.iXfmrLims - self.Kc2i.dot(self.X0ctrl) + self.bW )
         
         # recall: lower constraints by -1
-        G = matrix( np.concatenate( (np.eye(self.nCtrl),self.Kc2v,self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v) ) )
-        h = matrix( np.concatenate( (xLimUp,vLimUp,iLim,-xLimLo,-vLimLo) ) )
-        
+        # G = matrix( np.concatenate( (np.eye(self.nCtrl),self.Kc2v,self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v) ) )
+        # h = matrix( np.concatenate( (xLimUp,vLimUp,iLim,-xLimLo,-vLimLo) ) )
+
+        G = matrix( np.r_[np.eye(self.nCtrl),self.Kc2v,self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v] )
+        h = matrix( np.r_[xLimUp,vLimUp,iLim,-xLimLo,-vLimLo] )
+
         # EQUALITY CONSTRAINTS
-        # curtailment (possibly)
-        
+        # curtailment (possibly?)
         # A = matrix([],(0,self.nCtrl))
         # b = matrix([],(0,0))
-        # print(A.size)
         
-        # sol = solvers.qp(Q,p,G,h)
-        sol = solvers.qp(Q,p,G,h,solver='mosek')
+        sol = solvers.qp(Q,p,G,h)
+        self.sln = sol
         
-        # TL = (dx.dot(self.qpQlss.dot(dx) + self.qpLlss) + self.qpClss)
-        # PL = dx.dot(self.ploadL) + self.ploadC
-        # TC = dx.dot(self.pcurtL)
-        # Vest = self.Kc2v.dot(dx) + self.Kc2v.dot(self.X0ctrl) + self.bV
-        # Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
-        # return TL,PL,TC,Vest,Iest
+    def showQpSln(self):
+        # things to plot: voltages, currents.
+        # Network maps: losses before/after?
+        
+        # voltages and currents first.
+        
+        slnX = np.array(self.sln['x']).flatten()
+        
+        TL0,PL0,TC0,V0,I0 = self.runQp(np.zeros(self.nCtrl))
+        TL,PL,TC,V,I = self.runQp(slnX)
+        
+        print('\n================== QP Solution:\nLoss before (kW):',TL0)
+        print('Loss after (kW):',TL)
+        print('Load before (kW):',PL0)
+        print('Load after (kW):',PL)
+        print('Curtailment before (kW):',TC0)
+        print('Curtailment after (kW):',TC)
+        print('Total power before (kW):', PL0 + TL0 + TC0)
+        print('Total power after (kW):', PL + TL + TC)
         
         
+        fig,[ax0,ax1,ax2] = plt.subplots(ncols=3,figsize=(11,4))
+        
+        # plot voltages versus voltage limits
+        ax0.plot(V0/self.vKvbase,'o');
+        ax0.plot(V/self.vKvbase,'x');
+        ax0.plot(self.vHi/self.vKvbase,'k_');
+        ax0.plot(self.vLo/self.vKvbase,'k_');
+        ax0.set_title('Voltages')
+        ax0.grid(True)
+        # ax0.show()
+        
+        # plot currents versus current limits
+        ax1.plot(I0,'o')
+        ax1.plot(I,'x')
+        ax1.plot(self.iXfmrLims,'k_')
+        ax1.set_xlabel('Bus Index')
+        ax1.set_ylabel('Current (A)')
+        ax1.set_title('Currents')
+        ax1.grid(True)
+        # ax1.show()
+        
+        ax2.plot(range(self.nPctrl),100*slnX[:self.nPctrl]/self.pLim,'x-',label='Pgen (%)')
+        ax2.plot(range(self.nPctrl,self.nPctrl*2),100*slnX[self.nPctrl:self.nPctrl*2]/self.qLim,'x-',label='Qgen (%)')
+        ax2.plot(range(self.nPctrl*2,self.nPctrl*2 + self.nT),100*slnX[self.nPctrl*2:]/self.tLim,'x-',label='t (%)')
+        ax2.set_xlabel('Control Index')
+        ax2.set_ylabel('Control effort, %')
+        ax2.set_title('Control settings')
+        ax2.legend()
+        ax2.grid(True)
+        plt.show()
         
     def testCvrQp(self):
         # THREE TESTS in terms of the sensitivity of the model to real power generation, reactive power, and tap changes.
@@ -477,23 +518,23 @@ class buildLinModel:
             vBusOut=YNodeVaug[list(self.yzW2V)]
             TLcalc[i] = sum(np.delete(1e-3*vBusOut*iOut.conj(),self.wregIdxs).real) # for debugging
         
-        # fig,[ax0,ax1,ax2,ax3,ax4] = plt.subplots(ncols=5,figsize=(11,5))
-        # ax0.plot(dxScale,TL - np.mean(TL),label='dss'); ax0.grid(True)
-        # ax0.plot(dxScale,TLest - np.mean(TL),label='apx')
-        # ax0.set_title('Losses'); ax0.set_xlabel('Tap (pu)')
-        # ax0.legend()
-        # ax1.plot(dxScale,PL - np.mean(PL)); ax1.grid(True)
-        # ax1.plot(dxScale,PLest - np.mean(PL))
-        # ax1.set_title('Load power'); ax1.set_xlabel('Tap (pu)')
-        # ax2.plot(dxScale,TC); ax2.grid(True)
-        # ax2.plot(dxScale,TCest); ax2.grid(True)
-        # ax2.set_title('Curtailment'); ax2.set_xlabel('Tap (pu)')
-        # ax3.plot(dxScale,vErr); ax3.grid(True)
-        # ax3.set_title('Abs voltage error'); ax3.set_xlabel('Tap (pu)')
-        # ax4.plot(dxScale,iErr); ax4.grid(True)
-        # ax4.set_title('Abs current error'); ax4.set_xlabel('Tap (pu)')
-        # plt.tight_layout()
-        # plt.show()
+        fig,[ax0,ax1,ax2,ax3,ax4] = plt.subplots(ncols=5,figsize=(11,5))
+        ax0.plot(dxScale,TL - np.mean(TL),label='dss'); ax0.grid(True)
+        ax0.plot(dxScale,TLest - np.mean(TL),label='apx')
+        ax0.set_title('Losses'); ax0.set_xlabel('Tap (pu)')
+        ax0.legend()
+        ax1.plot(dxScale,PL - np.mean(PL)); ax1.grid(True)
+        ax1.plot(dxScale,PLest - np.mean(PL))
+        ax1.set_title('Load power'); ax1.set_xlabel('Tap (pu)')
+        ax2.plot(dxScale,TC); ax2.grid(True)
+        ax2.plot(dxScale,TCest); ax2.grid(True)
+        ax2.set_title('Curtailment'); ax2.set_xlabel('Tap (pu)')
+        ax3.plot(dxScale,vErr); ax3.grid(True)
+        ax3.set_title('Abs voltage error'); ax3.set_xlabel('Tap (pu)')
+        ax4.plot(dxScale,iErr); ax4.grid(True)
+        ax4.set_title('Abs current error'); ax4.set_xlabel('Tap (pu)')
+        plt.tight_layout()
+        plt.show()
         
         # Test 2. Put a whole load of generators in and change real and reactive powers.
         for ii in range(2):
