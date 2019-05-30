@@ -4,9 +4,10 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 from lv_optimization_new import LVTestFeeder
+import time
 
 fdr = '1'
-runs = 300
+runs = 1
 
 tr = 1
 
@@ -48,27 +49,39 @@ for nEVs in [55]:
         network.uncontrolled()
         p = network.get_feeder_load()
         l_u = network.predict_losses()
+        t0 = time.time()
 
         try:
             network.load_flatten()
         except:
             continue
         
-        p2 = network.get_feeder_load()
-        l_f = network.predict_losses()
+        t1 = time.time()
+        
+        #p2 = network.get_feeder_load()
+        #l_f = network.predict_losses()
 
         try:
             network.loss_minimise()
         except:
             continue
+        
+        t2 = time.time()
 
         if network.status != 'optimal':
             print(network.status)
             continue
-        p3 = network.get_feeder_load()
-        l_m = network.predict_losses()
+        #p3 = network.get_feeder_load()
+        #l_m = network.predict_losses()
 
         network.balance_phase2(phase)
+
+        
+        t3 = time.time()
+
+        print(t1-t0)
+        print(t2-t1)
+        print(t3-t2)
 
         p4 = network.get_feeder_load()
         l_p = network.predict_losses()
@@ -84,6 +97,7 @@ for nEVs in [55]:
         lss['f'].append(l_f)
         lss['m'].append(l_m)
         lss['p'].append(l_p)
+    '''
 
     with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\
               'jul-losses.csv','w') as csvfile:
@@ -91,7 +105,7 @@ for nEVs in [55]:
         writer.writerow(['Base','Unc','LF','LM','PB'])
         for s in range(len(lss['b'])):
             writer.writerow([lss['b'][s],lss['u'][s],lss['f'][s],lss['m'][s],
-                             lss['p'][s]])
+                             lss['p'][s]])'''
         
 '''                       
 with open('../../../Documents/simulation_results/LV/manc-models/'+fdr+\

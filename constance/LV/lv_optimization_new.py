@@ -8,7 +8,6 @@ from cvxopt import matrix, spdiag, sparse, solvers, spmatrix
 solvers.options['maxiters'] = 40
 solvers.options['show_progress'] = False
 
-
 class LVTestFeeder:
 
     def __init__(self,folderPath,t_res):
@@ -112,7 +111,7 @@ class LVTestFeeder:
             times = []
             
             for j2 in range(len(vehicles[j])):
-                if vehicles[j][j2][0] == 0:
+                if vehicles[j][j2][0] < 0.1:
                     continue
                 kWh.append(vehicles[j][j2][0])
 
@@ -290,6 +289,127 @@ class LVTestFeeder:
                 
         self.set_evs(vehicles)
         self.evs = evs
+
+    def set_evs_and_hh_pecanstreet(self,filepath):
+        profiles = {}
+        ev_profiles = {}
+        hhs = []
+        with open(filepath,'rU') as csvfile:
+            reader = csv.reader(csvfile)
+            next(reader)
+            for row in reader:
+                hh = row[1]+row[0][8:10]
+                if hh not in profiles:
+                    profiles[hh] = [0.0]*1440
+                    ev_profiles[hh] = [0.0]*1440
+
+                t = int(row[0][11:13])*60+int(row[0][14:16])
+
+                profiles[hh][t] += float(row[3])-float(row[2])
+                ev_profiles[hh][t] += float(row[2])
+                
+        toremove = []
+        for hh in profiles:
+            if max(profiles[hh]) < 0.1:
+                toremove.append(hh)
+            elif min(ev_profiles[hh]) < -0.1:
+                toremove.append(hh)
+            else:
+                hhs.append(hh)
+
+        for hh in toremove:
+            del profiles[hh]
+            del ev_profiles[hh]
+
+        # now chose some
+        chosen_ = [] # for indexes
+        chosen = [] # for households
+        chosenV = [] # for vehicles
+
+        while len(chosen_) < self.nH:
+            chosen_.append(hhs[int(random.random()*len(hhs))])
+
+        # households are easy
+        for i in range(self.nH):
+            chosen.append(profiles[chosen_[i]])
+
+        self.set_households(chosen)
+
+        evs = []
+        # vehicles are harder
+        for hh in range(self.nH):
+            chosenV.append([])
+            evs.append([0.0]*self.T)
+            t = 0
+            while ev_profiles[chosen_[hh]][t] > 0.1 and t < 1439:
+                t += 1
+                continue
+            while ev_profiles[chosen_[hh]][t] < 0.1 and t < 1439:
+                t += 1
+                continue
+            start1 = t
+            kWh1 = 0
+            while ev_profiles[chosen_[hh]][t] > 0.1 and t < 1439:
+                kWh1 += ev_profiles[chosen_[hh]][t]/60
+                t += 1
+                continue
+            while ev_profiles[chosen_[hh]][t] < 0.1 and t < 1439:
+                t += 1
+                continue
+            if t < 1439:
+                start2 = t
+                kWh2 = 0
+                while ev_profiles[chosen_[hh]][t] > 0.1 and t < 1439:
+                    kWh2 += ev_profiles[chosen_[hh]][t]/60
+                    t += 1
+                    continue
+
+                if True:
+                    chosenV[-1].append([kWh1,int(start1/self.t_res),
+                                        int(start2/self.t_res)-1])
+                if kWh2 > 0:
+                    chosenV[-1].append([kWh2,int(start2/self.t_res),
+                                        int(start1/self.t_res)-1])
+            else:
+                chosenV[-1].append([kWh1,int(start1/self.t_res),
+                                    int((start1-30)/self.t_res)])
+
+            # check for no overlapping constraints
+            if len(chosenV[-1]) > 1:
+                # The following is an outrageous hack but frankly idc
+                for j in range(1,len(chosenV[-1])):
+                    diff = chosenV[-1][j][1]-chosenV[-1][j-1][1]
+                    d2 = int(diff/2)
+                    chosenV[-1][j-1][2] = chosenV[-1][j-1][1]+d2+\
+                                           int(random.random()*d2)
+                               
+                if chosenV[-1][-1][2] < chosenV[-1][-1][1]:
+                    # check no overlap with first journey:
+                    if chosenV[-1][-1][2] > chosenV[-1][0][1]:
+                        chosenV[-1][-1][2] = chosenV[-1][0][1]
+
+            # adjust any unfeasible constraints here
+            for j in range(len(chosenV[-1])):
+                if chosenV[-1][j][1] < chosenV[-1][j][2]:
+                    maxTime = chosenV[-1][j][2]-chosenV[-1][j][1]
+                elif chosenV[-1][j][1] == chosenV[-1][j][2]:
+                    chosenV[-1][j][1] -= 1
+                    maxTime = 1
+                else:
+                    maxTime = int(1440/self.t_res)+chosenV[-1][j][2]\
+                              -chosenV[-1][j][1]
+                maxEnergy = maxTime*self.t_res*6.3/60 # 7kw at 90% eff
+                
+                if chosenV[-1][j][0] > maxEnergy:
+                    chosenV[-1][j][0] = 0.99*maxEnergy
+
+            if chosenV[-1][0][0] == 0:
+                del chosenV[-1]
+                    
+                                   
+        self.set_evs(chosenV)
+        self.evs = evs
+
 
     def uncontrolled(self,power=3.5,c_eff=0.9): # UPDATED
         profiles = []
