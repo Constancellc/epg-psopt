@@ -5,15 +5,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from lv_optimization_new import LVTestFeeder
 
-fdr = '1'
+fdr = 'epriK1'
 runs = 400
-tr = 1
+tr = 10
 alpha = 0.328684513701
 
-stem = '../../../Documents/ccModels/eulv/'
-a = np.load(stem+'eulvLptaCc060.npy')
-My = np.load(stem+'eulvLptMyCc060.npy')
-v0 = np.load(stem+'eulvLptV0Cc060.npy')
+stem = '../../../Documents/ccModels/epriK1/'
+a = np.load(stem+'epriK1a.npy')
+My = np.load(stem+'epriK1My.npy')
+v0 = np.load(stem+'epriK1LptV0Cc100.npy')
 
 network = LVTestFeeder('manc_models/'+fdr,t_res=tr)
 results_p = {'b':[],'u':[],'f':[]}
@@ -23,20 +23,31 @@ results_va = {'b':[],'u':[],'f':[]}
 results_vm = {'b':[],'u':[],'f':[]}
 for mc in range(runs):
     print(mc)
-    network.set_households_NR('../../../Documents/netrev/TC2a/03-Dec-2013.csv')
-    network.set_evs_MEA('../../../Documents/My_Electric_Avenue_Technical_Data/'+
-                            'constance/ST1charges/')
+    network.set_evs_and_hh_pecanstreet('../../../Documents/pecan-street/'+\
+                                       '1min-texas/summer-18.csv')
     
     results_p['b'].append(network.get_feeder_load())
     results_l['b'].append(network.predict_losses())
-    v = network.get_all_voltages_mag(My,a,alpha,v0)
+
+    v = network.get_all_voltages_mag(My,a,alpha,v0,scale=1)
     vav = []
     vm = []
     vu = []
     for t in v:
-        vav.append(sum(v[t])/len(v[t]))
-        vm.append(min(v[t]))
-        vu.append(max(v[t]))
+        pu = []
+        for i in range(len(v[t])):
+            if v[t][i] > 1000:
+                continue
+            elif v[t][i] < 100:
+                continue
+            elif v[t][i] > 255:
+                pu.append(v[t][i]/277)
+            else:
+                pu.append(v[t][i]/240)
+                
+        vav.append(sum(pu)/len(pu))
+        vm.append(min(pu))
+        vu.append(max(pu))
         
     results_vp['b'].append(vu)
     results_va['b'].append(vav)
@@ -45,37 +56,61 @@ for mc in range(runs):
     network.uncontrolled()
     results_p['u'].append(network.get_feeder_load())
     results_l['u'].append(network.predict_losses())
-    v = network.get_all_voltages_mag(My,a,alpha,v0)
+    v = network.get_all_voltages_mag(My,a,alpha,v0,scale=1)
     vav = []
     vm = []
     vu = []
     for t in v:
-        vav.append(sum(v[t])/len(v[t]))
-        vm.append(min(v[t]))
-        vu.append(max(v[t]))
+        pu = []
+        for i in range(len(v[t])):
+            if v[t][i] > 1000:
+                continue
+            elif v[t][i] < 100:
+                continue
+            elif v[t][i] > 255:
+                pu.append(v[t][i]/277)
+            else:
+                pu.append(v[t][i]/240)
+                
+        vav.append(sum(pu)/len(pu))
+        vm.append(min(pu))
+        vu.append(max(pu))
         
     results_vp['u'].append(vu)
     results_va['u'].append(vav)
     results_vm['u'].append(vm)
-
     try:
         network.load_flatten()
     except:
+        print('boo')
         continue
-
+    
     if network.status != 'optimal':
         continue
 
     results_p['f'].append(network.get_feeder_load())
     results_l['f'].append(network.predict_losses())
-    v = network.get_all_voltages_mag(My,a,alpha,v0)
+    v = network.get_all_voltages_mag(My,a,alpha,v0,scale=1)
+            
     vav = []
     vm = []
     vu = []
+
     for t in v:
-        vav.append(sum(v[t])/len(v[t]))
-        vm.append(min(v[t]))
-        vu.append(max(v[t]))
+        pu = []
+        for i in range(len(v[t])):
+            if v[t][i] > 1000:
+                continue
+            elif v[t][i] < 100:
+                continue
+            elif v[t][i] > 255:
+                pu.append(v[t][i]/277)
+            else:
+                pu.append(v[t][i]/240)
+                
+        vav.append(sum(pu)/len(pu))
+        vm.append(min(pu))
+        vu.append(max(pu))
         
     results_vp['f'].append(vu)
     results_va['f'].append(vav)
@@ -101,6 +136,7 @@ for i in range(3):
     ma = []
     mi = []
 
+
     for t in range(len(results_p[ty[i]][0])):
         x = []
         for r in range(len(results_p[ty[i]])):
@@ -115,14 +151,14 @@ for i in range(3):
     if i == 0:
         plt.ylabel('Power Demand (kW)')
     else:
-        plt.yticks([0,20,40,60,80,100,120],['','','','','','',''])
+        plt.yticks([-200,0,200,400,600,800,1000,1200],['','','','','','','',''])
     plt.fill_between(time,mi,ma,color='#CCFFCC')
-    plt.ylim(0,120)
+    plt.ylim(-200,1200)
     plt.xlim(0,1439)
     plt.grid(ls=':')
     plt.xticks(xt_,xt)
 plt.tight_layout()
-plt.savefig('../../../Dropbox/papers/Nature/img/lv_power.eps', format='eps',
+plt.savefig('../../../Dropbox/papers/Nature/img/texas_lv_power.eps', format='eps',
             dpi=1000, bbox_inches='tight', pad_inches=0)
 # this is voltages
 plt.figure(figsize=(8,3.5))
@@ -135,7 +171,7 @@ for i in range(3):
     for t in range(len(results_vp[ty[i]][0])):
         x = []
         for r in range(len(results_vp[ty[i]])):
-            x.append(0.98*results_vp[ty[i]][r][t])
+            x.append(results_vp[ty[i]][r][t])
         x = sorted(x)
         av.append(x[int(len(x)*0.5)])
         ma.append(x[int(len(x)*conf_u)])
@@ -151,7 +187,7 @@ for i in range(3):
     for t in range(len(results_va[ty[i]][0])):
         x = []
         for r in range(len(results_va[ty[i]])):
-            x.append(0.98*results_va[ty[i]][r][t])
+            x.append(results_va[ty[i]][r][t])
         x = sorted(x)
         av.append(x[int(len(x)*0.5)])
         ma.append(x[int(len(x)*conf_u)])
@@ -167,7 +203,7 @@ for i in range(3):
     for t in range(len(results_vm[ty[i]][0])):
         x = []
         for r in range(len(results_vm[ty[i]])):
-            x.append(0.98*results_vm[ty[i]][r][t])
+            x.append(results_vm[ty[i]][r][t])
         x = sorted(x)
         av.append(x[int(len(x)*0.5)])
         ma.append(x[int(len(x)*conf_u)])
@@ -178,17 +214,17 @@ for i in range(3):
     plt.xticks(xt_,xt)
     plt.xlim(0,1439)
     plt.grid(ls=':')
-    plt.ylim(0.94,1.06)
+    plt.ylim(0.96,1.06)
     plt.title(ttls[i],y=0.85)
 
     if i == 0:
         plt.legend(loc=3)
         plt.ylabel('Voltage (p.u.)')
     else:
-        plt.yticks([0.94,0.96,0.98,1.0,1.02,1.04,1.06],
-                   ['','','','','','',''])
+        plt.yticks([0.96,0.98,1.0,1.02,1.04,1.06],
+                   ['','','','','',''])
 plt.tight_layout()
-plt.savefig('../../../Dropbox/papers/Nature/img/lv_voltages.eps', format='eps',
+plt.savefig('../../../Dropbox/papers/Nature/img/texas_lv_voltages.eps', format='eps',
             dpi=1000, bbox_inches='tight', pad_inches=0)
     
     
@@ -210,11 +246,11 @@ for i in range(3):
     x = results_l[ty[i]]
     x = sorted(x)
     
-    m.append(1*x[int(len(x)/2)])
-    q1.append(1*x[int(len(x)*0.25)])
-    q3.append(1*x[int(len(x)*0.75)])
-    l.append(1*x[0])
-    u.append(1*x[-1])
+    m.append(0.001*x[int(len(x)/2)])
+    q1.append(0.001*x[int(len(x)*0.25)])
+    q3.append(0.001*x[int(len(x)*0.75)])
+    l.append(0.001*x[0])
+    u.append(0.001*x[-1])
 
 
 plt.scatter(range(1,len(m)+1),l,marker='_',c='gray')
@@ -231,11 +267,11 @@ for i in range(len(m)):
     plt.plot([i+1.2,i+1.2],[q1[i],q3[i]],c='k')
     plt.plot([i+0.8,i+0.8],[q1[i],q3[i]],c='k')    
 plt.grid(ls=':')
-plt.ylim(0,40)
-plt.ylabel('Losses (kWh)')
+#plt.ylim(0,40)
+plt.ylabel('Losses (MWh)')
 plt.xticks([1,2,3],ttls)
 plt.tight_layout()
-plt.savefig('../../../Dropbox/papers/Nature/img/lv_losses.eps', format='eps',
+plt.savefig('../../../Dropbox/papers/Nature/img/texas_lv_losses.eps', format='eps',
             dpi=1000, bbox_inches='tight', pad_inches=0)
 plt.show()
         

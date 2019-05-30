@@ -63,6 +63,9 @@ for j in range(nT):
 My = My2
 a = np.add(a,a2)
 
+np.save(folder+'My.npy',My)
+np.save(folder+'a.npy',a)
+
                       
 
 Y = np.load(folder+'LptYbusCc100.npy')
