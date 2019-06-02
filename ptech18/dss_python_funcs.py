@@ -676,6 +676,11 @@ def loadNetModel(feeder,lin_point,WD,lp_taps,netModel):
     LM['SyYNodeOrder'] = np.load(stt+'SyYNodeOrder'+end)
     LM['SdYNodeOrder'] = np.load(stt+'SdYNodeOrder'+end)
     
+    if netModel==1:
+        LM['idxShf'] = np.load(stt+'idxShf'+end)
+        LM['regIdxMatVlts'] = np.load(stt+'regIdxMatVlts'+end)
+        LM['regVreg'] = np.load(stt+'regVreg'+end)
+    
     if netModel==2:
         LM['idxShf'] = np.load(stt+'idxShf'+end)
         LM['regVreg'] = np.load(stt+'regVreg'+end)

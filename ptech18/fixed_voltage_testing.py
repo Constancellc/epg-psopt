@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
 from dss_voltage_funcs import *
+from dss_stats_funcs import vmM
 from scipy import sparse
 from cvxopt import spmatrix
 from scipy import random
@@ -30,13 +31,13 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-test_model_plt = False
+# test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 test_model_dff = True
 test_model_dff = False
 save_model=True
-# save_model=False
+save_model=False
 
 setCapsModel='linPoint'
 
@@ -44,6 +45,7 @@ fdr_i_set = [5,6,8,9,22,19,20,21]
 fdr_i_set = [5,6,8,9,19,20,21,22]
 fdr_i_set = [6,8,9,19,20,21,22]
 fdr_i_set = [9]
+fdr_i_set = [21]
 # fdr_i_set = [6,8,19]
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy']
@@ -126,6 +128,19 @@ for fdr_i in fdr_i_set:
     idxShf = [v_idx_shf,s_idx_shf,sD_idx_shf]
     Akron, Bkron = lmKronRed(LM,idxShf,regVreg)
     
+    
+    # 4a for checking the tap behaviour of the ntwx
+    KyR = Ky[v_idx_shf] # not completely clear if s_idx_shf required?
+    KdR = Kd[v_idx_shf] # not completely clear if sD_idx_shf required?
+    bVR = bV[v_idx_shf]
+    KtR = Kt[v_idx_shf]
+    nT = KtR.shape[1]
+    vbase = Yvbase_new
+    KfixPuShf = vmM(1/vbase,np.c_[KyR,KdR])
+    bVPuShf = bVR/vbase
+    KtPuShf = vmM(1/vbase,KtR)*(0.1/16)
+    revVregPu = regVreg/( vbase[-nT:] ) 
+    
     # 5. Test if these are working
     ve=np.zeros([k.size])
     veN=np.zeros([k.size])
@@ -201,6 +216,9 @@ for fdr_i in fdr_i_set:
 
             RegSat[i] = getRegSat(DSSCircuit)
 
+            xhd = -1e3*s_2_x(sD) # not [3:] like sY
+            xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
+            
             if len(H)==0:
                 vv_l_ctr[i,:] = Ky.dot(xhy[s_idx]) + bV
                 vv_lN_ctr[i,:] = Akron.dot(xhy[s_idx_new]) + Bkron
@@ -211,10 +229,18 @@ for fdr_i in fdr_i_set:
                 xnew = np.concatenate((xhy[s_idx_new],xhd[sD_idx_shf]))
                 vv_lN_ctr[i,:] = Akron.dot(xnew) + Bkron
                 
+            # alternative version of calculating the same thing (for debugging)
+            b0 = KfixPuShf.dot(xnew) + bVPuShf
+            tSet = np.linalg.solve( KtPuShf[-nT:], revVregPu - b0[-nT:] )
+            
+            vOut = KfixPuShf.dot(xnew) + KtPuShf.dot(tSet) + bVPuShf.T
+            
             ve_ctl[i] = np.linalg.norm( vv_l_ctr[i,:] - vv_0_ctl[i,:] )/np.linalg.norm(vv_0_ctl[i,:])
             veN_ctl[i] = np.linalg.norm( vv_lN_ctr[i,:] - vv_0R_ctl[i,:] )/np.linalg.norm(vv_0R_ctl[i,:])
         print('Testing Complete.\n',time.process_time())
-        
+    
+
+    
     
     # if 'test_cap_model' in locals(): # <--- not implemented
         # vva_0_cap = np.zeros((len(k),len(v_idx)))

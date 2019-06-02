@@ -39,9 +39,9 @@ test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 save_model = True
-save_model = False
+# save_model = False
 ltcVoltageTestingFig = True
-# ltcVoltageTestingFig = False
+ltcVoltageTestingFig = False
 figSze0 = (5.2,2.8)
 SD = r"C:\Users\\"+getpass.getuser()+r"\\Documents\DPhil\papers\psfeb19\figures\\"
 
@@ -313,6 +313,12 @@ for fdr_i in fdr_i_set:
         np.save(sn0+'xhdLds0'+lp_str+'.npy',xhdLds0[sD_idx_shf])
         np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vecSlc(YZ[3:],v_idx_new))
         np.save(sn0+'Vbase'+lp_str+'.npy',Yvbase_new)
+        
+        
+        idxShf = [v_idx_shf,s_idx_shf,sD_idx_shf]
+        np.save(sn0+'idxShf'+lp_str+'.npy',idxShf)
+        np.save(sn0+'regIdxMatVlts'+lp_str+'.npy',regIdxMatVlts)
+        np.save(sn0+'regVreg'+lp_str+'.npy',regVreg)
 
         np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',YZp)
         np.save(sn0+'SdYNodeOrder'+lp_str+'.npy',YZd)

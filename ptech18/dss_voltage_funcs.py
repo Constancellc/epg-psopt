@@ -56,6 +56,16 @@ def getRegIcVr(DSSCircuit): # see WB 15-01-19
         i = DSSCircuit.RegControls.Next
     return Ic,Vr
 
+def getRegBwVrto(DSSCircuit): # see WB 15-01-19
+    i = DSSCircuit.RegControls.First
+    BW = []
+    Vrto = []
+    while i:
+        BW = BW + [DSSCircuit.RegControls.ForwardBand]
+        Vrto = Vrto + [DSSCircuit.RegControls.PTratio]
+        i = DSSCircuit.RegControls.Next
+    return BW,Vrto
+
 def getRxVltsMat(DSSCircuit): # see WB 15-01-19
     i = DSSCircuit.RegControls.First
     R,X = getRx(DSSCircuit)

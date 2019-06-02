@@ -14,12 +14,11 @@ import numpy as np
 from dss_python_funcs import *
 import matplotlib.pyplot as plt
 import dss_stats_funcs as dsf
-from linSvdCalcs import hcPdfs, linModel, cnsBdsCalc, plotCns, plotHcVltn, plotPwrCdf, plotHcGen
-# from math import gamma
-# import numpy.random as rnd
-# from matplotlib import cm
+from linSvdCalcs import hcPdfs, linModel, cnsBdsCalc, plotCns, plotHcVltn, plotPwrCdf, plotHcGen, plotBoxWhisk
+from dss_voltage_funcs import getRegBwVrto,getRegIcVr,getRx
 
-mcLinOn = True
+
+mcLinOn = True # most basic MC run.
 mcLinOn = False
 mcLinVal = True
 mcLinVal = False
@@ -27,47 +26,39 @@ mcLinSns = True
 mcLinSns = False
 mcDssOn = True
 mcDssOn = False
+
 # mcDssBw = 1
-mcFullSet = 1
+# mcFullSet = 1
 # mcLinUpg = 1
 # mcLinLds = 1
 # mcLinPrg = 1
+mcTapSet = 1
 
 # # PLOTTING options:
 # pltHcVltn = 1
 # pltHcGen = 1
 # pltPwrCdf = 1
 # pltCns = 1
-# plotShow = 1
+plotShow = 1
 
 nMc = 100 # nominal value of 100
+# nMc = 5 # nominal value of 100
 
 pltSave = True # for saving both plots and results
 # pltSave = False
 
 regBand=0 # opendss options
+# regBand=1.0 # opendss options
 setCapsOpt = 'linModel' # opendss options. 'linModels' is the 'right' option, cf True/False
 
 # CHOOSE Network
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14,17,18,20,21]
 fdr_i_set = [6,8,9,17,18,19,20,21,22]
-# fdr_i_set = [9,19,20,21,22]
-# fdr_i_set = [21] # less 6,8, 17,18,20,21, || 9, 22
-
-fdr_i_set = [9,22]
-
-# fdr_i_set = [5,6,8] # fast
-# fdr_i_set = [0,14,17,18] # medium length 1
-# fdr_i_set = [18] # medium length 1
-# fdr_i_set = [20,21] # medium length 2
-# fdr_i_set = [9] # slow 1
-# fdr_i_set = [22] # slow 2
-# fdr_i_set = [19] # slow 3
-# fdr_i_set = [22,19,20,21,9] # big networks with only decoupled regulator models
-# fdr_i_set = [22,19,9] # big networks with only decoupled regulator models
-# fdr_i_set = [9,19,20,21,22]
-# fdr_i_set = [9]
+# fdr_i_set = [6,8,20]
+# fdr_i_set = [21,22,9]
+# fdr_i_set = [19]
+fdr_i_set = [6]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'; prms=np.array([]) 
@@ -105,6 +96,7 @@ DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText = DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution = DSSCircuit.Solution
+
 for fdr_i in fdr_i_set:
     feeder = fdrs[fdr_i]
     # feeder = '213'
@@ -118,7 +110,7 @@ for fdr_i in fdr_i_set:
     YZd = LM.SdYNodeOrderTot
     pdf = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,WD=WD,nMc=nMc,rndSeed=0,prms=prms ) # use
     
-    if mcLinVal or ('mcFullSet' in locals()):
+    if mcLinVal or ('mcFullSet' in locals()) or ('mcTapSet' in locals()):
         LMval = linModel(fdr_i,WD,setCapsModel=setCapsOpt)
         pdfVal = hcPdfs(LMval.feeder,netModel=LMval.netModelNom,pdfName=pdfName,WD=WD,nMc=nMc,rndSeed=2**31,prms=prms )
     
@@ -137,9 +129,14 @@ for fdr_i in fdr_i_set:
     print('\n\nStart '+'='*30,'\nFeeder:',feeder,'\nLinpoint:',lp0data['k'],'\nLoad Point:',lp0data['kLo'],'\nTap Model:',LM.netModelNom)
     
     # OPENDSS ADMIN =======================================
-    # B1. load the appropriate model/DSS    
+    # B1. load the appropriate model/DSS, and find nominal taps as required.
     DSSText.Command='Compile ('+fn+'.dss)'
     BB0,SS0 = cpf_get_loads(DSSCircuit)
+    
+    lin_point=lp0data['k']
+    cpf_set_loads(DSSCircuit,BB0,SS0,lin_point,setCaps=setCapsOpt,capPos=lp0data['capPosOut'])
+    DSSSolution.Solve()
+    LM.TC_No0 = find_tap_pos(DSSCircuit)
     
     cpf_set_loads(DSSCircuit,BB0,SS0,lp0data['kLo'],setCaps=setCapsOpt,capPos=lp0data['capPosOut'])
     DSSSolution.Solve()
@@ -226,6 +223,46 @@ for fdr_i in fdr_i_set:
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
     
+    if 'mcTapSet' in locals():
+        # 'nominal' linear
+        LM.runLinHc(pdf,fast=False) # equivalent at the moment
+        linHcRslNom = LM.linHcRsl
+        
+        # precondition linear model + MC run 2
+        Mu,Sgm = pdf.getMuStd(LM,0)
+        LM.busViolationVar(Sgm)
+        LM.makeCorrModel()
+        LM.runLinHc(pdfVal,model='cor',fast=True) # equivalent at the moment. PDFVAL is what changes this here cf 'pdf'.
+        linHcRslNmc = LM.linHcRsl
+        preCndLeft = len(LM.NSetCor[0])/len(LM.varKfullU)*100
+        print('Pre conditioning left:',preCndLeft)
+        
+        # Finally run linear model to which everything is compared
+        LM.runLinHc(pdf,model='cor',fast=True)
+        linHcRsl = LM.linHcRsl
+        print('Linear Run Time:',linHcRsl['runTime'])
+        print('Sampling Time:',linHcRsl['runTimeSample'])
+        
+        # Nominal DSS model:
+        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,setCapsModel=setCapsOpt,runType='tapSet',tapPosStart=linHcRslNom['tapPosSeq'])
+        dssHcRslTapSet = LM.dssHcRsl
+        
+        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,setCapsModel=setCapsOpt,runType='tapSetLock',tapPosStart=linHcRslNom['tapPosSeq'])
+        dssHcRslTapLck = LM.dssHcRsl
+        
+        dssMae = LM.calcLinPdfError(dssHcRslTapSet,model='dss')
+        dssRge = LM.calcLinPdfError(dssHcRslTapSet,type='reg',model='dss')
+        
+        # calculate error:
+        maeVals = {'nomMae':LM.calcLinPdfError(linHcRslNom),'nmcMae':LM.calcLinPdfError(linHcRslNmc), 'dssSetMae':LM.calcLinPdfError(dssHcRslTapSet),'dssLckMae':LM.calcLinPdfError(dssHcRslTapLck),'dssMae':dssMae}
+        rgeVals = {'nomRge':LM.calcLinPdfError(linHcRslNom,type='reg'),'nmcRge':LM.calcLinPdfError(linHcRslNmc,type='reg'),'dssSetRge':LM.calcLinPdfError(dssHcRslTapSet,type='reg'),'dssLckRge':LM.calcLinPdfError(dssHcRslTapLck,type='reg'),'dssRge':dssRge}
+        
+        rslt = {'linHcRsl':linHcRsl,'linHcRslNom':linHcRslNom,'linHcRslNmc':linHcRslNmc,'dssHcRslTapSet':dssHcRslTapSet,'dssHcRslTapLck':dssHcRslTapLck,'pdfData':pdf.pdf,'pdfDataNmc':pdfVal.pdf,'feeder':feeder,'maeVals':maeVals,'rgeVals':rgeVals,'preCndLeft':preCndLeft,'TC_No0':LM.TC_No0}
+        if pltSave:
+            SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_tapSet.pkl')
+            with open(SN,'wb') as file:
+                pickle.dump(rslt,file)
+    
     if mcLinSns:
         regs0 = LMsns.regVreg0
         LMsns.updateDcpleModel(regs0*1.00625)
@@ -308,8 +345,6 @@ for fdr_i in fdr_i_set:
             ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],rsltPar['Cns_pct'],feeder=feeder,lineStyle='-.',ax=ax,pltShow=False)
 
         ax = plotCns(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Cns_pct'],feeder=feeder,lineStyle='--',ax=ax,pltShow=False)
-        if mcDssOn and pltSave:
-            plt.savefig(os.path.join(SD,'pltCns_'+pdfName+'.png'))
 
         if 'plotShow' in locals():
             plt.show()
@@ -321,8 +356,6 @@ for fdr_i in fdr_i_set:
         plt.xlabel('Power');
         plt.ylabel('P(.)');
         ax.grid(True)
-        if mcDssOn and pltSave:
-            plt.savefig(os.path.join(SD,'pltPwrCdf_'+pdfName+'.png'))
         
         if 'plotShow' in locals():
             plt.show()
@@ -333,16 +366,11 @@ for fdr_i in fdr_i_set:
         if mcDssOn:
             plotHcVltn(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.dssHcRsl['Vp_pct'],ax=ax1,pltShow=False,feeder=feeder,logScale=True)
             plotHcVltn(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.dssHcRsl['Vp_pct'],ax=ax2,pltShow=False,feeder=feeder,logScale=False)
-        
         plotHcVltn(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Vp_pct'],ax=ax1,pltShow=False,feeder=feeder,logScale=True)
         plotHcVltn(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Vp_pct'],ax=ax2,pltShow=False,feeder=feeder,logScale=False)
         if mcDssOn:
             ax1.legend(('Vltn., DSS','Vltn., Nom'))
-        
         plt.tight_layout()
-        if mcDssOn and pltSave:
-            plt.savefig(os.path.join(SD,'pltHcVltn_'+pdfName+'.png'))
-        
         if 'plotShow' in locals():
             plt.show()
     if 'pltHcGen' in locals():
@@ -355,7 +383,5 @@ for fdr_i in fdr_i_set:
         plt.xlabel('Scale factor');
         plt.title('Hosting Capacity (kW)');
         plt.grid(True)
-        if mcDssOn and pltSave:
-            plt.savefig(os.path.join(SD,'pltHcGen_'+pdfName+'.png'))
         if 'plotShow' in locals():
             plt.show()

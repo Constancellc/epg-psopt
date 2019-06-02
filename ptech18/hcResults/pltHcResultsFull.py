@@ -12,7 +12,7 @@ from linSvdCalcs import plotBoxWhisk, getKcdf, plotCns
 
 # feeders = ['13bus','34bus','123bus','8500node','eulv','usLv','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
 feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
-# feeders = ['34bus','123bus','epriK1','epriM1','epri5','epri7']
+feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri24']
 # feeders = ['34bus','123bus','epriJ1','epriK1','epriM1','epri5','epri7']
 
 feedersTidy = {'34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24'}
@@ -24,7 +24,7 @@ feeders_lp = feeders_dcp
 # t_timeTable = 1 # timeTable # <--- now not in use!
 # t_rsltSvty = 1 # sensitivity table # <--- now not in use!
 # t_results = 1
-# f_dssVlinWght = 1 # gammaFrac boxplot results
+f_dssVlinWght = 1 # gammaFrac boxplot results
 # f_mcLinUpg = 1
 # f_mcLinCmp = 1
 # f_linMcSns = 1
@@ -33,7 +33,7 @@ feeders_lp = feeders_dcp
 # f_plotLpUpg = 1
 # f_plotLp = 1
 
-pltSave=True
+# pltSave=True
 pltShow=True
 
 figSze0 = (5.2,3.4)
@@ -44,12 +44,16 @@ figSze4 = (5.2,1.8)
 TD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\tables\\"
 FD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
-rsltsFrac = {}; rsltsSns = {}; rsltsUpg = {}; rsltsLp = {}; rsltsUnom = {}
+rsltsFrac = {}; rsltsSns = {}; rsltsUpg = {}; rsltsLp = {}; rsltsUnom = {}; rsltsTap = {}
 for feeder in feeders:
     # RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_finale.pkl')
     RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_finale_dpndnt.pkl')
     with open(RD,'rb') as handle:
         rsltsFrac[feeder] = pickle.load(handle)
+    RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_tapSet.pkl')
+    with open(RD,'rb') as handle:
+        rsltsTap[feeder] = pickle.load(handle)
+
 for feeder in feeders_dcp:
     RDsns = os.path.join(WD,feeder,'linHcCalcsSns_gammaFrac_new.pkl')
     RDupg = os.path.join(WD,feeder,'linHcCalcsUpg.pkl')
@@ -67,7 +71,63 @@ for feeder in feeders_lp:
     with open(RDupgNom,'rb') as handle:
         rsltsUnom[feeder] = pickle.load(handle)
 
-kCdfLin = [];    kCdfDss = []; kCdfNom = []; 
+# kCdfLin = [];    kCdfDss = []; kCdfNom = []; 
+# LmeanNorm = []; feederTidySet = []
+# timeTableData = []
+# rsltSvtyData = []
+# resultsData = []
+# dssComparisonData = []
+# runTimeSample = []
+# runTimeFull = []
+# rslt34 = rsltsFrac['34bus'] # useful for debugging
+
+# idxChosen = [0,1,5,10,15,19,20]
+# # idxChosen = [0,2,5,10,15,18,20]
+
+# for rslt in rsltsFrac.values():
+    # dataSet = []
+    # dataSet.append(feedersTidy[rslt['feeder']])
+    # dataSet.append('%.2f' % rslt['dssHcRslNom']['runTime'])
+    # dataSet.append('%.2f' % rslt['linHcRsl']['runTime'])
+    # dataSet.append('%.2f' %  rslt['maeVals']['dssTgtMae'])
+    # dataSet.append('%.2f' %  rslt['maeVals']['dssNomMae'])
+    # timeTableData.append(dataSet)
+
+    # dataSet = []
+    # dataSet.append(feedersTidy[rslt['feeder']])
+    # dataSet.append('%.1f' % (100-rslt['preCndLeft']))
+    # dataSet.append('%.2f' % rslt['maeVals']['nomMae'])
+    # dataSet.append('%.2f' % (rslt['maeVals']['nmcMae'])) # <--- to do! [?]
+    # rsltSvtyData.append(dataSet)
+    
+    # dataSet = []
+    # dataSet.append(feedersTidy[rslt['feeder']])
+    # dataSet.append('%.2f' %  rslt['maeVals']['dssTgtMae'])
+    # dataSet.append('%.2f' % (rslt['maeVals']['nmcMae'])) # <--- to do! [?]
+    # dataSet.append('%.2f' % rslt['dssHcRslNom']['runTime'])
+    # dataSet.append('%.2f' % rslt['linHcRsl']['runTime'])
+    # resultsData.append(dataSet)
+    
+    # dataSet = []
+    # dataSet.append(feedersTidy[rslt['feeder']])
+    # dataSet.append('%.2f' % (rslt['maeVals']['dssMae']))
+    # dssComparisonData.append(dataSet)
+    
+    # dataSet = []
+    # dataSet.append('%.2f' % (rslt['linHcRsl']['runTimeSample'])) # <--- to do! [?]
+    # runTimeSample.append(dataSet)
+    
+    # dataSet = []
+    # dataSet.append('%.2f' % (rslt['linHcRslNom']['runTime'])) # <--- to do! [?]
+    # runTimeFull.append(dataSet)
+    
+    # kCdfLin.append(rslt['linHcRsl']['kCdf'][idxChosen])
+    # kCdfDss.append(rslt['dssHcRslTgt']['kCdf'][idxChosen])
+    # kCdfNom.append(rslt['dssHcRslNom']['kCdf'][[0,1,5,10,15,19,20]])
+    # LmeanNorm.append( np.mean(np.abs(rslt['dssHcRslTgt']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))*0.01 )
+    # feederTidySet.append(feedersTidy[rslt['feeder']])
+    
+kCdfLin = [];    kCdfDss = []; kCdfNom = []
 LmeanNorm = []; feederTidySet = []
 timeTableData = []
 rsltSvtyData = []
@@ -75,18 +135,18 @@ resultsData = []
 dssComparisonData = []
 runTimeSample = []
 runTimeFull = []
-rslt34 = rsltsFrac['34bus'] # useful for debugging
+rslt34 = rsltsTap['34bus'] # useful for debugging
 
 idxChosen = [0,1,5,10,15,19,20]
 # idxChosen = [0,2,5,10,15,18,20]
 
-for rslt in rsltsFrac.values():
+for rslt in rsltsTap.values():
     dataSet = []
     dataSet.append(feedersTidy[rslt['feeder']])
-    dataSet.append('%.2f' % rslt['dssHcRslNom']['runTime'])
+    dataSet.append('%.2f' % rslt['dssHcRslTapSet']['runTime'])
     dataSet.append('%.2f' % rslt['linHcRsl']['runTime'])
-    dataSet.append('%.2f' %  rslt['maeVals']['dssTgtMae'])
-    dataSet.append('%.2f' %  rslt['maeVals']['dssNomMae'])
+    dataSet.append('%.2f' %  rslt['maeVals']['dssSetMae'])
+    dataSet.append('%.2f' %  rslt['maeVals']['dssLckMae'])
     timeTableData.append(dataSet)
 
     dataSet = []
@@ -98,9 +158,9 @@ for rslt in rsltsFrac.values():
     
     dataSet = []
     dataSet.append(feedersTidy[rslt['feeder']])
-    dataSet.append('%.2f' %  rslt['maeVals']['dssTgtMae'])
+    dataSet.append('%.2f' %  rslt['maeVals']['dssLckMae'])
     dataSet.append('%.2f' % (rslt['maeVals']['nmcMae'])) # <--- to do! [?]
-    dataSet.append('%.2f' % rslt['dssHcRslNom']['runTime'])
+    dataSet.append('%.2f' % rslt['dssHcRslTapSet']['runTime'])
     dataSet.append('%.2f' % rslt['linHcRsl']['runTime'])
     resultsData.append(dataSet)
     
@@ -114,13 +174,15 @@ for rslt in rsltsFrac.values():
     runTimeSample.append(dataSet)
     
     dataSet = []
-    dataSet.append('%.2f' % (rslt['linHcRslNom']['runTime'])) # <--- to do! [?]
+    dataSet.append('%.2f' % (rslt['linHcRsl']['runTime'])) # <--- to do! [?]
     runTimeFull.append(dataSet)
     
     kCdfLin.append(rslt['linHcRsl']['kCdf'][idxChosen])
-    kCdfDss.append(rslt['dssHcRslTgt']['kCdf'][idxChosen])
-    kCdfNom.append(rslt['dssHcRslNom']['kCdf'][[0,1,5,10,15,19,20]])
-    LmeanNorm.append( np.mean(np.abs(rslt['dssHcRslTgt']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))*0.01 )
+    # kCdfDss.append(rslt['dssHcRslTapLck']['kCdf'][idxChosen])
+    kCdfDss.append(rslt['dssHcRslTapSet']['kCdf'][idxChosen])
+    # kCdfNom.append(rslt['dssHcRslTapLck']['kCdf'][idxChosen])
+    
+    # LmeanNorm.append( np.mean(np.abs(rslt['dssHcRslTgt']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))*0.01 )
     feederTidySet.append(feedersTidy[rslt['feeder']])
         
 kCdfSns0 = []; kCdfSns1 = []; kCdfLinSns = [] # new lin needed coz this is only some models
@@ -515,4 +577,43 @@ if 'f_plotLp' in locals():
         plt.savefig(FD+'plotLp.pdf',pad_inches=0.02,bbox_inches='tight')
     if 'pltShow' in locals():
         plt.show()
-        
+
+
+
+# feeder = '8500node'
+feeder = 'epriJ1'
+
+# 1. seeing how the tap positions change for the feeder
+for feeder in feeders:
+    plt.scatter((rsltsTap[feeder]['linHcRslNom']['tapPosSeq'] + rsltsTap[feeder]['TC_No0']).flatten(),rsltsTap[feeder]['dssHcRslTapSet']['tapPosSet'].flatten())
+    plt.plot((-10,10),(-10,10),'k')
+    plt.show()
+
+# # 2. Seeing how out of bandwidth the regulators are at the specified nominal tap positions
+# dssHcRslTapLck = rsltsTap[feeder]['dssHcRslTapLck']
+# dssHcRslTapSet = rsltsTap[feeder]['dssHcRslTapSet']
+# plt.scatter(dssHcRslTapLck['regVI'][:,:,0].flatten(),dssHcRslTapLck['regVI'][:,:,1].flatten())
+# plt.scatter(dssHcRslTapSet['regVI'][:,:,0].flatten(),dssHcRslTapSet['regVI'][:,:,1].flatten())
+# plt.plot((-1,1,1,-1,-1),(-1,-1,1,1,-1),'k')
+# plt.grid(True)
+# plt.show()
+
+# # 3. Plotting the sensitivity to tap position
+# tapPosSns = rsltsTap[feeder]['linHcRslNom']['tapPosSns']
+# tapMinLo = np.min(tapPosSns[:,:,1,:],axis=2)
+# prms = np.linspace(100/tapMinLo.shape[0],100,tapMinLo.shape[0])
+# fig,ax = plt.subplots()
+# jj = 0
+# for tapMin in tapMinLo[::2]:
+    # pctls = np.percentile(tapMin,[5,25,50,75,95])
+    # rngs = np.percentile(tapMin,[0,100])
+    # plotBoxWhisk(ax,prms[jj],1,pctls,bds=rngs)
+    # jj+=2
+
+# xlm = ax.get_xlim()
+# ax.plot(xlm,(2,2),'k--')
+# ax.set_xlim(xlm)
+# ax.set_xlabel('Fraction of Loads with PV')
+# ax.set_ylabel('No. taps to upper voltage constraint')
+# ax.set_ylim((-3.5,4.5))
+# plt.show()
