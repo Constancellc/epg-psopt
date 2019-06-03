@@ -71,6 +71,8 @@ def nrelLinK(My,Md,Vh,xY,xD):
     Ky = Vhai_diag.dot( Vh_diag.dot(My).real )
     Kd = Vhai_diag.dot( Vh_diag.dot(Md).real )
     b = abs(Vh) - Ky.dot(xY) - Kd.dot(xD)
+    if type(Kd) is not np.ndarray:
+        Kd = Kd.toarray()
     return Ky, Kd, b
 
 def lineariseMfull(My,Md,Mt,f0,xY,xD,xT):
@@ -79,8 +81,10 @@ def lineariseMfull(My,Md,Mt,f0,xY,xD,xT):
     f0ai_diag = sparse.dia_matrix( (np.ones(len(f0))/abs(f0),0),shape=(len(f0),len(f0)) )
     Ky = f0ai_diag.dot( f0_diag.dot(My).real )
     Kd = f0ai_diag.dot( f0_diag.dot(Md).real )
-    Kt = f0ai_diag.dot( f0_diag.dot(Mt).real )
+    Kt = f0ai_diag.dot( f0_diag.dot(Mt).real )    
     b = abs(f0) - Ky.dot(xY) - Kd.dot(xD) - Kt.dot(xT)
+    if type(Kd) is not np.ndarray:
+        Kd = Kd.toarray()
     return Ky, Kd, Kt, b
 
 def fixed_point_itr(w,Ylli,V,sY,sD,H):

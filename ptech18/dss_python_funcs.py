@@ -586,10 +586,14 @@ def get_ckt(WD,feeder):
     ckts[fdrs[21]]=[WD+'\\ieee_tn\\m1',WD+'\\ieee_tn\\m1\\Master_NoPV_z']
     ckts[fdrs[22]]=[WD+'\\ieee_tn\\ckt24',WD+'\\ieee_tn\\ckt24\\master_ckt24_z']
     ckts[fdrs[23]]=[WD+'\\ieee_tn\\4Bus-YY-Bal',WD+'\\ieee_tn\\4Bus-YY-Bal\\4Bus-YY-Bal_z']
-    
-    if not feeder in ckts.keys() and len(feeder)==3:
-        dir0 = WD+'\\manchester_models\\batch_manc_ntwx\\network_'+str(int(feeder[0:2]))+'\\Feeder_'+feeder[-1]
-        ckts[fdrs[-1]]=[dir0,dir0+'\\Master']
+        
+    if not feeder in ckts.keys():
+        if feeder[0]=='n':
+            dir0 = WD+'\\manchester_models\\batch_manc_ntwx\\network_'+feeder[1:]
+            ckts[fdrs[-1]] = [dir0,dir0+'\\masterNetwork'+feeder[1:]]
+        elif len(feeder)==3:
+            dir0 = WD+'\\manchester_models\\batch_manc_ntwx\\network_'+str(int(feeder[0:2]))+'\\Feeder_'+feeder[-1]
+            ckts[fdrs[-1]]=[dir0,dir0+'\\Master']
     return ckts[feeder]
 
 def loadLinMagModel(feeder,lin_point,WD,lp_taps,regModel=True):

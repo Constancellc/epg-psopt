@@ -35,18 +35,25 @@ class buildLinModel:
         
         fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy']
         
-        self.feeder=fdrs[fdr_i]
+        if type(fdr_i) is int:
+            self.feeder=fdrs[fdr_i]
+        else:
+            self.feeder=fdr_i
+        
         self.fn = get_ckt(self.WD,self.feeder)[1]
         
-        with open(os.path.join(self.WD,'lin_models',self.feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
-            lp0data = pickle.load(handle)
         
-        if linPoints[0]==None:
-            linPoints=[lp0data['k']]
-        
-        if self.setCapsModel=='linPoint':
-            self.capPosLin=lp0data['capPosOut']
-        else:
+        try:
+            with open(os.path.join(self.WD,'lin_models',self.feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
+                lp0data = pickle.load(handle)
+            if linPoints[0]==None:
+                linPoints=[lp0data['k']]
+            if self.setCapsModel=='linPoint':
+                self.capPosLin=lp0data['capPosOut']
+            else:
+                self.capPosLin=None
+        except:
+            linPoints = np.array([1.0])
             self.capPosLin=None
         
         self.pCvr = pCvr
@@ -72,8 +79,8 @@ class buildLinModel:
         
         # self.testCvrQp()
         
-        self.runCvrQp()
-        self.showQpSln()
+        # self.runCvrQp()
+        # self.showQpSln()
         
         # vce,vae,kN = self.nrelModelTest(k=np.linspace(-0.5,1.2,18))
         
@@ -1445,3 +1452,43 @@ class buildLinModel:
             if 'calcReg' in locals():
                 np.save(sn0+'WdReg'+lp_str+'.npy',WdReg)
                 # np.save(sn0+'WdBus'+lp_str+'.npy',WdBus)
+    
+    def saveCc(self):
+        lp_str = str(np.round(self.linPoint*100).astype(int)).zfill(3)
+        MyCC = self.My
+        xhyCC = self.xY
+        
+        aCC = self.aV
+        V0CC = self.V0
+        
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        Ybus, YNodeOrder = createYbus( DSSObj,self.TC_No0,self.capPosLin )
+        YbusCC = Ybus
+        
+        allLds = DSSCircuit.Loads.AllNames
+        loadBuses = {}
+        for ld in allLds:
+            DSSCircuit.SetActiveElement('Load.'+ld)
+            loadBuses[ld]=DSSCircuit.ActiveElement.BusNames[0]
+
+        dirCC = self.WD + '\\lin_models\\ccModelsNew\\' + self.feeder
+        snCC = dirCC + '\\' + self.feeder
+
+        if not os.path.exists(dirCC):
+            os.makedirs(dirCC)
+        
+        np.save(snCC+'vYNodeOrder'+lp_str+'.npy',self.vYNodeOrder)
+        np.save(snCC+'SyYNodeOrder'+lp_str+'.npy',self.SyYNodeOrder)
+            
+        np.save(snCC+'MyCc'+lp_str+'.npy',MyCC)
+        np.save(snCC+'xhyCc'+lp_str+'.npy',xhyCC)
+        np.save(snCC+'aCc'+lp_str+'.npy',aCC)
+        np.save(snCC+'V0Cc'+lp_str+'.npy',V0CC)
+        np.save(snCC+'YbusCc'+lp_str+'.npy',YbusCC)
+        np.save(snCC+'YNodeOrderCc'+lp_str+'.npy',YNodeOrder)
+        
+        busCoords = getBusCoords(DSSCircuit,DSSText)
+        busCoordsAug,PDelements,PDparents = getBusCoordsAug(busCoords,DSSCircuit,DSSText)
+        
+        np.save(snCC+'busCoords'+lp_str+'.npy',busCoordsAug)
+        np.save(snCC+'loadBusesCc'+lp_str+'.npy',[loadBuses]) # nb likely to be similar to vecSlc(YNodeOrder[3:],p_idx)?
