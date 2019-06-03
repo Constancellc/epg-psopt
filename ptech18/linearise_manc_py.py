@@ -38,9 +38,7 @@ saveCc = False
 # setCapsModel=False
 setCapsModel = 'linPoint'
 # fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
-fdr_i_set = [6,8,17,18,19,20,21]
-fdr_i_set = [22]
-fdr_i_set = [6]
+fdr_i_set = [6,8,17,18,19,20,21,9,22]
 for fdr_i in fdr_i_set:
     fig_loc=r"C:\Users\chri3793\Documents\DPhil\malcolm_updates\wc190117\\"
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24']; lp_taps='Nmt'
@@ -206,8 +204,10 @@ for fdr_i in fdr_i_set:
 
         # NB!!! -3 required for models which have the first three elements chopped off!
         v_types = [DSSCircuit.Loads,DSSCircuit.Transformers,DSSCircuit.Generators]
-        v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3 # NB: this is extremely slow! Try to load where possible
-        v_idx = v_idx[v_idx>=0]
+        # v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3 # NB: this is extremely slow! Try to load where possible
+        # v_idx = v_idx[v_idx>=0]
+        v_idx = np.arange(DSSCircuit.NumNodes - 3)
+        
         YvbaseV = Yvbase[v_idx]
         
         # p_idx = np.array(sY[3:].nonzero())

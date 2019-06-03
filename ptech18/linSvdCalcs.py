@@ -416,25 +416,25 @@ class linModel:
         
         self.setCapsModel=setCapsModel
         self.capPosLin = lp0data['capPosOut']
-
-        LM = loadNetModel(self.feeder,self.linPoint,self.WD,'Lpt',self.netModelNom)
-        self.vTotBase = LM['Vbase']
-        self.idxShf = LM['idxShf']
-        self.regVreg0 = LM['regVreg']
-        self.regVregPu = self.regVreg0/self.vTotBase[-self.nT:]
         
-        v_idx_shf,s_idx_shf,sD_idx_shf = self.idxShf[:]
-        KyR = self.LMfxd['Ky'][v_idx_shf]
-        KdR = self.LMfxd['Kd'][v_idx_shf]
-        bVR = self.LMfxd['bV'][v_idx_shf]
-        KtR = self.LMfxd['Kt'][v_idx_shf]
-        
-        self.KfixPuShf = dsf.vmM(1/self.vTotBase,np.c_[KyR,KdR])
-        self.bVPuShf = bVR/self.vTotBase
-        self.KtPuShf = dsf.vmM(1/self.vTotBase,KtR)*(0.1/16)
+        if self.netModelNom>0:
+            LM = loadNetModel(self.feeder,self.linPoint,self.WD,'Lpt',self.netModelNom)
+            self.vTotBase = LM['Vbase']
+            self.idxShf = LM['idxShf']
+            self.regVreg0 = LM['regVreg']
+            self.regVregPu = self.regVreg0/self.vTotBase[-self.nT:]
+            
+            v_idx_shf,s_idx_shf,sD_idx_shf = self.idxShf[:]
+            KyR = self.LMfxd['Ky'][v_idx_shf]
+            KdR = self.LMfxd['Kd'][v_idx_shf]
+            bVR = self.LMfxd['bV'][v_idx_shf]
+            KtR = self.LMfxd['Kt'][v_idx_shf]
+            
+            self.KfixPuShf = dsf.vmM(1/self.vTotBase,np.c_[KyR,KdR])
+            self.bVPuShf = bVR/self.vTotBase
+            self.KtPuShf = dsf.vmM(1/self.vTotBase,KtR)*(0.1/16)
 
         self.loadNetModel()
-        
         
         
         
@@ -455,27 +455,28 @@ class linModel:
     def getTapPosition(self,pGen,seq=False):
         # 'fix' model is the load flow model; 'tot' is the kron redct. model.
         # sGen needs to be in watts (not kW)
-        pGenY = pGen[:self.nSy//2]
-        pGenD = pGen[self.nSy//2:]
-        k_Q = pf2kq(self.QgenPf)
-        xGen = np.r_[pGenY,k_Q*pGenY,pGenD,k_Q*pGenD] # following Kfix0Pu     
-        if self.netModelNom==1:
-            VregPu = self.regVregPu
-            
-            VcompPuLo = self.regIdxMatVlts.dot(self.xTotLs + xGen)/self.vTotBase[-self.nT:]
-            VcompPuHi = self.regIdxMatVlts.dot(self.xTotHs + xGen)/self.vTotBase[-self.nT:]
-            
-            VldcPuLo = VregPu + VcompPuLo
-            VldcPuHi = VregPu + VcompPuHi
-        if self.netModelNom==2:
-            VldcPuLo = self.regVregPu
-            VldcPuHi = VldcPuLo
-        
-        b0lsFxd = self.KfixPuShf.dot(self.xTotLs + xGen) + self.bVPuShf
-        b0hsFxd = self.KfixPuShf.dot(self.xTotHs + xGen) + self.bVPuShf
-        
-        KtReg = self.KtPuShf[-self.nT:]
         if self.netModelNom>0:
+            pGenY = pGen[:self.nSy//2]
+            pGenD = pGen[self.nSy//2:]
+            k_Q = pf2kq(self.QgenPf)
+            xGen = np.r_[pGenY,k_Q*pGenY,pGenD,k_Q*pGenD] # following Kfix0Pu     
+            if self.netModelNom==1:
+                VregPu = self.regVregPu
+                
+                VcompPuLo = self.regIdxMatVlts.dot(self.xTotLs + xGen)/self.vTotBase[-self.nT:]
+                VcompPuHi = self.regIdxMatVlts.dot(self.xTotHs + xGen)/self.vTotBase[-self.nT:]
+                
+                VldcPuLo = VregPu + VcompPuLo
+                VldcPuHi = VregPu + VcompPuHi
+            if self.netModelNom==2:
+                VldcPuLo = self.regVregPu
+                VldcPuHi = VldcPuLo
+            
+            b0lsFxd = self.KfixPuShf.dot(self.xTotLs + xGen) + self.bVPuShf
+            b0hsFxd = self.KfixPuShf.dot(self.xTotHs + xGen) + self.bVPuShf
+            
+            KtReg = self.KtPuShf[-self.nT:]
+            
             if not seq:
                 tSetLo = np.linalg.solve( KtReg, VldcPuLo - b0lsFxd[-self.nT:] ) # this is already 'per tap'.
                 tSetHi = np.linalg.solve( KtReg, VldcPuHi - b0hsFxd[-self.nT:] )
@@ -493,26 +494,30 @@ class linModel:
                     b = (VldcPuHi - b0hsFxd[-self.nT:])[i:] - KtReg[i:,:i].dot(tSetHi)
                     x = np.linalg.solve(A,b)
                     tSetHi = np.r_[tSetHi,np.round(x[0])]
+        
+            b0ls = self.KfixPuShf.dot(self.xTotLs + xGen) + self.KtPuShf.dot(tSetLo) + self.bVPuShf
+            b0hs = self.KfixPuShf.dot(self.xTotHs + xGen) + self.KtPuShf.dot(tSetHi) + self.bVPuShf
+            
+            vHiHs = np.max(b0hs)
+            vHiLs = np.max(b0ls)
+            
+            KtPuPt = self.KtPuShf
+            
+            tSetLoSns = np.zeros(self.nT)
+            tSetHiSns = np.zeros(self.nT)
+            for i in range(KtPuPt.shape[1]):
+                vSnsLo = ((self.VpMv - b0ls)/KtPuPt[:,i]) + 1e100*(KtPuPt[:,i]<0.1*(0.1/16))
+                tSetLoSns[i] = np.min(vSnsLo)
+                vSnsHi = ((self.VpMv - b0hs)/KtPuPt[:,i]) + 1e100*(KtPuPt[:,i]<0.1*(0.1/16))
+                tSetHiSns[i] = np.min(vSnsHi)
         else:
             tSetHi = [] 
             tSetLo = []
-        
-        b0ls = self.KfixPuShf.dot(self.xTotLs + xGen) + self.KtPuShf.dot(tSetLo) + self.bVPuShf
-        b0hs = self.KfixPuShf.dot(self.xTotHs + xGen) + self.KtPuShf.dot(tSetHi) + self.bVPuShf
-        
-        vHiHs = np.max(b0hs)
-        vHiLs = np.max(b0ls)
-        
-        KtPuPt = self.KtPuShf
-        
-        tSetLoSns = np.zeros(self.nT)
-        tSetHiSns = np.zeros(self.nT)
-        for i in range(KtPuPt.shape[1]):
-            vSnsLo = ((self.VpMv - b0ls)/KtPuPt[:,i]) + 1e100*(KtPuPt[:,i]<0.1*(0.1/16))
-            tSetLoSns[i] = np.min(vSnsLo)
-            vSnsHi = ((self.VpMv - b0hs)/KtPuPt[:,i]) + 1e100*(KtPuPt[:,i]<0.1*(0.1/16))
-            tSetHiSns[i] = np.min(vSnsHi)
-        
+            tSetHiSns = []
+            tSetLoSns = []
+            vHiHs = np.nan
+            vHiLs = np.nan
+            
         return tSetHi,tSetLo,tSetHiSns,tSetLoSns,vHiHs,vHiLs
         
     def updateFxdModel(self):
@@ -910,7 +915,6 @@ class linModel:
                         iv0reg = zReg.dot(self.getRegI(DSSCircuit)/np.array(Ic))
                         regVI[j,i,0,:] = (abs(v0reg + iv0reg) - Vr)/(np.array(BW)/2)
                         
-                        # print(find_tap_pos(DSSCircuit))
                     # then low load point
                     # cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointLo,setCaps=setCapsModel,capPos=self.capPosLin)
                     cpf_set_loads(DSSCircuit,BB0,SS0,self.loadPointLo,setCaps=False) # <--- caps should be at nominal values

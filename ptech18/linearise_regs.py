@@ -78,8 +78,9 @@ for fdr_i in fdr_i_set:
             v_idx = np.load(stt+'v_idx'+end)
             print('Loaded v_idx.')
         except: # NB this is quite slow.
-            v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3
-            v_idx = v_idx[v_idx>=0]
+            # v_idx = np.unique(get_element_idxs(DSSCircuit,v_types)) - 3
+            # v_idx = v_idx[v_idx>=0]
+            v_idx = np.arange(DSSCircuit.NumNodes - 3)
         
         Yvbase = get_Yvbase(DSSCircuit)[3:][v_idx]
         

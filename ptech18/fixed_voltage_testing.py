@@ -31,22 +31,19 @@ DSSSolution = DSSCircuit.Solution
 
 # ------------------------------------------------------------ circuit info
 test_model_plt = True
-# test_model_plt = False
+test_model_plt = False
 test_model_bus = True
 test_model_bus = False
 test_model_dff = True
 test_model_dff = False
 save_model=True
-save_model=False
+# save_model=False
 
 setCapsModel='linPoint'
 
 fdr_i_set = [5,6,8,9,22,19,20,21]
-fdr_i_set = [5,6,8,9,19,20,21,22]
 fdr_i_set = [6,8,9,19,20,21,22]
-fdr_i_set = [9]
-fdr_i_set = [21]
-# fdr_i_set = [6,8,19]
+
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy']
     feeder=fdrs[fdr_i]
@@ -55,7 +52,6 @@ for fdr_i in fdr_i_set:
     # k = np.arange(1.6,-1.5,-0.025)
     k = np.arange(-1.5,1.6,0.1)
     # k = np.arange(-1.5,1.6,0.3)
-    # k = np.arange(0,1.0,1.0)
 
     ckt = get_ckt(WD,feeder)
     fn_ckt = ckt[0]
@@ -78,24 +74,30 @@ for fdr_i in fdr_i_set:
     else:
         print('Warning! not using linPoint, not implemented.')
 
-
-    # 1. Load files' find nominal voltages, node orders, linear model
+    # 0. First, get the regulator taps exactly as in the linearisation process.
     DSSText.Command='Compile ('+fn+'.dss)'
     BB0,SS0 = cpf_get_loads(DSSCircuit)
-    nRegs = DSSCircuit.RegControls.Count # NB is not necessarily the same as the number of transformers (e.g. 123 bus)
-    # DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3'
+    DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3' # to match linearise_manc stuff exactly.
+    cpf_set_loads(DSSCircuit,BB0,SS0,lin_point,setCaps=setCapsModel,capPos=capPosLin)
+    DSSSolution.Solve()
+    TC_No0 = find_tap_pos(DSSCircuit)
+    
+    # 1. Load files' find nominal voltages, node orders, linear model
+    DSSText.Command='Compile ('+fn+'.dss)'
+    # DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3' # this shouldn't be in or it doesn't solve.
     if lp_taps=='Lpt':
         cpf_set_loads(DSSCircuit,BB0,SS0,lin_point,setCaps=setCapsModel,capPos=capPosLin)
         DSSSolution.Solve()
     YNodeVnom = tp_2_ar(DSSCircuit.YNodeVarray)
 
+    nRegs = DSSCircuit.RegControls.Count # NB is not necessarily the same as the number of transformers (e.g. 123 bus)
     DSSText.Command='set controlmode=off'
     YZ = DSSCircuit.YNodeOrder
 
     LM = loadLinMagModel(feeder,lin_point,WD,lp_taps)
     Ky=LM['Ky'];Kd=LM['Kd'];Kt=LM['Kt'];bV=LM['bV'];
     xhy0=LM['xhy0'];xhd0=LM['xhd0'];xhyCap0=LM['xhyCap0'];xhdCap0=LM['xhdCap0'];xhyLds0=LM['xhyLds0'];xhdLds0=LM['xhdLds0']
-
+    
     
     print('Get zone list...',time.process_time())
     # 2. get the regulator zones for each regulator. (I think this still needs work?)
@@ -128,7 +130,6 @@ for fdr_i in fdr_i_set:
     idxShf = [v_idx_shf,s_idx_shf,sD_idx_shf]
     Akron, Bkron = lmKronRed(LM,idxShf,regVreg)
     
-    
     # 4a for checking the tap behaviour of the ntwx
     KyR = Ky[v_idx_shf] # not completely clear if s_idx_shf required?
     KdR = Kd[v_idx_shf] # not completely clear if sD_idx_shf required?
@@ -140,6 +141,12 @@ for fdr_i in fdr_i_set:
     bVPuShf = bVR/vbase
     KtPuShf = vmM(1/vbase,KtR)*(0.1/16)
     revVregPu = regVreg/( vbase[-nT:] ) 
+    
+    R,X = getRx(DSSCircuit)
+    zReg = np.diag(R) + 1j*np.diag(X)
+    BW,Vrto = getRegBwVrto(DSSCircuit)
+    Ic,Vr = getRegIcVr(DSSCircuit)
+
     
     # 5. Test if these are working
     ve=np.zeros([k.size])
@@ -197,8 +204,10 @@ for fdr_i in fdr_i_set:
             
             ve[i] = np.linalg.norm( vv_l[i,:] - vv_0[i,:] )/np.linalg.norm(vv_0[i,:])
             veN[i] = np.linalg.norm( vv_lN[i,:] - vv_0R[i,:] )/np.linalg.norm(vv_0R[i,:])
+    
         print('--- Start Testing, 2/2 --- \n',time.process_time())
         DSSText.Command='set controlmode=static'
+        DSSText.Command='batchedit regcontrol..* band=1'
         for i in range(len(k)):
             print(i,'/',len(k)-1)
             cpf_set_loads(DSSCircuit,BB0,SS0,k[i],setCaps=setCapsModel,capPos=capPosLin)
@@ -206,8 +215,9 @@ for fdr_i in fdr_i_set:
             Convrg.append(DSSSolution.Converged)
             TP[i] = DSSCircuit.TotalPower[0] + 1j*DSSCircuit.TotalPower[1]
             TL[i] = 1e-3*(DSSCircuit.Losses[0] + 1j*DSSCircuit.Losses[1])
-
-            v_0[i,:] = abs(tp_2_ar(DSSCircuit.YNodeVarray))
+            
+            YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
+            v_0[i,:] = abs(YNodeV)
             vv_0_ctl[i,:] = v_0[i,3:][v_idx]
             vv_0R_ctl[i,:] = vv_0_ctl[i,:][v_idx_shf]
 
@@ -234,14 +244,17 @@ for fdr_i in fdr_i_set:
             tSet = np.linalg.solve( KtPuShf[-nT:], revVregPu - b0[-nT:] )
             
             vOut = KfixPuShf.dot(xnew) + KtPuShf.dot(tSet) + bVPuShf.T
+            # plt.plot(vOut)
+            # plt.plot(vv_lN_ctr[i,:]/vbase)
+            # plt.show()
             
             ve_ctl[i] = np.linalg.norm( vv_l_ctr[i,:] - vv_0_ctl[i,:] )/np.linalg.norm(vv_0_ctl[i,:])
             veN_ctl[i] = np.linalg.norm( vv_lN_ctr[i,:] - vv_0R_ctl[i,:] )/np.linalg.norm(vv_0R_ctl[i,:])
         print('Testing Complete.\n',time.process_time())
-    
+        
+        
+    vYZ = vecSlc(YZ[3:],v_idx_new)
 
-    
-    
     # if 'test_cap_model' in locals(): # <--- not implemented
         # vva_0_cap = np.zeros((len(k),len(v_idx)))
         # vva_l_cap = np.zeros((len(k),len(v_idx)))
@@ -295,7 +308,7 @@ for fdr_i in fdr_i_set:
         np.save(sn0+'xhdCap0'+lp_str+'.npy',xhdCap0[sD_idx_shf])
         np.save(sn0+'xhyLds0'+lp_str+'.npy',xhyLds0[s_idx_shf])
         np.save(sn0+'xhdLds0'+lp_str+'.npy',xhdLds0[sD_idx_shf])
-        np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vecSlc(YZ[3:],v_idx_new))
+        np.save(sn0+'vYNodeOrder'+lp_str+'.npy',vYZ)
         np.save(sn0+'Vbase'+lp_str+'.npy',Yvbase_new)
 
         np.save(sn0+'SyYNodeOrder'+lp_str+'.npy',YZp)

@@ -12,7 +12,7 @@ from linSvdCalcs import plotBoxWhisk, getKcdf, plotCns
 
 # feeders = ['13bus','34bus','123bus','8500node','eulv','usLv','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
 feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
-feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri24']
+# feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri24']
 # feeders = ['34bus','123bus','epriJ1','epriK1','epriM1','epri5','epri7']
 
 feedersTidy = {'34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24'}
@@ -179,7 +179,8 @@ for rslt in rsltsTap.values():
     
     kCdfLin.append(rslt['linHcRsl']['kCdf'][idxChosen])
     # kCdfDss.append(rslt['dssHcRslTapLck']['kCdf'][idxChosen])
-    kCdfDss.append(rslt['dssHcRslTapSet']['kCdf'][idxChosen])
+    # kCdfDss.append(rslt['dssHcRslTapSet']['kCdf'][idxChosen])
+    kCdfDss.append(rslt['dssHcRslTapTgt']['kCdf'][idxChosen])
     # kCdfNom.append(rslt['dssHcRslTapLck']['kCdf'][idxChosen])
     
     # LmeanNorm.append( np.mean(np.abs(rslt['dssHcRslTgt']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))*0.01 )
@@ -581,7 +582,7 @@ if 'f_plotLp' in locals():
 
 
 # feeder = '8500node'
-feeder = 'epriJ1'
+feeder = '34bus'
 
 # 1. seeing how the tap positions change for the feeder
 for feeder in feeders:

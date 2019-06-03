@@ -42,7 +42,6 @@ mcTapSet = 1
 plotShow = 1
 
 nMc = 100 # nominal value of 100
-# nMc = 5 # nominal value of 100
 
 pltSave = True # for saving both plots and results
 # pltSave = False
@@ -55,14 +54,12 @@ setCapsOpt = 'linModel' # opendss options. 'linModels' is the 'right' option, cf
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14,17,18,20,21]
 fdr_i_set = [6,8,9,17,18,19,20,21,22]
-# fdr_i_set = [6,8,20]
-# fdr_i_set = [21,22,9]
-# fdr_i_set = [19]
-fdr_i_set = [6]
+fdr_i_set = [8,20,17,18,21,19,22,9]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'; prms=np.array([]) 
 # pdfName = 'gammaFrac'; prms=np.arange(0.05,1.05,0.05) # to make it faster
+# pdfName = 'gammaFrac'; prms=np.arange(0.1,1.10,0.10) # to make it faster
 
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy']
 
@@ -135,9 +132,11 @@ for fdr_i in fdr_i_set:
     
     lin_point=lp0data['k']
     cpf_set_loads(DSSCircuit,BB0,SS0,lin_point,setCaps=setCapsOpt,capPos=lp0data['capPosOut'])
+    DSSText.Command='Batchedit load..* vminpu=0.33 vmaxpu=3' # to match linearise_manc stuff exactly.
     DSSSolution.Solve()
     LM.TC_No0 = find_tap_pos(DSSCircuit)
     
+    DSSText.Command='Compile ('+fn+'.dss)'
     cpf_set_loads(DSSCircuit,BB0,SS0,lp0data['kLo'],setCaps=setCapsOpt,capPos=lp0data['capPosOut'])
     DSSSolution.Solve()
 
@@ -247,17 +246,24 @@ for fdr_i in fdr_i_set:
         LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,setCapsModel=setCapsOpt,runType='tapSet',tapPosStart=linHcRslNom['tapPosSeq'])
         dssHcRslTapSet = LM.dssHcRsl
         
-        LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,setCapsModel=setCapsOpt,runType='tapSetLock',tapPosStart=linHcRslNom['tapPosSeq'])
-        dssHcRslTapLck = LM.dssHcRsl
+        if fdr_i==17 or fdr_i==18:
+            dssHcRslTapLck = dssHcRslTapSet
+            dssHcRslTapTgt = dssHcRslTapSet
+        else:
+            LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,setCapsModel=setCapsOpt,runType='tapSetLock',tapPosStart=linHcRslNom['tapPosSeq'])
+            dssHcRslTapLck = LM.dssHcRsl
+            
+            LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=1.0,setCapsModel=setCapsOpt,runType='tapSet',tapPosStart=linHcRslNom['tapPosSeq'])
+            dssHcRslTapTgt = LM.dssHcRsl
         
-        dssMae = LM.calcLinPdfError(dssHcRslTapSet,model='dss')
-        dssRge = LM.calcLinPdfError(dssHcRslTapSet,type='reg',model='dss')
+        dssMae = LM.calcLinPdfError(dssHcRslTapTgt,model='dss')
+        dssRge = LM.calcLinPdfError(dssHcRslTapTgt,type='reg',model='dss')
         
         # calculate error:
-        maeVals = {'nomMae':LM.calcLinPdfError(linHcRslNom),'nmcMae':LM.calcLinPdfError(linHcRslNmc), 'dssSetMae':LM.calcLinPdfError(dssHcRslTapSet),'dssLckMae':LM.calcLinPdfError(dssHcRslTapLck),'dssMae':dssMae}
-        rgeVals = {'nomRge':LM.calcLinPdfError(linHcRslNom,type='reg'),'nmcRge':LM.calcLinPdfError(linHcRslNmc,type='reg'),'dssSetRge':LM.calcLinPdfError(dssHcRslTapSet,type='reg'),'dssLckRge':LM.calcLinPdfError(dssHcRslTapLck,type='reg'),'dssRge':dssRge}
+        maeVals = {'nomMae':LM.calcLinPdfError(linHcRslNom),'nmcMae':LM.calcLinPdfError(linHcRslNmc), 'dssSetMae':LM.calcLinPdfError(dssHcRslTapSet),'dssLckMae':LM.calcLinPdfError(dssHcRslTapLck),'dssTgtMae':LM.calcLinPdfError(dssHcRslTapTgt),'dssMae':dssMae}
+        rgeVals = {'nomRge':LM.calcLinPdfError(linHcRslNom,type='reg'),'nmcRge':LM.calcLinPdfError(linHcRslNmc,type='reg'),'dssSetRge':LM.calcLinPdfError(dssHcRslTapSet,type='reg'),'dssLckRge':LM.calcLinPdfError(dssHcRslTapLck,type='reg'),'dssTgtRge':LM.calcLinPdfError(dssHcRslTapTgt,type='reg'),'dssRge':dssRge}
         
-        rslt = {'linHcRsl':linHcRsl,'linHcRslNom':linHcRslNom,'linHcRslNmc':linHcRslNmc,'dssHcRslTapSet':dssHcRslTapSet,'dssHcRslTapLck':dssHcRslTapLck,'pdfData':pdf.pdf,'pdfDataNmc':pdfVal.pdf,'feeder':feeder,'maeVals':maeVals,'rgeVals':rgeVals,'preCndLeft':preCndLeft,'TC_No0':LM.TC_No0}
+        rslt = {'linHcRsl':linHcRsl,'linHcRslNom':linHcRslNom,'linHcRslNmc':linHcRslNmc,'dssHcRslTapSet':dssHcRslTapSet,'dssHcRslTapLck':dssHcRslTapLck,'dssHcRslTapTgt':dssHcRslTapTgt,'pdfData':pdf.pdf,'pdfDataNmc':pdfVal.pdf,'feeder':feeder,'maeVals':maeVals,'rgeVals':rgeVals,'preCndLeft':preCndLeft,'TC_No0':LM.TC_No0}
         if pltSave:
             SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_tapSet.pkl')
             with open(SN,'wb') as file:
@@ -363,9 +369,10 @@ for fdr_i in fdr_i_set:
         fig = plt.subplot()
         ax1 = plt.subplot(121)
         ax2 = plt.subplot(122)
-        if mcDssOn:
-            plotHcVltn(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.dssHcRsl['Vp_pct'],ax=ax1,pltShow=False,feeder=feeder,logScale=True)
-            plotHcVltn(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.dssHcRsl['Vp_pct'],ax=ax2,pltShow=False,feeder=feeder,logScale=False)
+        # if mcDssOn:
+        plotHcVltn(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.dssHcRsl['Vp_pct'],ax=ax1,pltShow=False,feeder=feeder,logScale=True)
+        plotHcVltn(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.dssHcRsl['Vp_pct'],ax=ax2,pltShow=False,feeder=feeder,logScale=False)
+        
         plotHcVltn(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Vp_pct'],ax=ax1,pltShow=False,feeder=feeder,logScale=True)
         plotHcVltn(pdf.pdf['mu_k'],pdf.pdf['prms'],LM.linHcRsl['Vp_pct'],ax=ax2,pltShow=False,feeder=feeder,logScale=False)
         if mcDssOn:
@@ -385,3 +392,36 @@ for fdr_i in fdr_i_set:
         plt.grid(True)
         if 'plotShow' in locals():
             plt.show()
+
+
+# # 1. seeing how the tap positions change for the feeder
+# plt.scatter((linHcRslNom['tapPosSeq'] + LM.TC_No0).flatten(),dssHcRslTapSet['tapPosSet'].flatten())
+# plt.plot((-10,10),(-10,10),'k')
+# plt.show()
+
+# # # 2. Seeing how out of bandwidth the regulators are at the specified nominal tap positions
+# plt.scatter(dssHcRslTapLck['regVI'][:,:,0].flatten(),dssHcRslTapLck['regVI'][:,:,1].flatten())
+# plt.scatter(dssHcRslTapSet['regVI'][:,:,0].flatten(),dssHcRslTapSet['regVI'][:,:,1].flatten())
+# plt.plot((-1,1,1,-1,-1),(-1,-1,1,1,-1),'k')
+# plt.grid(True)
+# plt.show()
+
+# # 3. Plotting the sensitivity to tap position
+# tapPosSns = linHcRslNom['tapPosSns']
+# tapMinLo = np.min(tapPosSns[:,:,1,:],axis=2)
+# prms = np.linspace(100/tapMinLo.shape[0],100,tapMinLo.shape[0])
+# fig,ax = plt.subplots()
+# jj = 0
+# for tapMin in tapMinLo[::2]:
+    # pctls = np.percentile(tapMin,[5,25,50,75,95])
+    # rngs = np.percentile(tapMin,[0,100])
+    # plotBoxWhisk(ax,prms[jj],1,pctls,bds=rngs)
+    # jj+=2
+
+# xlm = ax.get_xlim()
+# ax.plot(xlm,(2,2),'k--')
+# ax.set_xlim(xlm)
+# ax.set_xlabel('Fraction of Loads with PV')
+# ax.set_ylabel('No. taps to upper voltage constraint')
+# ax.set_ylim((-3.5,4.5))
+# plt.show()
