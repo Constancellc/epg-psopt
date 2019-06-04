@@ -20,7 +20,7 @@ Redirect loads.dss
 !Redirect loads_cvr.dss
 Redirect Capacitors.dss
 
-Set voltagebases = [69.0, 13.2, .4156922]
+Set voltagebases = [69.0, 13.2, .4156922] ! NOTE weird voltage bases c.f. xfmr voltages
 Calcv
 Redirect vbases.dss
 

@@ -50,9 +50,12 @@ for ntwk in np.unique(Ntwk):
 plt.show()
 
 for ntwk in np.unique(Ntwk):
-    plt.plot(MnV[Ntwk==ntwk])
-    plt.plot(MxV[Ntwk==ntwk],'--')
+    i = int(ntwk.split('_')[1])
+    x=i*np.ones(sum(Ntwk==ntwk))
+    plt.plot(x,MnV[Ntwk==ntwk],'x')
+    plt.plot(x,MxV[Ntwk==ntwk],'x')
 
+plt.grid(True)
 plt.show()
     
 

@@ -138,8 +138,7 @@ def cvrLinearization(Ybus,Vh,V0,H,pCvr,qCvr,kvYbase,kvDbase):
     try:
         Md = sparse.hstack((Md_0.dot(pDcvr_diag),-1j*Md_0.dot(qDcvr_diag))).toarray()
     except:
-        Md = H0.T
-    
+        Md = np.zeros((H0.T).shape)
     a = -Ylli.dot(Yl0.dot(V0))
     
     # D-bit:

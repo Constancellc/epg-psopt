@@ -18,11 +18,9 @@ from win32com.client import makepy
 
 class buildLinModel:
     def __init__(self,fdr_i=6,linPoints=[None],pCvr = 0.75,saveModel=False,setCapsModel='linPoint',FD=sys.argv[0],nrelTest=False):
-        
         self.WD = os.path.dirname(FD)
         self.setCapsModel = setCapsModel
         
-        # logging.basicConfig(filename=os.path.join(self.WD,'example.log'),level=logging.DEBUG)
         logging.basicConfig(filename=os.path.join(self.WD,'example.log'),filemode='w',level=logging.INFO)
         self.log = logging.getLogger()
         self.log.info('Feeder: '+str(fdr_i))
@@ -73,11 +71,11 @@ class buildLinModel:
         self.vHi = 1.05*self.vKvbase
         self.vLo = 0.95*self.vKvbase
         
-        self.pLim = 500. # only a lower bound (curtailment), W
-        self.qLim = 1e4 # kVAr
+        self.pLim = 1e3 # only a lower bound (curtailment), W
+        self.qLim = 1e3 # (k?)VAr
         self.tLim = 0.1 # pu
         
-        # self.testCvrQp()
+        self.testCvrQp()
         
         # self.runCvrQp()
         # self.showQpSln()
@@ -278,11 +276,12 @@ class buildLinModel:
         self.log.info('Voltage clx error (no load point), Volts:'+str(np.linalg.norm(a-VnoLoad)/np.linalg.norm(VnoLoad)))
         self.log.info('\nVoltage abs error (lin point), Volts:'+str(np.linalg.norm(Va0-abs(Vh))/np.linalg.norm(abs(Vh))))
         self.log.info('Voltage abs error (no load point), Volts:'+str(np.linalg.norm(abs(b)-abs(VnoLoad))/np.linalg.norm(abs(VnoLoad))))
-        self.log.info('\n Delta voltage clx error (lin point), Volts:'+str(np.linalg.norm(dVh0-dVh)/np.linalg.norm(dVh)))
-        self.log.info('Delta voltage clx error (no load point), Volts:'+str(np.linalg.norm(da-dVnoLoad)/np.linalg.norm(dVnoLoad)))
-        self.log.info('\nDelta voltage abs error (lin point), Volts:'+str(np.linalg.norm(dVa0-abs(dVh))/np.linalg.norm(abs(dVh))))
-        self.log.info('Delta voltage abs error (no load point), Volts:'+str(np.linalg.norm(abs(db)-abs(dVnoLoad))/np.linalg.norm(abs(dVnoLoad))))
-        
+        if len(dVh)>0:
+            self.log.info('\n Delta voltage clx error (lin point), Volts:'+str(np.linalg.norm(dVh0-dVh)/np.linalg.norm(dVh)))
+            self.log.info('Delta voltage clx error (no load point), Volts:'+str(np.linalg.norm(da-dVnoLoad)/np.linalg.norm(dVnoLoad)))
+            self.log.info('\nDelta voltage abs error (lin point), Volts:'+str(np.linalg.norm(dVa0-abs(dVh))/np.linalg.norm(abs(dVh))))
+            self.log.info('Delta voltage abs error (no load point), Volts:'+str(np.linalg.norm(abs(db)-abs(dVnoLoad))/np.linalg.norm(abs(dVnoLoad))))
+            
         self.syIdx = np.concatenate((self.pyIdx[0],self.qyIdx[0]))
         self.My = My[:,self.syIdx]
         self.Ky = Ky[:,self.syIdx]
@@ -353,9 +352,8 @@ class buildLinModel:
         
         P = np.zeros((len(self.yzW2V),len(M)))
         P[range(len(self.yzW2V)),self.yzW2V] = 1
-        P = np.delete(P,self.wregIdxs,axis=0)
+        P = np.delete(P,self.wregIdxs,axis=0) # don't forget we take out the regulator models!
         PT = P.T
-        
         
         qpQlss = 1e-3*np.real( (M.T).dot(PT.dot(Wcnj)) )
         self.qpQlss = 0.5*(qpQlss + qpQlss.T) # make symmetric.
@@ -526,12 +524,12 @@ class buildLinModel:
             TLcalc[i] = sum(np.delete(1e-3*vBusOut*iOut.conj(),self.wregIdxs).real) # for debugging
         
         fig,[ax0,ax1,ax2,ax3,ax4] = plt.subplots(ncols=5,figsize=(11,5))
-        ax0.plot(dxScale,TL - np.mean(TL),label='dss'); ax0.grid(True)
-        ax0.plot(dxScale,TLest - np.mean(TL),label='apx')
+        ax0.plot(dxScale,TL,label='dss'); ax0.grid(True)
+        ax0.plot(dxScale,TLest,label='apx')
         ax0.set_title('Losses'); ax0.set_xlabel('Tap (pu)')
         ax0.legend()
-        ax1.plot(dxScale,PL - np.mean(PL)); ax1.grid(True)
-        ax1.plot(dxScale,PLest - np.mean(PL))
+        ax1.plot(dxScale,PL); ax1.grid(True)
+        ax1.plot(dxScale,PLest)
         ax1.set_title('Load power'); ax1.set_xlabel('Tap (pu)')
         ax2.plot(dxScale,TC); ax2.grid(True)
         ax2.plot(dxScale,TCest); ax2.grid(True)
@@ -550,12 +548,13 @@ class buildLinModel:
             genNamesD = add_generators(DSSObj,vecSlc(self.YZ,self.pdIdx[0]),True)
             genNames = genNamesY + genNamesD
             
-            Sset = 100*np.linspace(-1,1,100)*1e3
             xCtrl = np.zeros(self.nCtrl)
             
             if ii==0:
+                Sset = np.linspace(-1,1,100)*self.qLim
                 xCtrl[self.nPctrl:-self.nT] = 1
             elif ii==1:
+                Sset = np.linspace(-1,1,100)*self.pLim
                 xCtrl[:self.nPctrl] = 1
             
             TL = np.zeros(len(Sset))
@@ -585,24 +584,24 @@ class buildLinModel:
             
             
             if ii==0:
-                xlbl = 'Reactive power per load (kvar)'
+                xlbl = 'Reactive power per load (kVar)'
             elif ii==1:
                 xlbl = 'Real power per load (kW)'
             
             fig,[ax0,ax1,ax2,ax3,ax4] = plt.subplots(ncols=5,figsize=(11,5))
-            ax0.plot(Sset,TL - np.mean(TL),label='dss'); ax0.grid(True)
-            ax0.plot(Sset,TLest - np.mean(TL),label='apx')
+            ax0.plot(Sset*1e-3,TL,label='dss'); ax0.grid(True)
+            ax0.plot(Sset*1e-3,TLest,label='apx')
             ax0.set_title('Losses (kW)'); ax0.set_xlabel(xlbl)
             ax0.legend()
-            ax1.plot(Sset,PL-np.mean(PL)); ax1.grid(True)
-            ax1.plot(Sset,PLest-np.mean(PL))
+            ax1.plot(Sset*1e-3,PL); ax1.grid(True)
+            ax1.plot(Sset*1e-3,PLest)
             ax1.set_title('Load power (kW)'); ax1.set_xlabel(xlbl)
-            ax2.plot(Sset,TC); ax2.grid(True)
-            ax2.plot(Sset,TCest)
-            ax2.set_title('Curtailment (kW)'); ax1.set_xlabel(xlbl)
-            ax3.plot(Sset,vErr); ax3.grid(True)
+            ax2.plot(Sset*1e-3,TC); ax2.grid(True)
+            ax2.plot(Sset*1e-3,TCest)
+            ax2.set_title('Curtailment (kW)'); ax2.set_xlabel(xlbl)
+            ax3.plot(Sset*1e-3,vErr); ax3.grid(True)
             ax3.set_title('Abs voltage error'); ax3.set_xlabel(xlbl)
-            ax4.plot(Sset,iErr); ax4.grid(True)
+            ax4.plot(Sset*1e-3,iErr); ax4.grid(True)
             ax4.set_title('Abs current error'); ax4.set_xlabel(xlbl)
             plt.tight_layout()
             plt.show()
