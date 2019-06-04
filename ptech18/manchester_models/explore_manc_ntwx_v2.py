@@ -26,11 +26,15 @@ for i in range(1,26):
 TP = np.array(TP); TL = np.array(TL); MxV = np.array(MxV); MnV = np.array(MnV); 
 NL = np.array(NL); Ntwk = np.array(Ntwk); Fdr = np.array(Fdr); Nnodes = np.array(Nnodes)
 
+m2perHousehold = [350,406,432,551,358,292,223,508,341,664,292,424,300,394,
+                      440,431,317,427,540,104,398,924,344,297,429] #as counted by cc
+
 # Note than Min/Max V are impacted by some dodgy feeders, as described in the 
 # notes by Nando on the set of networks. (basically: 'users should rephase...')
 fig,axes = plt.subplots(2,2,figsize=(9,7))
-data = [MxV,MnV,NL,Nnodes]
-titles = ['Max V','Min V','No. Loads','No. Nodes']
+data = [MxV,MnV,NL,1e2*1e-3*TL.real/NL]
+# titles = ['Max V','Min V','No. Loads','No. Nodes']
+titles = ['Max V','Min V','No. Loads','TL per load, %']
 i=0
 for ax in axes.ravel():
     ax.bar(np.arange(1,26),data[i])
@@ -38,5 +42,6 @@ for ax in axes.ravel():
     ax.set_title(titles[i])
     ax.grid(True)
     i+=1
+
 plt.tight_layout()
 plt.show()
