@@ -51,31 +51,28 @@ class buildLinModel:
             else:
                 self.capPosLin=None
         except:
-            linPoints = np.array([1.0])
+            if linPoints[0]==None:
+                linPoints = np.array([1.0])
             self.capPosLin=None
         
         self.pCvr = pCvr
         self.qCvr = 0.0
+        self.linPoint = linPoints[0]
         # self.createCvrModel(linPoints[0])
         # vce,vae,dvce,dvae,TLcvr,TLcvrq,TLa,TLp,TLcvr0,kN = self.cvrModelTest(k=np.linspace(-0.5,1.2,18))
         
-        # # self.createNrelModel(linPoints[0])
+        self.createNrelModel(linPoints[0])
         # self.createWmodel(linPoints[0]) # this seems to be ok
         # self.createTapModel(linPoints[0],cvrModel=True) # this seems to be ok
-        self.linPoint = linPoints[0]
         
-        self.makeCvrQp()
+        # self.makeCvrQp()
+        # self.vHi = 1.05*self.vKvbase
+        # self.vLo = 0.95*self.vKvbase
+        # self.pLim = 1e3 # only a lower bound (curtailment), W
+        # self.qLim = 1e3 # (k?)VAr
+        # self.tLim = 0.1 # pu
         
-        # self.vHi = 1.06*self.vKvbase
-        # self.vLo = 0.97*self.vKvbase
-        self.vHi = 1.05*self.vKvbase
-        self.vLo = 0.95*self.vKvbase
-        
-        self.pLim = 1e3 # only a lower bound (curtailment), W
-        self.qLim = 1e3 # (k?)VAr
-        self.tLim = 0.1 # pu
-        
-        self.testCvrQp()
+        # self.testCvrQp()
         
         # self.runCvrQp()
         # self.showQpSln()
@@ -90,15 +87,15 @@ class buildLinModel:
             # vFxdeLck, vLckeLck, vFxdeFxd, vLckeFxd, kFxd = self.ltcModelTest()
     
         # if nrelTest:
-            # # Voltage errors
-            # fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
-            # ax0.plot(kN,abs(vce)); ax0.grid(True)
-            # ax0.set_ylabel('Vc,e')
-            # ax1.plot(kN,vae); ax1.grid(True)
-            # ax1.set_ylabel('Va,e')
-            # ax1.set_xlabel('Continuation factor k')
-            # plt.tight_layout()
-            # plt.show()
+        # Voltage errors
+        # fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
+        # ax0.plot(kN,abs(vce)); ax0.grid(True)
+        # ax0.set_ylabel('Vc,e')
+        # ax1.plot(kN,vae); ax1.grid(True)
+        # ax1.set_ylabel('Va,e')
+        # ax1.set_xlabel('Continuation factor k')
+        # plt.tight_layout()
+        # plt.show()
             
             # # # Tap change tests
             # # fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
@@ -700,6 +697,7 @@ class buildLinModel:
         self.Md = Md
         self.Kd = Kd
         self.currentLinPoint = lin_point
+        self.Ybus = Ybus
     
     def createCvrModel(self,lin_point=1.0):
         # NOTE: opendss and the documentation have different definitions of CVR factor (!) one uses linear, one uses exponential. Results suggest tt seems to be an exponential model...?
@@ -1456,14 +1454,14 @@ class buildLinModel:
         lp_str = str(np.round(self.linPoint*100).astype(int)).zfill(3)
         MyCC = self.My
         xhyCC = self.xY
-        
+
         aCC = self.aV
         V0CC = self.V0
-        
+
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
-        Ybus, YNodeOrder = createYbus( DSSObj,self.TC_No0,self.capPosLin )
-        YbusCC = Ybus
-        
+        # Ybus, YNodeOrder = createYbus( DSSObj,self.TC_No0,self.capPosLin )
+        # YbusCC = Ybus
+
         allLds = DSSCircuit.Loads.AllNames
         loadBuses = {}
         for ld in allLds:
@@ -1475,7 +1473,7 @@ class buildLinModel:
 
         if not os.path.exists(dirCC):
             os.makedirs(dirCC)
-        
+
         np.save(snCC+'vYNodeOrder'+lp_str+'.npy',self.vYNodeOrder)
         np.save(snCC+'SyYNodeOrder'+lp_str+'.npy',self.SyYNodeOrder)
             
@@ -1483,11 +1481,11 @@ class buildLinModel:
         np.save(snCC+'xhyCc'+lp_str+'.npy',xhyCC)
         np.save(snCC+'aCc'+lp_str+'.npy',aCC)
         np.save(snCC+'V0Cc'+lp_str+'.npy',V0CC)
-        np.save(snCC+'YbusCc'+lp_str+'.npy',YbusCC)
-        np.save(snCC+'YNodeOrderCc'+lp_str+'.npy',YNodeOrder)
-        
+        np.save(snCC+'YbusCc'+lp_str+'.npy',self.Ybus)
+        np.save(snCC+'YNodeOrderCc'+lp_str+'.npy',DSSCircuit.YNodeOrder)
+
         busCoords = getBusCoords(DSSCircuit,DSSText)
         busCoordsAug,PDelements,PDparents = getBusCoordsAug(busCoords,DSSCircuit,DSSText)
-        
+
         np.save(snCC+'busCoords'+lp_str+'.npy',busCoordsAug)
         np.save(snCC+'loadBusesCc'+lp_str+'.npy',[loadBuses]) # nb likely to be similar to vecSlc(YNodeOrder[3:],p_idx)?

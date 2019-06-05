@@ -31,10 +31,10 @@ m2perHousehold = [350,406,432,551,358,292,223,508,341,664,292,424,300,394,
 
 # Note than Min/Max V are impacted by some dodgy feeders, as described in the 
 # notes by Nando on the set of networks. (basically: 'users should rephase...')
-fig,axes = plt.subplots(2,2,figsize=(9,7))
-data = [MxV,MnV,NL,1e2*1e-3*TL.real/NL]
+fig,axes = plt.subplots(2,3,figsize=(9,10))
+data = [MxV,MnV,NL,1e2*1e-3*TL.real/NL,Nnodes,m2perHousehold]
 # titles = ['Max V','Min V','No. Loads','No. Nodes']
-titles = ['Max V','Min V','No. Loads','TL per load, %']
+titles = ['Max V','Min V','No. Loads','TL per load, %','Nnodes','m2 per household']
 i=0
 for ax in axes.ravel():
     ax.bar(np.arange(1,26),data[i])
