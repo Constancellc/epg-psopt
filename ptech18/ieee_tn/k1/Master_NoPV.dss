@@ -4,7 +4,7 @@
 ! For reference purposes, please use: EPRI Feeder K1, Distributed PV (DPV) Monitoring and Feeder Analysis, dpv.epri.com, 2013
 Clear
 
-New Circuit.EPRIK1  pu=1.00 bus1=Trans_equiv0 basekv=69 r1=0.806263 x1=7.813791 r0=0.916307 x0=14.55679 !corrected to match CYME dist side impedances
+New Circuit.EPRIK1  pu=1.00 bus1=Trans_equiv basekv=69 r1=0.806263 x1=7.813791 r0=0.916307 x0=14.55679 !corrected to match CYME dist side impedances
 
 Redirect triplexlinecodes.dss
 Redirect Substation.dss
