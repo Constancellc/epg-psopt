@@ -52,7 +52,7 @@ class LVTestFeeder:
                 
         self.hh_profiles = hh_profiles
 
-    def set_households_NR(self,filePath): # UPDATED
+    def set_households_NR(self,filePath,sf=1): # UPDATED
 
         # first get all
         all_profiles = {}
@@ -63,7 +63,7 @@ class LVTestFeeder:
                 for j in range(len(row)-1):
                     if j not in all_profiles:
                         all_profiles[j] = []
-                    all_profiles[j].append(float(row[j+1]))
+                    all_profiles[j].append(sf*float(row[j+1]))
 
         # now chose some
         chosen_ = [] # for indexes
@@ -147,7 +147,7 @@ class LVTestFeeder:
         self.n = len(self.b)
         '''
 
-    def set_evs_MEA(self,folderPath,nEVs=None,weekday=True,weekend=False): #UPDATED
+    def set_evs_MEA(self,folderPath,sf=1,nEVs=None,weekday=True,weekend=False): #UPDATED
         # day 4 is a Monday
         # day 7 and 0 are Thursdays
         # max day is 253
@@ -211,7 +211,7 @@ class LVTestFeeder:
                 for row in reader:
                     if int(row[0]) != chosenDay:
                         continue
-                    kWh = float(row[3])
+                    kWh = float(row[3])*sf
                     start = int(row[1])
                     needed = int(row[2])
 
@@ -789,8 +789,6 @@ class LVTestFeeder:
         
         self.evs = profiles
 
-
-
     def predict_losses(self):
         losses = []
 
@@ -800,6 +798,34 @@ class LVTestFeeder:
                 y[i] -= self.hh_profiles[i][t]*1000
                 y[i] -= self.evs[i][t]*1000
 
+            y = matrix(y)
+
+            losses.append((y.T*self.P0*y+matrix(self.q0).T*y)[0]+self.c)
+
+        return sum(losses)*self.t_res/60000 # kWh
+
+    def predict_losses_cheat(self,na,nb,nc):
+        losses = []
+
+        for t in range(self.T):
+            y = [0.0]*len(self.q0)
+            j = 0
+            for i in range(self.nH):
+                if i < len(self.q0):
+                    y[i] -= self.hh_profiles[i][t]*1000
+                    y[i] -= self.evs[i][t]*1000
+                elif j < na:
+                    y[0] -= self.hh_profiles[i][t]*1000
+                    y[0] -= self.evs[i][t]*1000
+                    j += 1
+                elif j < (na+nb):
+                    y[1] -= self.hh_profiles[i][t]*1000
+                    y[1] -= self.evs[i][t]*1000
+                    j += 1
+                else:
+                    y[2] -= self.hh_profiles[i][t]*1000
+                    y[2] -= self.evs[i][t]*1000
+                    j += 1
             y = matrix(y)
 
             losses.append((y.T*self.P0*y+matrix(self.q0).T*y)[0]+self.c)
@@ -843,7 +869,7 @@ class LVTestFeeder:
             
         return v_tot
 
-    def get_all_voltages_mag(self,M,a,alpha,v0,scale=240):
+    def get_all_voltages_mag(self,M,a,alpha,v0,scale=230,cut=6):
         v_tot = {}
         for t in range(self.T):
             y = [0.0]*self.nH*2
@@ -857,7 +883,42 @@ class LVTestFeeder:
             v = np.matmul(M,y)
             v = v+a
             #v = np.hstack((v0,v))
-            v = np.abs(v)[3:]/scale
+            v = np.abs(v)[cut:]/scale
+
+            v_tot[t] = v
+            
+        return v_tot
+
+    def get_all_voltages_mag_cheat(self,M,a,alpha,v0,na,nb,nc,scale=230,cut=6):
+        v_tot = {}
+        for t in range(self.T):
+            y = [0.0]*(len(self.q0))*2
+            j = 0
+            for i in range(self.nH):
+                if i < len(self.q0):
+                    y[i] -= self.hh_profiles[i][t]*1000
+                    y[i] -= self.evs[i][t]*1000
+                elif j < na:
+                    y[0] -= self.hh_profiles[i][t]*1000
+                    y[0] -= self.evs[i][t]*1000
+                    j += 1
+                elif j < (na+nb):
+                    y[1] -= self.hh_profiles[i][t]*1000
+                    y[1] -= self.evs[i][t]*1000
+                    j += 1
+                else:
+                    y[2] -= self.hh_profiles[i][t]*1000
+                    y[2] -= self.evs[i][t]*1000
+                    j += 1
+
+            for hh in range(len(self.q0)):
+                y[hh+len(self.q0)] = alpha*y[hh]
+            y = np.array(y)
+
+            v = np.matmul(M,y)
+            v = v+a
+            #v = np.hstack((v0,v))
+            v = np.abs(v)[cut:]/scale
 
             v_tot[t] = v
             
