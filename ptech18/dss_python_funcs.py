@@ -559,8 +559,8 @@ def print_node_array(YZ,thing):
         print(YZ[i]+': '+str(thing[i]))
 
 def get_ckt(WD,feeder):
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy',feeder]
-    # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy'] # for editing
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr',feeder]
+    # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr'] # for editing
     ckts = {'feeder_name':['fn_ckt','fn']}
     ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
     ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
@@ -586,6 +586,7 @@ def get_ckt(WD,feeder):
     ckts[fdrs[21]]=[WD+'\\ieee_tn\\m1',WD+'\\ieee_tn\\m1\\Master_NoPV_z']
     ckts[fdrs[22]]=[WD+'\\ieee_tn\\ckt24',WD+'\\ieee_tn\\ckt24\\master_ckt24_z']
     ckts[fdrs[23]]=[WD+'\\ieee_tn\\4Bus-YY-Bal',WD+'\\ieee_tn\\4Bus-YY-Bal\\4Bus-YY-Bal_z']
+    ckts[fdrs[24]]=[WD+'\\ieee_tn\\k1',WD+'\\ieee_tn\\k1\\Master_NoPV_z_cvr']
         
     if not feeder in ckts.keys():
         print(feeder)

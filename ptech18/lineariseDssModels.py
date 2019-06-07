@@ -11,13 +11,20 @@ from dss_vlin_funcs import *
 from dss_voltage_funcs import *
 import dss_stats_funcs as dsf
 from importlib import reload
+from scipy.linalg import toeplitz
+
+def equalMat(n):
+    return toeplitz([1]+[0]*(n-2),[1,-1]+[0]*(n-2))
+def dirPrint(obj):
+    print(*dir(obj),sep='\n')
 
 from cvxopt import matrix, solvers
 
 from win32com.client import makepy
 
 class buildLinModel:
-    def __init__(self,fdr_i=6,linPoints=[None],pCvr = 0.75,saveModel=False,setCapsModel='linPoint',FD=sys.argv[0],nrelTest=False):
+    def __init__(self,fdr_i=6,linPoints=[None],pCvr = 0.75,saveModel=False,setCapsModel='linPoint',
+                                    FD=sys.argv[0],modelType=None,method='fpl'):
         self.WD = os.path.dirname(FD)
         self.setCapsModel = setCapsModel
         
@@ -31,7 +38,7 @@ class buildLinModel:
         
         self.dssStuff = [DSSObj,DSSObj.Text,DSSObj.ActiveCircuit,DSSObj.ActiveCircuit.Solution]
         
-        fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy']
+        fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr']
         
         if type(fdr_i) is int:
             self.feeder=fdrs[fdr_i]
@@ -39,7 +46,6 @@ class buildLinModel:
             self.feeder=fdr_i
         
         self.fn = get_ckt(self.WD,self.feeder)[1]
-        
         
         try:
             with open(os.path.join(self.WD,'lin_models',self.feeder,'chooseLinPoint','chooseLinPoint.pkl'),'rb') as handle:
@@ -58,110 +64,51 @@ class buildLinModel:
         self.pCvr = pCvr
         self.qCvr = 0.0
         self.linPoint = linPoints[0]
-        # self.createCvrModel(linPoints[0])
-        # vce,vae,dvce,dvae,TLcvr,TLcvrq,TLa,TLp,TLcvr0,kN = self.cvrModelTest(k=np.linspace(-0.5,1.2,18))
+        self.method=method
         
-        self.createNrelModel(linPoints[0])
-        # self.createWmodel(linPoints[0]) # this seems to be ok
-        # self.createTapModel(linPoints[0],cvrModel=True) # this seems to be ok
+        # BUILD MODELS
+        if modelType == None:
+            self.makeCvrQp()
+        elif modelType == 'linOnly':
+            self.createNrelModel(linPoints[0])
+        elif modelType == 'fxd':
+            self.createNrelModel(linPoints[0])
+            self.createTapModel(linPoints[0],cvrModel=True) # this seems to be ok
+            self.createFxdModel()
+        elif modelType == 'ltc':
+            self.createNrelModel(linPoints[0])
+            self.createTapModel(linPoints[0],cvrModel=True) # this seems to be ok
+            self.createWmodel() # this seems to be ok
+            self.createLtcModel()
+        elif modelType=='cvr':
+            self.createCvrModel()
+        self.hvBuses = (self.vKvbase>1000)
+        self.lvBuses = (self.vKvbase<=1000)
         
-        # self.makeCvrQp()
-        # self.vHi = 1.05*self.vKvbase
-        # self.vLo = 0.95*self.vKvbase
-        # self.pLim = 1e3 # only a lower bound (curtailment), W
-        # self.qLim = 1e3 # (k?)VAr
-        # self.tLim = 0.1 # pu
+        vHi = 1.05 # pu
+        mvLo = 0.95 # pu
+        mvLo = 0.92 # pu
+        lvLo = 0.92 # pu
         
+        self.vIn = np.where((abs(self.aV)/self.vKvbase)>0.5)[0].tolist()
+        
+        self.vHi = 1.05*self.vKvbase
+        self.vLo = mvLo*self.vKvbase*self.hvBuses + lvLo*self.vKvbase*self.lvBuses
+        
+        self.pLim = 1e3 # only a lower bound (curtailment), W
+        self.qLim = 1e3 # (k?)VAr
+        # self.pLim = 1e4 # only a lower bound (curtailment), W
+        # self.qLim = 1e4 # (k?)VAr
+        # self.pLim = 1e0 # only a lower bound (curtailment), W
+        # self.qLim = 1e0 # (k?)VAr
+        self.tLim = 0.1 # pu
+        
+        self.iScale = 2.0
         # self.testCvrQp()
         
-        # self.runCvrQp()
-        # self.showQpSln()
-        
-        # vce,vae,kN = self.nrelModelTest(k=np.linspace(-0.5,1.2,18))
-        
-        # if DSSObj.ActiveCircuit.RegControls.Count>0:
-            # self.createFxdModel(linPoints[0])
-            # self.createLtcModel(linPoints[0])
-            # TL,TLcalc,TLerr,ice,vceI,k = self.wModelTest(k=np.linspace(-0.5,1.2,100),cvrModel=True)
-            # # vFxdeLck, vLckeLck, vFxdeFxd, vLckeFxd, kFxd = self.fxdModelTest()
-            # vFxdeLck, vLckeLck, vFxdeFxd, vLckeFxd, kFxd = self.ltcModelTest()
-    
-        # if nrelTest:
-        # Voltage errors
-        # fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
-        # ax0.plot(kN,abs(vce)); ax0.grid(True)
-        # ax0.set_ylabel('Vc,e')
-        # ax1.plot(kN,vae); ax1.grid(True)
-        # ax1.set_ylabel('Va,e')
-        # ax1.set_xlabel('Continuation factor k')
-        # plt.tight_layout()
-        # plt.show()
-            
-            # # # Tap change tests
-            # # fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
-            # # ax0.plot(kFxd,vLckeLck);
-            # # ax0.plot(kFxd,vFxdeLck);
-            # # ax0.grid(True)
-            # # ax0.set_ylabel('Voltage Error')
-            # # ax0.set_xlabel('Continuation factor k')
-            # # ax1.plot(kFxd,vLckeFxd);
-            # # ax1.plot(kFxd,vFxdeFxd);
-            # # ax1.plot(kFxd,vLckeLck,'k--');
-            # # ax1.grid(True)
-            # # ax1.set_ylabel('Voltage Error')
-            # # ax1.set_xlabel('Continuation factor k')
-            # # plt.tight_layout()
-            # # plt.show()
-            # # # Real and imag losses
-            # # fig,[ax0,ax1] = plt.subplots(ncols=2,sharey=True)
-            # # fig,ax0 = plt.subplots()
-            # # ax0.plot(k,1e-3*TL,label='DSS')
-            # # ax0.plot(k,1e-3*TLcalc,label='QP'); ax0.grid(True)
-            # # ax0.set_ylabel('Power (kW)')
-            # # ax0.set_xlabel('Continuation factor k')
-            # # ax0.legend()
-            # # ax0.set_title('Real Power Loss, '+self.feeder)
-            # # plt.tight_layout()
-            # # plt.show()
-            
-            # fig,ax1 = plt.subplots()
-            # # ax1.plot(kN,TLcvr.real - TLcvr0.real,label='ap=0.75 DSS');
-            # # ax1.plot(kN,TLcvrq.real - TLcvr0.real,label='ap=0.75 QP');
-            # ax1.plot(kN,-TLcvr.real,label='ap=0.75 DSS');
-            # ax1.plot(kN,-TLcvrq,label='ap=0.75 QP');
-            # ax1.set_xlabel('Continuation factor k');ax1.grid(True)
-            # ax1.set_title('Load change, '+self.feeder)
-            # ax1.legend()
-            # plt.tight_layout()
-            # plt.show()
-            
-            # fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
-            # ax0.plot(k,TL.real)
-            # ax0.plot(k,TLcalc.real,'x'); ax0.grid(True)
-            # ax0.set_ylabel('Real power loss')
-            # ax1.plot(k,TL.imag)
-            # ax1.plot(k,TLcalc.imag,'x'); ax1.grid(True)
-            # ax1.set_ylabel('Imag power loss')
-            # ax1.set_xlabel('Continuation factor k')
-            # plt.tight_layout()
-            # plt.show()
-        
-            # # Loss/current errors
-            # fig,[ax0,ax1,ax2] = plt.subplots(3,figsize=(4,8),sharex=True)
-            # ax0.plot(k,TLerr);
-            # ax0.grid(True)
-            # ax0.set_ylabel('Loss Error')
-            # ax0.set_xlabel('Continuation factor k')
-            # ax1.plot(k,ice);
-            # ax1.grid(True)
-            # ax1.set_ylabel('Current Error')
-            # ax1.set_xlabel('Continuation factor k')
-            # ax2.plot(k,vceI);
-            # ax2.grid(True)
-            # ax2.set_ylabel('Vprim error')
-            # ax2.set_xlabel('Continuation factor k')
-            # plt.tight_layout()
-            # plt.show()
+        # self.testCvrModel() # NB this only tests self.createCvrModel which is different from the QP.
+        self.runCvrQp()
+        self.showQpSln()
         
         # # if saveModel:
             # # self.saveNrelModel()
@@ -202,11 +149,15 @@ class buildLinModel:
         print('\nNominally converged:',DSSSolution.Converged)
         
         self.TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
+        self.Cap_No0 = getCapPstns(DSSCircuit)
+        if self.capPosLin==None:
+            self.capPosLin = self.Cap_No0
+        print(self.Cap_No0)
         
         Ybus, YNodeOrder = createYbus( DSSObj,self.TC_No0,self.capPosLin )
         
         # >>> 2. Reproduce delta-y power flow eqns (1)
-        self.loadCvrModel(self.pCvr,self.qCvr,loadMult=lin_point)
+        self.loadCvrDssModel(self.pCvr,self.qCvr,loadMult=lin_point)
         YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
         
         self.xY, self.xD, self.pyIdx, self.pdIdx  = ldValsOnly( DSSCircuit ) # NB these do not change with the circuit!
@@ -249,9 +200,11 @@ class buildLinModel:
         
         print('Create linear models:\n',time.process_time()); t = time.time()
         
-        # My,Md,a,dMy,dMd,da = firstOrderTaylor( Ybus,Vh,V0,xYcvr,xDcvr,H[:,3:] ); \
-                            # print('===== Using the FOT method =====')
-        My,Md,a,dMy,dMd,da = cvrLinearization( Ybus,Vh,V0,H,0,0,self.vKvbase,self.vKvbaseD ); \
+        if self.method=='fot':
+            My,Md,a,dMy,dMd,da = firstOrderTaylor( Ybus,Vh,V0,xYcvr,xDcvr,H[:,3:] ); \
+                            print('===== Using the FOT method =====')
+        elif self.method=='fpl':
+            My,Md,a,dMy,dMd,da = cvrLinearization( Ybus,Vh,V0,H,0,0,self.vKvbase,self.vKvbaseD ); \
                             print('Using the FLP method')
         
         
@@ -366,53 +319,75 @@ class buildLinModel:
         pcurtL[:self.nPctrl] = -1e-3
         self.pcurtL = pcurtL
         
-        self.loadCvrModel(self.pCvr,self.qCvr,loadMult=lin_point)
+        self.loadCvrDssModel(self.pCvr,self.qCvr,loadMult=lin_point)
         self.log.info('Actual losses:'+str(DSSCircuit.Losses))
         self.log.info('Model losses'+str(self.qpClss))
         self.log.info('TLoad:'+str(-DSSCircuit.TotalPower[0] - 1e-3*DSSCircuit.Losses[0]))
         self.log.info('TLoadEst:'+str(-1e-3*sum(Kc2pC)))
         
         print('Q PD test:',pdTest(self.qpQlss))
+        
         return
     
-    def runCvrQp(self):
+    def runCvrQp(self,mode='full'):
         # minimize    (1/2)*x'*P*x + q'*x
         # subject to  G*x <= h
         # A*x = b.
         # sol = solvers.qp(Q,p,G,h,A,b)
+        # MODES
+        # 1. 'full' Full optimization
+        # 2. 'maxTap' maximise all taps
+        # 3. 'minTap' minimise all taps with max Q
+        # 4. 'part' full optimization, just one P + Q
         
         # OBJECTIVE FUNCTION
-        # losses, load, curtailment
-        Q = matrix( 2*self.qpQlss )
-        p = matrix( self.qpLlss + self.ploadL + self.pcurtL )
+        if mode=='full' or mode=='part':
+            # losses, load, curtailment
+            Q = matrix( 2*self.qpQlss )
+            p = matrix( self.qpLlss + self.ploadL + self.pcurtL )
+        elif mode=='maxTap':
+            Q = matrix( 0*self.qpQlss )
+            p = matrix( np.r_[np.zeros((self.nPctrl*2)),-1*np.ones((self.nT))] )
+        elif mode=='minTap':
+            Q = matrix( 0*self.qpQlss )
+            p = matrix( np.r_[np.zeros((self.nPctrl*2)),1*np.ones((self.nT))] )
 
         # INEQUALITY CONSTRAINTS
         # Upper Control variables, then voltages, then currents; then repeat but lower.
         # xLo <= Ax <= xHi
-        # xLimUp = matrix( np.concatenate(( np.zeros(self.nPctrl),np.ones(self.nPctrl)*1e3,np.ones(self.nT)*0.05/16.)) )
-        # xLimLo = matrix( np.concatenate(( np.ones(self.nPctrl)*500.,np.ones(self.nPctrl)*1e3,-np.ones(self.nT)*0.05/16.)) )
-        
         xLimUp = matrix( np.concatenate(( np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim)) )
         xLimLo = matrix( np.concatenate(( -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim)) )
         
-        vLimUp = matrix( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )
-        vLimLo = matrix( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )
+        vLimLo = matrix( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
+        vLimUp = matrix( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
         
-        iLim = matrix( self.iXfmrLims - self.Kc2i.dot(self.X0ctrl) + self.bW )
+        iLim = matrix( self.iScale*self.iXfmrLims - self.Kc2i.dot(self.X0ctrl) + self.bW )
         
         # recall: lower constraints by -1
-        # G = matrix( np.concatenate( (np.eye(self.nCtrl),self.Kc2v,self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v) ) )
-        # h = matrix( np.concatenate( (xLimUp,vLimUp,iLim,-xLimLo,-vLimLo) ) )
-
-        G = matrix( np.r_[np.eye(self.nCtrl),self.Kc2v,self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v] )
+        G = matrix( np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]] )
         h = matrix( np.r_[xLimUp,vLimUp,iLim,-xLimLo,-vLimLo] )
 
-        # EQUALITY CONSTRAINTS
-        # curtailment (possibly?)
-        # A = matrix([],(0,self.nCtrl))
-        # b = matrix([],(0,0))
-        
-        sol = solvers.qp(Q,p,G,h)
+        if mode=='full':
+            sol = solvers.qp(Q,p,G,h)
+        elif mode=='part':
+            # EQUALITY CONSTRAINTS
+            A0 = matrix( np.c_[np.zeros((self.nPctrl-1,self.nPctrl)),equalMat(self.nPctrl),np.zeros((self.nPctrl-1,self.nT))] )
+            b0 = matrix( np.zeros(self.nPctrl - 1) )
+            A1 = matrix( np.c_[equalMat(self.nPctrl),np.zeros((self.nPctrl-1,self.nPctrl)),np.zeros((self.nPctrl-1,self.nT))] )
+            b1 = matrix( np.zeros(self.nPctrl - 1) )
+            A = matrix([[A0,A1]])
+            b = matrix([[b0,b1]])
+            sol = solvers.qp(Q,p,G,h,A,b)
+        elif mode=='maxTap':
+            A = matrix( np.c_[np.eye(self.nPctrl*2),np.zeros((self.nPctrl*2,self.nT))] )
+            b = matrix(np.zeros(self.nPctrl*2))
+            sol = solvers.qp(Q,p,G,h,A,b)
+        elif mode=='minTap':
+            A = matrix( np.c_[np.eye(self.nPctrl*2),np.zeros((self.nPctrl*2,self.nT))] )
+            b = matrix(np.r_[np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim] )
+            sol = solvers.qp(Q,p,G,h,A,b)
+            
+            
         self.sln = sol
         
     def showQpSln(self):
@@ -439,18 +414,26 @@ class buildLinModel:
         fig,[ax0,ax1,ax2] = plt.subplots(ncols=3,figsize=(11,4))
         
         # plot voltages versus voltage limits
-        ax0.plot(V0/self.vKvbase,'o');
-        ax0.plot(V/self.vKvbase,'x');
-        ax0.plot(self.vHi/self.vKvbase,'k_');
-        ax0.plot(self.vLo/self.vKvbase,'k_');
+        ax0.plot((V0/self.vKvbase)[self.vIn],'o');
+        ax0.plot((V/self.vKvbase)[self.vIn],'x');
+        ax0.plot((self.vHi/self.vKvbase)[self.vIn],'k_');
+        ax0.plot((self.vLo/self.vKvbase)[self.vIn],'k_');
         ax0.set_title('Voltages')
         ax0.grid(True)
         # ax0.show()
         
         # plot currents versus current limits
-        ax1.plot(I0,'o')
-        ax1.plot(I,'x')
-        ax1.plot(self.iXfmrLims,'k_')
+        # ax1.plot(I0,'o')
+        # ax1.plot(I,'x')
+        # ax1.plot(self.iXfmrLims,'k_')
+        # ax1.set_xlabel('Bus Index')
+        # ax1.set_ylabel('Current (A)')
+        # ax1.set_title('Currents')
+        # ax1.grid(True)
+        ax1.plot(I0/(self.iScale*self.iXfmrLims),'o')
+        ax1.plot(I/(self.iScale*self.iXfmrLims),'x')
+        # ax1.plot(self.iXfmrLims,'k_')
+        ax1.plot(np.ones(len(self.iXfmrLims)),'k_')
         ax1.set_xlabel('Bus Index')
         ax1.set_ylabel('Current (A)')
         ax1.set_title('Currents')
@@ -465,16 +448,65 @@ class buildLinModel:
         ax2.set_title('Control settings')
         ax2.legend()
         ax2.grid(True)
+        plt.tight_layout()
         plt.show()
+    
+    def testQpVcpf(self,k=np.arange(-1.5,1.6,0.1)):
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        print('Start CVR testing. \n',time.process_time())
+        vce=np.zeros([k.size])
+        vae=np.zeros([k.size])
+        Convrg = []
         
+        X0 = np.concatenate((self.xY[self.syIdx],self.xD))
+        
+        # NB: the makeCvrModel() is different from makeQpModel().
+        dM = self.My.dot((self.xY*self.kYcvr0)[self.syIdx]) + self.Md.dot(self.xD*self.kDcvr0)
+        dK = self.Ky.dot((self.xY*self.kYcvr0)[self.syIdx]) + self.Kd.dot(self.xD*self.kDcvr0)
+        
+        # lin_point*self.xY*self.kYcvr
+        for i in range(len(k)):
+            if (i % (len(k)//4))==0: print('Solution:',i,'/',len(k)) # track progress
+            
+            DSSSolution.LoadMult = k[i]
+            DSSSolution.Solve()
+            
+            Convrg.append(DSSSolution.Converged) # for debugging
+            
+            vc0 = tp_2_ar(DSSCircuit.YNodeVarray)[3:]
+            va0 = abs(vc0)
+            
+            X = k[i]*np.concatenate((self.xY[self.syIdx],self.xD))
+            
+            vcL = dM*k[i] + self.aV
+            vaL = dK*k[i] + self.bV
+            
+            vce[i] = np.linalg.norm( (vcL - vc0)/self.vKvbase )/np.linalg.norm(vc0/self.vKvbase)
+            vae[i] = np.linalg.norm( (vaL - va0)/self.vKvbase )/np.linalg.norm(va0/self.vKvbase)
+            
+        print('nrelModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
+        
+        fig,ax = plt.subplots()
+        
+        ax.plot(k,vce.real,label='vce');
+        ax.plot(k,vae,label='vae');
+        ax.set_xlabel('Continuation factor k');ax.grid(True)
+        ax.set_title('Voltage error, '+self.feeder)
+        ax.legend()
+        return vce,vae,k
+    
     def testCvrQp(self):
         # THREE TESTS in terms of the sensitivity of the model to real power generation, reactive power, and tap changes.
-        # do TAPS first.
+        
+        print('Start CVR QP testing. \n',time.process_time())
+        self.testQpVcpf()
         
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
-        self.loadCvrModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
-        print('Start CVR QP testing. \n',time.process_time())
+        self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
         
+        # do complex voltages over loadmult first.
+        
+        # do TAPS first.
         # Test 1. Putting taps up and down one. Things to check:
         # - voltages; currents; loads; losses; generation
         tapChng = [-2,1,1,1,1]
@@ -536,11 +568,11 @@ class buildLinModel:
         ax4.plot(dxScale,iErr); ax4.grid(True)
         ax4.set_title('Abs current error'); ax4.set_xlabel('Tap (pu)')
         plt.tight_layout()
-        plt.show()
+        # plt.show()
         
         # Test 2. Put a whole load of generators in and change real and reactive powers.
         for ii in range(2):
-            self.loadCvrModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
+            self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
             genNamesY = add_generators(DSSObj,vecSlc(self.YZ,self.pyIdx[0]),False)
             genNamesD = add_generators(DSSObj,vecSlc(self.YZ,self.pdIdx[0]),True)
             genNames = genNamesY + genNamesD
@@ -601,7 +633,7 @@ class buildLinModel:
             ax4.plot(Sset*1e-3,iErr); ax4.grid(True)
             ax4.set_title('Abs current error'); ax4.set_xlabel(xlbl)
             plt.tight_layout()
-            plt.show()
+        plt.show()
         return
     
     def runQp(self,dx):
@@ -699,13 +731,18 @@ class buildLinModel:
         self.currentLinPoint = lin_point
         self.Ybus = Ybus
     
-    def createCvrModel(self,lin_point=1.0):
+    def createCvrModel(self,lin_point=None):
         # NOTE: opendss and the documentation have different definitions of CVR factor (!) one uses linear, one uses exponential. Results suggest tt seems to be an exponential model...?
+        
+        if lin_point==None:
+            linPoint = self.linPoint
+        else:
+            linPoint = lin_point
         
         pCvr = self.pCvr
         qCvr = self.qCvr
         
-        print('\nCreate NREL model, feeder:',self.feeder,'\nLin Point:',lin_point,'\npCvr, qCvr:',pCvr,qCvr,'\nCap Pos points:',self.capPosLin,'\n',time.process_time())
+        print('\nCreate NREL model, feeder:',self.feeder,'\nLin Point:',linPoint,'\npCvr, qCvr:',pCvr,qCvr,'\nCap Pos points:',self.capPosLin,'\n',time.process_time())
         
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         
@@ -713,7 +750,7 @@ class buildLinModel:
         DSSText.Command='Compile ('+self.fn+'.dss)'
         DSSText.Command='Batchedit load..* vminpu=0.02 vmaxpu=50 model=4 status=variable cvrwatts='+str(pCvr)+' cvrvars='+str(qCvr)
         DSSSolution.Tolerance=1e-10
-        DSSSolution.LoadMult = lin_point
+        DSSSolution.LoadMult = linPoint
         DSSSolution.Solve()
         print('\nNominally converged:',DSSSolution.Converged)
         
@@ -722,7 +759,7 @@ class buildLinModel:
         Ybus, YNodeOrder = createYbus( DSSObj,self.TC_No0,self.capPosLin )
         
         # >>> 2. Reproduce delta-y power flow eqns (1)
-        self.loadCvrModel(pCvr,qCvr,loadMult=lin_point)
+        self.loadCvrDssModel(pCvr,qCvr,loadMult=linPoint)
         YNodeV = tp_2_ar(DSSCircuit.YNodeVarray)
         
         self.xY, self.xD, self.pyIdx, self.pdIdx  = ldValsOnly( DSSCircuit ) # NB these do not change with the circuit!
@@ -743,18 +780,20 @@ class buildLinModel:
         self.kYcvr = np.concatenate((VhYpu**pCvr,VhYpu**qCvr))
         self.kDcvr = np.concatenate((VhDpu**pCvr,VhDpu**qCvr))
         
-        # xYcvr = lin_point*self.xY*self.kYcvr
-        # xDcvr = lin_point*self.xD*self.kDcvr
+        # xYcvr = linPoint*self.xY*self.kYcvr
+        # xDcvr = linPoint*self.xD*self.kDcvr
         # [sY0,sD0] = get_sYsD(DSSCircuit)[0:2] # useful for debugging
         # xY0 = -1e3*s_2_x(sY0[3:])
         # xD0 = -1e3*s_2_x(sD0)
         # err0 = xY0[:len(xYcvr)//2] - xYcvr[:len(xYcvr)//2] # ignore Q for now (coz of caps)
         # err1 = xY0[:len(xYcvr)//2] - self.xY[:len(xYcvr)//2]
-        # # err0 = xD0 - xDcvr
-        # # err1 = xD0 - self.xD
-        # plt.plot(err0); plt.plot(err1); plt.show()
+        # err0d = xD0[:len(xDcvr)//2] - xDcvr[:len(xDcvr)//2]
+        # err1d = xD0[:len(xDcvr)//2] - self.xD[:len(xDcvr)//2]
+        # fig,[ax0,ax1] = plt.subplots(ncols=2)
+        # ax0.plot(err0); ax0.plot(err1);
+        # ax1.plot(err0d); ax1.plot(err1d); plt.show()
         
-        # sY,sD,iY,iD,yzD,iTot,Hold = get_sYsD(DSSCircuit) # useful for debugging
+        # sY,sD,iY,iD,yzD,iTot,Hold = get_sYsD(DSSCircuit) # useful for debugging ... ?
         # self.xhy0 = -1e3*s_2_x(sY[3:])
         # self.xhd0 = -1e3*s_2_x(sD)
         # fig,[ax0,ax1] = plt.subplots(2)
@@ -777,27 +816,28 @@ class buildLinModel:
         
         print('Create linear models My + Md:\n',time.process_time()); t = time.time()
         My,Md,a,dMy,dMd,da = cvrLinearization( Ybus,Vh,V0,H,pCvr,qCvr,self.vKvbase,self.vKvbaseD )
-        print('Time M:',time.time()-t,'\nCreate linear models Ky + Kd:\n',time.process_time()); t = time.time()
-        Ky,Kd,b = nrelLinK( My,Md,Vh,lin_point*self.xY,lin_point*self.xD )
         
-        dKy,dKd,db = nrelLinK( dMy,dMd,dVh,lin_point*self.xY,lin_point*self.xD )
+        print('Time M:',time.time()-t,'\nCreate linear models Ky + Kd:\n',time.process_time()); t = time.time()
+        Ky,Kd,b = nrelLinK( My,Md,Vh,linPoint*self.xY,linPoint*self.xD )
+        
+        dKy,dKd,db = nrelLinK( dMy,dMd,dVh,linPoint*self.xY,linPoint*self.xD )
         
         print('Time K:',time.time()-t)
         
-        Vh0 = (My.dot(self.xY) + Md.dot(self.xD))*lin_point + a # for validation
-        Va0 = (Ky.dot(self.xY) + Kd.dot(self.xD))*lin_point + b # for validation
-        dVh0 = (dMy.dot(self.xY) + dMd.dot(self.xD))*lin_point + da # for validation
-        dVa0 = (dKy.dot(self.xY) + dKd.dot(self.xD))*lin_point + db # for validation
+        Vh0 = (My.dot(self.xY) + Md.dot(self.xD))*linPoint + a # for validation
+        Va0 = (Ky.dot(self.xY) + Kd.dot(self.xD))*linPoint + b # for validation
+        dVh0 = (dMy.dot(self.xY) + dMd.dot(self.xD))*linPoint + da # for validation
+        dVa0 = (dKy.dot(self.xY) + dKd.dot(self.xD))*linPoint + db # for validation
         
-        # # Print checks:
-        # print('\nVoltage clx error (lin point), Volts:',np.linalg.norm(Vh0-Vh)/np.linalg.norm(Vh))
-        # print('Voltage clx error (no load point), Volts:',np.linalg.norm(a-VnoLoad)/np.linalg.norm(VnoLoad),'\n') 
-        # print('\nVoltage abs error (lin point), Volts:',np.linalg.norm(Va0-abs(Vh))/np.linalg.norm(abs(Vh))) 
-        # print('Voltage abs error (no load point), Volts:',np.linalg.norm(abs(b)-abs(VnoLoad))/np.linalg.norm(abs(VnoLoad)),'\n') 
-        # print('\n Delta voltage clx error (lin point), Volts:',np.linalg.norm(dVh0-dVh)/np.linalg.norm(dVh)) 
-        # print('Delta voltage clx error (no load point), Volts:',np.linalg.norm(da-dVnoLoad)/np.linalg.norm(dVnoLoad),'\n') 
-        # print('\nDelta voltage abs error (lin point), Volts:',np.linalg.norm(dVa0-abs(dVh))/np.linalg.norm(abs(dVh))) 
-        # print('Delta voltage abs error (no load point), Volts:',np.linalg.norm(abs(db)-abs(dVnoLoad))/np.linalg.norm(abs(dVnoLoad)),'\n')
+        # Print checks:
+        print('\nVoltage clx error (lin point), Volts:',np.linalg.norm(Vh0-Vh)/np.linalg.norm(Vh))
+        print('Voltage clx error (no load point), Volts:',np.linalg.norm(a-VnoLoad)/np.linalg.norm(VnoLoad),'\n') 
+        print('\nVoltage abs error (lin point), Volts:',np.linalg.norm(Va0-abs(Vh))/np.linalg.norm(abs(Vh))) 
+        print('Voltage abs error (no load point), Volts:',np.linalg.norm(abs(b)-abs(VnoLoad))/np.linalg.norm(abs(VnoLoad)),'\n') 
+        print('\n Delta voltage clx error (lin point), Volts:',np.linalg.norm(dVh0-dVh)/np.linalg.norm(dVh)) 
+        print('Delta voltage clx error (no load point), Volts:',np.linalg.norm(da-dVnoLoad)/np.linalg.norm(dVnoLoad),'\n') 
+        print('\nDelta voltage abs error (lin point), Volts:',np.linalg.norm(dVa0-abs(dVh))/np.linalg.norm(abs(dVh))) 
+        print('Delta voltage abs error (no load point), Volts:',np.linalg.norm(abs(db)-abs(dVnoLoad))/np.linalg.norm(abs(dVnoLoad)),'\n')
         
         # self.syIdx = self.xY.nonzero()[0]
         self.syIdx = np.concatenate((self.pyIdx[0],self.pyIdx[0]+DSSCircuit.NumNodes-3))
@@ -821,6 +861,7 @@ class buildLinModel:
         self.dMy = dMy[:,self.syIdx]
         self.dMd = dMd
         self.daV = da
+        
         self.dKy = dKy[:,self.syIdx]
         self.dKd = dKd
         self.dbV = db
@@ -865,17 +906,19 @@ class buildLinModel:
         DSSText.Command='Compile ('+self.fn+')'
         DSSText.Command='Batchedit load..* vminpu=0.02 vmaxpu=50 model=1 status=variable'
         fix_tap_pos(DSSCircuit, self.TC_No0)
-        fix_cap_pos(DSSCircuit, self.capPosLin)
+        # fix_cap_pos(DSSCircuit, self.capPosLin)
+        fix_cap_pos(DSSCircuit, self.Cap_No0)
         DSSText.Command='Set controlmode=off'
         DSSSolution.LoadMult = loadMult
         DSSSolution.Solve()
     
-    def loadCvrModel(self,pCvr,qCvr,loadMult=1.0):
+    def loadCvrDssModel(self,pCvr,qCvr,loadMult=1.0):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         DSSText.Command='Compile ('+self.fn+')'
         DSSText.Command='Batchedit load..* vminpu=0.02 vmaxpu=50 model=4 status=variable cvrwatts='+str(pCvr)+' cvrvars='+str(qCvr)
         fix_tap_pos(DSSCircuit, self.TC_No0)
-        fix_cap_pos(DSSCircuit, self.capPosLin)
+        # fix_cap_pos(DSSCircuit, self.capPosLin)
+        fix_cap_pos(DSSCircuit, self.Cap_No0)
         DSSText.Command='Set controlmode=off'
         DSSSolution.LoadMult = loadMult
         DSSSolution.Solve()
@@ -884,7 +927,7 @@ class buildLinModel:
     def createWmodel(self,linPoint=None):
         # >>> 4. For regulation problems
         if linPoint==None:
-            self.loadDssModel(loadMult=self.lin_point)
+            self.loadDssModel(loadMult=self.linPoint)
         else:
             self.loadDssModel(loadMult=self.currentLinPoint)
             
@@ -993,12 +1036,12 @@ class buildLinModel:
     def createTapModel(self,linPoint=None,cvrModel=False):
         if cvrModel:
             if linPoint==None:
-                self.loadCvrModel(loadMult=self.lin_point,pCvr=self.pCvr,qCvr=self.qCvr)
+                self.loadCvrDssModel(loadMult=self.linPoint,pCvr=self.pCvr,qCvr=self.qCvr)
             else:
-                self.loadCvrModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
+                self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
         else:
             if linPoint==None:
-                self.loadDssModel(loadMult=self.lin_point)
+                self.loadDssModel(loadMult=self.linPoint)
             else:
                 self.loadDssModel(loadMult=self.currentLinPoint)
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
@@ -1039,7 +1082,7 @@ class buildLinModel:
 
     def createFxdModel(self,linPoint=None):
         if linPoint==None:
-            self.loadDssModel(loadMult=self.lin_point)
+            self.loadDssModel(loadMult=self.linPoint)
         else:
             self.loadDssModel(loadMult=self.currentLinPoint)
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
@@ -1055,7 +1098,7 @@ class buildLinModel:
     
     def createLtcModel(self,linPoint=None):
         if linPoint==None:
-            self.loadDssModel(loadMult=self.lin_point)
+            self.loadDssModel(loadMult=self.linPoint)
         else:
             self.loadDssModel(loadMult=self.currentLinPoint)
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
@@ -1100,7 +1143,7 @@ class buildLinModel:
         else:
             print('No fxd model (no regulators).')
         
-    def nrelModelTest(self,k = np.arange(-1.5,1.6,0.1)):
+    def testVoltageModel(self,k = np.arange(-1.5,1.6,0.1)):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         self.loadDssModel()
         
@@ -1134,12 +1177,23 @@ class buildLinModel:
             
             vce[i] = np.linalg.norm( (vcL[i] - vc0[i])/self.vKvbase )/np.linalg.norm(vc0[i]/self.vKvbase)
             vae[i] = np.linalg.norm( (vaL[i] - va0[i])/self.vKvbase )/np.linalg.norm(va0[i]/self.vKvbase)
-        print('nrelModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
+        
+        
+        fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
+        ax0.plot(k,abs(vce)); ax0.grid(True)
+        ax0.set_ylabel('Vc,e')
+        ax1.plot(k,vae); ax1.grid(True)
+        ax1.set_ylabel('Va,e')
+        ax1.set_xlabel('Continuation factor k')
+        plt.tight_layout()
+        plt.show()
+        
+        print('testVoltageModel, converged:',100*sum(Convrg)/len(Convrg),'%')
         return vce,vae,k
 
-    def cvrModelTest(self,k = np.arange(-1.5,1.6,0.1)):
+    def testCvrModel(self,k = np.arange(-1.5,1.6,0.1)):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
-        self.loadCvrModel(pCvr=self.pCvr,qCvr=self.qCvr)
+        self.loadCvrDssModel(pCvr=self.pCvr,qCvr=self.qCvr,loadMult=self.linPoint)
         
         print('Start CVR testing. \n',time.process_time())
         vce=np.zeros([k.size])
@@ -1157,10 +1211,11 @@ class buildLinModel:
         
         X0 = np.concatenate((self.xY[self.syIdx],self.xD))
         
-        dM = self.My.dot(self.xY[self.syIdx]) + self.Md.dot(self.xD)
-        dK = self.Ky.dot(self.xY[self.syIdx]) + self.Kd.dot(self.xD)
-        ddM = self.dMy.dot(self.xY[self.syIdx]) + self.dMd.dot(self.xD)
-        ddK = self.dKy.dot(self.xY[self.syIdx]) + self.dKd.dot(self.xD)
+        # NB: the makeCvrModel() is different from makeQpModel().
+        dM = self.My.dot((self.xY)[self.syIdx]) + self.Md.dot(self.xD)
+        dK = self.Ky.dot((self.xY)[self.syIdx]) + self.Kd.dot(self.xD)
+        ddM = self.dMy.dot((self.xY)[self.syIdx]) + self.dMd.dot(self.xD)
+        ddK = self.dKy.dot((self.xY)[self.syIdx]) + self.dKd.dot(self.xD)
         
         dKtotPu = self.KtotPu.dot(X0)
         
@@ -1218,12 +1273,37 @@ class buildLinModel:
             TL0[i] = sum(1e-3*p0pred)
             
         print('nrelModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
+        
+        fig,[ax0,ax1,ax2] = plt.subplots(ncols=3,figsize=(11,4))
+        
+        ax0.plot(k,vce.real,label='vce');
+        ax0.plot(k,vae,label='vae');
+        ax0.set_xlabel('Continuation factor k');ax0.grid(True)
+        ax0.set_title('Voltage error, '+self.feeder)
+        ax0.legend()
+        
+        ax1.plot(k,dvce,label='dvce');
+        ax1.plot(k,dvae,label='dvae');
+        ax1.set_xlabel('Continuation factor k');ax1.grid(True)
+        ax1.set_title('Voltage error, '+self.feeder)
+        ax1.legend()
+        
+        ax2.plot(k,-TL.real,label='ap=0.75 DSS');
+        ax2.plot(k,-TLq,label='ap=0.75 QP');
+        ax2.set_xlabel('Continuation factor k');ax2.grid(True)
+        ax2.set_title('Load, '+self.feeder)
+        ax2.legend()
+        
+        plt.tight_layout()
+        plt.show()
+        
+        # vce,vae,dvce,dvae,TLcvr,TLcvrq,TLa,TLp,TLcvr0,kN = self.testCvrModel(k=np.linspace(-0.5,1.2,18))
         return vce,vae,dvce,dvae,TL,TLq,TLa,TLp,TL0,k
         
-    def wModelTest(self,k = np.arange(-1.5,1.6,0.1),cvrModel=False):
+    def testWmodel(self,k = np.arange(-1.5,1.6,0.1),cvrModel=False):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         if cvrModel:
-            self.loadCvrModel(pCvr=self.pCvr,qCvr=self.qCvr)
+            self.loadCvrDssModel(pCvr=self.pCvr,qCvr=self.qCvr)
         else:
             self.loadDssModel()
         
@@ -1293,15 +1373,46 @@ class buildLinModel:
             
             ice[i] = np.linalg.norm( (iOut - iEst) )/np.linalg.norm(iOut)
             vce[i] = np.linalg.norm( (vBusEst - vBusOut) )/np.linalg.norm(vBusOut)
-        print('wModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
-        # print('wModelTest, QP correct:',np.linalg.norm(TLest0 - TLest)/np.linalg.norm(TLest0),'%')
+        print('testWmodel, converged:',100*sum(Convrg)/len(Convrg),'%')
+        # print('testWmodel, QP correct:',np.linalg.norm(TLest0 - TLest)/np.linalg.norm(TLest0),'%')
+        
+        # plot
+        fig,[ax0,ax1] = plt.subplots(ncols=2,sharey=True)
+        fig,ax0 = plt.subplots()
+        ax0.plot(k,1e-3*TLout,label='DSS')
+        ax0.plot(k,1e-3*TLest,label='QP'); ax0.grid(True)
+        ax0.set_ylabel('Power (kW)')
+        ax0.set_xlabel('Continuation factor k')
+        ax0.legend()
+        ax0.set_title('Real Power Loss, '+self.feeder)
+        plt.tight_layout()
+        plt.show()        
+        
+        # Loss/current errors
+        fig,[ax0,ax1,ax2] = plt.subplots(3,figsize=(4,8),sharex=True)
+        ax0.plot(k,TLerr);
+        ax0.grid(True)
+        ax0.set_ylabel('Loss Error')
+        ax0.set_xlabel('Continuation factor k')
+        ax1.plot(k,ice);
+        ax1.grid(True)
+        ax1.set_ylabel('Current Error')
+        ax1.set_xlabel('Continuation factor k')
+        ax2.plot(k,vce);
+        ax2.grid(True)
+        ax2.set_ylabel('Vprim error')
+        ax2.set_xlabel('Continuation factor k')
+        plt.tight_layout()
+        plt.show()
+        
+        # TL,TLcalc,TLerr,ice,vceI,k = self.testWmodel(k=np.linspace(-0.5,1.2,100),cvrModel=True)
         return TLout,TLest,TLerr,ice,vce,k
         
-    def fxdModelTest(self,k = np.arange(-1.5,1.6,0.1),cvrModel=False):
+    def testFxdModel(self,k = np.arange(-1.5,1.6,0.1),cvrModel=False):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         
         if cvrModel:
-            self.loadCvrModel(pCvr=self.pCvr,qCvr=self.qCvr)
+            self.loadCvrDssModel(pCvr=self.pCvr,qCvr=self.qCvr)
         else:
             self.loadDssModel()
         
@@ -1349,15 +1460,31 @@ class buildLinModel:
             
             vFxdeFxd[i] = np.linalg.norm( vOut - vFxd )/np.linalg.norm(vOut)
             vLckeFxd[i] = np.linalg.norm( vOut - vLck )/np.linalg.norm(vOut)
-        print('fxdModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
+        print('testFxdModel, converged:',100*sum(Convrg)/len(Convrg),'%')
         # print('Testing Complete.\n',time.process_time())
+        
+        fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
+        ax0.plot(k,vLckeLck);
+        ax0.plot(k,vFxdeLck);
+        ax0.grid(True)
+        ax0.set_ylabel('Voltage Error')
+        ax0.set_xlabel('Continuation factor k')
+        ax1.plot(k,vLckeFxd);
+        ax1.plot(k,vFxdeFxd);
+        ax1.plot(k,vLckeLck,'k--');
+        ax1.grid(True)
+        ax1.set_ylabel('Voltage Error')
+        ax1.set_xlabel('Continuation factor k')
+        plt.tight_layout()
+        plt.show()
+        
         return vFxdeLck, vLckeLck, vFxdeFxd, vLckeFxd,k
     
-    def ltcModelTest(self,k = np.concatenate((np.arange(-1.5,1.6,0.1),np.arange(1.5,-1.6,-0.1))),cvrModel=False):
-        # NB: Currently a direct port of fxdModelTest!
+    def testLtcModel(self,k = np.concatenate((np.arange(-1.5,1.6,0.1),np.arange(1.5,-1.6,-0.1))),cvrModel=False):
+        # NB: Currently a direct port of testFxdModel!
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         if cvrModel:
-            self.loadCvrModel(pCvr=self.pCvr,qCvr=self.qCvr)
+            self.loadCvrDssModel(pCvr=self.pCvr,qCvr=self.qCvr)
         else:
             self.loadDssModel()
         
@@ -1408,8 +1535,23 @@ class buildLinModel:
             
             vFxdeFxd[i] = np.linalg.norm( vOut - vFxd )/np.linalg.norm(vOut)
             vLckeFxd[i] = np.linalg.norm( vOut - vLck )/np.linalg.norm(vOut)
-        print('fxdModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
-        # print('Testing Complete.\n',time.process_time())
+        print('testLtcModel, converged:',100*sum(Convrg)/len(Convrg),'%')
+        
+        fig,[ax0,ax1] = plt.subplots(2,figsize=(4,7),sharex=True)
+        ax0.plot(k,vLckeLck);
+        ax0.plot(k,vFxdeLck);
+        ax0.grid(True)
+        ax0.set_ylabel('Voltage Error')
+        ax0.set_xlabel('Continuation factor k')
+        ax1.plot(k,vLckeFxd);
+        ax1.plot(k,vFxdeFxd);
+        ax1.plot(k,vLckeLck,'k--');
+        ax1.grid(True)
+        ax1.set_ylabel('Voltage Error')
+        ax1.set_xlabel('Continuation factor k')
+        plt.tight_layout()
+        plt.show()
+        
         return vFxdeLck, vLckeLck, vFxdeFxd, vLckeFxd,k
         
     def saveNrelModel():

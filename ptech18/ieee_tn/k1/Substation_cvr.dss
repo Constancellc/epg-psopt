@@ -1,0 +1,25 @@
+/*
+!New Transformer.T2 phases=3 windings=2 buses=(Trans_equiv.1.2.3, K_LSB.1.2.3.4) conns=(delta,wye) kvs=(66, 13.8) kvas=(12000, 12000)
+!~ xhl=7.904196143 wdg=1 %r=0.250041667 wdg=2 %r=0.250041667 mintap=0.9 maxtap=1.1
+New Transformer.T2 phases=3 windings=2 buses=(Trans_equiv.1.2.3, K_LSB_r0.1.2.3.4) conns=(delta,wye) kvs=(66, 13.8) kvas=(12000, 12000)
+~ xhl=7.904196143 wdg=1 %r=0.250041667 wdg=2 %r=0.250041667 mintap=0.9 maxtap=1.1
+*/
+! cvr version
+New Transformer.T2 phases=3 windings=2 buses=(Trans_equiv.1.2.3, K_LSB_r00.1.2.3.4) conns=(delta,wye) kvs=(66, 13.8) kvas=(12000, 12000)
+~ xhl=7.904196143 wdg=1 %r=0.250041667 wdg=2 %r=0.250041667 tap=0.95625
+New Transformer.T2reg phases=3 windings=2 buses=(K_LSB_r00.1.2.3.4, K_LSB_r0.1.2.3.4) conns=(wye,wye) kvs=(13.8, 13.8) kvas=(12000, 12000)
+~ xhl=0.000007904196143 wdg=1 %r=0.0000250041667 wdg=2 %r=0.0000250041667 mintap=0.9 maxtap=1.1
+New regcontrol.T2reg transformer=T2reg vreg=(122) winding=2 band=3 ptratio=63.50852961 delay=30 maxtapchange=16 ! original
+
+
+new line.T2 bus1=K_LSB_r0.1.2.3.4 bus2=K_LSB.1.2.3.4 phases=4 switch=true length=0.001
+
+New reactor.T2_neutral bus1=K_LSB.4 bus2=K_LSB.0 phases=1 x=0.5 basefreq=60
+ 
+!New line.K21_feeder bus1=K_LSB.1.2.3.0 bus2=K21.1.2.3.0 phases=3 switch=y length=0.001 units=ft enabled=true
+New line.K21_feeder bus1=K_LSB.1.2.3 bus2=K21.1.2.3 phases=3 switch=y length=0.001 units=ft enabled=true ! not clear why it has .0
+New line.K22_feeder bus1=K_LSB bus2=K22 phases=3 switch=y length=0.001 units=ft enabled=true
+
+!New regcontrol.T2 transformer=T2 vreg=(122) winding=2 band=3 ptratio=63.50852961 delay=30 ! original
+!New regcontrol.T2G transformer=T2 vreg=(122) winding=2 band=1 ptratio=63.50852961 delay=30
+New regcontrol.T2 transformer=T2reg vreg=(122) winding=2 band=3 ptratio=63.50852961 delay=30 ! cvr version

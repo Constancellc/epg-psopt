@@ -1,0 +1,55 @@
+!EPRI Feeder K1, OpenDSS
+! This Circuit model is provided to the public by EPRI (Electric Power Research Institute) as part of the Distributed Renewables Research Program (P174).
+! Please feel free to use this circuit model for further research/study. 
+! For reference purposes, please use: EPRI Feeder K1, Distributed PV (DPV) Monitoring and Feeder Analysis, dpv.epri.com, 2013
+Clear
+
+New Circuit.EPRIK1  pu=1.00 bus1=Trans_equiv0 basekv=69 !r1=0.806263 x1=7.813791 r0=0.916307 x0=14.55679 !corrected to match CYME dist side impedances
+~ R1=0.0001 X1=0.0001 R0=0.0001 X0=0.0001
+
+new line.sourceZ bus1=Trans_equiv0 bus2=Trans_equiv phases=3 R1=0.806263 X1=7.813791 R0=0.916307 X0=14.55679
+
+Redirect Substation_cvr.dss
+Redirect triplexlinecodes.dss
+Redirect LineCodes.dss
+Redirect Lines_z.dss
+Redirect xfmrs.dss
+Redirect loadShapes.dss
+Redirect services.dss
+Redirect loads.dss
+!Redirect loads_cvr.dss !NOTE: this seems to mess up the results...!
+Redirect Capacitors.dss
+
+Set voltagebases = [69.0, 13.2, .4156922] ! NOTE weird voltage bases c.f. xfmr voltages
+Calcv
+Redirect vbases.dss
+
+Set maxiter=200
+Set maxcontroliter=60
+
+!New energymeter.K21_feeder element=line.K21_feeder term=1 option=R peakcurrent=(224.8647,207.6677,211.8367) PhaseVolt=yes
+
+
+redirect AllocationFactors.txt
+
+New monitor.subVI element=Transformer.T2 terminal=2 mode=0
+New monitor.subPQ element=Transformer.T2 terminal=1 mode=65 PPolar=No
+New monitor.feederPQ element=line.K21_feeder terminal=1 mode=65 PPolar=No
+New monitor.Tap1 element=Transformer.T2 terminal=2 mode=2
+New monitor.Cap1 element=Capacitor.10548920-1 mode=33
+New monitor.VoltageCap1 element=Capacitor.10548920-1 terminal=1 mode=0
+New monitor.VoltageTap1 element=Transformer.T2 terminal=2 mode=0
+New monitor.HighestImpedanceBus element=Line.UG_10540314 terminal=2 mode=0
+
+set loadmult=1.0    !peak load for the K21 feeder (also changes K22 load level)
+!set loadmult=0.156  !offpeak (minimum) load for the K21 feeder (also changes K22 load level)
+
+new energymeter.msub element=transformer.T2
+new energymeter.mT2 element=line.T2
+
+solve mode=snap
+
+
+Buscoords Buscoords_src.dss
+
+!Plot Profile Phases=ALL
