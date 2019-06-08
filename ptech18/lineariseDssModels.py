@@ -13,8 +13,13 @@ import dss_stats_funcs as dsf
 from importlib import reload
 from scipy.linalg import toeplitz
 
+plt.style.use('tidySettings')
+from matplotlib.collections import LineCollection
+from matplotlib import cm, patches
+
 def equalMat(n):
     return toeplitz([1]+[0]*(n-2),[1,-1]+[0]*(n-2))
+
 def dirPrint(obj):
     print(*dir(obj),sep='\n')
 
@@ -37,6 +42,7 @@ class buildLinModel:
         DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
         
         self.dssStuff = [DSSObj,DSSObj.Text,DSSObj.ActiveCircuit,DSSObj.ActiveCircuit.Solution]
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         
         fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr']
         
@@ -85,9 +91,18 @@ class buildLinModel:
         self.hvBuses = (self.vKvbase>1000)
         self.lvBuses = (self.vKvbase<=1000)
         
+        busCoords = getBusCoords(DSSCircuit,DSSText)
+        busCoordsAug,PDelements,PDparents = getBusCoordsAug(busCoords,DSSCircuit,DSSText)
+        self.busCoords = busCoordsAug
+        self.branches = getBranchBuses(DSSCircuit)
+        self.getSourceBus()
+        # self.plotNetwork()
+        self.plotNetBuses('v0')
+        
+        
         vHi = 1.05 # pu
-        mvLo = 0.95 # pu
-        mvLo = 0.92 # pu
+        # mvLo = 0.95 # pu
+        mvLo = 0.925 # pu
         lvLo = 0.92 # pu
         
         self.vIn = np.where((abs(self.aV)/self.vKvbase)>0.5)[0].tolist()
@@ -97,18 +112,20 @@ class buildLinModel:
         
         self.pLim = 1e3 # only a lower bound (curtailment), W
         self.qLim = 1e3 # (k?)VAr
-        # self.pLim = 1e4 # only a lower bound (curtailment), W
-        # self.qLim = 1e4 # (k?)VAr
-        # self.pLim = 1e0 # only a lower bound (curtailment), W
-        # self.qLim = 1e0 # (k?)VAr
         self.tLim = 0.1 # pu
         
         self.iScale = 2.0
+        
+        
+        # self.runCvrQp()
+        self.slnF0 = self.runQp(np.zeros(self.nCtrl))
+        # TL0,PL0,TC0,V0,I0 = self.runQp(np.zeros(self.nCtrl))
+        
+        
+        # self.showQpSln()
         # self.testCvrQp()
         
-        # self.testCvrModel() # NB this only tests self.createCvrModel which is different from the QP.
-        self.runCvrQp()
-        self.showQpSln()
+        # self.snapQpComparison()
         
         # # if saveModel:
             # # self.saveNrelModel()
@@ -265,7 +282,8 @@ class buildLinModel:
         # control (c) variables (in order): Pgen(Y then D) (kW),Qgen(Y then D) (kvar),t (pu).
         # notation as 'departure2arrival'
         self.nPctrl = self.nPy+self.nPd
-        self.nCtrl = self.nPctrl*2 + self.nT
+        self.nSctrl = self.nPctrl*2
+        self.nCtrl = self.nSctrl + self.nT
         
         self.X0 = np.concatenate( (xYcvr[self.syIdx],xDcvr,np.zeros(self.nT)) )
         self.X0ctrl = np.concatenate( (xYcvr[self.pyIdx[0]],xDcvr[:self.nPd],xYcvr[self.qyIdx[0]],xDcvr[self.nPd::],np.zeros(self.nT)) )
@@ -351,6 +369,12 @@ class buildLinModel:
         elif mode=='minTap':
             Q = matrix( 0*self.qpQlss )
             p = matrix( np.r_[np.zeros((self.nPctrl*2)),1*np.ones((self.nT))] )
+        elif mode=='loss':
+            Q = matrix( 2*self.qpQlss )
+            p = matrix( self.qpLlss + self.pcurtL )
+        elif mode=='load':
+            Q = matrix( 0*self.qpQlss )
+            p = matrix( self.ploadL + self.pcurtL )
 
         # INEQUALITY CONSTRAINTS
         # Upper Control variables, then voltages, then currents; then repeat but lower.
@@ -367,7 +391,7 @@ class buildLinModel:
         G = matrix( np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]] )
         h = matrix( np.r_[xLimUp,vLimUp,iLim,-xLimLo,-vLimLo] )
 
-        if mode=='full':
+        if mode=='full' or mode=='loss' or mode=='load':
             sol = solvers.qp(Q,p,G,h)
         elif mode=='part':
             # EQUALITY CONSTRAINTS
@@ -390,16 +414,67 @@ class buildLinModel:
             
         self.sln = sol
         
-    def showQpSln(self):
         # things to plot: voltages, currents.
         # Network maps: losses before/after?
-        
         # voltages and currents first.
         
-        slnX = np.array(self.sln['x']).flatten()
+        self.slnX = np.array(self.sln['x']).flatten()
+        # pOut = slnX[:self.nPctrl]
+        # qOut = slnX[self.nPctrl:self.nPctrl*2]
+        # tOut = slnX[self.nPctrl*2:]
         
-        TL0,PL0,TC0,V0,I0 = self.runQp(np.zeros(self.nCtrl))
-        TL,PL,TC,V,I = self.runQp(slnX)
+        
+        
+        # TL,PL,TC,V,I = self.runQp(slnX)
+        self.slnF = self.runQp(self.slnX)
+        # TL,PL,TC,V,I = self.slnF
+    
+    def snapQpComparison(self):
+        self.runCvrQp('loss')
+        TL0 = self.slnF[0]
+        self.runCvrQp('load')
+        PL0 = self.slnF[1]
+        
+        modes = ['maxTap','minTap','part','full','load','loss']
+        extraTL = []
+        extraPL = []
+        extraTC = []
+        costFunc = []
+        for mode in modes:
+            self.runCvrQp(mode)
+            TL,PL,TC = self.slnF[0:3]
+            extraTL.append(TL-TL0)
+            extraPL.append(PL-PL0)
+            extraTC.append(TC)
+            costFunc.append(TL + PL + TC)
+        
+        fig,[ax1,ax0] = plt.subplots(ncols=2)
+        ax0.bar(np.arange(len(modes))-0.25,extraTL,label='Extra losses',width=0.2,zorder=10)
+        ax0.bar(np.arange(len(modes)),extraPL,label='Extra load',width=0.2,zorder=10)
+        ax0.bar(np.arange(len(modes))+0.25,extraTC,label='Curtailment',width=0.2,zorder=10)
+        ax0.set_xticks(np.arange(len(modes)))
+        ax0.set_xticklabels(modes,rotation=90)
+        ax0.set_ylabel('Power (kW)')
+        # ax0.grid()
+        ax0.legend()
+        
+        ax1.bar(np.arange(len(modes)),costFunc,width=0.2,zorder=10)
+        ax1.set_xticks(np.arange(len(modes)))
+        ax1.set_xticklabels(modes,rotation=90)
+        ax1.set_ylabel('Power (kW)')
+        ax1.set_ylim(( np.mean(costFunc)-5*np.std(costFunc),np.mean(costFunc)+5*np.std(costFunc) ))
+        # ax1.grid()
+        plt.tight_layout()
+        plt.show()
+    
+    def showQpSln(self,slnX,slnF):
+        
+        pOut = slnX[:self.nPctrl]
+        qOut = slnX[self.nPctrl:self.nPctrl*2]
+        tOut = slnX[self.nPctrl*2:]
+        
+        TL,PL,TC,V,I = self.slnF
+        TL0,PL0,TC0,V0,I0 = self.slnF0
         
         print('\n================== QP Solution:\nLoss before (kW):',TL0)
         print('Loss after (kW):',TL)
@@ -1185,6 +1260,7 @@ class buildLinModel:
         ax1.plot(k,vae); ax1.grid(True)
         ax1.set_ylabel('Va,e')
         ax1.set_xlabel('Continuation factor k')
+        ax0.set_title(self.feeder)
         plt.tight_layout()
         plt.show()
         
@@ -1593,6 +1669,9 @@ class buildLinModel:
                 # np.save(sn0+'WdBus'+lp_str+'.npy',WdBus)
     
     def saveCc(self):
+        self.createNrelModel(self.linPoint)
+        self.testVoltageModel()
+        
         lp_str = str(np.round(self.linPoint*100).astype(int)).zfill(3)
         MyCC = self.My
         xhyCC = self.xY
@@ -1631,3 +1710,209 @@ class buildLinModel:
 
         np.save(snCC+'busCoords'+lp_str+'.npy',busCoordsAug)
         np.save(snCC+'loadBusesCc'+lp_str+'.npy',[loadBuses]) # nb likely to be similar to vecSlc(YNodeOrder[3:],p_idx)?
+    
+    
+    # PLOTTING FUNCTIONS cannibalised from linSvdCalcs    
+    def plotNetwork(self,pltShow=True):
+        fig,ax = plt.subplots()
+        self.getBusPhs()
+        self.plotBranches(ax)
+        
+        scoreNom = np.ones((self.nPctrl))
+        scores, minMax0 = self.getSetVals(scoreNom,busType='s')
+        self.plotBuses(ax,scores,minMax0,modMarkerSze=False,cmap=cm.Blues)
+
+        xlm = ax.get_xlim()
+        ylm = ax.get_xlim()
+        dx = xlm[1] - xlm[0]; dy = ylm[1] - ylm[0] # these seem to be in feet for k1
+        
+        self.plotSub(ax,pltSrcReg=False)
+        srcCoord = self.busCoords[self.vSrcBus]
+        ax.annotate('Substation',(srcCoord[0]+0.01*dx,srcCoord[1]+0.01*dy))
+        ax.axis('off')
+        
+        plt.grid(False)
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.xticks(ticks=[],labels=[])
+        plt.yticks(ticks=[],labels=[])
+        plt.tight_layout()
+
+        if pltShow:
+            plt.show()
+        return ax
+
+    def getBusPhs(self):
+        # vYZ = self.vTotYNodeOrder
+        # sYZ = np.concatenate((self.SyYNodeOrderTot,self.SdYNodeOrderTot))
+        vYZ = self.vYNodeOrder
+        sYZ = np.concatenate((self.SyYNodeOrder,self.SdYNodeOrder))
+
+        bus0v = []; bus0s = []
+        phs0v = []; phs0s = []
+        for yz in vYZ:
+            fullBus = yz.split('.')
+            bus0v = bus0v+[fullBus[0].lower()]
+            if len(fullBus)>1:
+                phs0v = phs0v+[fullBus[1::]]
+            else:
+                phs0v = phs0v+[['1','2','3']]
+        for yz in sYZ:
+            fullBus = yz.split('.')
+            bus0s = bus0s+[fullBus[0].lower()]
+            if len(fullBus)>1:
+                phs0s = phs0s+[fullBus[1::]]
+            else:
+                phs0s = phs0s+[['1','2','3']]
+        
+        self.bus0v = np.array(bus0v)
+        self.phs0v = np.array(phs0v)
+        self.bus0s = np.array(bus0s)
+        self.phs0s = np.array(phs0s)
+    
+    def plotBranches(self,ax,scores=None):
+        # branchCoords = self.branchCoords
+        branches = self.branches
+        busCoords = self.busCoords
+        segments = []
+        for branch,buses in branches.items():
+            bus1 = buses[0].split('.')[0]
+            bus2 = buses[1].split('.')[0]
+            segments = segments + [[busCoords[bus1],busCoords[bus2]]]
+            # if branch.split('.')[0]=='Transformer':
+                # ax.plot(points0[-1],points1[-1],'--',Color='#777777')
+        if scores==None:    
+            coll = LineCollection(segments, Color='#cccccc')
+        else:
+            coll = LineCollection(segments, cmap=plt.cm.viridis)
+            coll.set_array(scores)
+        ax.add_collection(coll)
+        ax.autoscale_view()
+        self.segments = segments
+    
+    def getSourceBus(self):
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        DSSCircuit.Vsources.First
+        self.vSrcBus = DSSCircuit.ActiveElement.BusNames[0]
+    
+    def plotSub(self,ax,pltSrcReg=True):
+        srcCoord = self.busCoords[self.vSrcBus]
+        if not np.isnan(srcCoord[0]):
+            ax.plot(srcCoord[0],srcCoord[1],'k',marker='H',markersize=8,zorder=+20)
+            ax.plot(srcCoord[0],srcCoord[1],'w',marker='H',markersize=3,zorder=+21)
+            # if self.srcReg and pltSrcReg:
+                # ax.plot(srcCoord[0],srcCoord[1],'r',marker='H',markersize=3,zorder=+21)
+            # else:
+                # ax.plot(srcCoord[0],srcCoord[1],'w',marker='H',markersize=3,zorder=+21)
+        else:
+            print('Could not plot source bus'+self.vSrcBus+', no coordinate')
+    
+    def getSetVals(self,Set,type='mean',busType='v'):
+        busCoords = self.busCoords
+        if busType=='v':
+            bus0 = self.bus0v
+        elif busType=='s':
+            bus0 = self.bus0s
+        
+        setVals = {}
+        setMin = 1e100
+        setMax = -1e100
+        
+        for bus in busCoords:
+            if not np.isnan(busCoords[bus][0]):
+                vals = Set[bus0==bus.lower()]
+                vals = vals[~np.isnan(vals)]
+                # phses = phs0v[bus0v==bus.lower()].flatten()
+                if not len(vals):
+                    setVals[bus] = np.nan
+                else:
+                    if type=='mean':    
+                        setVals[bus] = np.mean(vals)
+                        setMax = max(setMax,np.mean(vals))
+                        setMin = min(setMin,np.mean(vals))
+                    elif type=='max':
+                        setVals[bus] = np.max(vals)
+                        setMax = max(setMax,np.max(vals))
+                        setMin = min(setMin,np.max(vals))
+                    elif type=='min':
+                        setVals[bus] = np.min(vals)
+                        setMax = max(setMax,np.min(vals))
+                        setMin = min(setMin,np.min(vals))
+            else:
+                setVals[bus] = np.nan
+        if setMin==setMax:
+            setMinMax=None
+        else:
+            setMinMax = [setMin,setMax]
+        return setVals, setMinMax
+        
+    def plotBuses(self,ax,scores,minMax,colorInvert=False,modMarkerSze=False,cmap=plt.cm.viridis):
+        busCoords = self.busCoords
+        x0scr = []
+        y0scr = []
+        xyClr = []
+        x0nne = []
+        y0nne = []
+        mrkSze = []
+        for bus,coord in busCoords.items():
+            if not np.isnan(busCoords[bus][0]):
+                if np.isnan(scores[bus]):
+                    x0nne = x0nne + [coord[0]]
+                    y0nne = y0nne + [coord[1]]
+                else:
+                    x0scr = x0scr + [coord[0]]
+                    y0scr = y0scr + [coord[1]]
+                    if minMax==None:
+                        score=scores[bus]
+                    else:
+                        score = (scores[bus]-minMax[0])/(minMax[1]-minMax[0])
+                    if colorInvert:
+                        xyClr = xyClr + [cmap(1-score)]
+                        if modMarkerSze:
+                            mrkSze.append(150.0*(1-score))
+                    else:
+                        xyClr = xyClr + [cmap(score)]
+                        if modMarkerSze:
+                            mrkSze.append(150.0*score)
+                    if not modMarkerSze:
+                        mrkSze.append(20.0)
+        
+        plt.scatter(x0scr,y0scr,Color=xyClr,marker='.',zorder=+10,s=mrkSze,alpha=0.8)
+        plt.scatter(x0nne,y0nne,Color='#cccccc',marker='.',zorder=+5,s=20/np.sqrt(2))
+    
+    def plotNetBuses(self,type,regsOn=True,pltShow=True,minMax=None,pltType='mean',varMax=10,cmap=plt.cm.viridis):
+        fig,ax = plt.subplots()
+        self.getBusPhs()
+        
+        self.plotBranches(ax)
+        # if type=='v0':
+        scoreNom = self.bV/self.vKvbase
+        colorInvert = False
+            
+        scores, minMax0 = self.getSetVals(scoreNom,pltType)
+
+        if minMax!=None:
+            minMax0 = minMax
+        
+        self.plotBuses(ax,scores,minMax0,colorInvert=colorInvert,cmap=cmap)
+        self.plotSub(ax)
+        
+        # self.plotRegs(ax)
+        ax.axis('off')
+        
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.tight_layout()
+        
+        # if type=='vLo' or type=='vHi':
+            # self.ccColorbar(ax,minMax0,loc=self.legLoc,units=' pu',roundNo=3,colorInvert=colorInvert,cmap=cmap)
+        # elif type=='logVar' or type=='nStd':
+            # if self.legLoc!=None:
+                # self.ccColorbar(ax,minMax0,loc=self.legLoc,colorInvert=colorInvert,cmap=cmap)
+        
+        plt.xticks([])
+        plt.yticks([])
+        print('Complete')
+        if pltShow:
+            plt.show()
+        else:
+            self.currentAx = ax
+        

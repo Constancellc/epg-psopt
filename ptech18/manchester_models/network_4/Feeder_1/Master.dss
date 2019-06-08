@@ -13,4 +13,6 @@ Redirect Loads_snap.txt
 !Redirect Monitors.txt
 ! -------------------
 
+!Set voltagebases=[11  .416]
+!calcv
 solve

@@ -1856,6 +1856,7 @@ class linModel:
             plt.show()
         else:
             self.currentAx = ax
+        
     def plotNetwork(self,pltShow=True):
         fig = plt.figure()
         ax = fig.add_subplot(111)
