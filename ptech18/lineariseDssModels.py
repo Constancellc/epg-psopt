@@ -96,6 +96,13 @@ class buildLinModel:
         self.busCoords = busCoordsAug
         self.branches = getBranchBuses(DSSCircuit)
         self.getSourceBus()
+        self.regBuses = get_regIdx(DSSCircuit)[1]
+        
+        if self.feeder in ['epri24','8500node','123bus','epriJ1','epriK1','epriM1']: # if there is a regulator 'on' the source bus
+            self.srcReg = 1
+        else:
+            self.srcReg = 0
+
         # self.plotNetwork()
         self.plotNetBuses('v0')
         
@@ -1799,10 +1806,10 @@ class buildLinModel:
         if not np.isnan(srcCoord[0]):
             ax.plot(srcCoord[0],srcCoord[1],'k',marker='H',markersize=8,zorder=+20)
             ax.plot(srcCoord[0],srcCoord[1],'w',marker='H',markersize=3,zorder=+21)
-            # if self.srcReg and pltSrcReg:
-                # ax.plot(srcCoord[0],srcCoord[1],'r',marker='H',markersize=3,zorder=+21)
-            # else:
-                # ax.plot(srcCoord[0],srcCoord[1],'w',marker='H',markersize=3,zorder=+21)
+            if self.srcReg and pltSrcReg:
+                ax.plot(srcCoord[0],srcCoord[1],'r',marker='H',markersize=3,zorder=+21)
+            else:
+                ax.plot(srcCoord[0],srcCoord[1],'w',marker='H',markersize=3,zorder=+21)
         else:
             print('Could not plot source bus'+self.vSrcBus+', no coordinate')
     
@@ -1845,7 +1852,7 @@ class buildLinModel:
             setMinMax = [setMin,setMax]
         return setVals, setMinMax
         
-    def plotBuses(self,ax,scores,minMax,colorInvert=False,modMarkerSze=False,cmap=plt.cm.viridis):
+    def plotBuses(self,ax,scores,minMax,modMarkerSze=False,cmap=plt.cm.viridis):
         busCoords = self.busCoords
         x0scr = []
         y0scr = []
@@ -1865,14 +1872,10 @@ class buildLinModel:
                         score=scores[bus]
                     else:
                         score = (scores[bus]-minMax[0])/(minMax[1]-minMax[0])
-                    if colorInvert:
-                        xyClr = xyClr + [cmap(1-score)]
-                        if modMarkerSze:
-                            mrkSze.append(150.0*(1-score))
-                    else:
-                        xyClr = xyClr + [cmap(score)]
-                        if modMarkerSze:
-                            mrkSze.append(150.0*score)
+                    
+                    xyClr = xyClr + [cmap(score)]
+                    if modMarkerSze:
+                        mrkSze.append(150.0*score)
                     if not modMarkerSze:
                         mrkSze.append(20.0)
         
@@ -1884,35 +1887,55 @@ class buildLinModel:
         self.getBusPhs()
         
         self.plotBranches(ax)
-        # if type=='v0':
-        scoreNom = self.bV/self.vKvbase
-        colorInvert = False
-            
-        scores, minMax0 = self.getSetVals(scoreNom,pltType)
-
-        if minMax!=None:
-            minMax0 = minMax
-        
-        self.plotBuses(ax,scores,minMax0,colorInvert=colorInvert,cmap=cmap)
         self.plotSub(ax)
+        self.plotRegs(ax)
         
-        # self.plotRegs(ax)
+        ttl = None
+        if type=='v0':
+            scoreNom = self.bV/self.vKvbase
+            ttl = 'Voltage (pu)'
+        
+        scores, minMax0 = self.getSetVals(scoreNom,pltType)
+        
+        if minMax==None:
+            minMax = minMax0
+        self.plotBuses(ax,scores,minMax,cmap=cmap)
+        self.plotNetColorbar(ax,minMax,cmap,ttl=ttl)
+        
         ax.axis('off')
         
+        plt.title('Feeder: '+self.feeder,loc='left')
         plt.gca().set_aspect('equal', adjustable='box')
         plt.tight_layout()
         
-        # if type=='vLo' or type=='vHi':
-            # self.ccColorbar(ax,minMax0,loc=self.legLoc,units=' pu',roundNo=3,colorInvert=colorInvert,cmap=cmap)
-        # elif type=='logVar' or type=='nStd':
-            # if self.legLoc!=None:
-                # self.ccColorbar(ax,minMax0,loc=self.legLoc,colorInvert=colorInvert,cmap=cmap)
-        
-        plt.xticks([])
-        plt.yticks([])
-        print('Complete')
         if pltShow:
             plt.show()
         else:
             self.currentAx = ax
-        
+    
+    def plotNetColorbar(self,ax,minMax,cmap,ttl=None):
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        x0 = [xlim[0]-1]
+        y0 = [ylim[0]-1]
+        cntr = ax.contourf( np.array([x0*2,x0*2]),np.array([y0*2,y0*2]), np.array([minMax,minMax[::-1]]),int(1e1),cmap=cmap )
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        cbar = plt.colorbar(cntr,shrink=0.75)
+        if ttl!=None:
+            cbar.ax.set_title(ttl,pad=10,fontsize=10)
+    
+    
+    def plotRegs(self,ax):
+        if self.nT>0:
+            i=0
+            for regBus in self.regBuses:
+                regCoord = self.busCoords[regBus.split('.')[0].lower()]
+                if not np.isnan(regCoord[0]):
+                    ax.plot(regCoord[0],regCoord[1],'r',marker=(6,1,0),zorder=+15)
+                    # ax.annotate(str(i),(regCoord[0],regCoord[1]),zorder=+40)
+                else:
+                    print('Could not plot regulator bus'+regBus+', no coordinate')
+                i+=1
+        else:
+            print('No regulators to plot.')

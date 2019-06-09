@@ -234,3 +234,9 @@ new energymeter.mreg4 element=line.reg4
 solve
 Buscoords Buscoords.dat   ! load in bus coordinates
 !plot profile
+
+!interpolate
+!Set markCapacitors=yes CapMarkersize=0.1
+!Set markReg=yes RegMarkersize=10 ! not working for some reason?
+!Set marktransformers=yes RegMarkersize=10
+!plot circuit
