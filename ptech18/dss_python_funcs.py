@@ -589,9 +589,6 @@ def get_ckt(WD,feeder):
     ckts[fdrs[24]]=[WD+'\\ieee_tn\\k1',WD+'\\ieee_tn\\k1\\Master_NoPV_z_cvr']
         
     if not feeder in ckts.keys():
-        print(feeder)
-        print(feeder[0])
-        print(feeder[1:])
         if feeder[0]=='n' and int(feeder[1:])<26:
             dir0 = WD+'\\manchester_models\\batch_manc_ntwx\\network_'+feeder[1:]
             ckts[fdrs[-1]] = [dir0,dir0+'\\masterNetwork'+feeder[1:]]

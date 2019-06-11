@@ -1912,7 +1912,8 @@ class hcPdfs:
                         circuitK = pickle.load(handle)
                 self.dMu = circuitK[feeder]
             else:
-                self.dMu = 1.0
+                # self.dMu = 1.0
+                self.dMu = dMu
             mu_k = np.array([self.dMu])
         
         if clfnSolar==None:

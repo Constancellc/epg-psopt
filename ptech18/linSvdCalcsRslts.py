@@ -14,14 +14,15 @@ SD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr']
 
 pltShow = 1
-pltSave = 1
+# pltSave = 1
 # pltCc = 1
 # f_nStdBefore = 1
 # f_nStdAfter = 1
 # f_nStdVreg = 1
 # f_nStdVregVal = 1
-f_corVars = 1
+# f_corVars = 1
 # f_hcParamSlctnCaseStudy = 1
+f_limitSensitivity = 1
 
 # # calculating setpoints for linHcCalcs:
 # f_nStdVreg_8500 = 1
@@ -39,7 +40,7 @@ def main(fdr_i=6):
     LM.busViolationVar(Sgm,calcSrsVals=True)
     return LM, pdf
 
-LM,pdf = main()
+# LM,pdf = main()
 
 figsze0 = (5.2,3.0)
 figsze1 = (5.2,2.7)
@@ -656,3 +657,120 @@ if 'f_hcParamSlctnCaseStudy' in locals():
     SN = os.path.join(WD,'hcResults','hcParamSlctnCaseStudy.pkl')
     with open(SN,'wb') as file:
         pickle.dump(rslts,file)
+        
+
+# # if 'f_limitSensitivity' in locals():
+# I = range(50) # 20-80%
+# # dt = 0.1/16
+# dt = 0.01/16
+# VpSet = [1.055-(dt/2),1.055+(dt/2)]
+
+# fdr_i_set = [6,8,9,17,18,19,20,21,22]
+# # fdr_i_set = [6,8,20]
+
+# mnsV = []
+# std = []
+# rslts = []
+# rsltsDiff = []
+# for fdr_i in fdr_i_set:
+    # LM = linModel(fdr_i,WD)
+    # pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName='gammaFrac' )
+    # rslt = np.empty((len(I),0))
+    # for Vp in VpSet:
+        # LM.VpLv=Vp
+        # LM.VpMv=Vp
+        # LM.runLinHc(pdf,fast=True)
+        # rslt = np.hstack((rslt,LM.linHcRsl['Vp_pct'][I]))
+    
+    # rslts.append(rslt)
+    # rsltsDiff.append(np.diff(rslt))
+    # mnsV.append(np.mean(-np.diff(rslt)))
+    # std.append(np.std(np.diff(rslt)))
+
+# plt.plot(VpSet,rslt.T,'-'); plt.xlabel('Voltage upper bound (%)'); plt.ylabel('Prob. overvoltage');
+# plt.legend(('20','40','60','80','100'),title='% PV'); plt.title(LM.feeder); plt.show()
+
+I = range(50) # 20-80%
+ddMu = 0.05
+dMuSet = [1-ddMu,1+ddMu]
+nMc = 300
+
+fdr_i_set = [6,8,9,17,18,19,20,21,22]
+# fdr_i_set = [6,8,20]
+# fdr_i_set = [6]
+
+mnsS = []
+std = []
+rslts = []
+rsltsDiff = []
+for fdr_i in fdr_i_set:
+    LM = linModel(fdr_i,WD)
+    SD = os.path.join(WD,'hcResults','th_kW_mult.pkl')
+    with open(SD,'rb') as handle:
+        circuitK = pickle.load(handle)
+    
+    dMu0 = circuitK[LM.feeder]
+    rslt = np.empty((len(I),0))
+    for dMu in dMuSet:
+        print(dMu)
+        pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName='gammaFrac',dMu=dMu*dMu0,nMc=nMc )
+        LM.runLinHc(pdf,fast=True)
+        rslt = np.hstack((rslt,LM.linHcRsl['Vp_pct'][I]))
+    rslts.append(rslt)
+    rsltsDiff.append(np.diff(rslt))
+    mnsS.append(np.mean(np.diff(rslt)))
+    std.append(np.std(np.diff(rslt)))
+
+errors = [2.18,0.00,5.12, 8.82,9.02, 1.98,0.00,15.04, 3.44]
+# plt.bar(np.arange(9)-0.3,mnsS,width=0.26)
+# plt.bar(np.arange(9),errors,width=0.26,Color='k',labe'='error')
+# plt.bar(np.arange(9)+0.3,0.1*np.array(mnsV),width=0.26)
+# plt.xticks(np.arange(9),labels=vecSlc(fdrs,fdr_i_set))
+# plt.show()
+# plt.plot(np.array(mnsV)*0.2,errors,'o',label='DV mean') # THIS version does not work well.
+
+# pearsonOutR = \(0.869855163294139, 0.002300177033527779)
+
+plt.plot(mnsS,errors,'x',label='Change in P with S vs. Error')
+plt.xlabel('Error indicator (D Prob/D Sgen)')
+plt.ylabel('Actual error')
+plt.legend()
+plt.show()
+
+from scipy.stats import pearsonr
+pearsonr(errors,mnsS)
+
+# PLOT the new stuff
+i=0
+for fdr_i in fdr_i_set:
+    plt.plot(np.arange(2,102,2),rsltsDiff[i],label=fdrs[fdr_i])
+    i+=1
+
+plt.xlabel('No. loads with PV (%)'); plt.ylabel('Change in Prob, 10% change in Sgen (%)'); plt.legend(); plt.show()
+
+
+# an individual PLOT:
+
+# # SD = os.path.join(WD,'hcResults','th_kW_mult.pkl')
+# # with open(SD,'rb') as handle:
+    # # circuitK = pickle.load(handle)
+
+# # dMu0 = circuitK[LM.feeder]
+
+# # I = [9,19,29,39,49] # 20-80%
+# # dMuSet = np.linspace(0.7,1.3,11)
+# # fdr_i = 21
+# # LM = linModel(fdr_i,WD)
+
+# # rslt = np.empty((len(I),0))
+# # for dMu in dMuSet:
+    # # print(dMu)
+    # # pdf = hcPdfs( LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName='gammaFrac',dMu=dMu*dMu0 )
+    # # LM.runLinHc(pdf,fast=True)
+    # # rslt = np.hstack((rslt,LM.linHcRsl['Vp_pct'][I]))
+
+# # plt.plot(dMuSet,rslt.T,'-'); plt.xlabel('Scaled generation (%)'); plt.ylabel('Constraint Violations (%)');
+# # plt.legend(('20','40','60','80','100'),title='% PV'); plt.title(LM.feeder); plt.show()
+
+
+# # # VpSet = np.linspace(1.05,1.06,41)

@@ -29,9 +29,10 @@ from win32com.client import makepy
 
 class buildLinModel:
     def __init__(self,fdr_i=6,linPoints=[None],pCvr = 0.75,saveModel=False,setCapsModel='linPoint',
-                                    FD=sys.argv[0],modelType=None,method='fpl'):
+                                    FD=sys.argv[0],modelType=None,method='fpl',SD=[],pltSave=False):
         self.WD = os.path.dirname(FD)
         self.setCapsModel = setCapsModel
+        self.SD = SD
         
         logging.basicConfig(filename=os.path.join(self.WD,'example.log'),filemode='w',level=logging.INFO)
         self.log = logging.getLogger()
@@ -83,14 +84,17 @@ class buildLinModel:
             self.createLtcModel()
         elif modelType=='cvr':
             self.createCvrModel()
+        elif modelType == 'plotOnly':
+            self.barePlotSetup()
+            self.setupPlots()
+            self.plotNetwork(pltSave=pltSave)
         
         
         self.setupPlots()
-        self.setupConstraints()
-        
-        self.setupConstraints()
-        # TL0,PL0,TC0,V0,I0 = self.runQp(np.zeros(self.nCtrl))
-        self.slnF0 = self.runQp(np.zeros(self.nCtrl))
+        if modelType in [None,'linOnly','fxd','ltc','cvx']: 
+            self.setupConstraints()
+            # TL0,PL0,TC0,V0,I0 = self.runQp(np.zeros(self.nCtrl))
+            self.slnF0 = self.runQp(np.zeros(self.nCtrl))
         
         # self.plotNetwork()
         # self.plotNetBuses('p0')
@@ -105,12 +109,31 @@ class buildLinModel:
         # self.testCvrQp()
         # self.snapQpComparison()
         
-        self.loadLoadProfiles()
+        # self.loadLoadProfiles()
         
         if saveModel:
             self.saveLinModel()
             # self.saveNrelModel()
+    
+    def barePlotSetup(self):
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        DSSText.Command='Compile ('+self.fn+'.dss)'
         
+        YNodeOrder = DSSCircuit.YNodeOrder
+        self.YZ = DSSCircuit.YNodeOrder[3:]
+        
+        self.xY, self.xD, self.pyIdx, self.pdIdx  = ldValsOnly( DSSCircuit ) # NB these do not change with the circuit!
+        self.vYNodeOrder = YNodeOrder[3:]
+        self.vInYNodeOrder = self.vYNodeOrder # for arguments sake...
+        self.SyYNodeOrder = vecSlc(self.vYNodeOrder,self.pyIdx)
+        self.SdYNodeOrder = vecSlc(self.vYNodeOrder,self.pdIdx)
+        
+        self.nPy = len(self.pyIdx[0])
+        self.nPd = len(self.pdIdx[0])
+        
+        self.nPctrl = self.nPy + self.nPd
+        
+    
     def saveLinModel(self):
         SD = os.path.join(self.WD,'lin_models','cvr_models',self.feeder)
         power = str(np.round(self.linPoint*100).astype(int)).zfill(3)
@@ -1741,6 +1764,8 @@ class buildLinModel:
             self.plotMarkerSize=150
         elif self.feeder in ['eulv']:
             self.plotMarkerSize=100
+        elif self.feeder[0]=='n':
+            self.plotMarkerSize=25
         else:
             self.plotMarkerSize=50
             
@@ -1748,7 +1773,8 @@ class buildLinModel:
         vMap = cm.RdBu
         pMap = cm.GnBu
         qMap = cm.PiYG
-        self.colormaps = { 'v0':vMap,'p0':pMap,'q0':qMap,'qSln':qMap,'vSln':vMap }
+        sOnly = cm.Blues
+        self.colormaps = { 'v0':vMap,'p0':pMap,'q0':qMap,'qSln':qMap,'vSln':vMap,'ntwk':sOnly }
     
     def setupConstraints(self,mvHi=1.05,lvHi=1.05,mvLo=0.925,lvLo=0.92,plim=1e3,qlim=1e3,tlim=0.1,iScale=2.0):
         self.hvBuses = (self.vKvbase>1000)
@@ -1771,31 +1797,45 @@ class buildLinModel:
         
     
     # PLOTTING FUNCTIONS cannibalised from linSvdCalcs
-    def plotNetwork(self,pltShow=True):
+    def plotNetwork(self,pltShow=True,pltSave=False):
         fig,ax = plt.subplots()
         self.getBusPhs()
         self.plotBranches(ax)
         
         scoreNom = np.ones((self.nPctrl))
         scores, minMax0 = self.getSetVals(scoreNom,busType='s')
-        self.plotBuses(ax,scores,minMax0,cmap=cm.Blues,edgeOn=False)
+        self.plotBuses(ax,scores,minMax0,cmap=self.colormaps['ntwk'],edgeOn=False)
 
         xlm = ax.get_xlim()
         ylm = ax.get_xlim()
         dx = xlm[1] - xlm[0]; dy = ylm[1] - ylm[0] # these seem to be in feet for k1
         
         self.plotSub(ax,pltSrcReg=False)
-        srcCoord = self.busCoords[self.vSrcBus]
-        ax.annotate('Substation',(srcCoord[0]+0.01*dx,srcCoord[1]+0.01*dy))
+        # srcCoord = self.busCoords[self.vSrcBus]
+        # ax.annotate('Substation',(srcCoord[0]+0.01*dx,srcCoord[1]+0.01*dy))
+        
+        # # DO NOT delete - useful for plotting with distances but full working model not yet put in.
+        # dist = 50
+        # # x0 = xlm[0] + 0.2*dx # N1, N7
+        # x0 = xlm[0] + 0.8*dx # N10
+        # y0 = ylm[0] + 0.05*dy
+        # ax.plot([x0,x0+dist],[y0,y0],'k-')
+        # ax.plot([x0,x0],[y0-0.005*dy,y0+0.005*dy],'k-')
+        # ax.plot([x0+dist,x0+dist],[y0-0.005*dy,y0+0.005*dy],'k-')
+        # ax.annotate('50 metres',(x0+(dist/2),y0+dy*0.02),ha='center')
         
         ax.axis('off')
         plt.grid(False)
-        plt.title('Feeder: '+self.feeder,loc='left')
         plt.gca().set_aspect('equal', adjustable='box')
         plt.tight_layout()
         
-
+        if pltSave:
+            SN = os.path.join(self.SD,'plotNetwork','plotNetwork'+self.feeder)
+            plt.savefig(SN+'.png',bbox_inches='tight', pad_inches=0.01)
+            plt.savefig(SN+'.pdf',bbox_inches='tight', pad_inches=0)
         if pltShow:
+            plt.title('Feeder: '+self.feeder,loc='left') # TITLE only in show.
+            plt.tight_layout()
             plt.show()
         return ax
 
@@ -1844,7 +1884,16 @@ class buildLinModel:
         self.vSrcBus = DSSCircuit.ActiveElement.BusNames[0]
     
     def plotSub(self,ax,pltSrcReg=True):
+        
         srcCoord = self.busCoords[self.vSrcBus]
+        if np.isnan(srcCoord[0]):
+            print('Nominal source bus coordinate not working, trying z appended...')
+            srcCoord = self.busCoords[self.vSrcBus+'z']
+        if np.isnan(srcCoord[0]):
+            print('Nominal source bus coordinate not working, trying 1...')
+            srcCoord = self.busCoords['1']
+        
+        
         if not np.isnan(srcCoord[0]):
             ax.plot(srcCoord[0],srcCoord[1],'k',marker='H',markersize=8,zorder=+20)
             ax.plot(srcCoord[0],srcCoord[1],'w',marker='H',markersize=3,zorder=+21)
