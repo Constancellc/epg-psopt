@@ -19,9 +19,11 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
                                                 modelType=modelType,method=method,saveModel=saveModel,SD=SD,pltSave=pltSave)
     return blm
 
-
-
-self = main(5,modelType='plotOnly',pltSave=True)
+# self = main(5,modelType='plotOnly',pltSave=False)#
+self = main(0)
+self.showQpSln(self.slnX,self.slnF)
+self.showQpSln(self.sln2X,self.sln2F)
+self.showQpSln(self.sln3X,self.sln3F)
 
 # linPoints = [1.0,0.2]
 # aCvrs = [0.8,0.25]

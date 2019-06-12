@@ -17,15 +17,33 @@ plt.style.use('tidySettings')
 from matplotlib.collections import LineCollection
 from matplotlib import cm, patches
 
+from cvxopt import matrix, solvers
+from win32com.client import makepy
+from scipy.linalg import ldl
+from mosek.fusion import *
+
+
+# MISC funcs: ==================== 
 def equalMat(n):
     return toeplitz([1]+[0]*(n-2),[1,-1]+[0]*(n-2))
 
 def dirPrint(obj):
     print(*dir(obj),sep='\n')
 
-from cvxopt import matrix, solvers
+def QtoH(Q):
+    L,D = ldl(Q)[0:2]
+    if min(np.diag(D))<0:
+        print('Warning: not PSD, negative D elements')
+        
+        # H = L.dot(np.sqrt(D - min(np.diag(D))*np.eye(len(D)))) # get rid of the smallest eigenvalue,
+        D[D<0]=0
+        H = L.dot(np.sqrt(D)) # get rid of the smallest eigenvalue,
+    else:
+        H = L.dot(np.sqrt(D)) # get rid of the smallest eigenvalue,
+    np.linalg.norm( H.dot(H.T) - Q )
+    return H
 
-from win32com.client import makepy
+# CLASS from here ==================
 
 class buildLinModel:
     def __init__(self,fdr_i=6,linPoints=[None],pCvr = 0.75,saveModel=False,setCapsModel='linPoint',
@@ -95,6 +113,14 @@ class buildLinModel:
             self.setupConstraints()
             # TL0,PL0,TC0,V0,I0 = self.runQp(np.zeros(self.nCtrl))
             self.slnF0 = self.runQp(np.zeros(self.nCtrl))
+        
+        if modelType==None:
+            self.runCvrQp()
+            print('Sln 1: ',self.slnF[0:3])
+            print('Sln 2: ',self.sln2F[0:3])
+            print('Sln 3: ',self.sln3F[0:3])
+            # print('x31: ',self.sln3X[31])
+            # self.showQpSln(self.sln3X,self.sln3F)
         
         # self.plotNetwork()
         # self.plotNetBuses('p0')
@@ -423,8 +449,10 @@ class buildLinModel:
         G = matrix( np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]] )
         h = matrix( np.r_[xLimUp,vLimUp,iLim,-xLimLo,-vLimLo] )
 
-        if mode=='full' or mode=='loss' or mode=='load':
+        if mode in ['full','loss','load']:
             sol = solvers.qp(Q,p,G,h)
+            self.sln2X = self.mosekQpEquiv(np.array(Q),np.array(p),np.array(G),np.array(h))
+            self.sln3X = self.mosekQpInt(np.array(Q),np.array(p),np.array(G),np.array(h))
         elif mode=='part':
             # EQUALITY CONSTRAINTS
             A0 = matrix( np.c_[np.zeros((self.nPctrl-1,self.nPctrl)),equalMat(self.nPctrl),np.zeros((self.nPctrl-1,self.nT))] )
@@ -442,13 +470,14 @@ class buildLinModel:
             A = matrix( np.c_[np.eye(self.nPctrl*2),np.zeros((self.nPctrl*2,self.nT))] )
             b = matrix(np.r_[np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim] )
             sol = solvers.qp(Q,p,G,h,A,b)
-            # if sol['status']=='unknown':
-                # print('Unknown Mintap status - trying with MOSEK!')
-                # minimize    c'*x
-                # subject to  G*x + s = h
-                #               A*x = b
-                #               s >= 0
-                # sol = solvers.lp(p,G,h,A,b,solver='mosek')
+            
+        # if sol['status']=='unknown':
+            # print('Unknown Mintap status - trying with MOSEK!')
+            # minimize    c'*x
+            # subject to  G*x + s = h
+            #               A*x = b
+            #               s >= 0
+            # sol = solvers.lp(p,G,h,A,b,solver='mosek')
         self.sln = sol
         self.slnX = np.array(self.sln['x']).flatten()
         # pOut = slnX[:self.nPctrl]
@@ -457,7 +486,113 @@ class buildLinModel:
         
         # TL,PL,TC,V,I = self.runQp(slnX)
         self.slnF = self.runQp(self.slnX)
+        self.sln2F = self.runQp(self.sln2X)
+        self.sln3F = self.runQp(self.sln3X)
         # TL,PL,TC,V,I = self.slnF
+    
+    def mosekQpEquiv(self,Q0,p0,G0,h0,A0=None,b0=None):
+        xScale = 1/np.r_[1e-3*np.ones(self.nSctrl),160*np.ones(self.nT)]
+        if p0.ndim==1:
+            p0 = np.array([p0]).T
+        if h0.ndim==1:
+            h0 = np.array([h0]).T
+        
+        H = QtoH(dsf.vmvM(xScale,Q0,xScale))
+        H = Matrix.dense(H)
+        
+        p = Matrix.dense(p0*np.array([xScale]).T)
+        G = Matrix.dense(dsf.mvM(G0,xScale))
+        h = Matrix.dense(h0)
+        if A0==None:
+            A = Matrix.dense(np.empty((0,len(Q0))))
+            b = Matrix.dense(np.empty((0,1)))
+        else:
+            if b0.ndim==1:
+                b0 = np.array([b0]).T
+            A = Matrix.dense(A0)
+            b = Matrix.dense(b0)
+        
+        with Model('qp') as M:
+            x = M.variable("x",self.nCtrl)
+            Gxh = M.constraint( "Gxh", Expr.mul(G,x), Domain.lessThan(h) )
+            Axb = M.constraint( "Axb", Expr.mul(A,x), Domain.equalsTo(b) ) #NOT used yet.
+            
+            # # Put in the quadratic constraint in
+            # # https://docs.mosek.com/9.0/pythonfusion/tutorial-model-lib.html
+            t = M.variable("t",1,Domain.greaterThan(0.0))
+            M.constraint( "Qt", Expr.vstack(1.0,t,Expr.mul(H,x)), Domain.inRotatedQCone() ) # ???? This line complains it's not too clear why.
+            
+            M.objective("obj",ObjectiveSense.Minimize, Expr.add(Expr.dot(p,x),t))
+            # FROM: https://docs.mosek.com/9.0/pythonfusion/accessing-solution.html
+            try:
+                # M.setLogHandler(sys.stdout)
+                M.solve()
+                M.acceptedSolutionStatus(AccSolutionStatus.Optimal)
+                slnStatus = M.getPrimalSolutionStatus()
+                print('Problem status: ',slnStatus)
+                WD = r"C:\Users\Matt\Documents\dump.opf"
+                M.writeTask(WD)
+            except Exception as e:
+                print("Unexpected error: {0}".format(e))
+            # xOut = x.level()
+            xOut = xScale*x.level()
+            print("MIP rel gap = %.2f (%f)" % (M.getSolverDoubleInfo(
+                        "mioObjRelGap"), M.getSolverDoubleInfo("mioObjAbsGap")))
+        return xOut
+
+    def mosekQpInt(self,Q0,p0,G0,h0,A0=None,b0=None):
+        
+        xScale = 1/np.r_[1e-3*np.ones(self.nSctrl),160*np.ones(self.nT)]
+        
+        if p0.ndim==1:
+            p0 = np.array([p0]).T
+        if h0.ndim==1:
+            h0 = np.array([h0]).T
+        
+        H = QtoH(dsf.vmvM(xScale,Q0,xScale))
+        H = Matrix.dense(H)
+        
+        p = Matrix.dense(p0*np.array([xScale]).T)
+        G = Matrix.dense(dsf.mvM(G0,xScale))
+        h = Matrix.dense(h0)
+        
+        A = Matrix.dense(np.empty((0,len(Q0))))
+        b = Matrix.dense(np.empty((0,1)))
+        
+        M = Model('qp')
+        with Model('qp') as M:
+            y = M.variable("y",self.nSctrl)
+            z = M.variable("z",self.nT,Domain.integral(Domain.inRange(-16,16)))
+            x = Expr.vstack(y,z)
+            
+            Gxh = M.constraint( "Gxh", Expr.mul(G,x), Domain.lessThan(h) )
+            # Axb = M.constraint( "Axb", Expr.mul(A,x), Domain.equalsTo(b) ) #NOT used yet.
+            
+            # # QP constraint https://docs.mosek.com/9.0/pythonfusion/tutorial-model-lib.html
+            t = M.variable("t",1,Domain.greaterThan(0.0))
+            M.constraint( "Qt", Expr.vstack(1.0,t,Expr.mul(H,x)), Domain.inRotatedQCone() )
+            
+            M.objective("obj",ObjectiveSense.Minimize, Expr.add(Expr.dot(p,x),t))
+            # M.objective("obj",ObjectiveSense.Minimize,0) #useful for debugging
+            
+            # FROM: https://docs.mosek.com/9.0/pythonfusion/accessing-solution.html
+            try:
+                # M.setLogHandler(sys.stdout) #for debugging
+                M.solve()
+
+                # We expect solution status OPTIMAL (this is also default)
+                M.acceptedSolutionStatus(AccSolutionStatus.Optimal)
+                slnStatus = M.getPrimalSolutionStatus()
+                print('Problem status: ',slnStatus)
+                WD = os.path.join(os.path.expanduser('~'),'Documents','dump.opf') # debugging
+                M.writeTask(WD)
+            except Exception as e:
+                print("Unexpected error: {0}".format(e))
+            xOut = xScale*np.r_[y.level(),z.level()]
+            print("MIP rel gap = %.2f (%f)" % (M.getSolverDoubleInfo(
+                        "mioObjRelGap"), M.getSolverDoubleInfo("mioObjAbsGap")))
+        return xOut
+    
     
     def snapQpComparison(self):
         self.runCvrQp('loss')

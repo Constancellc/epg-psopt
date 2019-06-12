@@ -22,4 +22,4 @@ New line.K22_feeder bus1=K_LSB bus2=K22 phases=3 switch=y length=0.001 units=ft 
 
 !New regcontrol.T2 transformer=T2 vreg=(122) winding=2 band=3 ptratio=63.50852961 delay=30 ! original
 !New regcontrol.T2G transformer=T2 vreg=(122) winding=2 band=1 ptratio=63.50852961 delay=30
-New regcontrol.T2 transformer=T2reg vreg=(122) winding=2 band=3 ptratio=63.50852961 delay=30 ! cvr version
+!New regcontrol.T2 transformer=T2reg vreg=(122) winding=2 band=3 ptratio=63.50852961 delay=30 ! cvr version - is implemented already above!
