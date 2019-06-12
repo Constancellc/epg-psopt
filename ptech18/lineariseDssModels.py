@@ -87,7 +87,7 @@ class buildLinModel:
         self.method=method
         
         # BUILD MODELS
-        if modelType == None:
+        if modelType in [None,'buildTestSave']:
             self.makeCvrQp()
         elif modelType == 'linOnly':
             self.createNrelModel(linPoints[0])
@@ -106,21 +106,23 @@ class buildLinModel:
             self.barePlotSetup()
             self.setupPlots()
             self.plotNetwork(pltSave=pltSave)
-        
+        elif modelType == 'load':
+            self.loadLinModel()
+            self.initialiseOpenDss()
         
         self.setupPlots()
-        if modelType in [None,'linOnly','fxd','ltc','cvx']: 
+        if modelType in [None,'linOnly','fxd','ltc','cvx','buildTestSave']: 
             self.setupConstraints()
             # TL0,PL0,TC0,V0,I0 = self.runQp(np.zeros(self.nCtrl))
             self.slnF0 = self.runQp(np.zeros(self.nCtrl))
         
-        if modelType==None:
-            self.runCvrQp()
-            print('Sln 1: ',self.slnF[0:3])
-            print('Sln 2: ',self.sln2F[0:3])
-            print('Sln 3: ',self.sln3F[0:3])
-            # print('x31: ',self.sln3X[31])
-            # self.showQpSln(self.sln3X,self.sln3F)
+        if modelType in ['buildTestSave']:
+            self.testCvrQp()
+            self.saveLinModel()
+        
+        
+        # if modelType==None:
+            # self.runCvrQp()
         
         # self.plotNetwork()
         # self.plotNetBuses('p0')
@@ -170,7 +172,15 @@ class buildLinModel:
         self.dssStuff = [] # can't be saved
         with open(SN,'wb') as outFile:
             pickle.dump(self,outFile)
-        
+    
+    def loadLinModel(self):
+        SD = os.path.join(self.WD,'lin_models','cvr_models',self.feeder)
+        power = str(np.round(self.linPoint*100).astype(int)).zfill(3)
+        aCvr = str(np.round(self.pCvr*100).astype(int)).zfill(3)
+        SN = os.path.join(SD,self.feeder+'P'+power+'A'+aCvr+'.pkl')
+        with open(SN,'rb') as outFile:
+            savedSelf = pickle.load(outFile)
+        self.__dict__ = savedSelf.__dict__.copy()
     
     def initialiseOpenDss(self):
         sys.argv=["makepy","OpenDSSEngine.DSS"]
@@ -743,9 +753,10 @@ class buildLinModel:
         # THREE TESTS in terms of the sensitivity of the model to real power generation, reactive power, and tap changes.
         
         print('Start CVR QP testing. \n',time.process_time())
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
         self.testQpVcpf()
         
-        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
         
         # do complex voltages over loadmult first.
@@ -825,7 +836,10 @@ class buildLinModel:
             
             if ii==0:
                 Sset = np.linspace(-1,1,100)*self.qLim
-                xCtrl[self.nPctrl:-self.nT] = 1
+                if self.nT>0:
+                    xCtrl[self.nPctrl:-self.nT] = 1
+                else:
+                    xCtrl[self.nPctrl:] = 1
             elif ii==1:
                 Sset = np.linspace(-1,1,100)*self.pLim
                 xCtrl[:self.nPctrl] = 1
@@ -2023,7 +2037,10 @@ class buildLinModel:
         srcCoord = self.busCoords[self.vSrcBus]
         if np.isnan(srcCoord[0]):
             print('Nominal source bus coordinate not working, trying z appended...')
-            srcCoord = self.busCoords[self.vSrcBus+'z']
+            try:
+                srcCoord = self.busCoords[self.vSrcBus+'z']
+            except:
+                srcCoord = [np.nan,np.nan]
         if np.isnan(srcCoord[0]):
             print('Nominal source bus coordinate not working, trying 1...')
             srcCoord = self.busCoords['1']
