@@ -33,14 +33,12 @@ def dirPrint(obj):
 def QtoH(Q):
     L,D = ldl(Q)[0:2]
     if min(np.diag(D))<0:
-        print('Warning: not PSD, negative D elements')
-        
-        # H = L.dot(np.sqrt(D - min(np.diag(D))*np.eye(len(D)))) # get rid of the smallest eigenvalue,
+        print('Warning: not PSD, removing negative D elements')
         D[D<0]=0
         H = L.dot(np.sqrt(D)) # get rid of the smallest eigenvalue,
     else:
         H = L.dot(np.sqrt(D)) # get rid of the smallest eigenvalue,
-    np.linalg.norm( H.dot(H.T) - Q )
+    print('Q error norm:',np.linalg.norm( H.dot(H.T) - Q ))
     return H
 
 # CLASS from here ==================
@@ -79,7 +77,8 @@ class buildLinModel:
                 linPoints = np.array([1.0])
             self.capPosLin=None
         
-        self.initialiseOpenDss()
+        if modelType not in ['loadModel']:
+            self.initialiseOpenDss()
         
         self.pCvr = pCvr
         self.qCvr = 0.0
@@ -106,8 +105,11 @@ class buildLinModel:
             self.barePlotSetup()
             self.setupPlots()
             self.plotNetwork(pltSave=pltSave)
-        elif modelType == 'load':
+        elif modelType == 'loadModel':
             self.loadLinModel()
+            self.WD = os.path.dirname(FD) # WARNING! some paths may be a bit dodge...?
+            self.SD = SD
+            self.fn = get_ckt(self.WD,self.feeder)[1]
             self.initialiseOpenDss()
         
         self.setupPlots()
@@ -120,7 +122,23 @@ class buildLinModel:
             self.testCvrQp()
             self.saveLinModel()
         
-        
+        if modelType in ['loadModel']:
+            # modesAll = ['full','part','maxTap','minTap','loss','load']
+            # modesAll = ['full','maxTap','minTap']
+            # modesAll = ['maxTap']
+            # modesAll = ['loadHostingCap']
+            modesAll = ['genHostingCap']
+            for modeSet in modesAll:
+                print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++',modeSet)
+                # self.pLim=1e6
+                self.pLim=5e5
+                self.runCvrQp(modeSet)
+                self.printQpSln(self.slnX,self.slnF)
+                self.printQpSln(self.sln2X,self.sln2F)
+                self.printQpSln(self.sln3X,self.sln3F)
+                # self.runCvrQp('minTap')
+
+            # self.
         # if modelType==None:
             # self.runCvrQp()
         
@@ -418,7 +436,8 @@ class buildLinModel:
         # 4. 'part' full optimization, just one P + Q
         
         # OBJECTIVE FUNCTION
-        if mode=='full' or mode=='part':
+        # if mode in ['full','part','genHostingCap']:
+        if mode in ['full','part']:
             # losses, load, curtailment
             Q = matrix( 2*self.qpQlss )
             p = matrix( self.qpLlss + self.ploadL + self.pcurtL )
@@ -436,174 +455,169 @@ class buildLinModel:
                 p = matrix( np.r_[np.zeros((self.nPctrl*2)),t2vPu] ) # minimise the average voltage
             else:
                 p = matrix( np.r_[np.zeros((self.nPctrl*2))] )
-                
         elif mode=='loss':
             Q = matrix( 2*self.qpQlss )
             p = matrix( self.qpLlss + self.pcurtL )
         elif mode=='load':
             Q = matrix( 0*self.qpQlss )
             p = matrix( self.ploadL + self.pcurtL )
-
+        elif mode=='loadHostingCap':
+            Q = matrix( 0*self.qpQlss )
+            p = matrix( np.r_[ np.ones(self.nPctrl), np.zeros(self.nPctrl + self.nT) ] )
+        elif mode=='genHostingCap':
+            # Q = matrix( 0*self.qpQlss )
+            # Q = matrix( 2*self.qpQlss )
+            Q = matrix( 2*self.qpQlss )
+            # p = matrix( -np.r_[ np.ones(self.nPctrl), np.zeros(self.nPctrl + self.nT) ] + self.qpLlss )
+            # p = matrix( self.pcurtL  )
+            p = matrix(  self.qpLlss + self.ploadL + self.pcurtL )
+        
         # INEQUALITY CONSTRAINTS
         # Upper Control variables, then voltages, then currents; then repeat but lower.
-        # xLo <= Ax <= xHi
-        xLimUp = matrix( np.concatenate(( np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim)) )
-        xLimLo = matrix( np.concatenate(( -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim)) )
-        
+        # xLo <= x <= xHi
         vLimLo = matrix( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
         vLimUp = matrix( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
         
         iLim = matrix( self.iScale*self.iXfmrLims - self.Kc2i.dot(self.X0ctrl) + self.bW )
         
-        # recall: lower constraints by -1
-        G = matrix( np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]] )
-        h = matrix( np.r_[xLimUp,vLimUp,iLim,-xLimLo,-vLimLo] )
+        
+        if mode in ['full','part','maxTap','minTap','loss','load','loadHostingCap']:
+            xLimUp = matrix( np.concatenate(( np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim)) )
+            xLimLo = matrix( np.concatenate(( -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim)) )
+        
+            # recall: lower constraints by -1
+            G = matrix( np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]] )
+            h = matrix( np.r_[xLimUp,vLimUp,iLim,-xLimLo,-vLimLo] )
+        elif mode in ['genHostingCap']:
+            # don't put in upper power constraints here as this makes mosek complain ... ?
+            xLimUp = matrix( np.concatenate(( np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim)) )
+            xLimLo = matrix( np.concatenate(( np.zeros(self.nPctrl),-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim)) )
+            G = matrix( np.r_[ np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
+                                        self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]] )
+            h = matrix( np.r_[xLimUp,vLimUp,iLim,-xLimLo,-vLimLo] )
+            
+            # xLimUp = matrix( np.concatenate(( np.ones(self.nPctrl)*self.pLim,np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim)) )
+            # xLimLo = matrix( np.concatenate(( np.zeros(self.nPctrl),-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim)) )
+            # G = matrix( np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]] )
+            # h = matrix( np.r_[xLimUp,vLimUp,iLim,-xLimLo,-vLimLo] )
 
         if mode in ['full','loss','load']:
-            sol = solvers.qp(Q,p,G,h)
-            self.sln2X = self.mosekQpEquiv(np.array(Q),np.array(p),np.array(G),np.array(h))
-            self.sln3X = self.mosekQpInt(np.array(Q),np.array(p),np.array(G),np.array(h))
+            oneHat = np.eye(self.nCtrl)
+            x0 = np.zeros((self.nCtrl,1))
         elif mode=='part':
-            # EQUALITY CONSTRAINTS
-            A0 = matrix( np.c_[np.zeros((self.nPctrl-1,self.nPctrl)),equalMat(self.nPctrl),np.zeros((self.nPctrl-1,self.nT))] )
-            b0 = matrix( np.zeros(self.nPctrl - 1) )
-            A1 = matrix( np.c_[equalMat(self.nPctrl),np.zeros((self.nPctrl-1,self.nPctrl)),np.zeros((self.nPctrl-1,self.nT))] )
-            b1 = matrix( np.zeros(self.nPctrl - 1) )
-            A = matrix([[A0,A1]])
-            b = matrix([[b0,b1]])
-            sol = solvers.qp(Q,p,G,h,A,b)
+            oneHat = np.zeros((self.nCtrl,2+self.nT))
+            if self.nT>0:
+                oneHat[-self.nT:] = np.c_[np.zeros((self.nT,2)),np.eye(self.nT)]
+            oneHat[:self.nPctrl,0] = 1
+            oneHat[self.nPctrl:self.nSctrl,1] = 1
+            x0 = np.zeros((self.nCtrl,1))
         elif mode=='maxTap':
-            A = matrix( np.c_[np.eye(self.nPctrl*2),np.zeros((self.nPctrl*2,self.nT))] )
-            b = matrix(np.zeros(self.nPctrl*2))
-            sol = solvers.qp(Q,p,G,h,A,b)
+            if self.nT>0:
+                oneHat = np.zeros((self.nCtrl,self.nT))
+                oneHat[-self.nT:] = np.eye(self.nT)
+                x0 = np.zeros((self.nCtrl,1))
+            else:
+                print('No taps - error...')
         elif mode=='minTap':
-            A = matrix( np.c_[np.eye(self.nPctrl*2),np.zeros((self.nPctrl*2,self.nT))] )
-            b = matrix(np.r_[np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim] )
-            sol = solvers.qp(Q,p,G,h,A,b)
-            
-        # if sol['status']=='unknown':
-            # print('Unknown Mintap status - trying with MOSEK!')
-            # minimize    c'*x
-            # subject to  G*x + s = h
-            #               A*x = b
-            #               s >= 0
-            # sol = solvers.lp(p,G,h,A,b,solver='mosek')
-        self.sln = sol
-        self.slnX = np.array(self.sln['x']).flatten()
+            if self.nT>0:
+                oneHat = np.zeros((self.nCtrl,self.nT))
+                oneHat[-self.nT:] = np.eye(self.nT)
+                x0 = np.r_[ np.zeros(self.nPctrl), np.ones(self.nPctrl)*self.qLim , np.zeros(self.nT) ]
+                x0 = np.array([x0]).T
+            else:
+                print('No taps - error...')
+        elif mode in ['loadHostingCap','genHostingCap']:
+            oneHat = np.zeros((self.nCtrl,1 + self.nPctrl + self.nT))
+            oneHat[:self.nPctrl] = 1
+            oneHat[self.nPctrl:,1:] = np.eye(self.nPctrl + self.nT)
+            x0 = np.zeros((self.nCtrl,1))
+        
+        Qp = matrix( (oneHat.T).dot(np.array(Q).dot(oneHat)) )
+        pp = matrix( (np.array(p.T).dot(oneHat)).T  - 2*(  (x0.T).dot(np.array(Q).dot(oneHat)).T  ) )
+        Gp = matrix( np.array(G).dot(oneHat) )
+        hp = matrix( np.array(h) - np.array(G).dot(x0) )
+        
+        print(pp.size)
+        print(type(pp))
+        
+        # self.sln = solvers.qp(Qp,pp,Gp,hp)
+        self.sln = solvers.qp(Qp,pp,Gp,hp,solver='mosek')
+        self.slnX = oneHat.dot(np.array(self.sln['x']).flatten())               + x0.flatten()
+        self.sln2X = oneHat.dot(self.mosekQpEquiv(Qp,pp,Gp,hp,tInt=False))      + x0.flatten()
+        self.sln3X = oneHat.dot(self.mosekQpEquiv(Qp,pp,Gp,hp,tInt=True))       + x0.flatten()    
         # pOut = slnX[:self.nPctrl]
         # qOut = slnX[self.nPctrl:self.nPctrl*2]
         # tOut = slnX[self.nPctrl*2:]
         
-        # TL,PL,TC,V,I = self.runQp(slnX)
         self.slnF = self.runQp(self.slnX)
         self.sln2F = self.runQp(self.sln2X)
         self.sln3F = self.runQp(self.sln3X)
         # TL,PL,TC,V,I = self.slnF
     
-    def mosekQpEquiv(self,Q0,p0,G0,h0,A0=None,b0=None):
-        xScale = 1/np.r_[1e-3*np.ones(self.nSctrl),160*np.ones(self.nT)]
+    def mosekQpEquiv(self,Q0,p0,G0,h0,tInt=False):
+        if type(Q0)==matrix:
+            Q0 = np.array(Q0); p0 = np.array(p0); G0 = np.array(G0); h0 = np.array(h0)
+        nCtrlAct = p0.shape[0]
+        nSctrlAct = nCtrlAct - self.nT
+        nSctrlAct = self.nCtrl - self.nT
+        
+        xScale = 1/np.r_[1e-3*np.ones(nSctrlAct),160*np.ones(self.nT)]
+        
         if p0.ndim==1:
             p0 = np.array([p0]).T
         if h0.ndim==1:
             h0 = np.array([h0]).T
         
-        H = QtoH(dsf.vmvM(xScale,Q0,xScale))
-        H = Matrix.dense(H)
+        if np.sum(Q0)>0:
+            H = QtoH(dsf.vmvM(xScale,Q0,xScale))
+            H = Matrix.dense(H)
         
         p = Matrix.dense(p0*np.array([xScale]).T)
         G = Matrix.dense(dsf.mvM(G0,xScale))
         h = Matrix.dense(h0)
-        if A0==None:
-            A = Matrix.dense(np.empty((0,len(Q0))))
-            b = Matrix.dense(np.empty((0,1)))
-        else:
-            if b0.ndim==1:
-                b0 = np.array([b0]).T
-            A = Matrix.dense(A0)
-            b = Matrix.dense(b0)
-        
+
+        # print('Number of variables:',nCtrlAct)
+        # print('Size of H:',Q0.shape)
+        # print('H:',dsf.vmvM(xScale,Q0,xScale))
         with Model('qp') as M:
-            x = M.variable("x",self.nCtrl)
+            if tInt:
+                y = M.variable("y",nSctrlAct)
+                z = M.variable("z",self.nT,Domain.integral(Domain.inRange(-16,16)))
+                x = Expr.vstack(y,z)
+            else:
+                x = M.variable("x",nCtrlAct)
+            
             Gxh = M.constraint( "Gxh", Expr.mul(G,x), Domain.lessThan(h) )
-            Axb = M.constraint( "Axb", Expr.mul(A,x), Domain.equalsTo(b) ) #NOT used yet.
             
-            # # Put in the quadratic constraint in
-            # # https://docs.mosek.com/9.0/pythonfusion/tutorial-model-lib.html
-            t = M.variable("t",1,Domain.greaterThan(0.0))
-            M.constraint( "Qt", Expr.vstack(1.0,t,Expr.mul(H,x)), Domain.inRotatedQCone() ) # ???? This line complains it's not too clear why.
+            if np.abs(np.sum(Q0))>0:
+                # QP constraint https://docs.mosek.com/9.0/pythonfusion/tutorial-model-lib.html
+                t = M.variable("t",1,Domain.greaterThan(0.0))
+                M.constraint( "Qt", Expr.vstack(1.0,t,Expr.mul(H,x)), Domain.inRotatedQCone() ) # ???? This line complains it's not too clear why.
+                M.objective("obj",ObjectiveSense.Minimize, Expr.add(Expr.dot(p,x),t))
+            else:
+                M.objective("obj",ObjectiveSense.Minimize, Expr.dot(p,x))
             
-            M.objective("obj",ObjectiveSense.Minimize, Expr.add(Expr.dot(p,x),t))
-            # FROM: https://docs.mosek.com/9.0/pythonfusion/accessing-solution.html
             try:
+                # FROM: https://docs.mosek.com/9.0/pythonfusion/accessing-solution.html
                 # M.setLogHandler(sys.stdout)
                 M.solve()
                 M.acceptedSolutionStatus(AccSolutionStatus.Optimal)
                 slnStatus = M.getPrimalSolutionStatus()
                 print('Problem status: ',slnStatus)
-                WD = r"C:\Users\Matt\Documents\dump.opf"
-                M.writeTask(WD)
-            except Exception as e:
-                print("Unexpected error: {0}".format(e))
-            # xOut = x.level()
-            xOut = xScale*x.level()
-            print("MIP rel gap = %.2f (%f)" % (M.getSolverDoubleInfo(
-                        "mioObjRelGap"), M.getSolverDoubleInfo("mioObjAbsGap")))
-        return xOut
-
-    def mosekQpInt(self,Q0,p0,G0,h0,A0=None,b0=None):
-        
-        xScale = 1/np.r_[1e-3*np.ones(self.nSctrl),160*np.ones(self.nT)]
-        
-        if p0.ndim==1:
-            p0 = np.array([p0]).T
-        if h0.ndim==1:
-            h0 = np.array([h0]).T
-        
-        H = QtoH(dsf.vmvM(xScale,Q0,xScale))
-        H = Matrix.dense(H)
-        
-        p = Matrix.dense(p0*np.array([xScale]).T)
-        G = Matrix.dense(dsf.mvM(G0,xScale))
-        h = Matrix.dense(h0)
-        
-        A = Matrix.dense(np.empty((0,len(Q0))))
-        b = Matrix.dense(np.empty((0,1)))
-        
-        M = Model('qp')
-        with Model('qp') as M:
-            y = M.variable("y",self.nSctrl)
-            z = M.variable("z",self.nT,Domain.integral(Domain.inRange(-16,16)))
-            x = Expr.vstack(y,z)
-            
-            Gxh = M.constraint( "Gxh", Expr.mul(G,x), Domain.lessThan(h) )
-            # Axb = M.constraint( "Axb", Expr.mul(A,x), Domain.equalsTo(b) ) #NOT used yet.
-            
-            # # QP constraint https://docs.mosek.com/9.0/pythonfusion/tutorial-model-lib.html
-            t = M.variable("t",1,Domain.greaterThan(0.0))
-            M.constraint( "Qt", Expr.vstack(1.0,t,Expr.mul(H,x)), Domain.inRotatedQCone() )
-            
-            M.objective("obj",ObjectiveSense.Minimize, Expr.add(Expr.dot(p,x),t))
-            # M.objective("obj",ObjectiveSense.Minimize,0) #useful for debugging
-            
-            # FROM: https://docs.mosek.com/9.0/pythonfusion/accessing-solution.html
-            try:
-                # M.setLogHandler(sys.stdout) #for debugging
-                M.solve()
-
-                # We expect solution status OPTIMAL (this is also default)
-                M.acceptedSolutionStatus(AccSolutionStatus.Optimal)
-                slnStatus = M.getPrimalSolutionStatus()
-                print('Problem status: ',slnStatus)
+                
                 WD = os.path.join(os.path.expanduser('~'),'Documents','dump.opf') # debugging
                 M.writeTask(WD)
             except Exception as e:
                 print("Unexpected error: {0}".format(e))
-            xOut = xScale*np.r_[y.level(),z.level()]
+            
+            if tInt:
+                xOut = xScale*np.r_[y.level(),z.level()]
+            else:
+                xOut = xScale*x.level()
             print("MIP rel gap = %.2f (%f)" % (M.getSolverDoubleInfo(
                         "mioObjRelGap"), M.getSolverDoubleInfo("mioObjAbsGap")))
         return xOut
-    
-    
+
     def snapQpComparison(self):
         self.runCvrQp('loss')
         TL0 = self.slnF[0]
@@ -646,24 +660,35 @@ class buildLinModel:
         plt.tight_layout()
         plt.show()
     
-    def showQpSln(self,slnX,slnF):
-        
+    def printQpSln(self,slnX,slnF):
         pOut = slnX[:self.nPctrl]
         qOut = slnX[self.nPctrl:self.nPctrl*2]
         tOut = slnX[self.nPctrl*2:]
         
-        TL,PL,TC,V,I = self.slnF
+        TL,PL,TC,V,I = slnF
         TL0,PL0,TC0,V0,I0 = self.slnF0
         
-        print('\n================== QP Solution:\nLoss before (kW):',TL0)
+        print('\n================== QP Solution:')
+        # print('Loss before (kW):',TL0)
         print('Loss after (kW):',TL)
-        print('Load before (kW):',PL0)
+        # print('Load before (kW):',PL0)
         print('Load after (kW):',PL)
-        print('Curtailment before (kW):',TC0)
+        # print('Curtailment before (kW):',TC0)
         print('Curtailment after (kW):',TC)
-        print('Total power before (kW):', PL0 + TL0 + TC0)
+        # print('Total power before (kW):', PL0 + TL0 + TC0)
         print('Total power after (kW):', PL + TL + TC)
+        print('\nTotal Q:', sum(qOut))
+        print('Tap Position:', tOut*160)
+    
+    def showQpSln(self,slnX,slnF):
         
+        self.printQpSln(slnX,slnF)
+        pOut = slnX[:self.nPctrl]
+        qOut = slnX[self.nPctrl:self.nPctrl*2]
+        tOut = slnX[self.nPctrl*2:]
+        
+        TL,PL,TC,V,I = slnF
+        TL0,PL0,TC0,V0,I0 = self.slnF0
         
         fig,[ax0,ax1,ax2] = plt.subplots(ncols=3,figsize=(11,4))
         

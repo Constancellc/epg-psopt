@@ -18,8 +18,17 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
     return blm
 
 # self = main('n1',modelType='plotOnly',pltSave=False)
-self = main('n1',modelType='buildTestSave')
-self.testCvrQp()
+
+# self = main('n1',modelType='buildTestSave')
+# self.testCvrQp()
+
+# self = main(24,modelType='buildTestSave')
+self = main(24,modelType='loadModel')
+
+# self.printQpSln(self.slnX0,self.slnF0)
+self.printQpSln(self.slnX,self.slnF)
+self.printQpSln(self.sln2X,self.sln2F)
+self.printQpSln(self.sln3X,self.sln3F)
 
 self.showQpSln(self.slnX,self.slnF)
 self.showQpSln(self.sln2X,self.sln2F)
