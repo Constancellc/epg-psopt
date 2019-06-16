@@ -559,8 +559,8 @@ def print_node_array(YZ,thing):
         print(YZ[i]+': '+str(thing[i]))
 
 def get_ckt(WD,feeder):
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr',feeder]
-    # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr'] # for editing
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr',feeder]
+    # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr'] # for editing
     ckts = {'feeder_name':['fn_ckt','fn']}
     ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
     ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
@@ -587,7 +587,8 @@ def get_ckt(WD,feeder):
     ckts[fdrs[22]]=[WD+'\\ieee_tn\\ckt24',WD+'\\ieee_tn\\ckt24\\master_ckt24_z']
     ckts[fdrs[23]]=[WD+'\\ieee_tn\\4Bus-YY-Bal',WD+'\\ieee_tn\\4Bus-YY-Bal\\4Bus-YY-Bal_z']
     ckts[fdrs[24]]=[WD+'\\ieee_tn\\k1',WD+'\\ieee_tn\\k1\\Master_NoPV_z_cvr']
-        
+    ckts[fdrs[25]]=[WD+'\\ieee_tn\\ckt24',WD+'\\ieee_tn\\ckt24\\master_ckt24_z_cvr']
+    
     if not feeder in ckts.keys():
         if feeder[0]=='n' and int(feeder[1:])<26:
             dir0 = WD+'\\manchester_models\\batch_manc_ntwx\\network_'+feeder[1:]
@@ -595,6 +596,9 @@ def get_ckt(WD,feeder):
         elif feeder[0]=='n' and feeder[1:]=='26':
                 dir0 = WD+'\\manchester_models\\batch_manc_ntwx\\network_7'
                 ckts[fdrs[-1]] = [dir0,dir0+'\\masterNetwork7feeder1']
+        elif feeder[0]=='n' and feeder[1:]=='27':
+                dir0 = WD+'\\manchester_models\\batch_manc_ntwx\\network_27'
+                ckts[fdrs[-1]] = [dir0,dir0+'\\masterNetwork1']
         elif len(feeder)==3:
             dir0 = WD+'\\manchester_models\\batch_manc_ntwx\\network_'+str(int(feeder[0:2]))+'\\Feeder_'+feeder[-1]
             ckts[fdrs[-1]]=[dir0,dir0+'\\Master']
