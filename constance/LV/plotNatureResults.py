@@ -6,21 +6,22 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.cbook
+import scipy.stats as st
 
 res_stem = '../../../Documents/simulation_results/LV/LA/'
 stem = '../../../Documents/simulation_results/NTS/clustering/power/locationsLA/'
 # first i want to pick an example simulation (preferrably a bad one)
 
-la = 'E08000030'
+la = 'E08000005'
 
 # power demand first 
 time = np.arange(0,1440,10)
 ttls = ['No Charging','Uncontrolled','Controlled']
 xt = ['04:00','12:00','20:00']
 xt_ = [240,720,1200]
-plt.figure(figsize=(8,2.5))
+plt.figure(figsize=(8,3))
 plt.rcParams["font.family"] = 'serif'
-plt.rcParams['font.size'] = 11
+plt.rcParams['font.size'] = 14
 
 res = []
 for i in range(9):
@@ -47,10 +48,12 @@ for i in range(3):
     plt.xticks(xt_,xt)
 plt.tight_layout()
 plt.savefig('../../../Dropbox/papers/Nature/img/lv_power.eps', format='eps',
-            dpi=1000, bbox_inches='tight', pad_inches=0)
+            dpi=1000, bbox_inches='tight', pad_inches=0.1)
 
 # this is voltages
-plt.figure(figsize=(8,3.5))
+plt.figure(figsize=(8,3))
+plt.rcParams["font.family"] = 'serif'
+plt.rcParams['font.size'] = 11
 # minimum
 res = []
 for i in range(9):
@@ -61,7 +64,10 @@ with open(res_stem+la+'_voltages_m.csv','rU') as csvfile:
     for row in reader:
         for i in range(9):
             res[i].append(float(row[i+1]))
-for i in range(3):    
+for i in range(3):
+    for t in range(len(res[0])):
+        res[3*i][t] = res[3*i+1][t]-2*(res[3*i+1][t]-res[3*i][t])/3 
+        res[3*i+2][t] = res[3*i+1][t]+2*(res[3*i+2][t]-res[3*i+1][t])/3 
     plt.subplot(1,3,i+1)
     plt.title(ttls[i],y=0.85)
     if i == 0:
@@ -86,11 +92,14 @@ with open(res_stem+la+'_voltages_p.csv','rU') as csvfile:
     for row in reader:
         for i in range(9):
             res[i].append(float(row[i+1]))
-for i in range(3):    
+for i in range(3):
+    for t in range(len(res[0])):
+        res[3*i][t] = res[3*i+1][t]-2*(res[3*i+1][t]-res[3*i][t])/3 
+        res[3*i+2][t] = res[3*i+1][t]+2*(res[3*i+2][t]-res[3*i+1][t])/3    
     plt.subplot(1,3,i+1)
     if i == 0:
         plt.plot(time,res[3*i+1],c='r',label='Maximum')
-        plt.ylabel('Power Demand (kW)')
+        plt.ylabel('Voltage (p.u.)')
     else:
         plt.plot(time,res[3*i+1],c='r')
         #plt.yticks([0,20,40,60,80,100,120],['','','','','','',''])
@@ -110,7 +119,10 @@ with open(res_stem+la+'_voltages_a.csv','rU') as csvfile:
     for row in reader:
         for i in range(9):
             res[i].append(float(row[i+1]))
-for i in range(3):    
+for i in range(3):
+    for t in range(len(res[0])):
+        res[3*i][t] = res[3*i+1][t]-2*(res[3*i+1][t]-res[3*i][t])/3 
+        res[3*i+2][t] = res[3*i+1][t]+2*(res[3*i+2][t]-res[3*i+1][t])/3                          
     plt.subplot(1,3,i+1)
     if i == 0:
         plt.plot(time,res[3*i+1],c='k',label='Average')
@@ -128,7 +140,7 @@ plt.savefig('../../../Dropbox/papers/Nature/img/lv_voltages.eps', format='eps',
 
 # this is losses
 
-plt.rcParams['font.size'] = 12
+plt.rcParams['font.size'] = 14
 plt.figure(figsize=(5,3))
 
 # losses first
@@ -177,7 +189,7 @@ plt.ylabel('Losses (kWh)')
 plt.xticks([1,2,3],ttls)
 plt.tight_layout()
 plt.savefig('../../../Dropbox/papers/Nature/img/lv_losses.eps', format='eps',
-            dpi=1000, bbox_inches='tight', pad_inches=0)
+            dpi=1000, bbox_inches='tight', pad_inches=0.1)
 
 # ok, but next I'm ging to want to do something about nationally
 
@@ -209,7 +221,6 @@ for la in locs:
             for i in range(3):
                 mu = min(res[3*i+1])
                 sigma = (mu-min(res[3*i]))/3
-
                 z = (0.9-mu)/sigma
                 v_zscore[ty[i]][la] = z
     except:
@@ -218,7 +229,7 @@ for la in locs:
 p_zscore = {'b':{},'u':{},'f':{}}
 for la in locs:
     try:
-        with open(res_stem+la+'_loads.csv','rU') as csvfile:
+        with open(res_stem+la+'_load.csv','rU') as csvfile:
             reader = csv.reader(csvfile)
             next(reader)
             res = []
@@ -228,10 +239,10 @@ for la in locs:
                 for i in range(9):
                     res[i].append(float(row[i+1]))
             for i in range(3):
-                mu = min(res[3*i+1])
-                sigma = (mu-min(res[3*i]))/3
+                mu = max(res[3*i+1])
+                sigma = (max(res[3*i+2]))/3
 
-                z = (760-mu)/sigma
+                z = (mu-760)/sigma
                 p_zscore[ty[i]][la] = z
     except:
         continue
@@ -252,18 +263,23 @@ def find_nearest(p1):
 # so one good option would be to plot the 
 pList = []
 z = [[],[],[]]
+z2 = [[],[],[]]
 
 for la in v_zscore['f']:
     pList.append(locs[la])
     z[0].append(v_zscore['b'][la])
     z[1].append(v_zscore['u'][la])
     z[2].append(v_zscore['f'][la])
+    z2[0].append(p_zscore['b'][la])
+    z2[1].append(p_zscore['u'][la])
+    z2[2].append(p_zscore['f'][la])
 # create new figure, axes instances.
 
 fig=plt.figure(figsize=(8,4))
 plt.rcParams["font.family"] = 'serif'
 plt.rcParams['font.size'] = 9
 
+carry = {}
 titles = ['No Charging','Uncontrolled','Controlled']
 for pn in range(3):
     plt.subplot(1,3,pn+1)
@@ -279,6 +295,7 @@ for pn in range(3):
     y = np.arange(49,59,0.05)
 
     Z = np.zeros((len(x),len(y)))
+    Z2 = np.zeros((len(x),len(y)))
     X = np.zeros((len(x),len(y)))
     Y = np.zeros((len(x),len(y)))
     m.drawcoastlines()
@@ -296,11 +313,13 @@ for pn in range(3):
                     continue
                 if xpt > 766000 and ypt < 104000:
                     continue
-                Z[i,j] = z[pn][best]
+                Z[i,j] = 100*st.norm.cdf(z[pn][best])
+                Z2[i,j] = 100*st.norm.cdf(z2[pn][best])
             else:
                 continue
 
-    im = m.pcolor(X,Y,Z,vmin=-3,vmax=3)
+    im = m.pcolor(X,Y,Z,vmin=0,vmax=100,cmap='Blues')
+    carry[pn] = [X,Y,Z2]
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
@@ -308,7 +327,33 @@ for pn in range(3):
 plt.tight_layout()
 plt.savefig('../../../Dropbox/papers/Nature/img/v_zscore.eps', format='eps', dpi=1000,
             bbox_inches='tight', pad_inches=0)
-plt.show()
+
+
+
+fig=plt.figure(figsize=(8,4))
+plt.rcParams["font.family"] = 'serif'
+plt.rcParams['font.size'] = 9
+
+titles = ['No Charging','Uncontrolled','Controlled']
+for pn in range(3):
+    plt.subplot(1,3,pn+1)
+    plt.title(titles[pn])
+    ax = plt.gca()
+    m = Basemap(llcrnrlon=-7,llcrnrlat=49.9,urcrnrlon=2.2,urcrnrlat=58.7,\
+                resolution='l',projection='merc',\
+                lat_0=40.,lon_0=-20.,lat_ts=20.)
+    m.drawcoastlines()
+
+    [X,Y,Z] = carry[pn]
+
+    im = m.pcolor(X,Y,Z,vmin=0,vmax=50,cmap='Greens')
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+    
+plt.tight_layout()
+plt.savefig('../../../Dropbox/papers/Nature/img/p_zscore.eps', format='eps', dpi=1000,
+            bbox_inches='tight', pad_inches=0)
 
 
 plt.show()
