@@ -789,6 +789,65 @@ class LVTestFeeder:
         
         self.evs = profiles
 
+    def load_flatten2(self,Pmax=7,eps=0.1,c_eff=0.9,constrain=True):
+        profiles = []
+        for i in range(self.nH):
+            profiles.append([0.0]*self.T)
+
+        ld = copy.deepcopy(self.base)
+
+        av = {}
+        for t in range(self.T):
+            av[t] = []
+        for rn in range(self.rN):
+            if self.times[rn][1] > self.times[rn][0]:
+                for t in range(self.times[rn][0],self.times[rn][1]):
+                    av[t].append(rn)
+            else:
+                for t in range(0,self.times[rn][1]):
+                    av[t].append(rn)
+                for t in range(self.times[rn][0],self.T):
+                    av[t].append(rn)
+
+        en = []
+        for rn in range(self.rN):
+            en.append(copy.deepcopy(self.b[rn]))
+
+        while sum(en) > eps:
+            t = np.argmin(ld)
+            if len(av[t]) == 0:
+                lwst = 1e5
+                bst = None
+                for t in range(self.T):
+                    if len(av[t]) == 0:
+                        continue
+                    if ld[t] < lwst:
+                        lwst = ld[t]
+                        bst = t
+                t = bst
+                    
+            toRem = []
+            for rn in av[t]:
+                profiles[self.v_map[self.rn_map[rn]]][t] += eps
+                ld[t] += eps
+                en[rn] -= c_eff*eps*self.t_res/60
+
+                if en[rn] < eps*0.01:
+                    en[rn] = 0
+                    toRem.append(rn)
+                    
+            for rn in toRem:
+                if self.times[rn][1] > self.times[rn][0]:
+                    for t in range(self.times[rn][0],self.times[rn][1]):
+                        av[t].remove(rn)
+                else:
+                    for t in range(0,self.times[rn][1]):
+                        av[t].remove(rn)
+                    for t in range(self.times[rn][0],self.T):
+                        av[t].remove(rn)
+        
+        self.evs = profiles
+
     def predict_losses(self):
         losses = []
 
