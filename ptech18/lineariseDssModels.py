@@ -78,7 +78,7 @@ class buildLinModel:
                 linPoints = np.array([1.0])
             self.capPosLin=None
         
-        if modelType not in ['loadModel','loadAndRun','loadOnly']:
+        if modelType not in [None,'loadModel','loadAndRun','loadOnly']:
             self.initialiseOpenDss()
         
         self.pCvr = pCvr
@@ -87,7 +87,7 @@ class buildLinModel:
         self.method=method
         
         # BUILD MODELS
-        if modelType in [None,'buildTestSave','buildSave']:
+        if modelType in ['buildTestSave','buildSave']:
             self.makeCvrQp()
         elif modelType == 'linOnly':
             self.createNrelModel(linPoints[0])
@@ -107,34 +107,30 @@ class buildLinModel:
             self.barePlotSetup()
             self.setupPlots()
             self.plotNetwork(pltSave=pltSave)
-        elif modelType in ['loadModel','loadAndRun','loadOnly']:
+        elif modelType in [None,'loadModel','loadAndRun','loadOnly']:
             self.loadLinModel()
             self.WD = os.path.dirname(FD) # WARNING! some paths may be a bit dodge...?
             self.SD = SD
             self.fn = get_ckt(self.WD,self.feeder)[1]
         
-        if modelType in ['loadModel']:
+        if modelType in [None,'loadModel']:
             self.initialiseOpenDss()
         
         if modelType not in ['loadOnly','loadAndRun']:
             self.setupPlots()
         
         
-        if modelType in [None,'cvx','buildTestSave','buildSave']:
+        if modelType in ['cvx','buildTestSave','buildSave']:
             self.cns0 = self.getConstraints()
             self.setupConstraints(self.cns0)
             self.slnF0 = self.runQp(np.zeros(self.nCtrl))
         
         if modelType in ['buildTestSave']:
             self.testCvrQp()
-            
         if modelType in ['buildTestSave','buildSave']:
             self.saveLinModel()
         
-        # if modelType in [None]:
-            # self.testCvrQp()
-        
-        if modelType in [None,'loadModel']:
+        if modelType in ['loadModel']:
             # self.testCvrQp()
             # modesAll = ['full','part','maxTap','minTap','loss','load','genHostingCap','loadHostingCap']
             modesAll = ['full']
@@ -151,11 +147,17 @@ class buildLinModel:
         if modelType in ['loadAndRun']:
             self.runQpSet()
         
-        
+        if modelType==None:
+            self.loadQpSet()
+            self.loadQpSln()
+            self.slnFdss = self.qpDssValidation()
+            self.slnF0dss = self.qpDssValidation(np.zeros(self.nCtrl))
+            self.showQpSln()
+            
+            
+            
         # if modelType==None:
-            # modesAll = ['full']
-            # self.runCvrQp()
-        
+            # self.
         # self.plotNetwork()
         # self.plotNetBuses('p0')
         # self.plotNetBuses('q0')
@@ -168,9 +170,7 @@ class buildLinModel:
         # self.showQpSln(self.slnX,self.slnF)
         # self.testCvrQp()
         # self.snapQpComparison()
-        
         # self.loadLoadProfiles()
-        
         if saveModel:
             self.saveLinModel()
             # self.saveNrelModel()
@@ -214,6 +214,11 @@ class buildLinModel:
         SN = os.path.join(self.getSaveDirectory(),self.getFilename()+'_sln.pkl')
         with open(SN,'rb') as outFile:
             self.qpSolutions = pickle.load(outFile)
+    
+    def loadQpSln(self,modeSet='full'):
+        self.slnX = self.qpSolutions[modeSet][0]
+        self.slnF = self.qpSolutions[modeSet][1]
+        self.slnS = self.qpSolutions[modeSet][2]
             
     def getSaveDirectory(self):
         return os.path.join(self.WD,'lin_models','cvr_models',self.feeder)
@@ -694,7 +699,43 @@ class buildLinModel:
             print("MIP rel gap = %.2f (%f)" % (M.getSolverDoubleInfo(
                         "mioObjRelGap"), M.getSolverDoubleInfo("mioObjAbsGap")))
         return xOut
-
+    
+    def qpComparison(self):
+        self.loadQpSet()
+        
+        modesPlot = ['Nominal','full','part','minTap','maxTap']
+        TL0 = self.qpSolutions['loss'][1][0] # get the loss minimization losses
+        PL0 = self.qpSolutions['load'][1][1] # get the load minimization load
+        
+        extraTL = []
+        extraPL = []
+        costFunc = []
+        for modeSet in modesPlot:
+            if modeSet=='Nominal':
+                self.slnF = self.slnF0
+            else:
+                self.loadQpSln(modeSet)
+            TL,PL,TC = self.slnF[0:3]
+            extraTL.append(TL-TL0)
+            extraPL.append(PL-PL0)
+            costFunc.append(TL + PL + TC)
+        
+        fig,[ax1,ax0] = plt.subplots(ncols=2)
+        ax0.bar(np.arange(len(modesPlot))+0.2,extraTL,label='Extra losses',width=0.2,zorder=10)
+        ax0.bar(np.arange(len(modesPlot))-0.2,extraPL,label='Extra load',width=0.2,zorder=10)
+        ax0.set_xticks(np.arange(len(modesPlot)))
+        ax0.set_xticklabels(modesPlot,rotation=90)
+        ax0.set_ylabel('Power (kW)')
+        ax0.legend()
+        
+        ax1.bar(np.arange(len(modesPlot)),costFunc,width=0.2,zorder=10)
+        ax1.set_xticks(np.arange(len(modesPlot)))
+        ax1.set_xticklabels(modesPlot,rotation=90)
+        ax1.set_ylabel('Power (kW)')
+        ax1.set_ylim(( np.mean(costFunc)-5*np.std(costFunc),np.mean(costFunc)+5*np.std(costFunc) ))
+        plt.tight_layout()
+        plt.show()
+    
     def snapQpComparison(self):
         self.runCvrQp('loss')
         TL0 = self.slnF[0]
@@ -737,6 +778,34 @@ class buildLinModel:
         plt.tight_layout()
         plt.show()
     
+    def qpDssValidation(self,slnX=None):
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        
+        self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
+        genNames = self.addYDgens(DSSObj)
+        if slnX is None:
+            slnX = self.slnX
+        
+        self.setDssSlnX(DSSCircuit,genNames,slnX=slnX)
+        
+        TG,TL,PL,YNodeV = runCircuit(DSSCircuit,DSSSolution)[1::]
+        iXfrm = abs( self.v2iBrYxfmr.dot(YNodeV)[self.iXfmrModelled] )
+        
+        return [TL,PL,-TG,abs(YNodeV)[3:],iXfrm] # as in runQp
+        
+        
+    def setDssSlnX(self,DSSCircuit,genNames,slnX=None):
+        if slnX is None:
+            slnX = self.slnX
+        
+        slnP = slnX[:self.nPctrl]*self.lScale/self.xSscale
+        slnQ = slnX[self.nPctrl:self.nSctrl]*self.lScale/self.xSscale
+        slnT = np.round(slnX[self.nSctrl:] + np.array(self.TC_No0)).astype(int).tolist()
+        
+        setGenPq(DSSCircuit,genNames,slnP,slnQ)
+        fix_tap_pos(DSSCircuit,slnT)
+        
+    
     def printQpSln(self,slnX,slnF):
         pOut = slnX[:self.nPctrl]
         qOut = slnX[self.nPctrl:self.nPctrl*2]
@@ -750,9 +819,13 @@ class buildLinModel:
         print('Curtailment (kW):',TC)
         print('Total power (kW):', PL + TL + TC)
         print('\nTotal Q (kVAr):', sum(qOut)*self.lScale/self.xSscale)
-        print('Tap Position:', tOut)
+        print('Tap Position:', tOut + np.array(self.TC_No0))
     
-    def showQpSln(self,slnX,slnF):
+    def showQpSln(self,slnX=None,slnF=None):
+        if slnX is None:
+            slnX = self.slnX
+        if slnF is None:
+            slnF = self.slnF
         
         self.printQpSln(slnX,slnF)
         pOut = slnX[:self.nPctrl]
@@ -761,15 +834,18 @@ class buildLinModel:
         
         TL,PL,TC,V,I = slnF
         TL0,PL0,TC0,V0,I0 = self.slnF0
+        TLd,PLd,TCd,Vd,Id = self.slnFdss
         
         fig,[ax0,ax1,ax2] = plt.subplots(ncols=3,figsize=(11,4))
         
         # plot voltages versus voltage limits
-        ax0.plot((V0/self.vKvbase)[self.vIn],'o');
-        ax0.plot((V/self.vKvbase)[self.vIn],'x');
+        ax0.plot((V0/self.vKvbase)[self.vIn],'.');
+        ax0.plot((Vd/self.vKvbase)[self.vIn],'o',markerfacecolor='w',markeredgewidth=0.4);
+        ax0.plot((V/self.vKvbase)[self.vIn],'x',markeredgewidth=0.4);
         ax0.plot((self.vHi/self.vKvbase)[self.vIn],'k_');
         ax0.plot((self.vLo/self.vKvbase)[self.vIn],'k_');
         ax0.set_title('Voltages')
+        ax0.set_xlabel('Bus Index')
         ax0.grid(True)
         # ax0.show()
         
@@ -781,13 +857,15 @@ class buildLinModel:
         # ax1.set_ylabel('Current (A)')
         # ax1.set_title('Currents')
         # ax1.grid(True)
-        ax1.plot(I0/(self.iScale*self.iXfmrLims),'o')
-        ax1.plot(I/(self.iScale*self.iXfmrLims),'x')
+        ax1.plot(I0/(self.iScale*self.iXfmrLims),'.',label='Nominal')
+        ax1.plot(Id/(self.iScale*self.iXfmrLims),'o',label='OpenDSS',markerfacecolor='w')
+        ax1.plot(I/(self.iScale*self.iXfmrLims),'x',label='QP sln')
         # ax1.plot(self.iXfmrLims,'k_')
         ax1.plot(np.ones(len(self.iXfmrLims)),'k_')
-        ax1.set_xlabel('Bus Index')
+        ax1.set_xlabel('Xfmr Index')
         ax1.set_ylabel('Current (A)')
         ax1.set_title('Currents')
+        ax1.legend()
         ax1.grid(True)
         # ax1.show()
         
@@ -917,9 +995,7 @@ class buildLinModel:
         # Test 2. Put a whole load of generators in and change real and reactive powers.
         for ii in range(2):
             self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
-            genNamesY = add_generators(DSSObj,vecSlc(self.YZ,self.pyIdx[0]),False)
-            genNamesD = add_generators(DSSObj,vecSlc(self.YZ,self.pdIdx[0]),True)
-            genNames = genNamesY + genNamesD
+            genNames = self.addYDgens(DSSObj)
             
             xCtrl = np.zeros(self.nCtrl)
             
@@ -982,6 +1058,11 @@ class buildLinModel:
             plt.tight_layout()
         
         plt.show()
+    
+    def addYDgens(self,DSSObj):
+        genNamesY = add_generators(DSSObj,vecSlc(self.YZ,self.pyIdx[0]),False)
+        genNamesD = add_generators(DSSObj,vecSlc(self.YZ,self.pdIdx[0]),True)
+        return genNamesY + genNamesD
     
     def runQp(self,dx):
         # dx needs to be in units of kW, kVAr, tap no.

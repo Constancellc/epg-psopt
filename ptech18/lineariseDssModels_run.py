@@ -3,6 +3,7 @@ from importlib import reload
 import numpy as np
 from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar
 import matplotlib.pyplot as plt
+from lineariseDssModels import dirPrint
 
 FD = sys.argv[0]
 
@@ -17,50 +18,20 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
                                                 modelType=modelType,method=method,saveModel=saveModel,SD=SD,pltSave=pltSave)
     return blm
 
-self = main('n10',modelType='plotOnly',pltSave=False)
-
-
-feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17]
-linPoints = [0.2,0.6,1.0]
-pCvrSet = [0.2,0.8]
-for feeder in feederSet:
-    for linPoint in linPoints:
-        for pCvr in pCvrSet:
-            main(feeder,pCvr=pCvr,modelType='buildTestSave',linPoint=linPoint)
-
 # # NETWORKS:
-# self = main(17,modelType='buildTestSave')
-# self = main(17,modelType='loadModel')
+# self = main(8,modelType='loadModel')
+# self = main(8,modelType='loadOnly')
+self = main(8)
+self.plotNetBuses('qSln')
 
-# self = main(18,modelType='buildTestSave')
+self.printQpSln(self.slnX,self.slnF)
+self.printQpSln(self.slnX,self.slnFdss)
+self.printQpSln(np.zeros(self.nCtrl),self.slnF0)
+self.printQpSln(np.zeros(self.nCtrl),self.slnF0dss)
 
-# # self = main(5,modelType='loadModel')
-# # self = main('n1',modelType='loadModel')
+# self.showQpSln(self.slnX,self.slnF)
+# self.snapQpComparison()
 
-# # self.printQpSln(self.slnX0,self.slnF0)
-# self.printQpSln(self.slnX,self.slnF)
-# self.printQpSln(self.sln2X,self.sln2F)
-# self.printQpSln(self.sln3X,self.sln3F)
-
-# # self.showQpSln(self.slnX,self.slnF)
-# # self.showQpSln(self.sln2X,self.sln2F)
-# # self.showQpSln(self.sln3X,self.sln3F)
-
-# # linPoints = [1.0,0.2]
-# # aCvrs = [0.8,0.25]
-# # fdr_i_set = [5,6,8,24,0]
-# # for fdr_i in fdr_i_set:
-    # # for linPoint in linPoints:
-        # # for aCvr in aCvrs:
-            # # self = main(fdr_i,linPoint=linPoint,pCvr=aCvr)
-            # # self.saveLinModel()
-
-# # # self.setupConstraints(qlim=1e4)
-# # # self.runCvrQp('full')
-# # # self.plotNetBuses('qSln')
-# # # self.plotNetBuses('v0')
-# # # self.showQpSln(self.slnX,self.slnF)
-# # # self.snapQpComparison()
 
 # # # fdr_i = 24
 # # # loadPoint = '020'
@@ -82,8 +53,6 @@ for feeder in feederSet:
 # cns['lvHi'] = 1.10
 # cns['lvLo'] = 0.92
 # cns['iScale'] = 4.0
-
-
 
 # # Case:
 # # EU LV 

@@ -10,7 +10,7 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 
 
 # f_bulkBuildModels = 1
-
+# f_bulkRunModels = 1
 
 def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=None,pltSave=False):
     reload(lineariseDssModels)
@@ -20,44 +20,31 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
                                                 modelType=modelType,method=method,saveModel=saveModel,SD=SD,pltSave=pltSave)
     return blm
 
-self = main('n10',modelType='plotOnly',pltSave=False)
+# self = main('n10',modelType='plotOnly',pltSave=False)
 
-cns = self.cns0
-cns['mvLo']=0.92
-cns['mvLo']=0.98
-self.setupConstraints(cns)
-self.runCvrQp('full','mosekInt')
+feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17]
+linPoints = [0.2,0.6,1.0]
+pCvrSet = [0.2,0.8]
 
-# STEP 1: saving the models.
-if f_bulkBuildModels in locals():
-    feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17]
-    linPoints = [0.2,0.6,1.0]
-    pCvrSet = [0.2,0.8]
+# STEP 1: building and saving the models. =========================
+if 'f_bulkBuildModels' in locals():
     for feeder in feederSet:
         for linPoint in linPoints:
             for pCvr in pCvrSet:
                 main(feeder,pCvr=pCvr,modelType='buildSave',linPoint=linPoint)
 
-self = main(5,pCvr=0.8,modelType='buildTestSave',linPoint=1.0)
 # STEP 2: Running the models, obtaining the optimization results.
-# feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17]
-# feederSet = [5,6]
-feederSet = [5]
+if 'f_bulkRunModels' in locals():
+    for feeder in feederSet:
+        print('============================================= Feeder:',feeder)
+        for linPoint in linPoints:
+            for pCvr in pCvrSet:
+                self = main(feeder,pCvr=pCvr,modelType='loadAndRun',linPoint=linPoint)
 
-# self = main(0,modelType='loadAndRun')
-# feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17]
-feederSet = [5,6,8,24,18,17]
-# linPoints = [0.2,1.0]
-# pCvrSet = [0.2,0.8]
-linPoints = [0.6]
-pCvrSet = [0.2,0.8]
 
-for feeder in feederSet:
-    print('============================================= Feeder:',feeder)
-    for linPoint in linPoints:
-        for pCvr in pCvrSet:
-            self = main(feeder,pCvr=pCvr,modelType='loadAndRun',linPoint=linPoint)
-
+# STEP 3: post processing + analysis.
+linPoints = [0.2,1.0]
+pCvrSet = [0.8]
 feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17]
 for feeder in feederSet:
     for linPoint in linPoints:
