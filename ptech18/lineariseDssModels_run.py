@@ -17,57 +17,18 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
                                                 modelType=modelType,method=method,saveModel=saveModel,SD=SD,pltSave=pltSave)
     return blm
 
-# # self = main('n10',modelType='plotOnly',pltSave=False)
+self = main('n10',modelType='plotOnly',pltSave=False)
 
-# self = main(5,modelType='buildTestSave',linPoint=0.1)
-self = main(5,modelType='buildTestSave',linPoint=0.1)
 
-# feederSet = [5,6]
-# feederSet = [8,20,18,'n4','n1','n10','n27',17]
-# feederSet = ['n4','n1','n10','n27',17]
-feederSet = [24]
+feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17]
 linPoints = [0.2,0.6,1.0]
 pCvrSet = [0.2,0.8]
-
 for feeder in feederSet:
     for linPoint in linPoints:
         for pCvr in pCvrSet:
             main(feeder,pCvr=pCvr,modelType='buildTestSave',linPoint=linPoint)
 
-
-
-
-# self = main(5,modelType='linOnly')
-# self = main(6,modelType='linOnly')
-# self = main(25,modelType='linOnly')
-# self = main()
-
-# self = main('n27',modelType='buildTestSave')
-
-
-# self = main('n1',modelType='buildTestSave')
-# self = main('n1',modelType='loadModel')
-
-# self = main('n10',modelType='buildTestSave')
-# self = main('n10',modelType='loadModel')
-
-# self = main('n4',modelType='buildTestSave')
-# self = main('n4',modelType='loadModel')
-
-# self = main(0,modelType='buildTestSave')
-# self = main(0,modelType='loadModel')
-
-# self = main(18,modelType='buildTestSave')
-# self = main(18,modelType='loadModel')
-
-# self = main(24,modelType='buildTestSave')
-# self = main(24,modelType='loadModel')
-
-# self = main(25,modelType='buildTestSave')
-# self = main(25,modelType='loadModel')
-
 # # NETWORKS:
-
 # self = main(17,modelType='buildTestSave')
 # self = main(17,modelType='loadModel')
 

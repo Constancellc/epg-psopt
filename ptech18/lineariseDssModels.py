@@ -78,7 +78,7 @@ class buildLinModel:
                 linPoints = np.array([1.0])
             self.capPosLin=None
         
-        if modelType not in ['loadModel']:
+        if modelType not in ['loadModel','loadAndRun','loadOnly']:
             self.initialiseOpenDss()
         
         self.pCvr = pCvr
@@ -87,7 +87,7 @@ class buildLinModel:
         self.method=method
         
         # BUILD MODELS
-        if modelType in [None,'buildTestSave']:
+        if modelType in [None,'buildTestSave','buildSave']:
             self.makeCvrQp()
         elif modelType == 'linOnly':
             self.createNrelModel(linPoints[0])
@@ -107,22 +107,28 @@ class buildLinModel:
             self.barePlotSetup()
             self.setupPlots()
             self.plotNetwork(pltSave=pltSave)
-        elif modelType == 'loadModel':
+        elif modelType in ['loadModel','loadAndRun','loadOnly']:
             self.loadLinModel()
             self.WD = os.path.dirname(FD) # WARNING! some paths may be a bit dodge...?
             self.SD = SD
             self.fn = get_ckt(self.WD,self.feeder)[1]
+        
+        if modelType in ['loadModel']:
             self.initialiseOpenDss()
         
-        self.setupPlots()
-        if modelType in [None,'cvx','buildTestSave']:
+        if modelType not in ['loadOnly','loadAndRun']:
+            self.setupPlots()
+        
+        
+        if modelType in [None,'cvx','buildTestSave','buildSave']:
             self.cns0 = self.getConstraints()
             self.setupConstraints(self.cns0)
-            # TL0,PL0,TC0,V0,I0 = self.runQp(np.zeros(self.nCtrl))
             self.slnF0 = self.runQp(np.zeros(self.nCtrl))
         
         if modelType in ['buildTestSave']:
-            # self.testCvrQp()
+            self.testCvrQp()
+            
+        if modelType in ['buildTestSave','buildSave']:
             self.saveLinModel()
         
         # if modelType in [None]:
@@ -141,7 +147,11 @@ class buildLinModel:
                 # self.printQpSln(self.sln2X,self.sln2F)
                 # self.printQpSln(self.sln3X,self.sln3F)
                 # self.printQpSln(self.sln4X,self.sln4F)
-
+        
+        if modelType in ['loadAndRun']:
+            self.runQpSet()
+        
+        
         # if modelType==None:
             # modesAll = ['full']
             # self.runCvrQp()
@@ -183,12 +193,40 @@ class buildLinModel:
         
         self.nPctrl = self.nPy + self.nPd
         
+    def runQpSet(self):
+        if self.feeder in ['13bus','34bus','123bus','epriK1','epriK1cvr','n27']:
+            modesAll = ['full','part','maxTap','minTap','loss','load','genHostingCap','loadHostingCap']
+        else:
+            modesAll = ['full','part','loss','load','genHostingCap','loadHostingCap']
+        
+        optType = ['mosekInt']
+        qpSolutions = {}
+        for modeSet in modesAll:
+            self.runCvrQp(modeSet,optType=optType)
+            qpSolutions[modeSet] = [self.slnX,self.slnF,self.slnS]
+        
+        self.qpSolutions = qpSolutions
+        SN = os.path.join(self.getSaveDirectory(),self.getFilename()+'_sln.pkl')
+        with open(SN,'wb') as outFile:
+            pickle.dump(qpSolutions,outFile)
     
-    def saveLinModel(self):
-        SD = os.path.join(self.WD,'lin_models','cvr_models',self.feeder)
+    def loadQpSet(self):
+        SN = os.path.join(self.getSaveDirectory(),self.getFilename()+'_sln.pkl')
+        with open(SN,'rb') as outFile:
+            self.qpSolutions = pickle.load(outFile)
+            
+    def getSaveDirectory(self):
+        return os.path.join(self.WD,'lin_models','cvr_models',self.feeder)
+    
+    def getFilename(self):
         power = str(np.round(self.linPoint*100).astype(int)).zfill(3)
         aCvr = str(np.round(self.pCvr*100).astype(int)).zfill(3)
-        SN = os.path.join(SD,self.feeder+'P'+power+'A'+aCvr+'.pkl')
+        return self.feeder+'P'+power+'A'+aCvr
+        
+    
+    def saveLinModel(self):
+        SD = self.getSaveDirectory()
+        SN = os.path.join(SD,self.getFilename()+'.pkl')
         if not os.path.exists(SD):
             os.makedirs(SD)
         self.dssStuff = [] # can't be saved
@@ -196,10 +234,7 @@ class buildLinModel:
             pickle.dump(self,outFile)
     
     def loadLinModel(self):
-        SD = os.path.join(self.WD,'lin_models','cvr_models',self.feeder)
-        power = str(np.round(self.linPoint*100).astype(int)).zfill(3)
-        aCvr = str(np.round(self.pCvr*100).astype(int)).zfill(3)
-        SN = os.path.join(SD,self.feeder+'P'+power+'A'+aCvr+'.pkl')
+        SN = os.path.join(self.getSaveDirectory(),self.getFilename()+'.pkl')
         with open(SN,'rb') as outFile:
             savedSelf = pickle.load(outFile)
         self.__dict__ = savedSelf.__dict__.copy()
@@ -575,16 +610,27 @@ class buildLinModel:
             print('cvxopt complete, solution:',self.sln['status'])
         if 'cvxMosek' in optType:
             self.sln = solvers.qp(Qp,pp,Gp,hp,solver='mosek')
-            self.sln4X = oneHat.dot(np.array(self.sln['x']).flatten())               + x0.flatten()
-            self.sln4F = self.runQp(self.sln4X)
+            self.slnX = oneHat.dot(np.array(self.sln['x']).flatten())               + x0.flatten()
+            self.slnF = self.runQp(self.slnX)
             print('cvxMosek complete, solution:',self.sln['status'])
         if 'mosekNom' in optType:
-            self.sln2X = oneHat.dot(self.mosekQpEquiv(Qp,pp,Gp,hp,tInt=False))      + x0.flatten()
-            self.sln2F = self.runQp(self.sln2X)
+            self.slnX = oneHat.dot(self.mosekQpEquiv(Qp,pp,Gp,hp,tInt=False))      + x0.flatten()
+            self.slnF = self.runQp(self.slnX)
             print('mosekNom complete.')
         if 'mosekInt' in optType:
-            self.sln3X = oneHat.dot(self.mosekQpEquiv(Qp,pp,Gp,hp,tInt=True))       + x0.flatten()
-            self.sln3F = self.runQp(self.sln3X)
+            try:
+                self.slnX = oneHat.dot(self.mosekQpEquiv(Qp,pp,Gp,hp,tInt=True))       + x0.flatten()
+                self.slnS = 's' # success
+            except:
+                print('---> Integer optimization not working, trying continuous.')
+                try:
+                    self.slnX = oneHat.dot(self.mosekQpEquiv(Qp,pp,Gp,hp,tInt=False))      + x0.flatten()
+                    self.slnS = 'r' # relaxed success
+                except:
+                    print('---> Both Optimizations failed, saving null result.')
+                    self.slnX = np.zeros(self.nCtrl)
+                    self.slnS = 'f' # failed
+            self.slnF = self.runQp(self.slnX)
             print('mosekInt complete.')
     
     def mosekQpEquiv(self,Q0,p0,G0,h0,tInt=False):
