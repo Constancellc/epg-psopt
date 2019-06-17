@@ -133,7 +133,7 @@ class buildLinModel:
         
         if modelType in ['loadModel']:
             # self.testCvrQp()
-            # modesAll = ['full','part','maxTap','minTap','loss','load','genHostingCap','loadHostingCap']
+            # modesAll = ['full','part','maxTap','minTap','loss','load']
             modesAll = ['full']
             for modeSet in modesAll:
                 print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++',modeSet)
@@ -145,9 +145,14 @@ class buildLinModel:
                 # self.printQpSln(self.sln3X,self.sln3F)
                 # self.printQpSln(self.sln4X,self.sln4F)
         
+        if modelType in ['loadAndRun','loadOnly']:
+            self.cns0 = self.getConstraints()
+            self.setupConstraints(self.cns0)
         if modelType in ['loadAndRun']:
             self.runQpSet()
             # self.runQp4test()
+        
+        
         
         if modelType==None:
             self.loadQpSet()
@@ -206,7 +211,8 @@ class buildLinModel:
         
     def runQpSet(self):
         objs = ['opCst','hcGen','hcLds']
-        strategies = ['full','part','maxTap','minTap','loss','load']
+        # strategies = ['full','part','maxTap','minTap','loss','load']
+        strategies = ['part']
         optType = ['mosekInt']
         qpSolutions = {}
         for obj in objs:
@@ -527,7 +533,7 @@ class buildLinModel:
     
     def getObjFunc(self,strategy,obj):
         if obj=='opCst':
-            if strategy in ['full','part','genHostingCap']:
+            if strategy in ['full','part']:
                 Q = 2*self.qpQlss
                 p = self.qpLlss + self.ploadL + self.pcurtL
             elif strategy=='maxTap':
@@ -609,9 +615,8 @@ class buildLinModel:
                 oneHat = np.r_[ np.zeros((self.nPctrl,self.nPctrl+self.nT)),np.eye(self.nPctrl+self.nT) ]
             elif strategy=='part':
                 oneHat = np.zeros((self.nCtrl,1+self.nT))
-                if self.nT>0:
-                    oneHat[-self.nT:] = np.c_[np.zeros((self.nT,1)),np.eye(self.nT)]
-                oneHat[self.nPctrl:self.nSctrl,1] = 1
+                oneHat[self.nPctrl:self.nSctrl,0] = 1
+                oneHat[self.nSctrl:,1:] = np.eye(self.nT)
             elif strategy in ['maxTap','minTap']:
                 if self.nT>0:
                     oneHat = np.zeros((self.nCtrl,self.nT))
@@ -713,7 +718,6 @@ class buildLinModel:
         nCtrlAct = p0.shape[0]
         nSctrlAct = nCtrlAct - self.nT
         # nSctrlAct = self.nCtrl - self.nT
-        # print('nSctrlAct: ',nSctrlAct)
         
         if p0.ndim==1:
             p0 = np.array([p0]).T
@@ -741,8 +745,13 @@ class buildLinModel:
             
             if np.sum(Q0)!=0:
                 # QP constraint https://docs.mosek.com/9.0/pythonfusion/tutorial-model-lib.html
+                # NB: for some annoying reason the hstack and vstack need to be used differently depending
+                # on if there is one or more than one variable...[?]
                 t = M.variable("t",1,Domain.greaterThan(0.0))
-                M.constraint( "Qt", Expr.vstack(1.0,t,Expr.mul(H,x)), Domain.inRotatedQCone() ) # ???? This line complains it's not too clear why.
+                if nCtrlAct==1:
+                    M.constraint( "Qt", Expr.hstack(1.0, t,Expr.mul(H,x)), Domain.inRotatedQCone())
+                else:
+                    M.constraint( "Qt", Expr.vstack(1.0,t,Expr.mul(H,x)), Domain.inRotatedQCone() )
                 M.objective("obj",ObjectiveSense.Minimize, Expr.add(Expr.dot(p,x),t))
             else:
                 M.objective("obj",ObjectiveSense.Minimize, Expr.dot(p,x))
@@ -2187,14 +2196,16 @@ class buildLinModel:
         self.colormaps = { 'v0':vMap,'p0':pMap,'q0':qMap,'qSln':qMap,'vSln':vMap,'ntwk':sOnly }
     
     def getConstraints(self):
-        cns = {'mvHi':1.05,'lvHi':1.05,'mvLo':0.95,'lvLo':0.92,'plim':1e3,'qlim':1e3,'tlim':0.1,'iScale':2.0}
+        cns = {'mvHi':1.055,'lvHi':1.05,'mvLo':0.95,'lvLo':0.92,'plim':1e3,'qlim':1e3,'tlim':0.1,'iScale':2.0}
         # Make modifications as necessary.
-        if self.feeder=='34bus': 
-            cns['mvLo'] = 0.925
-        elif self.feeder=='eulv' or self.feeder[0]=='n':
+        if self.feeder=='eulv' or self.feeder[0]=='n':
+            cns['mvHi']=1.06
             cns['lvHi']=1.10
-            cns['mvLo']=1.00
-            cns['lvLo']=0.90
+            cns['mvLo']=0.98
+            cns['lvLo']=0.94
+        # if self.feeder=='34bus': 
+            # cns['mvLo'] = 0.925
+            # cns['mvLo'] = 0.93
         elif self.feeder=='epri7':
             cns['mvLo']=0.90
             cns['lvLo']=0.85
