@@ -2197,19 +2197,13 @@ class buildLinModel:
     
     def getConstraints(self):
         cns = {'mvHi':1.055,'lvHi':1.05,'mvLo':0.95,'lvLo':0.92,'plim':1e3,'qlim':1e3,'tlim':0.1,'iScale':2.0}
-        # Make modifications as necessary.
-        if self.feeder=='eulv' or self.feeder[0]=='n':
-            cns['mvHi']=1.06
-            cns['lvHi']=1.10
-            cns['mvLo']=0.98
-            cns['lvLo']=0.94
-        # if self.feeder=='34bus': 
-            # cns['mvLo'] = 0.925
-            # cns['mvLo'] = 0.93
-        elif self.feeder=='epri7':
-            cns['mvLo']=0.90
-            cns['lvLo']=0.85
         
+        # EU style networks have slightly different characteristics
+        if self.feeder=='eulv' or self.feeder[0]=='n':
+            cns['mvHi']=1.055 # keep the same
+            cns['mvLo']=0.95
+            cns['lvHi']=1.10
+            cns['lvLo']=0.90
         return cns
     
     def setupConstraints(self,cns=None):
