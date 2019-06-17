@@ -113,7 +113,7 @@ class buildLinModel:
             self.SD = SD
             self.fn = get_ckt(self.WD,self.feeder)[1]
         
-        if modelType in [None,'loadModel']:
+        if modelType in [None,'loadModel','loadAndRun']:
             self.initialiseOpenDss()
         
         if modelType not in ['loadOnly','loadAndRun']:
@@ -124,6 +124,7 @@ class buildLinModel:
             self.cns0 = self.getConstraints()
             self.setupConstraints(self.cns0)
             self.slnF0 = self.runQp(np.zeros(self.nCtrl))
+            self.slnD0 = self.qpDssValidation(np.zeros(self.nCtrl))
         
         if modelType in ['buildTestSave']:
             self.testCvrQp()
@@ -146,12 +147,12 @@ class buildLinModel:
         
         if modelType in ['loadAndRun']:
             self.runQpSet()
+            # self.runQp4test()
         
         if modelType==None:
             self.loadQpSet()
             self.loadQpSln()
-            self.slnFdss = self.qpDssValidation()
-            self.slnF0dss = self.qpDssValidation(np.zeros(self.nCtrl))
+            # self.slnD = self.qpDssValidation()
             self.showQpSln()
             
             
@@ -193,32 +194,51 @@ class buildLinModel:
         
         self.nPctrl = self.nPy + self.nPd
         
-    def runQpSet(self):
-        if self.feeder in ['13bus','34bus','123bus','epriK1','epriK1cvr','n27']:
-            modesAll = ['full','part','maxTap','minTap','loss','load','genHostingCap','loadHostingCap']
-        else:
-            modesAll = ['full','part','loss','load','genHostingCap','loadHostingCap']
+    def runQp4test(self,strategy='full',obj='opCst'):
+        solvers.options['show_progress']=False
+        optTypes = ['cvxopt','cvxMosek','mosekNom','mosekInt']
+        for optType in optTypes:
+            try:
+                self.runCvrQp(strategy=strategy,obj=obj,optType=optType)
+                self.printQpSln()
+            except:
+                print('Solution failed.')
         
+    def runQpSet(self):
+        objs = ['opCst','hcGen','hcLds']
+        strategies = ['full','part','maxTap','minTap','loss','load']
         optType = ['mosekInt']
         qpSolutions = {}
-        for modeSet in modesAll:
-            self.runCvrQp(modeSet,optType=optType)
-            qpSolutions[modeSet] = [self.slnX,self.slnF,self.slnS]
+        for obj in objs:
+            for strategy in strategies:
+                self.runCvrQp(strategy=strategy,obj=obj,optType=optType)
+                if 'slnD' in dir(self):
+                    qpSolutions[strategy+'_'+obj] = [self.slnX,self.slnF,self.slnS,self.slnD]
+                else:
+                    qpSolutions[strategy+'_'+obj] = [self.slnX,self.slnF,self.slnS]
         
         self.qpSolutions = qpSolutions
-        SN = os.path.join(self.getSaveDirectory(),self.getFilename()+'_sln.pkl')
+        SD = os.path.join(self.getSaveDirectory(),self.feeder+'_runQpSet_out')
+        SN = os.path.join(SD,self.getFilename()+'_sln.pkl')
+        if not os.path.exists(SD):
+            os.mkdir(SD)
         with open(SN,'wb') as outFile:
+            print('Results saved to '+ SN)
             pickle.dump(qpSolutions,outFile)
     
     def loadQpSet(self):
-        SN = os.path.join(self.getSaveDirectory(),self.getFilename()+'_sln.pkl')
+        # SN = os.path.join(self.getSaveDirectory(),self.getFilename()+'_sln.pkl')
+        SN = os.path.join(self.getSaveDirectory(),self.feeder+'_runQpSet_out',self.getFilename()+'_sln.pkl')
         with open(SN,'rb') as outFile:
             self.qpSolutions = pickle.load(outFile)
     
-    def loadQpSln(self,modeSet='full'):
-        self.slnX = self.qpSolutions[modeSet][0]
-        self.slnF = self.qpSolutions[modeSet][1]
-        self.slnS = self.qpSolutions[modeSet][2]
+    def loadQpSln(self,strategy='full',obj='opCst'):
+        key = strategy+'_'+obj
+        self.slnX = self.qpSolutions[key][0]
+        self.slnF = self.qpSolutions[key][1]
+        self.slnS = self.qpSolutions[key][2]
+        if len(self.qpSolutions[key])>3:
+            self.slnD = self.qpSolutions[key][3]
             
     def getSaveDirectory(self):
         return os.path.join(self.WD,'lin_models','cvr_models',self.feeder)
@@ -227,7 +247,6 @@ class buildLinModel:
         power = str(np.round(self.linPoint*100).astype(int)).zfill(3)
         aCvr = str(np.round(self.pCvr*100).astype(int)).zfill(3)
         return self.feeder+'P'+power+'A'+aCvr
-        
     
     def saveLinModel(self):
         SD = self.getSaveDirectory()
@@ -506,137 +525,186 @@ class buildLinModel:
         
         return
     
-    def runCvrQp(self,mode='full',optType=['cvxopt']):
-        # minimize    (1/2)*x'*P*x + q'*x
-        # subject to  G*x <= h
-        #               A*x = b.
-        # sol = solvers.qp(Q,p,G,h,A,b)
-        # MODES
-        # 1. 'full' Full optimization
-        # 2. 'maxTap' maximise all taps
-        # 3. 'minTap' minimise all taps with max Q
-        # 4. 'part' full optimization, just one P + Q
+    def getObjFunc(self,strategy,obj):
+        if obj=='opCst':
+            if strategy in ['full','part','genHostingCap']:
+                Q = 2*self.qpQlss
+                p = self.qpLlss + self.ploadL + self.pcurtL
+            elif strategy=='maxTap':
+                Q = 0*self.qpQlss
+                if self.nT>0:
+                    t2vPu = np.sum( dsf.vmM( 1/self.vInKvbase,self.Kc2v[self.vIn,-self.nT:] ),axis=0 )
+                    p = np.r_[np.zeros((self.nPctrl*2)),-1*t2vPu] # maximise the average voltage
+                else:
+                    p = np.r_[np.zeros((self.nPctrl*2))]
+            elif strategy=='minTap':
+                Q = 0*self.qpQlss
+                if self.nT>0:
+                    t2vPu = np.sum( dsf.vmM( 1/self.vInKvbase,self.Kc2v[self.vIn,-self.nT:] ),axis=0 )
+                    p = np.r_[np.zeros((self.nPctrl*2)),t2vPu] # minimise the average voltage
+                else:
+                    p = np.r_[np.zeros((self.nPctrl*2))]
+            elif strategy=='loss':
+                Q = 2*self.qpQlss
+                p = self.qpLlss + self.pcurtL
+            elif strategy=='load':
+                Q = 0*self.qpQlss
+                p = self.ploadL + self.pcurtL
         
-        # OBJECTIVE FUNCTION
-        if mode in ['full','part','genHostingCap']:
-            Q = matrix( 2*self.qpQlss )
-            p = matrix( self.qpLlss + self.ploadL + self.pcurtL )
-        elif mode=='maxTap':
-            Q = matrix( 0*self.qpQlss )
-            if self.nT>0:
-                t2vPu = np.sum( dsf.vmM( 1/self.vInKvbase,self.Kc2v[self.vIn,-self.nT:] ),axis=0 )
-                p = matrix( np.r_[np.zeros((self.nPctrl*2)),-1*t2vPu] ) # maximise the average voltage
-            else:
-                p = matrix( np.r_[np.zeros((self.nPctrl*2))] )
-        elif mode=='minTap':
-            Q = matrix( 0*self.qpQlss )
-            if self.nT>0:
-                t2vPu = np.sum( dsf.vmM( 1/self.vInKvbase,self.Kc2v[self.vIn,-self.nT:] ),axis=0 )
-                p = matrix( np.r_[np.zeros((self.nPctrl*2)),t2vPu] ) # minimise the average voltage
-            else:
-                p = matrix( np.r_[np.zeros((self.nPctrl*2))] )
-        elif mode=='loss':
-            Q = matrix( 2*self.qpQlss )
-            p = matrix( self.qpLlss + self.pcurtL )
-        elif mode=='load':
-            Q = matrix( 0*self.qpQlss )
-            p = matrix( self.ploadL + self.pcurtL )
-        elif mode=='loadHostingCap':
-            Q = matrix( 0*self.qpQlss )
-            p = matrix( np.r_[ np.ones(self.nPctrl), np.zeros(self.nPctrl + self.nT) ] )
+        if obj=='hcGen':
+            if strategy in ['full','part','minTap','maxTap']:
+                Q = 2*self.qpQlss
+                p = self.qpLlss + self.ploadL + self.pcurtL
         
-        # INEQUALITY CONSTRAINTS
+        if obj=='hcLds':
+            if strategy in ['full','part','minTap','maxTap']:
+                Q = 0*self.qpQlss
+                p = np.r_[ np.ones(self.nPctrl), np.zeros(self.nPctrl + self.nT) ]
+                
+        p = np.array([p]).T
+        return Q,p
+    
+    
+    def getInqCns(self,obj):
         # Upper Control variables, then voltages, then currents; then repeat but lower.
         # xLo <= x <= xHi
-        vLimLo = matrix( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
-        vLimUp = matrix( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
-        iLim = matrix( self.iScale*self.iXfmrLims - self.Kc2i.dot(self.X0ctrl) + self.bW )
+        vLimLo = ( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
+        vLimUp = ( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
+        iLim = ( self.iScale*self.iXfmrLims - self.Kc2i.dot(self.X0ctrl) + self.bW )
         
-        if mode in ['full','part','maxTap','minTap','loss','load','loadHostingCap']:
-            xLimUp = matrix( np.concatenate(( np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
-                                                                                np.ones(self.nT)*self.tLim)) )
-            xLimLo = matrix( np.concatenate(( -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,
-                                                                                -np.ones(self.nT)*self.tLim)) )
-        
+        if obj in ['opCst','hcLds']:
+            xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
+                                                                                np.ones(self.nT)*self.tLim ]
+            xLimLo = np.r_[ -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,
+                                                                                -np.ones(self.nT)*self.tLim ]
             # recall: lower constraints by -1
-            G = matrix( np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]] )
-            h = matrix( np.r_[xLimUp,vLimUp,iLim,-xLimLo,-vLimLo] )
-        elif mode in ['genHostingCap']:
-            xLimUp = matrix( np.concatenate(( np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim)) )
-            xLimLo = matrix( np.concatenate(( np.zeros(self.nPctrl),-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim)) )
-            G = matrix( np.r_[ np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
-                                        self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]] )
-            h = matrix( np.r_[xLimUp,vLimUp,iLim,-xLimLo,-vLimLo] )
+            G = np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]]
+        if obj in ['hcLds']:
+            xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
+                                                                                np.ones(self.nT)*self.tLim ]
+            xLimLo = np.r_[ -np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
+            G = np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],self.Kc2i,
+                    -np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],-self.Kc2v[self.vIn] ]
+        if obj in ['hcGen']:
+            xLimUp = np.r_[ np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim ]
+            xLimLo = np.r_[ np.zeros(self.nPctrl),-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
+            
+            G = np.r_[ np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
+                                        self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]]
         
-        # GET RID OF APPROPRIATE VARIABLES
-        if mode in ['full','loss','load']:
-            oneHat = np.eye(self.nCtrl)
-            x0 = np.zeros((self.nCtrl,1))
-        elif mode=='part':
-            oneHat = np.zeros((self.nCtrl,2+self.nT))
-            if self.nT>0:
-                oneHat[-self.nT:] = np.c_[np.zeros((self.nT,2)),np.eye(self.nT)]
-            oneHat[:self.nPctrl,0] = 1
-            oneHat[self.nPctrl:self.nSctrl,1] = 1
-            x0 = np.zeros((self.nCtrl,1))
-        elif mode=='maxTap':
-            if self.nT>0:
-                oneHat = np.zeros((self.nCtrl,self.nT))
-                oneHat[-self.nT:] = np.eye(self.nT)
-                x0 = np.zeros((self.nCtrl,1))
-            else:
-                print('No taps - error...')
-        elif mode=='minTap':
-            if self.nT>0:
-                oneHat = np.zeros((self.nCtrl,self.nT))
-                oneHat[-self.nT:] = np.eye(self.nT)
-                x0 = np.r_[ np.zeros(self.nPctrl), np.ones(self.nPctrl)*self.qLim , np.zeros(self.nT) ]
-                x0 = np.array([x0]).T
-            else:
-                print('No taps - error...')
-        elif mode in ['loadHostingCap','genHostingCap']:
-            oneHat = np.zeros((self.nCtrl,1 + self.nPctrl + self.nT))
-            oneHat[:self.nPctrl] = 1
-            oneHat[self.nPctrl:,1:] = np.eye(self.nPctrl + self.nT)
-            x0 = np.zeros((self.nCtrl,1))
+        h = np.array( [np.r_[xLimUp,vLimUp,iLim,-xLimLo,-vLimLo]] ).T
+        return G,h
+    
+    def remControlVrlbs(self,strategy,obj):
+        # Returns oneHat, x0, which are of the form x = oneHat.dot(xCtrl) + x0, so,
+        # oneHat is of dimension self.nCtrl*nCtrlActual.
         
-        Qp = matrix(  (oneHat.T).dot(np.array(Q).dot(oneHat)) )
-        pp = matrix(  (np.array(p.T).dot(oneHat)).T  - 2*(  (x0.T).dot(np.array(Q).dot(oneHat)).T  ) )
-        Gp = matrix( np.array(G).dot(oneHat) )
-        hp = matrix( np.array(h) - np.array(G).dot(x0) )
+        oneHat = np.nan # so there is something to return if all ifs fail
+        x0 = np.zeros((self.nCtrl,1)) # always of this dimension.
+        if strategy in ['minTap']:
+            x0[self.nPctrl:self.nSctrl] = np.ones((self.nPctrl,1))*self.qLim
         
-        self.hp = hp
+        if obj=='opCst':
+            if strategy in ['full','loss','load']:
+                oneHat = np.r_[ np.zeros((self.nPctrl,self.nPctrl+self.nT)),np.eye(self.nPctrl+self.nT) ]
+            elif strategy=='part':
+                oneHat = np.zeros((self.nCtrl,1+self.nT))
+                if self.nT>0:
+                    oneHat[-self.nT:] = np.c_[np.zeros((self.nT,1)),np.eye(self.nT)]
+                oneHat[self.nPctrl:self.nSctrl,1] = 1
+            elif strategy in ['maxTap','minTap']:
+                if self.nT>0:
+                    oneHat = np.zeros((self.nCtrl,self.nT))
+                    oneHat[-self.nT:] = np.eye(self.nT)
+                else:
+                    oneHat = np.empty((self.nCtrl,0)) # No taps, with Q=0 fully specified.
         
-        print('Starting optimizations, mode: ',mode,'; Solver types: ',optType)
+        if obj in ['hcGen','hcLds']:
+            if strategy in ['full']:
+                oneHat = np.zeros((self.nCtrl,1 + self.nPctrl + self.nT))
+                oneHat[:self.nPctrl,0] = 1
+                oneHat[self.nPctrl:,1:] = np.eye(self.nPctrl + self.nT)
+            if strategy in ['part']:
+                oneHat = np.zeros((self.nCtrl,1 + 1 + self.nT))
+                oneHat[:self.nPctrl,0] = 1
+                oneHat[self.nPctrl:self.nSctrl,1] = 1
+                oneHat[self.nSctrl:,2:] = np.eye(self.nT)
+            if strategy in ['minTap','maxTap']:
+                oneHat = np.zeros((self.nCtrl,1 + self.nT))
+                oneHat[:self.nPctrl,0] = 1
+                oneHat[self.nSctrl:,1:] = np.eye(self.nT)
+            
+        return oneHat,x0
+    
+    def runOptimization(self,Q,p,G,h,oneHat,x0,strategy,obj,optType):
+        print('Starting optimizations, strategy: ',strategy,'; Solver types: ',optType)
         if 'cvxopt' in optType:
-            self.sln = solvers.qp(Qp,pp,Gp,hp)
+            self.sln = solvers.qp(Q,p,G,h)
             self.slnX = oneHat.dot(np.array(self.sln['x']).flatten())               + x0.flatten()
-            self.slnF = self.runQp(self.slnX)
-            print('cvxopt complete, solution:',self.sln['status'])
+            self.slnS = self.sln['status']
         if 'cvxMosek' in optType:
-            self.sln = solvers.qp(Qp,pp,Gp,hp,solver='mosek')
+            self.sln = solvers.qp(Q,p,G,h,solver='mosek')
             self.slnX = oneHat.dot(np.array(self.sln['x']).flatten())               + x0.flatten()
-            self.slnF = self.runQp(self.slnX)
-            print('cvxMosek complete, solution:',self.sln['status'])
+            self.slnS = self.sln['status']
         if 'mosekNom' in optType:
-            self.slnX = oneHat.dot(self.mosekQpEquiv(Qp,pp,Gp,hp,tInt=False))      + x0.flatten()
-            self.slnF = self.runQp(self.slnX)
-            print('mosekNom complete.')
+            self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,tInt=False))      + x0.flatten()
+            self.slnS = np.nan
         if 'mosekInt' in optType:
             try:
-                self.slnX = oneHat.dot(self.mosekQpEquiv(Qp,pp,Gp,hp,tInt=True))       + x0.flatten()
+                self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,tInt=True))       + x0.flatten()
                 self.slnS = 's' # success
             except:
                 print('---> Integer optimization not working, trying continuous.')
                 try:
-                    self.slnX = oneHat.dot(self.mosekQpEquiv(Qp,pp,Gp,hp,tInt=False))      + x0.flatten()
+                    self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,tInt=False))      + x0.flatten()
                     self.slnS = 'r' # relaxed success
                 except:
                     print('---> Both Optimizations failed, saving null result.')
                     self.slnX = np.zeros(self.nCtrl)
                     self.slnS = 'f' # failed
-            self.slnF = self.runQp(self.slnX)
             print('mosekInt complete.')
+    
+    def runCvrQp(self,strategy='full',obj='opCst',optType=['cvxopt']):
+        # minimize    (1/2)*x'*P*x + q'*x
+        # subject to  G*x <= h
+        #               A*x = b.
+        # sol = solvers.qp(Q,p,G,h,A,b)
+        # STRATEGIES
+        # 1. 'full' Full optimization
+        # 2. 'maxTap' maximise all taps
+        # 3. 'minTap' minimise all taps with max Q
+        # 4. 'part' full optimization, just one P + Q
+        # OBJECTIVES
+        # 1. 'opCst' for operating cost
+        # 2. 'hcGen' for gen HC
+        # 3. 'hcLds' for load HC
+        
+        
+        # GET RID OF APPROPRIATE VARIABLES
+        oneHat,x0 = self.remControlVrlbs(strategy,obj)
+        
+        if obj=='opCst' and strategy in ['minTap','maxTap'] and self.nT==0:
+            self.slnX = x0.flatten(); self.slnS = np.nan
+        elif obj in ['hcGen','hcLds'] and strategy in ['loss','load']:
+            self.slnX = x0.flatten(); self.slnS = np.nan
+        else:
+            # OBJECTIVE FUNCTION
+            Q,p = self.getObjFunc(strategy,obj)
+            
+            # INEQUALITY CONSTRAINTS
+            G,h = self.getInqCns(obj)
+            
+            Qp = matrix(  (oneHat.T).dot(Q.dot(oneHat)) )
+            pp = matrix(  (p.T.dot(oneHat)).T  - 2*(  (x0.T).dot(Q.dot(oneHat)).T  ) )
+            Gp = matrix( G.dot(oneHat) )
+            hp = matrix( h - G.dot(x0) )
+            self.runOptimization(Qp,pp,Gp,hp,oneHat,x0,strategy,obj,optType)
+        
+        self.slnF = self.runQp(self.slnX)
+        if len(self.dssStuff)==4:
+            [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+            self.slnD = self.qpDssValidation()
+        
     
     def mosekQpEquiv(self,Q0,p0,G0,h0,tInt=False):
         if type(Q0)==matrix:
@@ -645,8 +713,7 @@ class buildLinModel:
         nCtrlAct = p0.shape[0]
         nSctrlAct = nCtrlAct - self.nT
         # nSctrlAct = self.nCtrl - self.nT
-        
-        print('nSctrlAct: ',nSctrlAct)
+        # print('nSctrlAct: ',nSctrlAct)
         
         if p0.ndim==1:
             p0 = np.array([p0]).T
@@ -664,8 +731,9 @@ class buildLinModel:
         with Model('qp') as M:
             if tInt:
                 y = M.variable("y",nSctrlAct)
-                z = M.variable("z",self.nT,Domain.integral(Domain.inRange(-16,16)))
-                x = Expr.vstack(y,z)
+                z = M.variable("z",self.nT,Domain.integral( Domain.inRange(-16,16) ))
+                # NB, throws up the following warning for some reason when running, but not when called 'normally': https://stackoverflow.com/questions/52594235/futurewarning-using-a-non-tuple-sequence-for-multidimensional-indexing-is-depre
+                x = Expr.vstack( y,z )
             else:
                 x = M.variable("x",nCtrlAct)
             
@@ -700,7 +768,7 @@ class buildLinModel:
                         "mioObjRelGap"), M.getSolverDoubleInfo("mioObjAbsGap")))
         return xOut
     
-    def qpComparison(self):
+    def qpComparisonOpCst(self):
         self.loadQpSet()
         
         modesPlot = ['Nominal','full','part','minTap','maxTap']
@@ -735,6 +803,11 @@ class buildLinModel:
         ax1.set_ylim(( np.mean(costFunc)-5*np.std(costFunc),np.mean(costFunc)+5*np.std(costFunc) ))
         plt.tight_layout()
         plt.show()
+    
+    def qpComparisonHc(self):
+        modesPlot = ['full','part','minTap','maxTap']
+        
+        
     
     def snapQpComparison(self):
         self.runCvrQp('loss')
@@ -806,7 +879,11 @@ class buildLinModel:
         fix_tap_pos(DSSCircuit,slnT)
         
     
-    def printQpSln(self,slnX,slnF):
+    def printQpSln(self,slnX=None,slnF=None):
+        if slnX is None:
+            slnX = self.slnX
+        if slnF is None:
+            slnF = self.slnF
         pOut = slnX[:self.nPctrl]
         qOut = slnX[self.nPctrl:self.nPctrl*2]
         tOut = slnX[self.nPctrl*2:]
@@ -834,14 +911,14 @@ class buildLinModel:
         
         TL,PL,TC,V,I = slnF
         TL0,PL0,TC0,V0,I0 = self.slnF0
-        TLd,PLd,TCd,Vd,Id = self.slnFdss
+        TLd,PLd,TCd,Vd,Id = self.slnD
         
         fig,[ax0,ax1,ax2] = plt.subplots(ncols=3,figsize=(11,4))
         
         # plot voltages versus voltage limits
+        ax0.plot((Vd/self.vKvbase)[self.vIn],'o',markerfacecolor='w',markeredgewidth=0.7);
+        ax0.plot((V/self.vKvbase)[self.vIn],'x',markeredgewidth=0.7);
         ax0.plot((V0/self.vKvbase)[self.vIn],'.');
-        ax0.plot((Vd/self.vKvbase)[self.vIn],'o',markerfacecolor='w',markeredgewidth=0.4);
-        ax0.plot((V/self.vKvbase)[self.vIn],'x',markeredgewidth=0.4);
         ax0.plot((self.vHi/self.vKvbase)[self.vIn],'k_');
         ax0.plot((self.vLo/self.vKvbase)[self.vIn],'k_');
         ax0.set_title('Voltages')
@@ -857,9 +934,9 @@ class buildLinModel:
         # ax1.set_ylabel('Current (A)')
         # ax1.set_title('Currents')
         # ax1.grid(True)
-        ax1.plot(I0/(self.iScale*self.iXfmrLims),'.',label='Nominal')
         ax1.plot(Id/(self.iScale*self.iXfmrLims),'o',label='OpenDSS',markerfacecolor='w')
         ax1.plot(I/(self.iScale*self.iXfmrLims),'x',label='QP sln')
+        ax1.plot(I0/(self.iScale*self.iXfmrLims),'.',label='Nominal')
         # ax1.plot(self.iXfmrLims,'k_')
         ax1.plot(np.ones(len(self.iXfmrLims)),'k_')
         ax1.set_xlabel('Xfmr Index')
