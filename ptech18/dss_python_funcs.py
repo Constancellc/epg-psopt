@@ -206,13 +206,13 @@ def ldValsOnly( DSSCircuit ):
                 yIdx = YZ.index(actBus+'.3')
                 sY[yIdx] = sY[yIdx] + (LDS.kW + 1j*LDS.kvar)/nPh
         i = LDS.Next
-    iY = sY.nonzero()
-    iD = sD.nonzero()
-    # xY = -1e3*np.concatenate([sY[iY].real,sY[iY].imag])
+    sYidx = sY.nonzero()
+    sDidx = sD.nonzero()
+    # xY = -1e3*np.concatenate([sY[sYidx].real,sY[sYidx].imag])
     xY = -1e3*np.concatenate([sY.real,sY.imag])
-    xD = -1e3*np.concatenate([sD[iD].real,sD[iD].imag])
+    xD = -1e3*np.concatenate([sD[sDidx].real,sD[sDidx].imag])
     
-    return xY, xD, iY, iD
+    return xY, xD, sYidx, sDidx
 
 def find_node_idx(n2y,bus,D):
     idx = []

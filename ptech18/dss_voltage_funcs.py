@@ -136,7 +136,7 @@ def get_regBrIdx(DSSCircuit,busSet,brchSet):
         # regIdx = regIdx + find_node_idx(node_to_YZ(DSSCircuit),bus,False)
     return regBrIdx
     
-def getCapPstns(DSSCircuit):
+def getCapPos(DSSCircuit):
     i = DSSCircuit.Capacitors.First
     capIn = []
     while i:

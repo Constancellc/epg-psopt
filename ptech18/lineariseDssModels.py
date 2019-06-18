@@ -209,7 +209,7 @@ class buildLinModel:
             except:
                 print('Solution failed.')
         
-    def runQpSet(self):
+    def runQpSet(self,saveQpSln=True):
         objs = ['opCst','hcGen','hcLds']
         # strategies = ['full','part','maxTap','minTap','loss','load']
         strategies = ['part']
@@ -224,13 +224,15 @@ class buildLinModel:
                     qpSolutions[strategy+'_'+obj] = [self.slnX,self.slnF,self.slnS]
         
         self.qpSolutions = qpSolutions
-        SD = os.path.join(self.getSaveDirectory(),self.feeder+'_runQpSet_out')
-        SN = os.path.join(SD,self.getFilename()+'_sln.pkl')
-        if not os.path.exists(SD):
-            os.mkdir(SD)
-        with open(SN,'wb') as outFile:
-            print('Results saved to '+ SN)
-            pickle.dump(qpSolutions,outFile)
+        
+        if saveQpSln:
+            SD = os.path.join(self.getSaveDirectory(),self.feeder+'_runQpSet_out')
+            SN = os.path.join(SD,self.getFilename()+'_sln.pkl')
+            if not os.path.exists(SD):
+                os.mkdir(SD)
+            with open(SN,'wb') as outFile:
+                print('Results saved to '+ SN)
+                pickle.dump(qpSolutions,outFile)
     
     def loadQpSet(self):
         # SN = os.path.join(self.getSaveDirectory(),self.getFilename()+'_sln.pkl')
@@ -312,7 +314,7 @@ class buildLinModel:
         print('\nNominally converged:',DSSSolution.Converged)
         
         self.TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
-        self.Cap_No0 = getCapPstns(DSSCircuit)
+        self.Cap_No0 = getCapPos(DSSCircuit)
         if self.capPosLin==None:
             self.capPosLin = self.Cap_No0
         print(self.Cap_No0)
@@ -576,29 +578,31 @@ class buildLinModel:
         # xLo <= x <= xHi
         vLimLo = ( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
         vLimUp = ( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
-        iLim = ( self.iScale*self.iXfmrLims - self.Kc2i.dot(self.X0ctrl) + self.bW )
+        iLimHi = self.iScale*self.iXfmrLims - self.bW - self.Kc2i.dot(self.X0ctrl)
+        iLimLo = -self.iScale*self.iXfmrLims - self.bW - self.Kc2i.dot(self.X0ctrl)
         
         if obj in ['opCst','hcLds']:
             xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
                                                                                 np.ones(self.nT)*self.tLim ]
             xLimLo = np.r_[ -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,
                                                                                 -np.ones(self.nT)*self.tLim ]
-            # recall: lower constraints by -1
-            G = np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]]
+            G = np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],self.Kc2i,
+                      -np.eye(self.nCtrl),-self.Kc2v[self.vIn],-self.Kc2i]
         if obj in ['hcLds']:
             xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
                                                                                 np.ones(self.nT)*self.tLim ]
             xLimLo = np.r_[ -np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
             G = np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],self.Kc2i,
-                    -np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],-self.Kc2v[self.vIn] ]
+                    -np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
+                                    -self.Kc2v[self.vIn],-self.Kc2i ]
         if obj in ['hcGen']:
             xLimUp = np.r_[ np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim ]
             xLimLo = np.r_[ np.zeros(self.nPctrl),-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
             
             G = np.r_[ np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
-                                        self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn]]
+                                        self.Kc2v[self.vIn],self.Kc2i,-np.eye(self.nCtrl),-self.Kc2v[self.vIn],-self.Kc2i]
         
-        h = np.array( [np.r_[xLimUp,vLimUp,iLim,-xLimLo,-vLimLo]] ).T
+        h = np.array( [np.r_[xLimUp,vLimUp,iLimHi,-xLimLo,-vLimLo,-iLimLo]] ).T
         return G,h
     
     def remControlVrlbs(self,strategy,obj):
@@ -860,33 +864,75 @@ class buildLinModel:
         plt.tight_layout()
         plt.show()
     
-    def qpDssValidation(self,slnX=None):
+    def qpDssValidation(self,slnX=None,method=None):
+        # SIDE EFFECT: enables all capacitor controls.
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        ctrlModel = DSSSolution.ControlMode
         
         self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
         genNames = self.addYDgens(DSSObj)
         if slnX is None:
             slnX = self.slnX
         
-        self.setDssSlnX(DSSCircuit,genNames,slnX=slnX)
+        self.setDssSlnX(genNames,slnX=slnX,method=method)
         
         TG,TL,PL,YNodeV = runCircuit(DSSCircuit,DSSSolution)[1::]
         iXfrm = abs( self.v2iBrYxfmr.dot(YNodeV)[self.iXfmrModelled] )
         
+        if method=='relaxT':
+            DSSText.Command = 'batchedit capcontrol..* enabled=True'
+            DSSSolution.ControlMode = ctrlModel # return control to nominal state
+            print('Old tap pos:',slnX[self.nSctrl:] + np.array(self.TC_No0))
+            print('New tap pos:',find_tap_pos(DSSCircuit))
+            
+        
         return [TL,PL,-TG,abs(YNodeV)[3:],iXfrm] # as in runQp
         
+    def qpSolutionDssError(self,strategy,obj):
+        self.loadQpSet()
+        self.loadQpSln(strategy,obj)
+        return np.linalg.norm( (self.slnF[3] - self.slnD[3])/self.vKvbase )/np.linalg.norm( self.slnF[3]/self.vKvbase )
         
-    def setDssSlnX(self,DSSCircuit,genNames,slnX=None):
+    def setDssSlnX(self,genNames,slnX=None,method=None):
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         if slnX is None:
             slnX = self.slnX
         
         slnP = slnX[:self.nPctrl]*self.lScale/self.xSscale
         slnQ = slnX[self.nPctrl:self.nSctrl]*self.lScale/self.xSscale
-        slnT = np.round(slnX[self.nSctrl:] + np.array(self.TC_No0)).astype(int).tolist()
         
         setGenPq(DSSCircuit,genNames,slnP,slnQ)
+        # if method is None:
+        # set at nominal taps first in all cases
+        slnT = np.round(slnX[self.nSctrl:] + np.array(self.TC_No0)).astype(int).tolist()
         fix_tap_pos(DSSCircuit,slnT)
-        
+            
+        if method=='relaxT':
+            # SIDE EFFECT: Disables all cap controls.
+            slnF = self.runQp(slnX)
+            vOut = slnF[3]
+            regIdx = np.array(get_regIdx(DSSCircuit)[0])-3
+            Vrto = getRegBwVrto(DSSCircuit)[1]
+            
+            regV = vOut[regIdx]/np.array(Vrto)
+            
+            # BW = 0.2*( self.vKvbase[regIdx]/np.array(Vrto) )*0.1/16
+            BW = 0.1*( self.vKvbase[regIdx]/np.array(Vrto) )*0.1/16
+            
+            RGC = DSSCircuit.RegControls           
+            i = RGC.First
+            while i:
+                RGC.ForwardVreg = regV[i-1]
+                RGC.ForwardBand = BW[i-1]
+                RGC.ReverseVreg = regV[i-1]
+                RGC.ReverseBand = BW[i-1]
+                RGC.ForwardR=0
+                RGC.ReverseR=0
+                RGC.ForwardX=0
+                RGC.ReverseX=0
+                i = RGC.Next
+            DSSText.Command='Set controlmode=static'
+            DSSText.Command = 'batchedit capcontrol..* enabled=false'
     
     def printQpSln(self,slnX=None,slnF=None):
         if slnX is None:
@@ -944,7 +990,8 @@ class buildLinModel:
         # ax1.set_title('Currents')
         # ax1.grid(True)
         ax1.plot(Id/(self.iScale*self.iXfmrLims),'o',label='OpenDSS',markerfacecolor='w')
-        ax1.plot(I/(self.iScale*self.iXfmrLims),'x',label='QP sln')
+        # ax1.plot(I/(self.iScale*self.iXfmrLims),'x',label='QP sln')
+        ax1.plot(abs(I/(self.iScale*self.iXfmrLims)),'x',label='QP sln')
         ax1.plot(I0/(self.iScale*self.iXfmrLims),'.',label='Nominal')
         # ax1.plot(self.iXfmrLims,'k_')
         ax1.plot(np.ones(len(self.iXfmrLims)),'k_')
@@ -1142,7 +1189,6 @@ class buildLinModel:
             ax4.plot(Sset*self.lScale/self.xSscale,iErr); ax4.grid(True)
             ax4.set_title('Abs current error'); ax4.set_xlabel(xlbl)
             plt.tight_layout()
-        
         plt.show()
     
     def addYDgens(self,DSSObj):
@@ -1179,7 +1225,7 @@ class buildLinModel:
         print('\nNominally converged:',DSSSolution.Converged)
         
         self.TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
-        self.Cap_No0 = getCapPstns(DSSCircuit)
+        self.Cap_No0 = getCapPos(DSSCircuit)
         if self.capPosLin==None:
             self.capPosLin = self.Cap_No0
         print(self.Cap_No0)
@@ -2196,7 +2242,7 @@ class buildLinModel:
         self.colormaps = { 'v0':vMap,'p0':pMap,'q0':qMap,'qSln':qMap,'vSln':vMap,'ntwk':sOnly }
     
     def getConstraints(self):
-        cns = {'mvHi':1.055,'lvHi':1.05,'mvLo':0.95,'lvLo':0.92,'plim':1e3,'qlim':1e3,'tlim':0.1,'iScale':2.0}
+        cns = {'mvHi':1.055,'lvHi':1.05,'mvLo':0.95,'lvLo':0.92,'plim':1e3,'qlim':1e3,'tlim':0.1,'iScale':1.2}
         
         # EU style networks have slightly different characteristics
         if self.feeder=='eulv' or self.feeder[0]=='n':
@@ -2204,6 +2250,10 @@ class buildLinModel:
             cns['mvLo']=0.95
             cns['lvHi']=1.10
             cns['lvLo']=0.90
+        if self.feeder=='epriK1cvr':
+            cns['iScale'] = 1.5
+        if self.feeder=='epri5':
+            cns['iScale'] = 1.7
         return cns
     
     def setupConstraints(self,cns=None):

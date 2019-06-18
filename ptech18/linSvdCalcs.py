@@ -871,7 +871,7 @@ class linModel:
                         
                         DSSSolution.Solve()
                         convHi = convHi+[DSSSolution.Converged]
-                        capHi.append(getCapPstns(DSSCircuit))
+                        capHi.append(getCapPos(DSSCircuit))
                         vHsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
                         
                         # then low load point
@@ -879,7 +879,7 @@ class linModel:
                         
                         DSSSolution.Solve()
                         convLo = convLo+[DSSSolution.Converged]
-                        capLo.append(getCapPstns(DSSCircuit))
+                        capLo.append(getCapPos(DSSCircuit))
                         vLsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
                         
                         # finally solve for voltage deviation. 
@@ -888,7 +888,7 @@ class linModel:
                         DSSSolution.Solve()
 
                         convDv = convDv+[DSSSolution.Converged]
-                        capDv.append(getCapPstns(DSSCircuit))
+                        capDv.append(getCapPos(DSSCircuit))
                         vDv0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
                         
                         DSSText.Command='set controlmode=static'
@@ -907,7 +907,7 @@ class linModel:
                         set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
                         DSSSolution.Solve()
                         convHi = convHi+[DSSSolution.Converged]
-                        capHi.append(getCapPstns(DSSCircuit))
+                        capHi.append(getCapPos(DSSCircuit))
                         vHsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
                         
                         
@@ -924,7 +924,7 @@ class linModel:
                         set_generators( DSSCircuit,genNames,pdfGen[:,j]*pdfData['mu_k'][jj] )
                         DSSSolution.Solve()
                         convLo = convLo+[DSSSolution.Converged]
-                        capLo.append(getCapPstns(DSSCircuit))
+                        capLo.append(getCapPos(DSSCircuit))
                         vLsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
                         
                         v0reg = (vLsDss0[j,:][3:][v_idx][-self.nT:])/Vrto
@@ -968,7 +968,7 @@ class linModel:
                         
                         DSSSolution.Solve()
                         convHi = convHi+[DSSSolution.Converged]
-                        capHi.append(getCapPstns(DSSCircuit))
+                        capHi.append(getCapPos(DSSCircuit))
                         vHsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
                         
                         tapPosSet[i,j,0] = find_tap_pos(DSSCircuit)
@@ -989,7 +989,7 @@ class linModel:
                         self.set_taps( DSSCircuit, tapPosStart[i,j,1] ) # set the tap positions and turn off tap changes
                         DSSSolution.Solve()
                         convLo = convLo+[DSSSolution.Converged]
-                        capLo.append(getCapPstns(DSSCircuit))
+                        capLo.append(getCapPos(DSSCircuit))
                         vLsDss0[j,:] = tp_2_ar(DSSCircuit.YNodeVarray)
                         
                         # print(find_tap_pos(DSSCircuit))

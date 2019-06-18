@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dss_python_funcs import *
 from dss_vlin_funcs import *
-from dss_voltage_funcs import getCapPstns
+from dss_voltage_funcs import getCapPos
 from matplotlib import cm, rc
 plt.style.use('tidySettings')
 
@@ -121,7 +121,7 @@ for fdr_i in fdr_i_set:
             lvMin = lvMin + [np.nan]
         
         cnvg = cnvg + [DSSSolution.Converged]
-        capPos.append(getCapPstns(DSSCircuit))
+        capPos.append(getCapPos(DSSCircuit))
     
     dV = 1e-5 # get rid of pesky cases just below 1.05
     vmaxCl = np.ceil((np.array(vmax)+dV)*roundInt)/roundInt
