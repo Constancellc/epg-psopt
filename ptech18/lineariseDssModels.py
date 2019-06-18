@@ -226,7 +226,7 @@ class buildLinModel:
         self.qpSolutions = qpSolutions
         
         if saveQpSln:
-            SD = os.path.join(self.getSaveDirectory(),self.feeder+'_runQpSet_out')
+            SD = os.path.join( os.path.dirname(self.getSaveDirectory()),'results',self.feeder+'_runQpSet_out')
             SN = os.path.join(SD,self.getFilename()+'_sln.pkl')
             if not os.path.exists(SD):
                 os.mkdir(SD)
@@ -235,8 +235,8 @@ class buildLinModel:
                 pickle.dump(qpSolutions,outFile)
     
     def loadQpSet(self):
-        # SN = os.path.join(self.getSaveDirectory(),self.getFilename()+'_sln.pkl')
-        SN = os.path.join(self.getSaveDirectory(),self.feeder+'_runQpSet_out',self.getFilename()+'_sln.pkl')
+        # SN = os.path.join(self.getSaveDirectory(),self.feeder+'_runQpSet_out',self.getFilename()+'_sln.pkl')
+        SN = os.path.join(os.path.dirname(self.getSaveDirectory()),'results',self.feeder+'_runQpSet_out',self.getFilename()+'_sln.pkl')
         with open(SN,'rb') as outFile:
             self.qpSolutions = pickle.load(outFile)
     
@@ -1590,7 +1590,8 @@ class buildLinModel:
                 kva = TRN.kva
                 kv = TRN.kV
                 nPhases = ACE.NumPhases
-                xmfrImaxSet[TRN.Name].append(kva/(kv/np.sqrt(nPhases)))
+                # xmfrImaxSet[TRN.Name].append(kva/(kv/np.sqrt(nPhases)))
+                xmfrImaxSet[TRN.Name].append( kva/( nPhases*(kv/np.sqrt(nPhases)) ) )
             i = TRN.Next
         
         iLims = np.zeros(len(WyXfmr))
