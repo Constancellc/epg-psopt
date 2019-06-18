@@ -816,11 +816,17 @@ class buildLinModel:
         ax1.set_ylim(( np.mean(costFunc)-5*np.std(costFunc),np.mean(costFunc)+5*np.std(costFunc) ))
         plt.tight_layout()
         plt.show()
-    
-    def qpComparisonHc(self):
-        modesPlot = ['full','part','minTap','maxTap']
         
-        
+    def qpVarValue(self,strategy='part',obj='opCst'):
+        self.loadQpSet()
+        self.loadQpSln(strategy,obj)
+        if obj=='opCst':# HC gen (kW):
+            val = sum(self.slnF[0:3]) - sum(self.slnF0[0:3])
+        if obj=='hcGen':# op cost (kW):
+            val = -sum(self.slnF[0:3]) - -sum(self.slnF0[0:3])
+        if obj=='hcLds': # loadability (kW):
+            val = self.slnF[2]
+        return val
     
     def snapQpComparison(self):
         self.runCvrQp('loss')

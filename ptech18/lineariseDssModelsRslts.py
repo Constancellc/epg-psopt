@@ -10,9 +10,10 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 
 
 # f_bulkBuildModels = 1
-f_bulkRunModels = 1
+# f_bulkRunModels = 1
 # f_checkFeasibility = 1
 f_checkError = 1
+# f_valueComparison = 1
 
 def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=None,pltSave=False):
     reload(lineariseDssModels)
@@ -63,7 +64,8 @@ if 'f_checkFeasibility' in locals():
 # STEP 4: consider the accuracy of the models
 if 'f_checkError' in locals():
     pCvr = 0.8
-    strategy='part'
+    # strategy='part'
+    strategy='full'
     objSet = ['opCst','opCst','opCst','hcGen','hcLds']
     resultTable = [['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
     successTable = [['Feeder','A','B','C','G','L']]
@@ -83,3 +85,72 @@ if 'f_checkError' in locals():
     print(*successTable,sep='\n')
 
 # STEP 5: consider the value of the different control schemes ----> do here!
+if 'f_valueComparison' in locals():
+    pCvr = 0.8
+    strategy='part'
+    
+    objSet = ['opCst','opCst','opCst','hcGen','hcLds']
+    strategies = ['full','part','minTap','maxTap']
+    # strategies = ['part']
+    # strategies = ['full','part']
+    
+    opCstTable = [['Operating cost (kW)'],['Feeder',*strategies]]
+    opCstTableA = [['Operating cost (kW)'],[*strategies]]
+    opCstTableB = [['Operating cost (kW)'],[*strategies]]
+    opCstTableC = [['Operating cost (kW)'],[*strategies]]
+    hcGenTable = [['Generation (kW)'],['Feeder',*strategies]]
+    hcLdsTable = [['Load (kW)'],['Feeder',*strategies]]
+    
+    i = 2
+    for feeder in feederSet:
+        print(feeder)
+        linPoints = linPointsDict[feeder]
+        opCstTableA.append([])
+        opCstTableB.append([])
+        opCstTableC.append([])
+        opCstTable.append([feeder])
+        hcGenTable.append([feeder])
+        hcLdsTable.append([feeder])
+        linPointSet = vecSlc(linPoints,[0,1,2,0,2])
+        for strategy in strategies:
+            for j in range(5):
+                obj = objSet[j]
+                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointSet[j])
+                val = self.qpVarValue(strategy,obj)
+                
+                if obj=='opCst' and j==0: opCstTableA[i].append( val )
+                if obj=='opCst' and j==1: opCstTableB[i].append( val )
+                if obj=='opCst' and j==2: opCstTableC[i].append( val )
+                if obj=='hcGen': hcGenTable[i].append( str(val)[:7] )
+                if obj=='hcLds': hcLdsTable[i].append( str(val)[:7] )
+        i+=1
+    
+    w = [0.3333,0.3333,0.3334]
+    opCstTable_ = (w[0]*np.array(opCstTableA[2:]) + w[1]*np.array(opCstTableB[2:]) + w[2]*np.array(opCstTableC[2:])).tolist()
+    
+    for i in range(2,len(feederSet)+2):
+        for j in range(len(strategies)):
+            opCstTable[i].append( str(opCstTable_[i-2][j])[:7] )
+    
+    print(*opCstTable,sep='\n')
+    print(*hcGenTable,sep='\n')
+    print(*hcLdsTable,sep='\n')
+
+feeder = 'n1'
+obj = 'hcGen'
+strategy = 'full'
+self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][2])
+self.loadQpSet()
+self.loadQpSln(strategy,obj)
+self.showQpSln()
+self.plotNetBuses('qSln')
+
+
+feeder = 'n10'
+obj = 'hcLds'
+strategy = 'full'
+self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][2])
+self.loadQpSet()
+self.loadQpSln(strategy,obj)
+
+self.showQpSln()
