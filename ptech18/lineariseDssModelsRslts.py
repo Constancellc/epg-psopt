@@ -9,11 +9,11 @@ FD = sys.argv[0]
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr']
 
 
-f_bulkBuildModels = 1
-f_bulkRunModels = 1
+# f_bulkBuildModels = 1
+# f_bulkRunModels = 1
 # f_checkFeasibility = 1
 # f_checkError = 1
-# f_valueComparison = 1
+f_valueComparison = 1
 
 def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=None,pltSave=False):
     reload(lineariseDssModels)
@@ -25,21 +25,24 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
 
-feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17,0]
-linPointsA = [0.1,0.6,1.0]
-linPointsB = [0.1,0.3,0.6]
-linPointsC = [1.0]
-# linPointsA = [1.0]
-# linPointsB = [0.6]
+feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17]
+feederSet = [5,6,8,24,18,'n4','n1','n10','n27']
+
+lpA = [0.1,0.6,1.0]
+lpB = [0.1,0.3,0.6]
+linPointsA = {'all':lpA,'opCst':lpA,'hcGen':[lpA[0]],'hcLds':[lpA[-1]]}
+linPointsB = {'all':lpB,'opCst':lpB,'hcGen':[lpB[0]],'hcLds':[lpB[-1]]}
+objSet = ['opCst','hcGen','hcLds']
+
 linPointsDict = {5:linPointsA,6:linPointsB,8:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
-                                'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsC}
+                                'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA}
 pCvrSet = [0.2,0.8]
-# pCvrSet = [0.8]
+pCvrSet = [0.8]
 
 # STEP 1: building and saving the models. =========================
 if 'f_bulkBuildModels' in locals():
     for feeder in feederSet:
-        linPoints = linPointsDict[feeder]
+        linPoints = linPointsDict[feeder]['all']
         for linPoint in linPoints:
             for pCvr in pCvrSet:
                 main(feeder,pCvr=pCvr,modelType='buildSave',linPoint=linPoint)
@@ -47,7 +50,7 @@ if 'f_bulkBuildModels' in locals():
 # STEP 2: Running the models, obtaining the optimization results.
 if 'f_bulkRunModels' in locals():
     for feeder in feederSet:
-        linPoints = linPointsDict[feeder]
+        linPoints = linPointsDict[feeder]['all']
         print('============================================= Feeder:',feeder)
         for linPoint in linPoints:  
             for pCvr in pCvrSet:
@@ -56,7 +59,7 @@ if 'f_bulkRunModels' in locals():
 # STEP 3: check the feasibility of all solutions
 if 'f_checkFeasibility' in locals():
     for feeder in feederSet:
-        linPoints = linPointsDict[feeder]
+        linPoints = linPointsDict[feeder]['all']
         for linPoint in linPoints:
             for pCvr in pCvrSet:
                 self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
@@ -68,22 +71,19 @@ if 'f_checkFeasibility' in locals():
 if 'f_checkError' in locals():
     pCvr = 0.8
     strategy='part'
-    objSet = ['opCst','opCst','opCst','hcGen','hcLds']
-    # objSet = ['opCst','hcGen','hcLds']
     resultTable = [['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
     successTable = [['Feeder','A','B','C','G','L']]
     i = 1
     for feeder in feederSet:
-        linPoints = linPointsDict[feeder]
+        print('Feeder ',feeder)
         resultTable.append([feeder])
         successTable.append([feeder])
-        linPointSet = vecSlc(linPoints,[0,1,2,0,2])
-        # linPointSet = vecSlc(linPoints,[0,0,0])
-        for j in range(len(linPointSet)):
-            self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointSet[j])
-            resultTable[i].append( str(self.qpSolutionDssError(strategy,objSet[j])*100)[:7] )
-            successTable[i].append( self.qpSolutionDssError(strategy,objSet[j])*100<0.5 )
-        
+        for obj in objSet:
+            linPoints = linPointsDict[feeder][obj]
+            for linPoint in linPoints:
+                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+                resultTable[i].append( str(self.qpSolutionDssError(strategy,obj)*100)[:7] )
+                successTable[i].append( self.qpSolutionDssError(strategy,obj)*100<0.5 )
         i+=1
     print(*resultTable,sep='\n')
     print(*successTable,sep='\n')
@@ -92,8 +92,6 @@ if 'f_checkError' in locals():
 if 'f_valueComparison' in locals():
     pCvr = 0.8
     
-    objSet = ['opCst','opCst','opCst','hcGen','hcLds']
-    objSet = ['opCst','hcGen','hcLds']
     strategies = ['full','part','minTap','maxTap']
     # strategies = ['part']
     
@@ -108,25 +106,23 @@ if 'f_valueComparison' in locals():
     for feeder in feederSet:
         print(feeder)
         linPoints = linPointsDict[feeder]
-        opCstTableA.append([])
-        opCstTableB.append([])
-        opCstTableC.append([])
-        opCstTable.append([feeder])
-        hcGenTable.append([feeder])
-        hcLdsTable.append([feeder])
-        linPointSet = vecSlc(linPoints,[0,1,2,0,2])
-        # linPointSet = vecSlc(linPoints,[0,0,0])
+        opCstTableA.append([]); opCstTableB.append([]); opCstTableC.append([])
+        opCstTable.append([feeder]); hcGenTable.append([feeder]); hcLdsTable.append([feeder])
         for strategy in strategies:
-            for j in range(len(linPointSet)):
-                obj = objSet[j]
-                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointSet[j])
-                val = self.qpVarValue(strategy,obj)
+            for obj in objSet:
+                linPoints = linPointsDict[feeder][obj]
+                j=0
+                for linPoint in linPoints:
+                    self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+                    val = self.qpVarValue(strategy,obj)
+                    
+                    if obj=='opCst' and j==0: opCstTableA[i].append( val )
+                    if obj=='opCst' and j==1: opCstTableB[i].append( val )
+                    if obj=='opCst' and j==2: opCstTableC[i].append( val )
+                    if obj=='hcGen': hcGenTable[i].append( str(val)[:7] )
+                    if obj=='hcLds': hcLdsTable[i].append( str(val)[:7] )
+                    j+=1
                 
-                if obj=='opCst' and j==0: opCstTableA[i].append( val )
-                if obj=='opCst' and j==1: opCstTableB[i].append( val )
-                if obj=='opCst' and j==2: opCstTableC[i].append( val )
-                if obj=='hcGen': hcGenTable[i].append( str(val)[:7] )
-                if obj=='hcLds': hcLdsTable[i].append( str(val)[:7] )
         i+=1
     
     w = [0.3333,0.3333,0.3334]
@@ -141,14 +137,23 @@ if 'f_valueComparison' in locals():
     print(*hcGenTable,sep='\n')
     print(*hcLdsTable,sep='\n')
 
-# feeder = 0
-# obj = 'hcLds'
-# strategy = 'part'
-# self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][0])
+# feeder = 'n4'
+# feeder = 24
+# feeder = 'n27'
+# obj = 'opCst'
+# strategy = 'load'
+# pCvr = 0.8
+# self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][2])
 # self.loadQpSet()
 # self.loadQpSln(strategy,obj)
-# self.showQpSln()
 # self.plotNetBuses('qSln')
+
+# self.showQpSln()
+
+# self.initialiseOpenDss()
+# self.slnD = self.qpDssValidation(method='relaxT')
+# self.showQpSln()
+
 
 
 # feeder = 'n10'

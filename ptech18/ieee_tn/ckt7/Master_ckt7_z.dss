@@ -7,6 +7,7 @@ Redirect Lines_ckt7.dss
 Redirect Services_ckt7.dss
 Redirect Load_XFMR_ckt7.dss
 Redirect Loads_ckt7.dss
+!Redirect Loads_ckt7_1ph.dss ! USE ME to get results using single phase models (doesn't work at 100%...!)
 Redirect Substation_ckt7_z_loads.dss
 Redirect Capacitors_ckt7_z.dss
 
