@@ -18,16 +18,19 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
                                                 modelType=modelType,method=method,saveModel=saveModel,SD=SD,pltSave=pltSave)
     return blm
 
+
+self = main(5)
+
 # # NETWORKS:
 # self = main(8,modelType='loadModel')
 # self = main(8,modelType='loadOnly')
-self = main(8)
-self.plotNetBuses('qSln')
+# self = main(8)
+# self.plotNetBuses('qSln')
 
-self.printQpSln(self.slnX,self.slnF)
-self.printQpSln(self.slnX,self.slnFdss)
-self.printQpSln(np.zeros(self.nCtrl),self.slnF0)
-self.printQpSln(np.zeros(self.nCtrl),self.slnF0dss)
+# self.printQpSln(self.slnX,self.slnF)
+# self.printQpSln(self.slnX,self.slnFdss)
+# self.printQpSln(np.zeros(self.nCtrl),self.slnF0)
+# self.printQpSln(np.zeros(self.nCtrl),self.slnF0dss)
 
 # self.showQpSln(self.slnX,self.slnF)
 # self.snapQpComparison()

@@ -116,7 +116,7 @@ class buildLinModel:
         if modelType in [None,'loadModel','loadAndRun']:
             self.initialiseOpenDss()
         
-        if modelType not in ['loadOnly','loadAndRun']:
+        if modelType not in [None,'loadOnly','loadAndRun']:
             self.setupPlots()
         
         
@@ -131,16 +131,18 @@ class buildLinModel:
         if modelType in ['buildTestSave','buildSave']:
             self.saveLinModel()
         
-        if modelType in ['loadModel']:
+        if modelType in [None,'loadModel']:
             # self.testCvrQp()
-            # modesAll = ['full','part','maxTap','minTap','loss','load']
-            modesAll = ['full']
+            modesAll = ['full','part','maxTap','minTap','loss','load']
+            self.getQlossOfs()
+            optType = ['mosekFull']
+            obj = 'opCst'
             for modeSet in modesAll:
                 print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++',modeSet)
-                self.runCvrQp(modeSet,optType=['cvxopt'])
-                # self.runCvrQp(modeSet,optType=['cvxMosek'])
-                self.plotNetBuses('qSln')
+                self.runCvrQp(modeSet,optType=optType,obj=obj)
+                # self.plotNetBuses('qSln')
                 self.printQpSln(self.slnX,self.slnF)
+                # self.showQpSln()
                 # self.printQpSln(self.sln2X,self.sln2F)
                 # self.printQpSln(self.sln3X,self.sln3F)
                 # self.printQpSln(self.sln4X,self.sln4F)
@@ -151,16 +153,6 @@ class buildLinModel:
         if modelType in ['loadAndRun']:
             self.runQpSet()
             # self.runQp4test()
-        
-        
-        
-        if modelType==None:
-            self.loadQpSet()
-            self.loadQpSln()
-            # self.slnD = self.qpDssValidation()
-            self.showQpSln()
-            
-            
             
         # if modelType==None:
             # self.
@@ -523,6 +515,8 @@ class buildLinModel:
         pcurtL[:self.nPctrl] = -self.lScale/self.xSscale
         self.pcurtL = pcurtL
         
+        self.getQlossOfs()
+        
         self.loadCvrDssModel(self.pCvr,self.qCvr,loadMult=lin_point)
         self.log.info('Actual losses:'+str(DSSCircuit.Losses))
         self.log.info('Model losses'+str(self.qpClss))
@@ -533,40 +527,55 @@ class buildLinModel:
         
         return
     
-    def getObjFunc(self,strategy,obj):
+    def getQlossOfs(self):
+        self.kQlossL = 0.025 # at rated Q, the fraction of P
+        self.kQlossQ = 0.025 # at rated Q, the fraction of P due to quadratic component
+        qlossL = np.zeros(self.nCtrl)
+        qlossL[self.nPctrl:self.nSctrl] = +( (self.qLim*self.kQlossL)*self.lScale/self.xSscale )/self.qLim
+        self.qlossL = qlossL
+        qlossQdiag = np.zeros(self.nCtrl)
+        qlossQdiag[self.nPctrl:self.nSctrl] = +( self.qLim*self.kQlossL*self.lScale/self.xSscale )/(self.qLim**2)
+        self.qlossQdiag = qlossQdiag
+    
+    def getObjFunc(self,strategy,obj,tLss=False):
+        if tLss == True:
+            qpQlss = self.qpQlss + np.diag(self.qlossQdiag)
+        else:
+            qpQlss = self.qpQlss
+        
         if obj=='opCst':
             if strategy in ['full','part']:
-                Q = 2*self.qpQlss
+                Q = 2*qpQlss
                 p = self.qpLlss + self.ploadL + self.pcurtL
             elif strategy=='maxTap':
-                Q = 0*self.qpQlss
+                Q = 0*qpQlss
                 if self.nT>0:
                     t2vPu = np.sum( dsf.vmM( 1/self.vInKvbase,self.Kc2v[self.vIn,-self.nT:] ),axis=0 )
                     p = np.r_[np.zeros((self.nPctrl*2)),-1*t2vPu] # maximise the average voltage
                 else:
                     p = np.r_[np.zeros((self.nPctrl*2))]
             elif strategy=='minTap':
-                Q = 0*self.qpQlss
+                Q = 0*qpQlss
                 if self.nT>0:
                     t2vPu = np.sum( dsf.vmM( 1/self.vInKvbase,self.Kc2v[self.vIn,-self.nT:] ),axis=0 )
                     p = np.r_[np.zeros((self.nPctrl*2)),t2vPu] # minimise the average voltage
                 else:
                     p = np.r_[np.zeros((self.nPctrl*2))]
             elif strategy=='loss':
-                Q = 2*self.qpQlss
+                Q = 2*qpQlss
                 p = self.qpLlss + self.pcurtL
             elif strategy=='load':
-                Q = 0*self.qpQlss
+                Q = 0*qpQlss
                 p = self.ploadL + self.pcurtL
         
         if obj=='hcGen':
             if strategy in ['full','part','minTap','maxTap']:
-                Q = 2*self.qpQlss
+                Q = 2*qpQlss
                 p = self.qpLlss + self.ploadL + self.pcurtL
         
         if obj=='hcLds':
             if strategy in ['full','part','minTap','maxTap']:
-                Q = 0*self.qpQlss
+                Q = 0*qpQlss
                 p = np.r_[ np.ones(self.nPctrl), np.zeros(self.nPctrl + self.nT) ]
                 
         p = np.array([p]).T
@@ -672,6 +681,9 @@ class buildLinModel:
                     self.slnX = np.zeros(self.nCtrl)
                     self.slnS = 'f' # failed
             print('mosekInt complete.')
+        if 'mosekFull' in optType:
+            self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,tInt=True,tLss=True,oneHat=oneHat))       + x0.flatten()
+            
     
     def runCvrQp(self,strategy='full',obj='opCst',optType=['cvxopt']):
         # minimize    (1/2)*x'*P*x + q'*x
@@ -698,7 +710,10 @@ class buildLinModel:
             self.slnX = x0.flatten(); self.slnS = np.nan
         else:
             # OBJECTIVE FUNCTION
-            Q,p = self.getObjFunc(strategy,obj)
+            if 'mosekFull' in optType:
+                Q,p = self.getObjFunc(strategy,obj,tLss=True)
+            else:
+                Q,p = self.getObjFunc(strategy,obj,tLss=False)
             
             # INEQUALITY CONSTRAINTS
             G,h = self.getInqCns(obj)
@@ -715,12 +730,14 @@ class buildLinModel:
             self.slnD = self.qpDssValidation()
         
     
-    def mosekQpEquiv(self,Q0,p0,G0,h0,tInt=False):
+    def mosekQpEquiv(self,Q0,p0,G0,h0,tInt=False,tLss=False,oneHat=[]):
         if type(Q0)==matrix:
             Q0 = np.array(Q0); p0 = np.array(p0); G0 = np.array(G0); h0 = np.array(h0)
         
         nCtrlAct = p0.shape[0]
         nSctrlAct = nCtrlAct - self.nT
+        nPctrlAct = np.linalg.matrix_rank( oneHat[:self.nPctrl] )
+        nQctrlAct = np.linalg.matrix_rank( oneHat[self.nPctrl:self.nSctrl] )
         # nSctrlAct = self.nCtrl - self.nT
         
         if p0.ndim==1:
@@ -737,14 +754,37 @@ class buildLinModel:
         h = Matrix.dense(h0)
 
         with Model('qp') as M:
-            if tInt:
+            if tLss and nQctrlAct>0:
+                yP = M.variable("yP",nPctrlAct)
+                yQ = M.variable("yQ",nQctrlAct)
+                y = Expr.vstack( yP,yQ )
+                
+                self.oneHat = oneHat
+                if nQctrlAct==1:
+                    qlossLabs = sum(self.qlossL)
+                if nQctrlAct==self.nPctrl:
+                    qlossLabs = max(self.qlossL)
+                
+                w = M.variable("w",nQctrlAct)
+                cw = Matrix.dense( np.ones((nQctrlAct,1)) )
+                
+                M.constraint( Expr.sub( Expr.mul(qlossLabs,yQ),w ),Domain.lessThan(0.0) )
+                M.constraint( Expr.add( Expr.mul(qlossLabs,yQ),w ),Domain.greaterThan(0.0) )
+                
+                wCfunc = Expr.dot(cw,w)
+            else:
                 y = M.variable("y",nSctrlAct)
+                wCfunc = 0
+            
+            if tInt:    
                 z = M.variable("z",self.nT,Domain.integral( Domain.inRange(-16,16) ))
                 # NB, throws up the following warning for some reason when running, but not when called 'normally': https://stackoverflow.com/questions/52594235/futurewarning-using-a-non-tuple-sequence-for-multidimensional-indexing-is-depre
-                x = Expr.vstack( y,z )
             else:
-                x = M.variable("x",nCtrlAct)
-            
+                z = M.variable("z",self.nT)
+            x = Expr.vstack( y,z )
+            # x = M.variable("x",nCtrlAct)
+
+
             Gxh = M.constraint( "Gxh", Expr.mul(G,x), Domain.lessThan(h) )
             
             if np.sum(Q0)!=0:
@@ -756,9 +796,11 @@ class buildLinModel:
                     M.constraint( "Qt", Expr.hstack(1.0, t,Expr.mul(H,x)), Domain.inRotatedQCone())
                 else:
                     M.constraint( "Qt", Expr.vstack(1.0,t,Expr.mul(H,x)), Domain.inRotatedQCone() )
-                M.objective("obj",ObjectiveSense.Minimize, Expr.add(Expr.dot(p,x),t))
+                # M.objective("obj",ObjectiveSense.Minimize, Expr.add(Expr.dot(p,x),t))
+                M.objective("obj",ObjectiveSense.Minimize, Expr.add( Expr.add(Expr.dot(p,x),t),wCfunc ) )
             else:
-                M.objective("obj",ObjectiveSense.Minimize, Expr.dot(p,x))
+                # M.objective("obj",ObjectiveSense.Minimize, Expr.dot(p,x))
+                M.objective("obj",ObjectiveSense.Minimize, Expr.add( Expr.dot(p,x),wCfunc ) )
             
             try:
                 # FROM: https://docs.mosek.com/9.0/pythonfusion/accessing-solution.html
@@ -773,10 +815,13 @@ class buildLinModel:
             except Exception as e:
                 print("Unexpected error: {0}".format(e))
             
-            if tInt:
+            if tLss and nQctrlAct>0:
+                xOut = np.r_[yP.level(),yQ.level(),z.level()]
+            elif tInt:
                 xOut = np.r_[y.level(),z.level()]
             else:
                 xOut = x.level()
+            
             print("MIP rel gap = %.2f (%f)" % (M.getSolverDoubleInfo(
                         "mioObjRelGap"), M.getSolverDoubleInfo("mioObjAbsGap")))
         return xOut
@@ -951,11 +996,15 @@ class buildLinModel:
         
         TL,PL,TC,V,I = slnF
         
+        CL = self.qlossQdiag.dot(slnX**2) + np.linalg.norm(self.qlossL*slnX,ord=1)
+        
         print('\n================== QP Solution:')
         print('Loss (kW):',TL)
         print('Load (kW):',PL)
         print('Curtailment (kW):',TC)
         print('Total power (kW):', PL + TL + TC)
+        print('\nTotal converter losses (kW):', CL)
+        print('Total power + CL (kW):', PL + TL + TC + CL)
         print('\nTotal Q (kVAr):', sum(qOut)*self.lScale/self.xSscale)
         print('Tap Position:', tOut + np.array(self.TC_No0))
     
@@ -2490,7 +2539,7 @@ class buildLinModel:
                 minMax0[0] = 0
             ttl = 'Load Power (kW)'
         elif type=='q0':
-            scoreNom = np.r_[self.xY[self.syIdx][self.nPy:],self.xD[self.nPd:]]*self.lScale/self.xSscale
+            scoreNom = 1e-3*np.r_[self.xY[self.syIdx][self.nPy:],self.xD[self.nPd:]]*self.lScale/self.xSscale
             scores, minMax0 = self.getSetVals(scoreNom,pltType,'s')
             minMaxAbs = np.max(np.abs( np.array([np.nanmax(list(scores.values())),np.nanmin(list(scores.values()))]) ) )
             minMax0 = [-minMaxAbs,minMaxAbs]
