@@ -12,8 +12,8 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 # f_bulkBuildModels = 1
 # f_bulkRunModels = 1
 # f_checkFeasibility = 1
-# f_checkError = 1
-f_valueComparison = 1
+f_checkError = 1
+# f_valueComparison = 1
 
 def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=None,pltSave=False):
     reload(lineariseDssModels)
@@ -24,9 +24,7 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
     return blm
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
-
-feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17]
-feederSet = [5,6,8,24,18,'n4','n1','n10','n27']
+feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17,0]
 
 lpA = [0.1,0.6,1.0]
 lpB = [0.1,0.3,0.6]
@@ -71,21 +69,27 @@ if 'f_checkFeasibility' in locals():
 if 'f_checkError' in locals():
     pCvr = 0.8
     strategy='part'
-    resultTable = [['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
-    successTable = [['Feeder','A','B','C','G','L']]
-    i = 1
+    resultTableV = [['V error'],['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
+    resultTableI = [['I error'],['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
+    
+    successTable = [['Success Table'],['Feeder','A','B','C','G','L']]
+    i = len(successTable)
     for feeder in feederSet:
         print('Feeder ',feeder)
-        resultTable.append([feeder])
+        resultTableV.append([feeder])
+        resultTableI.append([feeder])
         successTable.append([feeder])
         for obj in objSet:
             linPoints = linPointsDict[feeder][obj]
             for linPoint in linPoints:
                 self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
-                resultTable[i].append( str(self.qpSolutionDssError(strategy,obj)*100)[:7] )
-                successTable[i].append( self.qpSolutionDssError(strategy,obj)*100<0.5 )
+                resultTableV[i].append( str(self.qpSolutionDssError(strategy,obj,err='V')*100)[:7] )
+                resultTableI[i].append( str(self.qpSolutionDssError(strategy,obj,err='I')*100)[:7] )
+                successTable[i].append( self.qpSolutionDssError(strategy,obj)*100<0.5 and
+                                        self.qpSolutionDssError(strategy,obj,err='I')<0.05 )
         i+=1
-    print(*resultTable,sep='\n')
+    print(*resultTableV,sep='\n')
+    print(*resultTableI,sep='\n')
     print(*successTable,sep='\n')
 
 # STEP 5: consider the value of the different control schemes ----> do here!
@@ -136,31 +140,3 @@ if 'f_valueComparison' in locals():
     print(*opCstTable,sep='\n')
     print(*hcGenTable,sep='\n')
     print(*hcLdsTable,sep='\n')
-
-# feeder = 'n4'
-# feeder = 24
-# feeder = 'n27'
-# obj = 'opCst'
-# strategy = 'load'
-# pCvr = 0.8
-# self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][2])
-# self.loadQpSet()
-# self.loadQpSln(strategy,obj)
-# self.plotNetBuses('qSln')
-
-# self.showQpSln()
-
-# self.initialiseOpenDss()
-# self.slnD = self.qpDssValidation(method='relaxT')
-# self.showQpSln()
-
-
-
-# feeder = 'n10'
-# obj = 'hcLds'
-# strategy = 'full'
-# self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][2])
-# self.loadQpSet()
-# self.loadQpSln(strategy,obj)
-
-# self.showQpSln()

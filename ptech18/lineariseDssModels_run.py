@@ -21,65 +21,42 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
 
 self = main(5)
 
-# # NETWORKS:
-# self = main(8,modelType='loadModel')
-# self = main(8,modelType='loadOnly')
-# self = main(8)
+
+# feeder = 17
+# obj = 'hcLds'
+# strategy = 'part'
+# pCvr = 0.8
+# self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][obj][-1])
+# self.Mc2i = dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
+                                    # self.WyXfmr[:,self.nPy::],self.WdXfmr[:,self.nPd::],
+                                    # self.WtXfmr),axis=1), 1/self.xScale ) # limits for these are in self.iXfmrLims.
+# self.initialiseOpenDss();
+# self.testGenSetting(k=np.arange(-10,11,2),dPlim=0.10,dQlim=0.10); plt.show()
+
+# self.loadQpSet()
+# self.loadQpSln(strategy,obj)
+# self.showQpSln()
 # self.plotNetBuses('qSln')
 
-# self.printQpSln(self.slnX,self.slnF)
-# self.printQpSln(self.slnX,self.slnFdss)
-# self.printQpSln(np.zeros(self.nCtrl),self.slnF0)
-# self.printQpSln(np.zeros(self.nCtrl),self.slnF0dss)
-
-# self.showQpSln(self.slnX,self.slnF)
-# self.snapQpComparison()
+# self.showQpSln()
+# self.slnD = self.qpDssValidation(method='relaxT')
+# self.showQpSln()
 
 
-# # # fdr_i = 24
-# # # loadPoint = '020'
-# # # aCvr = '025'
-# # # SN = os.path.join(os.path.dirname(FD),'lin_models','cvr_models',fdrs[fdr_i],fdrs[fdr_i]+'P'+loadPoint+'A'+aCvr+'.pkl')
-# # # with open(SN,'rb') as inFile:
-    # # # self = pickle.load(inFile)
+
+# feeder = 'n10'
+# obj = 'hcLds'
+# strategy = 'full'
+# self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][2])
+# self.loadQpSet()
+# self.loadQpSln(strategy,obj)
+
+# self.showQpSln()
 
 
-# cns = self.cns0
-# # for feeder 'n1'
-# cns['mvLo'] = 0.99
-# cns['plim'] = 10000
-# # for feeder 123bus
-# cns['plim'] = 100000
 # # for feeder epri24
 # cns['mvHi'] = 1.10
 # cns['mvLo'] = 0.92
 # cns['lvHi'] = 1.10
 # cns['lvLo'] = 0.92
 # cns['iScale'] = 4.0
-
-# # Case:
-# # EU LV 
-# # 1. Load HC
-# self = main(8,modelType='loadModel')
-# self.setupConstraints(cns)
-
-# self.runCvrQp('genHostingCap',optType=['cvxopt'])
-# self.plotNetBuses('qSln')
-# self.printQpSln(self.slnX,self.slnF)
-# self.showQpSln(self.slnX,self.slnF)
-
-# self.runCvrQp('loadHostingCap',optType=['cvxopt'])
-# self.runCvrQp('loadHostingCap',optType=['cvxMosek'])
-# self.plotNetBuses('qSln')
-# self.showQpSln(self.slnX,self.slnF)
-
-# self.runCvrQp('full',optType=['cvxopt'])
-# self.runCvrQp('full',optType=['mosekInt'])
-# self.plotNetBuses('qSln')
-# self.showQpSln(self.slnX,self.slnF)
-
-# # 2. Gen HC
-
-
-# # 3. Operating costs
-
