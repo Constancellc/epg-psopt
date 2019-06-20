@@ -9,10 +9,10 @@ FD = sys.argv[0]
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr']
 
 
-# f_bulkBuildModels = 1
+f_bulkBuildModels = 1
 # f_bulkRunModels = 1
 # f_checkFeasibility = 1
-f_checkError = 1
+# f_checkError = 1
 # f_valueComparison = 1
 
 def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=None,pltSave=False):
@@ -28,12 +28,14 @@ feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17,0]
 
 lpA = [0.1,0.6,1.0]
 lpB = [0.1,0.3,0.6]
+lpC = [0.1,0.6,1.0,1.8]
 linPointsA = {'all':lpA,'opCst':lpA,'hcGen':[lpA[0]],'hcLds':[lpA[-1]]}
 linPointsB = {'all':lpB,'opCst':lpB,'hcGen':[lpB[0]],'hcLds':[lpB[-1]]}
+linPointsC = {'all':lpC,'opCst':lpC[0:3],'hcGen':[lpC[0]],'hcLds':[lpC[-1]]}
 objSet = ['opCst','hcGen','hcLds']
 
-linPointsDict = {5:linPointsA,6:linPointsB,8:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
-                                'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA}
+linPointsDict = {5:linPointsA,6:linPointsB,8:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsC,
+                                'n1':linPointsC,'n10':linPointsC,'n27':linPointsC,17:linPointsA,0:linPointsC}
 pCvrSet = [0.2,0.8]
 pCvrSet = [0.8]
 
@@ -41,9 +43,10 @@ pCvrSet = [0.8]
 if 'f_bulkBuildModels' in locals():
     for feeder in feederSet:
         linPoints = linPointsDict[feeder]['all']
+        print('============================================= Feeder:',feeder)
         for linPoint in linPoints:
             for pCvr in pCvrSet:
-                main(feeder,pCvr=pCvr,modelType='buildSave',linPoint=linPoint)
+                self = main(feeder,pCvr=pCvr,modelType='buildSave',linPoint=linPoint)
 
 # STEP 2: Running the models, obtaining the optimization results.
 if 'f_bulkRunModels' in locals():

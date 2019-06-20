@@ -87,8 +87,13 @@ class buildLinModel:
         self.method=method
         
         # BUILD MODELS
-        if modelType in ['buildTestSave','buildSave']:
+        if modelType in ['buildSave']:
             self.makeCvrQp()
+            self.initialiseOpenDss()
+            self.setupPlots()
+            self.slnF0 = self.runQp(np.zeros(self.nCtrl))
+            self.slnD0 = self.qpDssValidation(np.zeros(self.nCtrl))
+            self.saveLinModel()
         elif modelType == 'linOnly':
             self.createNrelModel(linPoints[0])
             self.testVoltageModel()
@@ -116,25 +121,13 @@ class buildLinModel:
         if modelType in [None,'loadModel','loadAndRun']:
             self.initialiseOpenDss()
         
-        if modelType not in [None,'loadOnly','loadAndRun']:
-            self.setupPlots()
-        
-        
-        if modelType in ['cvx','buildTestSave','buildSave']:
-            self.cns0 = self.getConstraints()
-            self.setupConstraints(self.cns0)
-            self.slnF0 = self.runQp(np.zeros(self.nCtrl))
-            self.slnD0 = self.qpDssValidation(np.zeros(self.nCtrl))
-        
-        if modelType in ['buildTestSave']:
-            self.testCvrQp()
-        if modelType in ['buildTestSave','buildSave']:
-            self.saveLinModel()
+        # if modelType not in [None,'loadOnly','loadAndRun']:
+            # self.setupPlots()
+
         
         if modelType in [None,'loadModel']:
             # self.testCvrQp()
             modesAll = ['full','part','maxTap','minTap','loss','load']
-            self.getQlossOfs()
             optType = ['mosekFull']
             obj = 'opCst'
             for modeSet in modesAll:
@@ -147,10 +140,6 @@ class buildLinModel:
                 # self.printQpSln(self.sln3X,self.sln3F)
                 # self.printQpSln(self.sln4X,self.sln4F)
         
-        if modelType in ['loadAndRun','loadOnly']:
-            self.cns0 = self.getConstraints()
-            self.getQlossOfs()
-            self.setupConstraints(self.cns0)
         if modelType in ['loadAndRun']:
             self.runQpSet()
             # self.runQp4test()
@@ -521,6 +510,7 @@ class buildLinModel:
         pcurtL[:self.nPctrl] = -self.lScale/self.xSscale
         self.pcurtL = pcurtL
         
+        self.setupConstraints()
         self.getQlossOfs()
         
         self.loadCvrDssModel(self.pCvr,self.qCvr,loadMult=lin_point)
@@ -1099,7 +1089,7 @@ class buildLinModel:
         
         DSSSolution.LoadMult=1.0
         DSSSolution.Solve
-        iRglr = np.linalg.norm( self.v2iBrYxfmr.dot(tp_2_ar(DSSCircuit.YNodeVarray) ) )
+        iRglr = np.linalg.norm( self.v2iBrYxfmr.dot(tp_2_ar(DSSCircuit.YNodeVarray) )[self.iXfmrModelled]/self.iXfmrLims )
         
         for i in range(len(k)):
             if (i % (len(k)//4))==0: print('Solution:',i,'/',len(k)) # track progress
@@ -1124,8 +1114,8 @@ class buildLinModel:
             vce[i] = np.linalg.norm( (vcL - vc0)/self.vKvbase )/np.linalg.norm(vc0/self.vKvbase)
             vae[i] = np.linalg.norm( (vaL - va0)/self.vKvbase )/np.linalg.norm(va0/self.vKvbase)
             
-            ice[i] = np.linalg.norm( (icL - ic0) )/iRglr # this stops issues around zero
-            iae[i] = np.linalg.norm( (iaL - ia0) )/iRglr # this stops issues around zero
+            ice[i] = np.linalg.norm( (icL - ic0)/self.iXfmrLims )/iRglr # this stops issues around zero
+            iae[i] = np.linalg.norm( (iaL - ia0)/self.iXfmrLims )/iRglr # this stops issues around zero
         print('nrelModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
         
         fig,[ax0,ax1] = plt.subplots(ncols=2,figsize=(8,3.5))
@@ -1212,8 +1202,7 @@ class buildLinModel:
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         
         # do complex voltages over loadmult first.
-        self.testQpVcpf(test='V')
-        self.testQpVcpf(test='W')
+        self.testQpVcpf()
         
         # Then: Taps.
         # Test 1. Putting taps up and down one. Things to check:
