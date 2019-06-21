@@ -129,15 +129,15 @@ class buildLinModel:
             # self.testCvrQp()
             modesAll = ['full','part','maxTap','minTap','loss','load']
             # modesAll = ['minTap']
-            modesAll = ['maxTap']
+            modesAll = ['full']
             optType = ['mosekFull']
             obj = 'hcGen'
-            obj = 'hcLds'
+            # obj = 'hcLds'
             # obj = 'opCst'
             for modeSet in modesAll:
                 print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++',modeSet)
                 self.runCvrQp(modeSet,optType=optType,obj=obj)
-                # self.plotNetBuses('qSln')
+                self.plotNetBuses('qSln')
                 # self.printQpSln()
                 # self.showQpSln()
         
@@ -581,7 +581,9 @@ class buildLinModel:
         # vLimLo = ( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
         # vLimUp = ( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
         # Kc2vIn = self.Kc2v[self.vIn]
-        scaleFactor = 1000/self.vKvbase
+        # scaleFactor = 1000/self.vKvbase
+        scaleFactor = 1/self.vKvbase # this seems to give the nicest results
+        # scaleFactor = np.ones(self.nV)
         vLimLo = (( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )*scaleFactor )[self.vIn]
         vLimUp = (( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )*scaleFactor )[self.vIn]
         Kc2vIn = (dsf.vmM( scaleFactor,self.Kc2v))[self.vIn]
@@ -733,26 +735,14 @@ class buildLinModel:
                 self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=True,tLss=tLss,oneHat=oneHat)) + x0.flatten()
                 self.slnS = 's' # success
             except:
+                print('---> Integer optimization not working, trying continuous.')
                 try:
-                    print('---> Full optimization not working, trying I relaxed.')
-                    slnXout = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=True,tLss=tLss,oneHat=oneHat,iRelax=True)) + x0.flatten()
-                    slnFout = self.runQp(slnXout)
-                    if np.all( np.abs(slnFout[6])<self.iScale*self.iXfmrLims ):
-                        self.slnX = slnXout
-                        self.slnS = 's_' # i relaxed success
-                    else:
-                        print('I relaxed gives infeasible solutions!!! - Saving null (x0) result.')
-                        self.slnX = np.zeros(self.nCtrl) + self.x0.flatten()
-                        self.slnS = 'f_' # i relaxed fail!
+                    self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=False,tLss=tLss,oneHat=oneHat)) + x0.flatten()
+                    self.slnS = 'r' # relaxed success
                 except:
-                    print('---> Integer optimization not working, trying continuous.')
-                    try:
-                        self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=False,tLss=tLss,oneHat=oneHat)) + x0.flatten()
-                        self.slnS = 'r' # relaxed success
-                    except:
-                        print('---> All Optimizations failed, saving null (x0) result.')
-                        self.slnX = np.zeros(self.nCtrl) + self.x0.flatten()
-                        self.slnS = 'f' # failed
+                    print('---> All Optimizations failed, saving null (x0) result.')
+                    self.slnX = np.zeros(self.nCtrl) + self.x0.flatten()
+                    self.slnS = 'f' # failed
         
         # self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=True,tLss=True,oneHat=oneHat)) + x0.flatten() # for debugging
     
@@ -865,30 +855,31 @@ class buildLinModel:
             ii = 0
             a2iCtrl = self.aIxfmr + self.Mc2i.dot(self.X0ctrl + x0.flatten())
             Mc2iCtrl = self.Mc2i.dot(oneHat)
-            if not iRelax:
+            if nCtrlAct>1:
                 for lim in self.iXfmrLims:
                     mc2iCpx = Mc2iCtrl[ii]
                     a2iCpx = a2iCtrl[ii]
                     mCpx = np.r_[ [mc2iCpx.real],[mc2iCpx.imag] ]
                     aCpx = np.r_[ a2iCpx.real, a2iCpx.imag].reshape((2,1))
+                    
                     mCpx = Matrix.dense( mCpx )
                     aCpx = Matrix.dense( aCpx )
                     iScaleReq = 1e-12
-                    print(np.linalg.norm(mc2iCpx/(lim*self.iScale)))
                     if np.linalg.norm( mc2iCpx/(lim*self.iScale) )>iScaleReq:
                         iAdd = Expr.add(Expr.mul(mCpx,x),aCpx)
-                        M.constraint( "i"+str(ii), Expr.vstack( 10000*lim*self.iScale,iAdd ),Domain.inQCone() )
+                        M.constraint( "i"+str(ii), Expr.vstack( lim*self.iScale,iAdd ),Domain.inQCone() )
                     ii+=1
-            
-            # fig,[ax0,ax1] = plt.subplots(ncols=2,sharey=True)
-            # ax0.plot((h0/G0)[G0<=0]) # useful for debugging
-            # ax0.plot((np.sign(G0)*h0/G0)[G0>0]) # useful for debugging
-            # # ax0.plot((h0/G0)[G0<=0]) # useful for debugging
-            # # if self.nT==0:
-                # # ax0.plot(h0[G0>0]) # useful for debugging
-                # # ax0.plot((np.sign(G0)*h0)[G0<=0]) # useful for debugging
-            # ax1.plot(np.abs(a2iCtrl),'x'); ax1.plot(self.iXfmrLims*self.iScale,'.')
-            # plt.show()
+            else: # no need for conic constraints if only one decision variable! (Required!)
+                A,b,d = self.cxpaLtK( Mc2iCtrl.flatten(),a2iCtrl.flatten(),self.iXfmrLims*self.iScale )
+                # plt.plot(A,label='a'); plt.plot(np.abs(b),label='|b|'); plt.plot(d,label='d'); 
+                # plt.title('|Ax + b|  < c'); plt.legend(); plt.show()
+                A = Matrix.dense( A.reshape((len(A),1)) )
+                b = Matrix.dense( b.reshape((len(b),1)) )
+                d = Matrix.dense( d.reshape((len(d),1)) )
+                
+                i0 = Expr.add(Expr.mul(A,x),b)
+                M.constraint( "cxpaLtKlb", Expr.add(d,i0),Domain.greaterThan(0.0) )
+                M.constraint( "cxpaLtKub", Expr.sub(d,i0),Domain.greaterThan(0.0) )
             
             if np.sum(Q0)!=0:
                 # QP constraint https://docs.mosek.com/9.0/pythonfusion/tutorial-model-lib.html
@@ -926,6 +917,14 @@ class buildLinModel:
             print("MIP rel gap = %.2f (%f)" % (M.getSolverDoubleInfo(
                         "mioObjRelGap"), M.getSolverDoubleInfo("mioObjAbsGap")))
         return xOut
+    
+    def cxpaLtK( self,c,a,k ):
+        # c, a are complex
+        A = np.abs(c)
+        b = ((a*(c.conj())).real)/np.abs(c)
+        d = np.sqrt( k**2 - (np.abs(a)**2) + (b**2) )
+        # then, |Ax + b| < d.
+        return A,b,d
     
     def qpComparisonOpCst(self):
         self.loadQpSet()
@@ -967,9 +966,9 @@ class buildLinModel:
         self.loadQpSet()
         self.loadQpSln(strategy,obj)
         if obj=='opCst':# HC gen (kW):
-            val = sum(self.slnF[0:3]) - sum(self.slnF0[0:3])
+            val = sum(self.slnF[0:4]) - sum(self.slnF0[0:4])
         if obj=='hcGen':# op cost (kW):
-            val = -sum(self.slnF[0:3]) - -sum(self.slnF0[0:3])
+            val = -sum(self.slnF[0:4]) - -sum(self.slnF0[0:4])
         if obj=='hcLds': # loadability (kW):
             val = self.slnF[2]
         return val
@@ -1038,8 +1037,9 @@ class buildLinModel:
             print('Old tap pos:',slnX[self.nSctrl:] + np.array(self.TC_No0))
             print('New tap pos:',find_tap_pos(DSSCircuit))
             
+        CL = self.qlossQdiag.dot(slnX**2) + np.linalg.norm(self.qlossL*slnX,ord=1)
         iXfrmC = self.v2iBrYxfmr.dot(YNodeV)[self.iXfmrModelled]
-        outSet = [TL,PL,-TG,abs(YNodeV)[3:],iXfrm,YNodeV[3:],iXfrmC] # as in runQp
+        outSet = [TL,PL,-TG,CL,abs(YNodeV)[3:],iXfrm,YNodeV[3:],iXfrmC] # as in runQp
         return outSet
         
     def qpSolutionDssError(self,strategy,obj,err='V'):
@@ -1101,9 +1101,7 @@ class buildLinModel:
         qOut = slnX[self.nPctrl:self.nPctrl*2]
         tOut = slnX[self.nPctrl*2:]
         
-        TL,PL,TC,V,I,Vc,Ic = slnF
-        
-        CL = self.qlossQdiag.dot(slnX**2) + np.linalg.norm(self.qlossL*slnX,ord=1)
+        TL,PL,TC,CL,V,I,Vc,Ic = slnF
         
         print('\n================== QP Solution:')
         print('Loss (kW):',TL)
@@ -1126,9 +1124,9 @@ class buildLinModel:
         qOut = slnX[self.nPctrl:self.nPctrl*2]
         tOut = slnX[self.nPctrl*2:]
         
-        TL,PL,TC,V,I,Vc,Ic = slnF
-        TL0,PL0,TC0,V0,I0,Vc0,Ic0 = self.slnF0
-        TLd,PLd,TCd,Vd,Id,Vcd,Icd = self.slnD
+        TL,PL,TC,CL,V,I,Vc,Ic = slnF
+        TL0,PL0,TC0,CL0,V0,I0,Vc0,Ic0 = self.slnF0
+        TLd,PLd,TCd,CLd,Vd,Id,Vcd,Icd = self.slnD
         
         iDrn = (-1)**( np.abs(Ic0 - Ic)>abs(Ic0) )
         
@@ -1147,7 +1145,7 @@ class buildLinModel:
         
         # plot currents versus current limits
         ax1.plot(iDrn*Id/(self.iScale*self.iXfmrLims),'o',label='OpenDSS',markerfacecolor='w')
-        ax1.plot(abs(I/(self.iScale*self.iXfmrLims)),'x',label='QP sln')
+        # ax1.plot(I/(self.iScale*self.iXfmrLims),'x',label='QP sln')
         ax1.plot(iDrn*abs(Ic/(self.iScale*self.iXfmrLims)),'x',label='QP sln')
         ax1.plot(I0/(self.iScale*self.iXfmrLims),'.',label='Nominal')
         ax1.plot(np.ones(len(self.iXfmrLims)),'k_')
@@ -1204,7 +1202,7 @@ class buildLinModel:
             
             dx = (self.X0ctrl*k[i]/self.currentLinPoint) - self.X0ctrl
             
-            vaL,iaL,vcL,icL = self.runQp(dx)[3:]
+            vaL,iaL,vcL,icL = self.runQp(dx)[4:]
             iaL = abs(iaL)
             icL = self.v2iBrYxfmr.dot(np.r_[self.V0,vcL])[self.iXfmrModelled]
             
@@ -1259,8 +1257,8 @@ class buildLinModel:
             slnX = np.zeros(self.nCtrl) + dx*k[i]
             
             # set DSSCircuit, then solve and get values;
-            TL0,PL0,TC0,va0,ia0,vc0,ic0 = self.qpDssValidation(slnX,full=True)
-            TLL,PLL,TCL,vaL,iaL,vcL,icL = self.runQp(slnX)
+            TL0,PL0,TC0,CL0,va0,ia0,vc0,ic0 = self.qpDssValidation(slnX,full=True)
+            TLL,PLL,TCL,CLL,vaL,iaL,vcL,icL = self.runQp(slnX)
             
             vce[i] = np.linalg.norm( (vcL - vc0)/self.vKvbase )/np.linalg.norm(vc0/self.vKvbase)
             vae[i] = np.linalg.norm( (vaL - va0)/self.vKvbase )/np.linalg.norm(va0/self.vKvbase)
@@ -1338,7 +1336,7 @@ class buildLinModel:
                 TC[i] = -TG
                 
                 dx = xCtrl*dxScale[i]
-                TLest[i],PLest[i],TCest[i],Vest,Iest,Vcest,Icest = self.runQp(dx)
+                TLest[i],PLest[i],TCest[i],CL,Vest,Iest,Vcest,Icest = self.runQp(dx)
                 
                 vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
                 iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
@@ -1404,7 +1402,7 @@ class buildLinModel:
                 TC[i] = -TG
                 
                 dx = xCtrl*Sset[i]
-                TLest[i],PLest[i],TCest[i],Vest,Iest,Vcest,Icest = self.runQp(dx)
+                TLest[i],PLest[i],TCest[i],CL,Vest,Iest,Vcest,Icest = self.runQp(dx)
                 
                 vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
                 iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
@@ -1449,7 +1447,9 @@ class buildLinModel:
         Vest = self.Kc2v.dot(dx + self.X0ctrl) + self.bV
         Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
         
-        return TL,PL,TC,Vest,Iest,Vcest,Icest
+        CL = self.qlossQdiag.dot(dx**2) + np.linalg.norm(self.qlossL*dx,ord=1)
+        
+        return TL,PL,TC,CL,Vest,Iest,Vcest,Icest
 
     def createNrelModel(self,lin_point=1.0):
         print('\nCreate NREL model, feeder:',self.feeder,'\nLin Point:',lin_point,'\nCap pos model:',self.setCapsModel,'\nCap Pos points:',self.capPosLin,'\n',time.process_time())
@@ -2714,7 +2714,7 @@ class buildLinModel:
         if type=='v0':
             # scoreNom = self.bV/self.vKvbase
             # scores, minMax0 = self.getSetVals(scoreNom,pltType)
-            scoreNom = self.slnF0[3][self.vIn]/self.vInKvbase
+            scoreNom = self.slnF0[4][self.vIn]/self.vInKvbase
             scores, minMax0 = self.getSetVals(scoreNom,pltType,'vIn')
             ttl = 'Voltage (pu)'
         elif type =='p0':

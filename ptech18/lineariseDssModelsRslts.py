@@ -10,7 +10,7 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 
 
 # f_bulkBuildModels = 1
-f_bulkRunModels = 1
+# f_bulkRunModels = 1
 # f_checkFeasibility = 1
 # f_checkError = 1
 # f_valueComparison = 1
@@ -24,8 +24,7 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
     return blm
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
-feederSet = [5,6,8,24,18,'n4','n1','n10','n27',17,0]
-feederSet = [5]
+feederSet = [5,6,8,24,0,18,'n4','n1','n10','n27',17]
 
 lpA = [0.1,0.6,1.0]
 lpB = [0.1,0.3,0.6]
@@ -35,7 +34,7 @@ objSet = ['opCst','hcGen','hcLds']
 
 # NB remember to update n10!
 linPointsDict = {5:linPointsA,6:linPointsB,8:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
-                                'n1':linPointsA,'n10':linPointsB,'n27':linPointsA,17:linPointsA,0:linPointsA}
+                                'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA}
 pCvrSet = [0.2,0.8]
 pCvrSet = [0.8]
 

@@ -177,6 +177,9 @@ New Capacitor.Cap2 Bus1=611.3 phases=1 kVAR=100 kV=2.4
 !Transformer.Reg1.Taps=[1.0 1.0625]
 !Transformer.Reg2.Taps=[1.0 1.0500]
 !Transformer.Reg3.Taps=[1.0 1.06875]
+!Transformer.RegS1.Taps=[1.0 1.04]
+!Transformer.RegS2.Taps=[1.0 1.04]
+!Transformer.RegS3.Taps=[1.0 1.04]
 !Set Controlmode=OFF
 
 new energymeter.msub element=transformer.sub

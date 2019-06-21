@@ -18,32 +18,8 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
                                                 modelType=modelType,method=method,saveModel=saveModel,SD=SD,pltSave=pltSave)
     return blm
 
-
-# self = main(5,modelType='loadModel')
-# self = main('n10',modelType='loadModel',linPoint=1.8)
-# self = main('n10',modelType='loadModel')
-# self = main(5,modelType='loadModel')
-# self = main(0,modelType='loadModel',linPoint=0.1)
-
-# mc2iIi = self.Mc2i[ii].dot(oneHat)
-# plt.plot(mc2iIi.real); plt.plot(mc2iIi.imag); plt.show()
-# np.r_[ [mc2iIi.real],[mc2iIi.imag]].dot(oneHat)
-
-# self = main(0,'buildSave',linPoint=1.0)
-# self = main(0,linPoint=1.0); self.printQpSln()
-self =  main(0,linPoint=1.0); # self.printQpSln()
-# self =  main(5,linPoint=0.6); # self.printQpSln()
-# self = main(0,linPoint=0.1)
-
 # self = main(5,'buildSave',linPoint=1.0)
-# self = main(5); self.printQpSln()
-
-# self = main(5,'buildSave',linPoint=0.1)
-
-# self.initialiseOpenDss(); self.testCvrQp()
-
-
-# self = main(0,linPoint=0.1)
+self = main(5); self.printQpSln()
 
 # feeder = 0
 # obj = 'opCst'
@@ -53,31 +29,8 @@ self =  main(0,linPoint=1.0); # self.printQpSln()
 # self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint); # self.initialiseOpenDss();
 # self.loadQpSet(); self.loadQpSln(strategy,obj); self.showQpSln()
 
-# self.loadQpSet(); self.loadQpSln(strategy,'opCst')
-# self.showQpSln()
-
-# self = main(8,linPoint=0.6,modelType='loadModel')
-# self = main(8,linPoint=1.0,modelType='loadModel')
-
-
-# self.testGenSetting(k=np.arange(-10,11,2),dPlim=0.10,dQlim=0.10); plt.show() # <--- here the current limits are still shite!
-
-# self.showQpSln()
-# self.slnD = self.qpDssValidation(method='relaxT')
-# self.showQpSln()
-
-
 # self.testGenSetting(k=np.arange(-10,11,2),dPlim=0.10,dQlim=0.10); plt.show()
-
-# feeder = 'n10'
-# obj = 'hcLds'
-# strategy = 'full'
-# self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][2])
-# self.loadQpSet()
-# self.loadQpSln(strategy,obj)
-
-# self.showQpSln()
-
+# self.slnD = self.qpDssValidation(method='relaxT')
 
 # # for feeder epri24
 # cns['mvHi'] = 1.10
