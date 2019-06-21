@@ -29,15 +29,28 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 # plt.plot(mc2iIi.real); plt.plot(mc2iIi.imag); plt.show()
 # np.r_[ [mc2iIi.real],[mc2iIi.imag]].dot(oneHat)
 
+# self = main(0,'buildSave',linPoint=0.1)
+# self = main(0,linPoint=0.1); self.printQpSln()
 self = main(0,linPoint=0.1)
 
-feeder = 0
-obj = 'opCst'
-strategy = 'full'
-pCvr = 0.8
-linPoint = 0.1
-self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint); # self.initialiseOpenDss();
-self.loadQpSet(); self.loadQpSln(strategy,obj); self.showQpSln()
+# self = main(5,'buildSave',linPoint=1.0)
+# self = main(5); self.printQpSln()
+
+# self = main(5,'buildSave',linPoint=0.1)
+
+# self.initialiseOpenDss(); self.testCvrQp()
+
+
+# self = main(0,linPoint=0.1)
+
+# feeder = 0
+# obj = 'opCst'
+# strategy = 'full'
+# pCvr = 0.8
+# linPoint = 0.1
+# self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint); # self.initialiseOpenDss();
+# self.loadQpSet(); self.loadQpSln(strategy,obj); self.showQpSln()
+
 # self.loadQpSet(); self.loadQpSln(strategy,'opCst')
 # self.showQpSln()
 

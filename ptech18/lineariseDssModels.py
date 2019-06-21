@@ -128,9 +128,9 @@ class buildLinModel:
         if modelType in [None,'loadModel']:
             # self.testCvrQp()
             modesAll = ['full','part','maxTap','minTap','loss','load']
-            modesAll = ['part']
+            modesAll = ['maxTap']
             optType = ['mosekFull']
-            obj = 'opCst'
+            obj = 'hcLds'
             for modeSet in modesAll:
                 print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++',modeSet)
                 self.runCvrQp(modeSet,optType=optType,obj=obj)
@@ -419,9 +419,7 @@ class buildLinModel:
         self.nSctrl = self.nPctrl*2
         self.nCtrl = self.nSctrl + self.nT
         
-        self.xSscale = 1.
-        self.xTscale = 1.
-        self.xSscale = 1e-3 # NB: I think [?] That this has to be this for all of the optimizations to work...?
+        self.xSscale = 1e-3 # these values seem about correct, it seems.
         self.xTscale = 160*1e0
         self.xScale = np.r_[self.xSscale*np.ones(self.nSctrl),self.xTscale*np.ones(self.nT)] # change the scale factor of matrices here
         
@@ -584,27 +582,27 @@ class buildLinModel:
         
         vLimLo = ( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
         vLimUp = ( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
+        Kc2vIn = self.Kc2v[self.vIn]
         
         if obj in ['opCst','hcLds']:
             xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
                                                                                 np.ones(self.nT)*self.tLim ]
             xLimLo = np.r_[ -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,
                                                                                 -np.ones(self.nT)*self.tLim ]
-            G = np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],
-                      -np.eye(self.nCtrl),-self.Kc2v[self.vIn]]
+            G = np.r_[np.eye(self.nCtrl),Kc2vIn,-np.eye(self.nCtrl),-Kc2vIn]
+            
         if obj in ['hcLds']:
             xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
                                                                                 np.ones(self.nT)*self.tLim ]
             xLimLo = np.r_[ -np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
-            G = np.r_[np.eye(self.nCtrl),self.Kc2v[self.vIn],
+            G = np.r_[np.eye(self.nCtrl),Kc2vIn,
                     -np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
-                                    -self.Kc2v[self.vIn] ]
+                                    -Kc2vIn ]
         if obj in ['hcGen']:
             xLimUp = np.r_[ np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim ]
             xLimLo = np.r_[ np.zeros(self.nPctrl),-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
-            
             G = np.r_[ np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
-                                        self.Kc2v[self.vIn],-np.eye(self.nCtrl),-self.Kc2v[self.vIn]]
+                                        Kc2vIn,-np.eye(self.nCtrl),-Kc2vIn]
         
         h = np.array( [np.r_[xLimUp,vLimUp,-xLimLo,-vLimLo]] ).T
         return G,h
@@ -662,13 +660,10 @@ class buildLinModel:
         if 'mosekNom' in optType:
             self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=False))      + x0.flatten()
             self.slnS = np.nan
-        # if 'mosekInt' in optType:
-        if 'mosekInt' in optType or 'mosekFull' in optType:
+        
+        if 'mosekInt' in optType:
             try:
-                if 'mosekInt' in optType:
-                    self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=True)) + x0.flatten()
-                else:
-                    self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=True,tLss=True,oneHat=oneHat)) + x0.flatten()
+                self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=True)) + x0.flatten()
                 self.slnS = 's' # success
             except:
                 print('---> Integer optimization not working, trying continuous.')
@@ -679,8 +674,33 @@ class buildLinModel:
                     print('---> Both Optimizations failed, saving null result.')
                     self.slnX = np.zeros(self.nCtrl)
                     self.slnS = 'f' # failed
-            print('mosekInt complete.')
-        # self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=True,tLss=True,oneHat=oneHat)) + x0.flatten()
+        if 'mosekFull' in optType:
+            try:
+                self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=True,tLss=True,oneHat=oneHat)) + x0.flatten()
+                self.slnS = 's' # success
+            except:
+                try:
+                    print('---> Full optimization not working, trying I relaxed.')
+                    slnXout = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=True,tLss=True,oneHat=oneHat,iRelax=True)) + x0.flatten()
+                    slnFout = self.runQp(slnXout)
+                    if np.all( np.abs(slnFout[6])<self.iScale*self.iXfmrLims ):
+                        self.slnX = slnXout
+                        self.slnS = 's_' # i relaxed success
+                    else:
+                        print('I relaxed gives infeasible solutions!!! - Saving null result.')
+                        self.slnX = np.zeros(self.nCtrl)
+                        self.slnS = 'f_' # i relaxed fail!
+                except:
+                    print('---> Integer optimization not working, trying continuous.')
+                    try:
+                        self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=False,tLss=True,oneHat=oneHat)) + x0.flatten()
+                        self.slnS = 'r' # relaxed success
+                    except:
+                        print('---> All Optimizations failed, saving null result.')
+                        self.slnX = np.zeros(self.nCtrl)
+                        self.slnS = 'f' # failed
+        
+        # self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=True,tLss=True,oneHat=oneHat)) + x0.flatten() # for debugging
     
     def runCvrQp(self,strategy='full',obj='opCst',optType=['cvxopt']):
         # minimize    (1/2)*x'*P*x + q'*x
@@ -727,7 +747,7 @@ class buildLinModel:
             self.slnD = self.qpDssValidation()
         
     
-    def mosekQpEquiv(self,Q0,p0,G0,h0,x0,tInt=False,tLss=False,oneHat=[]):
+    def mosekQpEquiv(self,Q0,p0,G0,h0,x0,tInt=False,tLss=False,oneHat=[],iRelax=False):
         if type(Q0)==matrix:
             Q0 = np.array(Q0); p0 = np.array(p0); G0 = np.array(G0); h0 = np.array(h0)
         
@@ -735,7 +755,6 @@ class buildLinModel:
         nSctrlAct = nCtrlAct - self.nT
         nPctrlAct = np.linalg.matrix_rank( oneHat[:self.nPctrl] )
         nQctrlAct = np.linalg.matrix_rank( oneHat[self.nPctrl:self.nSctrl] )
-        # nSctrlAct = self.nCtrl - self.nT
         
         if p0.ndim==1:
             p0 = np.array([p0]).T
@@ -756,7 +775,6 @@ class buildLinModel:
                 yQ = M.variable("yQ",nQctrlAct)
                 y = Expr.vstack( yP,yQ )
                 
-                self.oneHat = oneHat
                 if nQctrlAct==1:
                     qlossLabs = sum(self.qlossL)
                 if nQctrlAct==self.nPctrl:
@@ -779,24 +797,28 @@ class buildLinModel:
             else:
                 z = M.variable("z",self.nT)
             x = Expr.vstack( y,z )
-            # x = M.variable("x",nCtrlAct)
 
             # VOLTAGE and DOMAIN constraints:
             Gxh = M.constraint( "Gxh", Expr.mul(G,x), Domain.lessThan(h) )
             
             # CURRENT constraints:
             ii = 0
-            for lim in self.iXfmrLims:
-                mc2iCpx = self.Mc2i[ii]
-                a2iCpx = self.aIxfmr[ii] + mc2iCpx.dot(self.X0ctrl + x0.flatten())
-                mCpx = Matrix.dense( np.r_[ [mc2iCpx.real],[mc2iCpx.imag] ].dot(oneHat) )
-                aCpx = Matrix.dense( np.r_[ a2iCpx.real, a2iCpx.imag].reshape((2,1)) )
-                iScaleReq = 1e-12
-                if np.linalg.norm( mc2iCpx/(lim*self.iScale) )>iScaleReq:
-                    iAdd = Expr.add(Expr.mul(mCpx,x),aCpx)
-                    M.constraint( "i"+str(ii), Expr.vstack( lim*self.iScale,iAdd ),Domain.inQCone() )
-                ii+=1
-            
+            a2iCtrl = self.aIxfmr + self.Mc2i.dot(self.X0ctrl + x0.flatten())
+            Mc2iCtrl = self.Mc2i.dot(oneHat)
+            if not iRelax:
+                for lim in self.iXfmrLims:
+                    mc2iCpx = Mc2iCtrl[ii]
+                    a2iCpx = a2iCtrl[ii]
+                    mCpx = np.r_[ [mc2iCpx.real],[mc2iCpx.imag] ]
+                    aCpx = np.r_[ a2iCpx.real, a2iCpx.imag].reshape((2,1))
+                    mCpx = Matrix.dense( mCpx )
+                    aCpx = Matrix.dense( aCpx )
+                    iScaleReq = 1e-12
+                    if np.linalg.norm( mc2iCpx/(lim*self.iScale) )>iScaleReq:
+                        iAdd = Expr.add(Expr.mul(mCpx,x),aCpx)
+                        M.constraint( "i"+str(ii), Expr.vstack( lim*self.iScale,iAdd ),Domain.inQCone() )
+                    ii+=1
+            # plt.plot(h0) # useful for debugging
             
             if np.sum(Q0)!=0:
                 # QP constraint https://docs.mosek.com/9.0/pythonfusion/tutorial-model-lib.html
@@ -807,10 +829,8 @@ class buildLinModel:
                     M.constraint( "Qt", Expr.hstack(1.0, t,Expr.mul(H,x)), Domain.inRotatedQCone())
                 else:
                     M.constraint( "Qt", Expr.vstack(1.0,t,Expr.mul(H,x)), Domain.inRotatedQCone() )
-                # M.objective("obj",ObjectiveSense.Minimize, Expr.add(Expr.dot(p,x),t))
                 M.objective("obj",ObjectiveSense.Minimize, Expr.add( Expr.add(Expr.dot(p,x),t),wCfunc ) )
             else:
-                # M.objective("obj",ObjectiveSense.Minimize, Expr.dot(p,x))
                 M.objective("obj",ObjectiveSense.Minimize, Expr.add( Expr.dot(p,x),wCfunc ) )
             
             try:
@@ -1061,11 +1081,12 @@ class buildLinModel:
         ax1.plot(iDrn*abs(Ic/(self.iScale*self.iXfmrLims)),'x',label='QP sln')
         ax1.plot(I0/(self.iScale*self.iXfmrLims),'.',label='Nominal')
         ax1.plot(np.ones(len(self.iXfmrLims)),'k_')
+        ax1.plot(-np.ones(len(self.iXfmrLims)),'k_')
         ax1.set_xlabel('Xfmr Index')
         ax1.set_ylabel('Current (A)')
         ax1.set_title('Currents')
         ax1.legend()
-        ax1.set_ylim( (-0.1,1.2*max(1.0,max(Id/(self.iScale*self.iXfmrLims)) )) )
+        ax1.set_ylim( (-1.1,1.1) )
         ax1.grid(True)
         # ax1.show()
         
