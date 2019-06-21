@@ -128,14 +128,17 @@ class buildLinModel:
         if modelType in [None,'loadModel']:
             # self.testCvrQp()
             modesAll = ['full','part','maxTap','minTap','loss','load']
+            # modesAll = ['minTap']
             modesAll = ['maxTap']
             optType = ['mosekFull']
+            obj = 'hcGen'
             obj = 'hcLds'
+            # obj = 'opCst'
             for modeSet in modesAll:
                 print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++',modeSet)
                 self.runCvrQp(modeSet,optType=optType,obj=obj)
                 # self.plotNetBuses('qSln')
-                # self.printQpSln(self.slnX,self.slnF)
+                # self.printQpSln()
                 # self.showQpSln()
         
         if modelType in ['loadAndRun']:
@@ -574,37 +577,83 @@ class buildLinModel:
         return Q,p
     
     
+    def getVghConstraints(self): # NB doubles getInqCns
+        # vLimLo = ( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
+        # vLimUp = ( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
+        # Kc2vIn = self.Kc2v[self.vIn]
+        scaleFactor = 1000/self.vKvbase
+        vLimLo = (( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )*scaleFactor )[self.vIn]
+        vLimUp = (( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )*scaleFactor )[self.vIn]
+        Kc2vIn = (dsf.vmM( scaleFactor,self.Kc2v))[self.vIn]
+        
+        Gv = np.r_[Kc2vIn,-Kc2vIn]
+        hv = np.array( [np.r_[vLimUp,-vLimLo]] ).T
+        return Gv,hv
+        
+    def getXghConstraints(self,obj):
+        if obj in ['opCst']:
+            xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
+                                                                                np.ones(self.nT)*self.tLim ]
+            xLimLo = np.r_[ -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,
+                                                                                -np.ones(self.nT)*self.tLim ]
+            Gx = np.r_[np.eye(self.nCtrl),-np.eye(self.nCtrl)]
+            
+        if obj in ['hcLds']:
+            xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
+                                                                                np.ones(self.nT)*self.tLim ]
+            xLimLo = np.r_[ -np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
+            Gx = np.r_[np.eye(self.nCtrl),
+                                    -np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)] ]
+        if obj in ['hcGen']:
+            xLimUp = np.r_[ np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim ]
+            xLimLo = np.r_[ np.zeros(self.nPctrl),-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
+            
+            Gx = np.r_[ np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
+                                        -np.eye(self.nCtrl)]
+        hx = np.array( [np.r_[xLimUp,-xLimLo]] ).T
+        return Gx,hx
+        
+        
     def getInqCns(self,obj):
         # Upper Control variables, then voltages, then currents; then repeat but lower.
         # xLo <= x <= xHi
         # NB: note that we take seem to take out the effect of 'x0' in the cost/constraint
         # functions outside of this function.
         
-        vLimLo = ( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
-        vLimUp = ( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
-        Kc2vIn = self.Kc2v[self.vIn]
+        Gv,hv = self.getVghConstraints()
+        Gx,hx = self.getXghConstraints(obj)
         
-        if obj in ['opCst','hcLds']:
-            xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
-                                                                                np.ones(self.nT)*self.tLim ]
-            xLimLo = np.r_[ -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,
-                                                                                -np.ones(self.nT)*self.tLim ]
-            G = np.r_[np.eye(self.nCtrl),Kc2vIn,-np.eye(self.nCtrl),-Kc2vIn]
+        G = np.r_[Gv,Gx]
+        h = np.r_[hv,hx]
+        
+        # vLimLo = ( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
+        # vLimUp = ( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
+        # Kc2vIn = self.Kc2v[self.vIn]
+        
+        
+        # zroApx = np.ones(self.nPctrl)*self.qLim*1e-8
+        # # if obj in ['opCst','hcLds']:
+        # if obj in ['opCst']:
+            # xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
+                                                                                # np.ones(self.nT)*self.tLim ]
+            # xLimLo = np.r_[ -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,
+                                                                                # -np.ones(self.nT)*self.tLim ]
+            # G = np.r_[np.eye(self.nCtrl),Kc2vIn,-np.eye(self.nCtrl),-Kc2vIn]
             
-        if obj in ['hcLds']:
-            xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
-                                                                                np.ones(self.nT)*self.tLim ]
-            xLimLo = np.r_[ -np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
-            G = np.r_[np.eye(self.nCtrl),Kc2vIn,
-                    -np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
-                                    -Kc2vIn ]
-        if obj in ['hcGen']:
-            xLimUp = np.r_[ np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim ]
-            xLimLo = np.r_[ np.zeros(self.nPctrl),-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
-            G = np.r_[ np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
-                                        Kc2vIn,-np.eye(self.nCtrl),-Kc2vIn]
+        # if obj in ['hcLds']:
+            # xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
+                                                                                # np.ones(self.nT)*self.tLim ]
+            # xLimLo = np.r_[ -np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
+            # G = np.r_[np.eye(self.nCtrl),Kc2vIn,
+                    # -np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
+                                    # -Kc2vIn ]
+        # if obj in ['hcGen']:
+            # xLimUp = np.r_[ np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim ]
+            # xLimLo = np.r_[ np.zeros(self.nPctrl),-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
+            # G = np.r_[ np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
+                                        # Kc2vIn,-np.eye(self.nCtrl),-Kc2vIn]
         
-        h = np.array( [np.r_[xLimUp,vLimUp,-xLimLo,-vLimLo]] ).T
+        # h = np.array( [np.r_[xLimUp,vLimUp,-xLimLo,-vLimLo]] ).T
         return G,h
     
     def remControlVrlbs(self,strategy,obj):
@@ -648,6 +697,11 @@ class buildLinModel:
         return oneHat,x0
     
     def runOptimization(self,Q,p,G,h,oneHat,x0,strategy,obj,optType):
+        if strategy in ['minTap','maxTap','load']:
+            tLss=False
+        else:
+            tLss=True
+        
         print('Starting optimizations, strategy: ',strategy,'; Solver types: ',optType)
         if 'cvxopt' in optType:
             self.sln = solvers.qp(Q,p,G,h)
@@ -658,17 +712,17 @@ class buildLinModel:
             self.slnX = oneHat.dot(np.array(self.sln['x']).flatten())               + x0.flatten()
             self.slnS = self.sln['status']
         if 'mosekNom' in optType:
-            self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=False))      + x0.flatten()
+            self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=False))      + x0.flatten()
             self.slnS = np.nan
         
         if 'mosekInt' in optType:
             try:
-                self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=True)) + x0.flatten()
+                self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=True)) + x0.flatten()
                 self.slnS = 's' # success
             except:
                 print('---> Integer optimization not working, trying continuous.')
                 try:
-                    self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=False))      + x0.flatten()
+                    self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=False))      + x0.flatten()
                     self.slnS = 'r' # relaxed success
                 except:
                     print('---> Both Optimizations failed, saving null result.')
@@ -676,31 +730,31 @@ class buildLinModel:
                     self.slnS = 'f' # failed
         if 'mosekFull' in optType:
             try:
-                self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=True,tLss=True,oneHat=oneHat)) + x0.flatten()
+                self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=True,tLss=tLss,oneHat=oneHat)) + x0.flatten()
                 self.slnS = 's' # success
             except:
                 try:
                     print('---> Full optimization not working, trying I relaxed.')
-                    slnXout = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=True,tLss=True,oneHat=oneHat,iRelax=True)) + x0.flatten()
+                    slnXout = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=True,tLss=tLss,oneHat=oneHat,iRelax=True)) + x0.flatten()
                     slnFout = self.runQp(slnXout)
                     if np.all( np.abs(slnFout[6])<self.iScale*self.iXfmrLims ):
                         self.slnX = slnXout
                         self.slnS = 's_' # i relaxed success
                     else:
-                        print('I relaxed gives infeasible solutions!!! - Saving null result.')
-                        self.slnX = np.zeros(self.nCtrl)
+                        print('I relaxed gives infeasible solutions!!! - Saving null (x0) result.')
+                        self.slnX = np.zeros(self.nCtrl) + self.x0.flatten()
                         self.slnS = 'f_' # i relaxed fail!
                 except:
                     print('---> Integer optimization not working, trying continuous.')
                     try:
-                        self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=False,tLss=True,oneHat=oneHat)) + x0.flatten()
+                        self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=False,tLss=tLss,oneHat=oneHat)) + x0.flatten()
                         self.slnS = 'r' # relaxed success
                     except:
-                        print('---> All Optimizations failed, saving null result.')
-                        self.slnX = np.zeros(self.nCtrl)
+                        print('---> All Optimizations failed, saving null (x0) result.')
+                        self.slnX = np.zeros(self.nCtrl) + self.x0.flatten()
                         self.slnS = 'f' # failed
         
-        # self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,tInt=True,tLss=True,oneHat=oneHat)) + x0.flatten() # for debugging
+        # self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=True,tLss=True,oneHat=oneHat)) + x0.flatten() # for debugging
     
     def runCvrQp(self,strategy='full',obj='opCst',optType=['cvxopt']):
         # minimize    (1/2)*x'*P*x + q'*x
@@ -719,8 +773,8 @@ class buildLinModel:
         
         
         # GET RID OF APPROPRIATE VARIABLES
-        oneHat,x0 = self.remControlVrlbs(strategy,obj)
-        
+        self.oneHat,self.x0 = self.remControlVrlbs(strategy,obj)
+        x0 = self.x0; oneHat = self.oneHat
         if obj=='opCst' and strategy in ['minTap','maxTap'] and self.nT==0:
             self.slnX = x0.flatten(); self.slnS = np.nan
         elif obj in ['hcGen','hcLds'] and strategy in ['loss','load']:
@@ -734,11 +788,17 @@ class buildLinModel:
             
             # INEQUALITY CONSTRAINTS
             G,h = self.getInqCns(obj)
+            # G,h = self.getVghConstraints() # NOT IN USE right now
             
             Qp = matrix(  (oneHat.T).dot(Q.dot(oneHat)) )
             pp = matrix(  (p.T.dot(oneHat)).T  - 2*(  (x0.T).dot(Q.dot(oneHat)).T  ) )
-            Gp = matrix( G.dot(oneHat) )
-            hp = matrix( h - G.dot(x0) )
+            if G.shape[1]==1:
+                GpNz = (G.dot(oneHat)!=0)
+                Gp = matrix( G.dot(oneHat)[GpNz] )
+                hp = matrix( (h - G.dot(x0))[GpNz] )
+            else:
+                Gp = matrix( G.dot(oneHat) )
+                hp = matrix( (h - G.dot(x0)) )
             self.runOptimization(Qp,pp,Gp,hp,oneHat,x0,strategy,obj,optType)
         
         self.slnF = self.runQp(self.slnX)
@@ -747,7 +807,7 @@ class buildLinModel:
             self.slnD = self.qpDssValidation()
         
     
-    def mosekQpEquiv(self,Q0,p0,G0,h0,x0,tInt=False,tLss=False,oneHat=[],iRelax=False):
+    def mosekQpEquiv(self,Q0,p0,G0,h0,x0,obj,tInt=False,tLss=False,oneHat=[],iRelax=False):
         if type(Q0)==matrix:
             Q0 = np.array(Q0); p0 = np.array(p0); G0 = np.array(G0); h0 = np.array(h0)
         
@@ -814,11 +874,21 @@ class buildLinModel:
                     mCpx = Matrix.dense( mCpx )
                     aCpx = Matrix.dense( aCpx )
                     iScaleReq = 1e-12
+                    print(np.linalg.norm(mc2iCpx/(lim*self.iScale)))
                     if np.linalg.norm( mc2iCpx/(lim*self.iScale) )>iScaleReq:
                         iAdd = Expr.add(Expr.mul(mCpx,x),aCpx)
-                        M.constraint( "i"+str(ii), Expr.vstack( lim*self.iScale,iAdd ),Domain.inQCone() )
+                        M.constraint( "i"+str(ii), Expr.vstack( 10000*lim*self.iScale,iAdd ),Domain.inQCone() )
                     ii+=1
-            # plt.plot(h0) # useful for debugging
+            
+            # fig,[ax0,ax1] = plt.subplots(ncols=2,sharey=True)
+            # ax0.plot((h0/G0)[G0<=0]) # useful for debugging
+            # ax0.plot((np.sign(G0)*h0/G0)[G0>0]) # useful for debugging
+            # # ax0.plot((h0/G0)[G0<=0]) # useful for debugging
+            # # if self.nT==0:
+                # # ax0.plot(h0[G0>0]) # useful for debugging
+                # # ax0.plot((np.sign(G0)*h0)[G0<=0]) # useful for debugging
+            # ax1.plot(np.abs(a2iCtrl),'x'); ax1.plot(self.iXfmrLims*self.iScale,'.')
+            # plt.show()
             
             if np.sum(Q0)!=0:
                 # QP constraint https://docs.mosek.com/9.0/pythonfusion/tutorial-model-lib.html
