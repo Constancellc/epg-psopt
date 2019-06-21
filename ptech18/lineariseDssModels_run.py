@@ -23,24 +23,23 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 # self = main('n10',modelType='loadModel',linPoint=1.8)
 # self = main('n10',modelType='loadModel')
 # self = main(5,modelType='loadModel')
-self = main(0,modelType='loadModel',linPoint=0.1)
+# self = main(0,modelType='loadModel',linPoint=0.1)
 
-mc2iIi = self.Mc2i[ii].dot(oneHat)
+# mc2iIi = self.Mc2i[ii].dot(oneHat)
+# plt.plot(mc2iIi.real); plt.plot(mc2iIi.imag); plt.show()
+# np.r_[ [mc2iIi.real],[mc2iIi.imag]].dot(oneHat)
 
+self = main(0,linPoint=0.1)
 
-plt.plot(mc2iIi.real); plt.plot(mc2iIi.imag); plt.show()
-
-
-np.r_[ [mc2iIi.real],[mc2iIi.imag]].dot(oneHat)
-
-# feeder = 'n10'
-# obj = 'hcLds'
-strategy = 'part'
+feeder = 0
+obj = 'opCst'
+strategy = 'full'
 pCvr = 0.8
-# self.loadQpSet(); self.loadQpSln(strategy,obj); self.showQpSln()
-self = main(0,pCvr=pCvr,modelType='loadOnly',linPoint=1.0); self.initialiseOpenDss();
-self.loadQpSet(); self.loadQpSln(strategy,'opCst')
-self.showQpSln()
+linPoint = 0.1
+self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint); # self.initialiseOpenDss();
+self.loadQpSet(); self.loadQpSln(strategy,obj); self.showQpSln()
+# self.loadQpSet(); self.loadQpSln(strategy,'opCst')
+# self.showQpSln()
 
 # self = main(8,linPoint=0.6,modelType='loadModel')
 # self = main(8,linPoint=1.0,modelType='loadModel')
