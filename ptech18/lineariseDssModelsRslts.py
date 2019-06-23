@@ -1,4 +1,4 @@
-import lineariseDssModels, sys, os, pickle, random
+import lineariseDssModels, sys, os, pickle, random, time
 from importlib import reload
 import numpy as np
 from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar
@@ -10,8 +10,8 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 
 
 # f_bulkBuildModels = 1
-# f_bulkRunModels = 1
-# f_checkFeasibility = 1
+f_bulkRunModels = 1
+f_checkFeasibility = 1
 # f_checkError = 1
 # f_valueComparison = 1
 
@@ -25,36 +25,47 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
 feederSet = [5,6,8,24,0,18,'n4','n1','n10','n27',17]
+# feederSet = [17,18,'n4','n1','n10','n27']
+# feederSet = [25]
+feederSet = [5,0]
 
 lpA = [0.1,0.6,1.0]
 lpB = [0.1,0.3,0.6]
+lpC = [1.0]
 linPointsA = {'all':lpA,'opCst':lpA,'hcGen':[lpA[0]],'hcLds':[lpA[-1]]}
 linPointsB = {'all':lpB,'opCst':lpB,'hcGen':[lpB[0]],'hcLds':[lpB[-1]]}
+linPointsC = {'all':lpC,'opCst':lpC,'hcGen':lpC,'hcLds':lpC}
 objSet = ['opCst','hcGen','hcLds']
 
 # NB remember to update n10!
 linPointsDict = {5:linPointsA,6:linPointsB,8:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
-                                'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA}
+                                'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA,25:linPointsC}
 pCvrSet = [0.2,0.8]
 pCvrSet = [0.8]
 
 # STEP 1: building and saving the models. =========================
+tBuild = []
 if 'f_bulkBuildModels' in locals():
     for feeder in feederSet:
+        t0 = time.time()
         linPoints = linPointsDict[feeder]['all']
         print('============================================= Feeder:',feeder)
         for linPoint in linPoints:
             for pCvr in pCvrSet:
                 self = main(feeder,pCvr=pCvr,modelType='buildSave',linPoint=linPoint)
+        tBuild.append(time.time()-t0)
 
 # STEP 2: Running the models, obtaining the optimization results.
+tSet = []
 if 'f_bulkRunModels' in locals():
     for feeder in feederSet:
+        t0 = time.time()
         linPoints = linPointsDict[feeder]['all']
         print('============================================= Feeder:',feeder)
         for linPoint in linPoints:  
             for pCvr in pCvrSet:
                 self = main(feeder,pCvr=pCvr,modelType='loadAndRun',linPoint=linPoint) # see "runQpSet"
+        tSet.append(time.time()-t0)
 
 # STEP 3: check the feasibility of all solutions
 if 'f_checkFeasibility' in locals():

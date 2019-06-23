@@ -41,6 +41,21 @@ def QtoH(Q):
     print('Q error norm:',np.linalg.norm( H.dot(H.T) - Q ))
     return H
 
+def aMulBsp(a,b):
+    # returns a.dot(b) if b is sparse
+    return (b.T.dot(a.T)).T
+
+def getTrilIdxs(n):
+    idxI = []
+    idxJ = []
+    for i in range(n):
+        for j in range(i+1):
+            idxI.append(i)
+            idxJ.append(j)
+    
+    return idxI, idxJ
+
+
 # CLASS from here ==================
 
 class buildLinModel:
@@ -142,6 +157,7 @@ class buildLinModel:
                 # self.showQpSln()
         
         if modelType in ['loadAndRun']:
+            self.setupConstraints() # this reloads the constraints in.
             self.runQpSet()
             # self.runQp4test()
             
@@ -194,9 +210,11 @@ class buildLinModel:
         
     def runQpSet(self,saveQpSln=True):
         objs = ['opCst','hcGen','hcLds']
+        objs = ['opCst']
+        # objs = ['hcGen']
         # objs = ['hcLds']
         strategies = ['full','part','maxTap','minTap','loss','load']
-        # strategies = ['part']
+        # strategies = ['full']
         optType = ['mosekFull']
         qpSolutions = {}
         for obj in objs:
@@ -628,34 +646,6 @@ class buildLinModel:
         G = np.r_[Gv,Gx]
         h = np.r_[hv,hx]
         
-        # vLimLo = ( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
-        # vLimUp = ( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
-        # Kc2vIn = self.Kc2v[self.vIn]
-        
-        
-        # zroApx = np.ones(self.nPctrl)*self.qLim*1e-8
-        # # if obj in ['opCst','hcLds']:
-        # if obj in ['opCst']:
-            # xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
-                                                                                # np.ones(self.nT)*self.tLim ]
-            # xLimLo = np.r_[ -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,
-                                                                                # -np.ones(self.nT)*self.tLim ]
-            # G = np.r_[np.eye(self.nCtrl),Kc2vIn,-np.eye(self.nCtrl),-Kc2vIn]
-            
-        # if obj in ['hcLds']:
-            # xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
-                                                                                # np.ones(self.nT)*self.tLim ]
-            # xLimLo = np.r_[ -np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
-            # G = np.r_[np.eye(self.nCtrl),Kc2vIn,
-                    # -np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
-                                    # -Kc2vIn ]
-        # if obj in ['hcGen']:
-            # xLimUp = np.r_[ np.ones(self.nPctrl)*self.qLim,np.ones(self.nT)*self.tLim ]
-            # xLimLo = np.r_[ np.zeros(self.nPctrl),-np.ones(self.nPctrl)*self.qLim,-np.ones(self.nT)*self.tLim ]
-            # G = np.r_[ np.c_[np.zeros((self.nCtrl-self.nPctrl,self.nPctrl)),np.eye(self.nCtrl-self.nPctrl)],
-                                        # Kc2vIn,-np.eye(self.nCtrl),-Kc2vIn]
-        
-        # h = np.array( [np.r_[xLimUp,vLimUp,-xLimLo,-vLimLo]] ).T
         return G,h
     
     def remControlVrlbs(self,strategy,obj):
@@ -696,7 +686,7 @@ class buildLinModel:
                 oneHat[:self.nPctrl,0] = 1
                 oneHat[self.nSctrl:,1:] = np.eye(self.nT)
             
-        return oneHat,x0
+        return sparse.csc_matrix(oneHat),x0
     
     def runOptimization(self,Q,p,G,h,oneHat,x0,strategy,obj,optType):
         if strategy in ['minTap','maxTap','load']:
@@ -744,7 +734,7 @@ class buildLinModel:
                     self.slnX = np.zeros(self.nCtrl) + self.x0.flatten()
                     self.slnS = 'f' # failed
         
-        # self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=True,tLss=True,oneHat=oneHat)) + x0.flatten() # for debugging
+        self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=False,tLss=True,oneHat=oneHat)) + x0.flatten() # for debugging
     
     def runCvrQp(self,strategy='full',obj='opCst',optType=['cvxopt']):
         # minimize    (1/2)*x'*P*x + q'*x
@@ -765,6 +755,7 @@ class buildLinModel:
         # GET RID OF APPROPRIATE VARIABLES
         self.oneHat,self.x0 = self.remControlVrlbs(strategy,obj)
         x0 = self.x0; oneHat = self.oneHat
+        
         if obj=='opCst' and strategy in ['minTap','maxTap'] and self.nT==0:
             self.slnX = x0.flatten(); self.slnS = np.nan
         elif obj in ['hcGen','hcLds'] and strategy in ['loss','load']:
@@ -778,17 +769,24 @@ class buildLinModel:
             
             # INEQUALITY CONSTRAINTS
             G,h = self.getInqCns(obj)
-            # G,h = self.getVghConstraints() # NOT IN USE right now
             
-            Qp = matrix(  (oneHat.T).dot(Q.dot(oneHat)) )
-            pp = matrix(  (p.T.dot(oneHat)).T  - 2*(  (x0.T).dot(Q.dot(oneHat)).T  ) )
-            if G.shape[1]==1:
-                GpNz = (G.dot(oneHat)!=0)
-                Gp = matrix( G.dot(oneHat)[GpNz] )
-                hp = matrix( (h - G.dot(x0))[GpNz] )
-            else:
-                Gp = matrix( G.dot(oneHat) )
-                hp = matrix( (h - G.dot(x0)) )
+            # Qp = matrix(  (oneHat.T).dot(Q.dot(oneHat)) )
+            # pp = matrix(  (p.T.dot(oneHat)).T  - 2*(  (x0.T).dot(Q.dot(oneHat)).T  ) )
+            
+            # GpNz = (G.dot(oneHat)!=0)
+            # Gp = matrix( G.dot(oneHat)[GpNz] )
+            # hp = matrix( (h - G.dot(x0))[GpNz] )
+            
+            # NB: oneHat is assumed to be sparse
+            Qp = matrix(  (oneHat.T).dot(  aMulBsp(Q,oneHat) ) )
+            pp = matrix(  aMulBsp(p.T,oneHat).T  - 2*(  (x0.T).dot(aMulBsp(Q,oneHat)).T  ) )
+            
+            Gp0 = aMulBsp(G,oneHat)
+            GpNz = (np.sum(Gp0,axis=1)!=0)
+            Gp = matrix( Gp0[GpNz] )
+            hp = matrix( (h - G.dot(x0))[GpNz] )
+            
+            
             self.runOptimization(Qp,pp,Gp,hp,oneHat,x0,strategy,obj,optType)
         
         self.slnF = self.runQp(self.slnX)
@@ -803,8 +801,11 @@ class buildLinModel:
         
         nCtrlAct = p0.shape[0]
         nSctrlAct = nCtrlAct - self.nT
-        nPctrlAct = np.linalg.matrix_rank( oneHat[:self.nPctrl] )
-        nQctrlAct = np.linalg.matrix_rank( oneHat[self.nPctrl:self.nSctrl] )
+        
+        nPctrlAct = np.sum(np.sum( oneHat[:self.nPctrl],axis=0 )!=0)
+        nQctrlAct = np.sum(np.sum( oneHat[self.nPctrl:self.nSctrl],axis=0 )!=0)
+        # nPctrlAct = np.linalg.matrix_rank( oneHat[:self.nPctrl] )
+        # nQctrlAct = np.linalg.matrix_rank( oneHat[self.nPctrl:self.nSctrl] )
         
         if p0.ndim==1:
             p0 = np.array([p0]).T
@@ -854,7 +855,8 @@ class buildLinModel:
             # CURRENT constraints:
             ii = 0
             a2iCtrl = self.aIxfmr + self.Mc2i.dot(self.X0ctrl + x0.flatten())
-            Mc2iCtrl = self.Mc2i.dot(oneHat)
+            # Mc2iCtrl = self.Mc2i.dot(oneHat)
+            Mc2iCtrl = aMulBsp(self.Mc2i,oneHat)
             if nCtrlAct>1:
                 for lim in self.iXfmrLims:
                     mc2iCpx = Mc2iCtrl[ii]
@@ -864,8 +866,11 @@ class buildLinModel:
                     
                     mCpx = Matrix.dense( mCpx )
                     aCpx = Matrix.dense( aCpx )
-                    iScaleReq = 1e-12
+                    # iScaleReq = 1e-9
+                    # iScaleReq = 1e-3
+                    iScaleReq = 1
                     if np.linalg.norm( mc2iCpx/(lim*self.iScale) )>iScaleReq:
+                        print('ii in! ',ii)
                         iAdd = Expr.add(Expr.mul(mCpx,x),aCpx)
                         M.constraint( "i"+str(ii), Expr.vstack( lim*self.iScale,iAdd ),Domain.inQCone() )
                     ii+=1
@@ -1046,9 +1051,9 @@ class buildLinModel:
         self.loadQpSet()
         self.loadQpSln(strategy,obj)
         if err=='V':
-            dssError = np.linalg.norm( (self.slnF[3] - self.slnD[3])/self.vKvbase )/np.linalg.norm( self.slnF[3]/self.vKvbase )
+            dssError = np.linalg.norm( (self.slnF[4] - self.slnD[4])/self.vKvbase )/np.linalg.norm( self.slnF[4]/self.vKvbase )
         elif err=='I':
-            dssError = np.linalg.norm(  (self.slnF[6] - self.slnD[6])/self.iXfmrLims )/np.linalg.norm( self.iXfmrLims )
+            dssError = np.linalg.norm(  (self.slnF[7] - self.slnD[7])/self.iXfmrLims )/np.linalg.norm( self.iXfmrLims )
         return dssError
         
     def setDssSlnX(self,genNames,slnX=None,method=None):
@@ -1068,7 +1073,7 @@ class buildLinModel:
         if method=='relaxT':
             # SIDE EFFECT: Disables all cap controls.
             slnF = self.runQp(slnX)
-            vOut = slnF[3]
+            vOut = slnF[4]
             regIdx = np.array(get_regIdx(DSSCircuit)[0])-3
             Vrto = getRegBwVrto(DSSCircuit)[1]
             
@@ -2497,6 +2502,14 @@ class buildLinModel:
             cns['iScale'] = 1.5
         if self.feeder=='epri5':
             cns['iScale'] = 1.7
+        if self.feeder=='epri24cvr':
+            cns['iScale'] = 4.0
+            cns['mvHi'] = 1.10
+            cns['mvLo'] = 0.92
+            cns['lvHi'] = 1.10
+            cns['lvLo'] = 0.92
+
+            
         return cns
     
     def setupConstraints(self,cns=None):
@@ -2740,7 +2753,7 @@ class buildLinModel:
             ttl = 'Opt Qgen (kVAr)' # Positive implies capacitive
         elif type=='vSln':
             # TL,PL,TC,V,I = self.slnF
-            scoreNom = self.slnF[3][self.vIn]/self.vInKvbase
+            scoreNom = self.slnF[4][self.vIn]/self.vInKvbase
             scores, minMax0 = self.getSetVals(scoreNom,pltType,'vIn')
             minMaxAbs = np.max(np.abs( np.array([np.nanmax(list(scores.values())),np.nanmin(list(scores.values()))]) ) )
             minMax0 = [0.92,1.05]
