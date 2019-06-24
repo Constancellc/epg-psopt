@@ -31,19 +31,22 @@ def dirPrint(obj):
     print(*dir(obj),sep='\n')
 
 def QtoH(Q):
-    L,D = ldl(Q)[0:2] #NB not implemented here, but could also use spectral decomposition.
+    L,D,P = ldl(Q) #NB not implemented here, but could also use spectral decomposition.
+    Pinv = np.argsort(P)
     if min(np.diag(D))<0:
         print('Warning: not PSD, removing negative D elements')
         D[D<0]=0
-        H = L.dot(np.sqrt(D)) # get rid of the smallest eigenvalue,
-    else:
-        H = L.dot(np.sqrt(D)) # get rid of the smallest eigenvalue,
-    print('Q error norm:',np.linalg.norm( H.dot(H.T) - Q ))
-    return H
+    
+    H = dsf.mvM(L[P],np.sqrt(np.diag(D))) # get rid of the smallest eigenvalue,
+    print('Q error norm:',np.linalg.norm( H[Pinv].dot(H[Pinv].T) - Q ))
+    return H,Pinv
 
 def aMulBsp(a,b):
-    # returns a.dot(b) if b is sparse
-    return (b.T.dot(a.T)).T
+    # returns a.dot(b) if b is sparse, as a numpy array.
+    val = (b.T.dot(a.T)).T
+    if sparse.issparse(val):
+        val = val.toarray()
+    return val
 
 def getTrilIdxs(n):
     idxI = []
@@ -107,6 +110,7 @@ class buildLinModel:
             self.initialiseOpenDss()
             self.setupPlots()
             self.slnF0 = self.runQp(np.zeros(self.nCtrl))
+            delattr(self,'qpHlss')
             self.slnD0 = self.qpDssValidation(np.zeros(self.nCtrl))
             self.saveLinModel()
         elif modelType == 'linOnly':
@@ -214,7 +218,7 @@ class buildLinModel:
         # objs = ['hcGen']
         # objs = ['hcLds']
         strategies = ['full','part','maxTap','minTap','loss','load']
-        # strategies = ['full']
+        strategies = ['full']
         optType = ['mosekFull']
         qpSolutions = {}
         for obj in objs:
@@ -281,7 +285,7 @@ class buildLinModel:
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         DSSText.Command='Compile '+self.fn
         
-    def makeCvrQp(self,verbose=True):
+    def makeCvrQp(self):
         # things to make.
         # Control variables:
         # 1. reactive power of generators individually
@@ -297,10 +301,6 @@ class buildLinModel:
         # 1. real power losses
         # 2. total power load
         # 3. generated power.
-        #
-        # put in a 
-        
-        self.QP = {} # this is our goal.
         
         lin_point = self.linPoint
         self.currentLinPoint = self.linPoint
@@ -414,6 +414,7 @@ class buildLinModel:
         self.Kd = Kd
         self.currentLinPoint = lin_point
         
+        del(My); del(Md)
         self.createWmodel(lin_point) # this seems to be ok
         
         f0 = self.v2iBrYxfmr.dot(YNodeV)[self.iXfmrModelled] # voltages to currents through xfmrs
@@ -424,15 +425,15 @@ class buildLinModel:
             f0 = f0 + df*np.ones(len(f0))
             fNoload = fNoload + df*np.ones(len(fNoload))
         
-        KyW, KdW, KtW, self.bW = lineariseMfull(self.WyXfmr,self.WdXfmr,self.WtXfmr,f0,xYcvr[self.syIdx],xDcvr,np.zeros(self.WtXfmr.shape[1]))
+        # KyW, KdW, KtW, self.bW = lineariseMfull(self.WyXfmr,self.WdXfmr,self.WtXfmr,f0,xYcvr[self.syIdx],xDcvr,np.zeros(self.WtXfmr.shape[1]))
         
         f0cpx = self.WyXfmr.dot(xYcvr[self.syIdx]) + self.WdXfmr.dot(xDcvr) + self.WtXfmr.dot(np.zeros(self.WtXfmr.shape[1])) + self.aIxfmr
-        f0lin = KyW.dot(xYcvr[self.syIdx]) + KdW.dot(xDcvr) + KtW.dot(np.zeros(self.WtXfmr.shape[1])) + self.bW
+        # f0lin = KyW.dot(xYcvr[self.syIdx]) + KdW.dot(xDcvr) + KtW.dot(np.zeros(self.WtXfmr.shape[1])) + self.bW
         
         self.log.info('\nCurrent cpx error (lin point):'+str(np.linalg.norm(f0cpx-f0)/np.linalg.norm(f0)))
         self.log.info('Current cpx error (no load point):'+str(np.linalg.norm(self.aIxfmr-fNoload)/np.linalg.norm(fNoload)))
-        self.log.info('\nCurrent abs error (lin point):'+str(np.linalg.norm(f0lin-abs(f0))/np.linalg.norm(abs(f0))))
-        self.log.info('Current abs error (no load point):'+str(np.linalg.norm(self.bW-abs(fNoload))/np.linalg.norm(abs(fNoload)))+'( note that this is usually not accurate, it seems.)')
+        # self.log.info('\nCurrent abs error (lin point):'+str(np.linalg.norm(f0lin-abs(f0))/np.linalg.norm(abs(f0))))
+        # self.log.info('Current abs error (no load point):'+str(np.linalg.norm(self.bW-abs(fNoload))/np.linalg.norm(abs(fNoload)))+'( note that this is usually not accurate, it seems.)')
         
         # control (c) variables (in order): Pgen(Y then D) (kW),Qgen(Y then D) (kvar),t (no.).
         # notation as 'departure2arrival'
@@ -440,6 +441,7 @@ class buildLinModel:
         self.nSctrl = self.nPctrl*2
         self.nCtrl = self.nSctrl + self.nT
         
+        self.lScale = 1e-3 # to convert to kW
         self.xSscale = 1e-3 # these values seem about correct, it seems.
         self.xTscale = 160*1e0
         self.xScale = np.r_[self.xSscale*np.ones(self.nSctrl),self.xTscale*np.ones(self.nT)] # change the scale factor of matrices here
@@ -452,10 +454,10 @@ class buildLinModel:
         del(Ky); del(Kd)
         delattr(self,'Ky'); delattr(self,'Kd'); delattr(self,'Kt')
         
-        self.Kc2i = dsf.mvM( np.concatenate( (KyW[:,:self.nPy],KdW[:,:self.nPd],
-                                            KyW[:,self.nPy::],KdW[:,self.nPd::],
-                                            KtW),axis=1), 1/self.xScale ) # limits for these are in self.iXfmrLims.
-        del(KyW); del(KdW); del(KtW)
+        # self.Kc2i = dsf.mvM( np.concatenate( (KyW[:,:self.nPy],KdW[:,:self.nPd],
+                                            # KyW[:,self.nPy::],KdW[:,self.nPd::],
+                                            # KtW),axis=1), 1/self.xScale ) # limits for these are in self.iXfmrLims.
+        # del(KyW); del(KdW); del(KtW)
         
         self.Mc2i = dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
                                             self.WyXfmr[:,self.nPy::],self.WdXfmr[:,self.nPd::],
@@ -476,11 +478,18 @@ class buildLinModel:
         Kc2pC = np.concatenate((xYcvr[self.pyIdx[0]],xDcvr[:self.nPd]))
         Kc2p =  dsf.vmM(Kc2pC*self.pCvr,Kc2vloadpu)
         
-        self.Mc2v = dsf.mvM( np.concatenate((self.My[:,:self.nPy],self.Md[:,:self.nPd],
+        self.ploadL = -self.lScale*self.xScale*np.sum(Kc2p,axis=0)
+        self.ploadC = -self.lScale*sum(Kc2pC)
+        del(Kc2pC); del(Kc2p); del(Kc2vloadpu); del(Kc2d)
+        
+        # self.Mc2v = dsf.mvM( np.concatenate((self.My[:,:self.nPy],self.Md[:,:self.nPd],
+        Mc2v = dsf.mvM( np.concatenate((self.My[:,:self.nPy],self.Md[:,:self.nPd],
                                         self.My[:,self.nPy::],self.Md[:,self.nPd::],
                                         self.Mt),axis=1), 1/self.xScale )
         delattr(self,'My'); delattr(self,'Md'); delattr(self,'Mt')
-        M = np.block([[np.zeros((3,self.nCtrl),dtype=complex)],[self.Mc2v],[np.zeros((1,self.nCtrl),dtype=complex)]])
+        # M = np.block([[np.zeros((3,self.nCtrl),dtype=complex)],[self.Mc2v],[np.zeros((1,self.nCtrl),dtype=complex)]])
+        M = np.block([[np.zeros((3,self.nCtrl),dtype=complex)],[Mc2v],[np.zeros((1,self.nCtrl),dtype=complex)]])
+        del(Mc2v)
         
         Wcnj = dsf.mvM(np.concatenate((self.Wy[:,:self.nPy],self.Wd[:,:self.nPd],
                                 self.Wy[:,self.nPy::],self.Wd[:,self.nPd::],self.Wt),axis=1).conj(), 1/self.xScale )
@@ -495,7 +504,7 @@ class buildLinModel:
         P = np.zeros((len(self.yzW2V),len(M)))
         P[range(len(self.yzW2V)),self.yzW2V] = 1
         P = np.delete(P,self.wregIdxs,axis=0) # don't forget we take out the regulator models!
-        PT = P.T
+        # PT = P.T
 
         # eyeDel = np.eye(len(self.Wy))
         # eyeDel = np.delete(eyeDel,self.wregIdxs,axis=0)
@@ -510,18 +519,22 @@ class buildLinModel:
         # negative eigenvalues...?
         # qpQlss = self.lScale*np.real( (M.T).dot(middleMat.dot(M.conj())) )11
         
-        self.lScale = 1e-3 # to convert to kW
-        # The input to the models are all in kW, t, and should output in kW too!
-        qpQlss = self.lScale*np.real( (M.T).dot(PT.dot(Wcnj)) )
-        qpQlss = 0.5*(qpQlss + qpQlss.T)
-        self.qpQlss = 0.5*(qpQlss + qpQlss.T) # make symmetric.
-        self.qpLlss0 = self.lScale*np.real( aV.dot(PT.dot(Wcnj)) + aIcnj.dot(P.dot(M)) )
-        self.qpLlss = self.qpLlss0 + 2*self.qpQlss.dot(self.X0ctrl)
-        self.qpClss0 = self.lScale*np.real( aV.dot(PT.dot(aIcnj)) )
-        self.qpClss = self.qpClss0 + self.X0ctrl.dot( self.qpLlss0 + self.qpQlss.dot(self.X0ctrl))
         
-        self.ploadL = -self.lScale*self.xScale*np.sum(Kc2p,axis=0)
-        self.ploadC = -self.lScale*sum(Kc2pC)
+        # The input to the models are all in kW, t, and should output in kW too!
+        qpQlss = self.lScale*np.real( (M.T).dot(P.T.dot(Wcnj)) )
+        qpQlss = 0.5*(qpQlss + qpQlss.T) # make symmetric.
+        qpHlss,self.qpHlssPinv = QtoH(qpQlss)
+        self.qpHlssLin = qpHlss[getTrilIdxs(self.nCtrl)]
+        # self.qpQlss = qpQlss # for debugging
+        
+        qpQlss0 = qpQlss.dot(self.X0ctrl);
+        del(qpQlss)
+        qpLlss0 = self.lScale*np.real( aV.dot(P.T.dot(Wcnj)) + aIcnj.dot(P.dot(M)) )
+        
+        self.qpLlss = qpLlss0 + 2*qpQlss0
+        qpClss0 = self.lScale*np.real( aV.dot(P.T.dot(aIcnj)) )
+        self.qpClss = qpClss0 + self.X0ctrl.dot( qpLlss0 + qpQlss0)
+        
         
         pcurtL = np.zeros(self.nCtrl)
         pcurtL[:self.nPctrl] = -self.lScale/self.xSscale
@@ -534,11 +547,16 @@ class buildLinModel:
         self.log.info('Actual losses:'+str(DSSCircuit.Losses))
         self.log.info('Model losses'+str(self.qpClss))
         self.log.info('TLoad:'+str(-DSSCircuit.TotalPower[0] - self.lScale*DSSCircuit.Losses[0]))
-        self.log.info('TLoadEst:'+str(-self.lScale*sum(Kc2pC)))
-        
-        print('Q PD test:',pdTest(self.qpQlss))
+        # self.log.info('TLoadEst:'+str(-self.lScale*sum(Kc2pC)))
         
         return
+    
+    def getHmat(self):
+        n = self.nCtrl
+        H = np.zeros((n,n))
+        H[getTrilIdxs(n)] = self.qpHlssLin
+        # self.qpHlss = H[self.qpHlssPinv]
+        return H[self.qpHlssPinv]
     
     def getQlossOfs(self):
         self.kQlossL = 0.025 # at rated Q, the fraction of P
@@ -551,56 +569,59 @@ class buildLinModel:
         self.qlossQdiag = qlossQdiag
     
     def getObjFunc(self,strategy,obj,tLss=False):
-        if tLss == True:
-            qpQlss = self.qpQlss + np.diag(self.qlossQdiag)
-        else:
-            qpQlss = self.qpQlss
+        # if tLss == True:
+            # qpQlss = self.qpQlss + np.diag(self.qlossQdiag)
+        # else:
+            # qpQlss = self.qpQlss
         
         if obj=='opCst':
             if strategy in ['full','part']:
-                Q = 2*qpQlss
+                # Q = 2*qpQlss
+                H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.ploadL + self.pcurtL
             elif strategy=='maxTap':
-                Q = 0*qpQlss
+                # Q = 0*qpQlss
+                H = sparse.csc_matrix((self.nCtrl,self.nCtrl))
                 if self.nT>0:
                     t2vPu = np.sum( dsf.vmM( 1/self.vInKvbase,self.Kc2v[self.vIn,-self.nT:] ),axis=0 )
                     p = np.r_[np.zeros((self.nPctrl*2)),-1*t2vPu] # maximise the average voltage
                 else:
                     p = np.r_[np.zeros((self.nPctrl*2))]
             elif strategy=='minTap':
-                Q = 0*qpQlss
+                # Q = 0*qpQlss
+                H = sparse.csc_matrix((self.nCtrl,self.nCtrl))
                 if self.nT>0:
                     t2vPu = np.sum( dsf.vmM( 1/self.vInKvbase,self.Kc2v[self.vIn,-self.nT:] ),axis=0 )
                     p = np.r_[np.zeros((self.nPctrl*2)),t2vPu] # minimise the average voltage
                 else:
                     p = np.r_[np.zeros((self.nPctrl*2))]
             elif strategy=='loss':
-                Q = 2*qpQlss
+                # Q = 2*qpQlss
+                H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.pcurtL
             elif strategy=='load':
-                Q = 0*qpQlss
+                # Q = 0*qpQlss
+                H = sparse.csc_matrix((self.nCtrl,self.nCtrl))
                 p = self.ploadL + self.pcurtL
         
         if obj=='hcGen':
             if strategy in ['full','part','minTap','maxTap']:
-                Q = 2*qpQlss
+                # Q = 2*qpQlss
+                H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.ploadL + self.pcurtL
         
         if obj=='hcLds':
             if strategy in ['full','part','minTap','maxTap']:
-                Q = 0*qpQlss
+                # Q = 0*qpQlss
+                H = sparse.csc_matrix((self.nCtrl,self.nCtrl))
                 p = np.r_[ np.ones(self.nPctrl), np.zeros(self.nPctrl + self.nT) ]
                 
         p = np.array([p]).T
-        return Q,p
+        return H,p
     
-    
-    def getVghConstraints(self): # NB doubles getInqCns
-        # vLimLo = ( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
-        # vLimUp = ( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )[self.vIn]
-        # Kc2vIn = self.Kc2v[self.vIn]
+    def getVghConstraints(self):
         # scaleFactor = 1000/self.vKvbase
-        scaleFactor = 1/self.vKvbase # this seems to give the nicest results
+        scaleFactor = 1/self.vKvbase # this seems to give the nicest results?
         # scaleFactor = np.ones(self.nV)
         vLimLo = (( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )*scaleFactor )[self.vIn]
         vLimUp = (( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )*scaleFactor )[self.vIn]
@@ -688,7 +709,8 @@ class buildLinModel:
             
         return sparse.csc_matrix(oneHat),x0
     
-    def runOptimization(self,Q,p,G,h,oneHat,x0,strategy,obj,optType):
+    # def runOptimization(self,Q,p,G,h,oneHat,x0,strategy,obj,optType):
+    def runOptimization(self,H,p,G,h,oneHat,x0,strategy,obj,optType):
         if strategy in ['minTap','maxTap','load']:
             tLss=False
         else:
@@ -696,25 +718,27 @@ class buildLinModel:
         
         print('Starting optimizations, strategy: ',strategy,'; Solver types: ',optType)
         if 'cvxopt' in optType:
+            Q = matrix(H.dot(H.T)); p = matrix(p); G = matrix(G); h = matrix(h)
             self.sln = solvers.qp(Q,p,G,h)
             self.slnX = oneHat.dot(np.array(self.sln['x']).flatten())               + x0.flatten()
             self.slnS = self.sln['status']
         if 'cvxMosek' in optType:
+            Q = matrix(H.dot(H.T)); p = matrix(p); G = matrix(G); h = matrix(h)
             self.sln = solvers.qp(Q,p,G,h,solver='mosek')
             self.slnX = oneHat.dot(np.array(self.sln['x']).flatten())               + x0.flatten()
             self.slnS = self.sln['status']
         if 'mosekNom' in optType:
-            self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=False))      + x0.flatten()
+            self.slnX = oneHat.dot(self.mosekQpEquiv(H,p,G,h,x0,obj,tInt=False))      + x0.flatten()
             self.slnS = np.nan
         
         if 'mosekInt' in optType:
             try:
-                self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=True)) + x0.flatten()
+                self.slnX = oneHat.dot(self.mosekQpEquiv(H,p,G,h,x0,obj,tInt=True)) + x0.flatten()
                 self.slnS = 's' # success
             except:
                 print('---> Integer optimization not working, trying continuous.')
                 try:
-                    self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=False))      + x0.flatten()
+                    self.slnX = oneHat.dot(self.mosekQpEquiv(H,p,G,h,x0,obj,tInt=False))      + x0.flatten()
                     self.slnS = 'r' # relaxed success
                 except:
                     print('---> Both Optimizations failed, saving null result.')
@@ -722,22 +746,22 @@ class buildLinModel:
                     self.slnS = 'f' # failed
         if 'mosekFull' in optType:
             try:
-                self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=True,tLss=tLss,oneHat=oneHat)) + x0.flatten()
+                self.slnX = oneHat.dot(self.mosekQpEquiv(H,p,G,h,x0,obj,tInt=True,tLss=tLss,oneHat=oneHat)) + x0.flatten()
                 self.slnS = 's' # success
             except:
                 print('---> Integer optimization not working, trying continuous.')
                 try:
-                    self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=False,tLss=tLss,oneHat=oneHat)) + x0.flatten()
+                    self.slnX = oneHat.dot(self.mosekQpEquiv(H,p,G,h,x0,obj,tInt=False,tLss=tLss,oneHat=oneHat)) + x0.flatten()
                     self.slnS = 'r' # relaxed success
                 except:
                     print('---> All Optimizations failed, saving null (x0) result.')
                     self.slnX = np.zeros(self.nCtrl) + self.x0.flatten()
                     self.slnS = 'f' # failed
         
-        self.slnX = oneHat.dot(self.mosekQpEquiv(Q,p,G,h,x0,obj,tInt=False,tLss=True,oneHat=oneHat)) + x0.flatten() # for debugging
+        # self.slnX = oneHat.dot(self.mosekQpEquiv(H,p,G,h,x0,obj,tInt=False,tLss=True,oneHat=oneHat)) + x0.flatten() # for debugging
     
     def runCvrQp(self,strategy='full',obj='opCst',optType=['cvxopt']):
-        # minimize    (1/2)*x'*P*x + q'*x
+        #       (1/2)*x'*P*x + q'*x
         # subject to  G*x <= h
         #               A*x = b.
         # sol = solvers.qp(Q,p,G,h,A,b)
@@ -762,10 +786,8 @@ class buildLinModel:
             self.slnX = x0.flatten(); self.slnS = np.nan
         else:
             # OBJECTIVE FUNCTION
-            if 'mosekFull' in optType:
-                Q,p = self.getObjFunc(strategy,obj,tLss=True)
-            else:
-                Q,p = self.getObjFunc(strategy,obj,tLss=False)
+            # Q,p = self.getObjFunc(strategy,obj)
+            H,p = self.getObjFunc(strategy,obj) # H is of the form HHt = 2*Q
             
             # INEQUALITY CONSTRAINTS
             G,h = self.getInqCns(obj)
@@ -778,16 +800,21 @@ class buildLinModel:
             # hp = matrix( (h - G.dot(x0))[GpNz] )
             
             # NB: oneHat is assumed to be sparse
-            Qp = matrix(  (oneHat.T).dot(  aMulBsp(Q,oneHat) ) )
-            pp = matrix(  aMulBsp(p.T,oneHat).T  - 2*(  (x0.T).dot(aMulBsp(Q,oneHat)).T  ) )
+            # Qp = matrix(  (oneHat.T).dot(  aMulBsp(Q,oneHat) ) )
+            # Qp = (oneHat.T).dot(  aMulBsp(Q,oneHat) )
+            # pp = aMulBsp(p.T,oneHat).T  - 2*(  (x0.T).dot(aMulBsp(Q,oneHat)).T  )
+            
+            Hp = aMulBsp(H.T,oneHat).T
+            pp = aMulBsp(p.T,oneHat).T  - 2*(  ( H.T.dot(x0).T).dot(aMulBsp(H.T,oneHat)).T  )
             
             Gp0 = aMulBsp(G,oneHat)
             GpNz = (np.sum(Gp0,axis=1)!=0)
-            Gp = matrix( Gp0[GpNz] )
-            hp = matrix( (h - G.dot(x0))[GpNz] )
+            Gp = Gp0[GpNz]
+            hp = (h - G.dot(x0))[GpNz]
             
             
-            self.runOptimization(Qp,pp,Gp,hp,oneHat,x0,strategy,obj,optType)
+            # self.runOptimization(Qp,pp,Gp,hp,oneHat,x0,strategy,obj,optType)
+            self.runOptimization(Hp,pp,Gp,hp,oneHat,x0,strategy,obj,optType)
         
         self.slnF = self.runQp(self.slnX)
         if len(self.dssStuff)==4:
@@ -795,9 +822,10 @@ class buildLinModel:
             self.slnD = self.qpDssValidation()
         
     
-    def mosekQpEquiv(self,Q0,p0,G0,h0,x0,obj,tInt=False,tLss=False,oneHat=[],iRelax=False):
-        if type(Q0)==matrix:
-            Q0 = np.array(Q0); p0 = np.array(p0); G0 = np.array(G0); h0 = np.array(h0)
+    # def mosekQpEquiv(self,Q0,p0,G0,h0,x0,obj,tInt=False,tLss=False,oneHat=[],iRelax=False):
+    def mosekQpEquiv(self,H0,p0,G0,h0,x0,obj,tInt=False,tLss=False,oneHat=[],iRelax=False):
+        if type(H0)==matrix:
+            H0 = np.array(H0); p0 = np.array(p0); G0 = np.array(G0); h0 = np.array(h0)
         
         nCtrlAct = p0.shape[0]
         nSctrlAct = nCtrlAct - self.nT
@@ -812,10 +840,13 @@ class buildLinModel:
         if h0.ndim==1:
             h0 = np.array([h0]).T
         
-        if np.sum(Q0)!=0:
-            H = QtoH(Q0)
-            H = Matrix.dense(H.T) # so that the 2 norm is as xT.dot(H.dot(H.T.dot(x))) as req, NOT vice versa!
+        # if np.sum(H0)!=0:
+            # H = QtoH(H0)[0]
+            # H = Matrix.dense(H.T) # so that the 2 norm is as xT.dot(H.dot(H.T.dot(x))) as req, NOT vice versa!
+            
+        H0sum = np.sum(H0)
         
+        H = Matrix.dense(H0.T) # so that the 2 norm is as xT.dot(H.dot(H.T.dot(x))) as req, NOT vice versa!
         p = Matrix.dense(p0)
         G = Matrix.dense(G0)
         h = Matrix.dense(h0)
@@ -831,13 +862,20 @@ class buildLinModel:
                 if nQctrlAct==self.nPctrl:
                     qlossLabs = max(self.qlossL)
                 
-                w = M.variable("w",nQctrlAct)
-                cw = Matrix.dense( np.ones((nQctrlAct,1)) )
+                wL = M.variable("wL",nQctrlAct)
                 
-                M.constraint( Expr.sub( Expr.mul(qlossLabs,yQ),w ),Domain.lessThan(0.0) )
-                M.constraint( Expr.add( Expr.mul(qlossLabs,yQ),w ),Domain.greaterThan(0.0) )
+                M.constraint( Expr.sub( Expr.mul(qlossLabs,yQ),wL ),Domain.lessThan(0.0) )
+                M.constraint( Expr.add( Expr.mul(qlossLabs,yQ),wL ),Domain.greaterThan(0.0) )
                 
-                wCfunc = Expr.dot(cw,w)
+                ii = 0
+                wQ = M.variable("wQ",nQctrlAct,Domain.greaterThan(0.0))
+                qLossQ = np.diag( oneHat.T.dot( sparse.csc_matrix(np.diag(self.qlossQdiag)).dot(oneHat) ).toarray() )[nPctrlAct:nPctrlAct+nQctrlAct]
+                for qLossFactor in qLossQ:
+                    M.constraint( "wQ"+str(ii), Expr.hstack(1.0, wQ.index(ii),Expr.mul(np.sqrt(qLossFactor),yQ.index(ii))), Domain.inRotatedQCone())
+                    ii+=1
+                
+                cw = Matrix.dense( np.ones((nQctrlAct*2,1)) )
+                wCfunc = Expr.dot(cw,Expr.vstack(wL,wQ))
             else:
                 y = M.variable("y",nSctrlAct)
                 wCfunc = 0
@@ -870,7 +908,6 @@ class buildLinModel:
                     # iScaleReq = 1e-3
                     iScaleReq = 1
                     if np.linalg.norm( mc2iCpx/(lim*self.iScale) )>iScaleReq:
-                        print('ii in! ',ii)
                         iAdd = Expr.add(Expr.mul(mCpx,x),aCpx)
                         M.constraint( "i"+str(ii), Expr.vstack( lim*self.iScale,iAdd ),Domain.inQCone() )
                     ii+=1
@@ -886,12 +923,13 @@ class buildLinModel:
                 M.constraint( "cxpaLtKlb", Expr.add(d,i0),Domain.greaterThan(0.0) )
                 M.constraint( "cxpaLtKub", Expr.sub(d,i0),Domain.greaterThan(0.0) )
             
-            if np.sum(Q0)!=0:
+            if H0sum!=0:
                 # QP constraint https://docs.mosek.com/9.0/pythonfusion/tutorial-model-lib.html
                 # NB: for some annoying reason the hstack and vstack need to be used differently depending
                 # on if there is one or more than one variable...[?]
                 t = M.variable("t",1,Domain.greaterThan(0.0))
                 if nCtrlAct==1:
+                    H = np.linalg.norm(H0)
                     M.constraint( "Qt", Expr.hstack(1.0, t,Expr.mul(H,x)), Domain.inRotatedQCone())
                 else:
                     M.constraint( "Qt", Expr.vstack(1.0,t,Expr.mul(H,x)), Domain.inRotatedQCone() )
@@ -1442,15 +1480,20 @@ class buildLinModel:
         return genNamesY + genNamesD
     
     def runQp(self,dx):
-        Vcest = self.Mc2v.dot(dx + self.X0ctrl) + self.aV
+        # Vcest = self.Mc2v.dot(dx + self.X0ctrl) + self.aV
+        Vcest = np.nan
         Icest = self.Mc2i.dot(dx + self.X0ctrl) + self.aIxfmr
         
+        self.qpHlss = self.getHmat()
+        
         # dx needs to be in units of kW, kVAr, tap no.
-        TL = dx.dot(self.qpQlss.dot(dx) + self.qpLlss) + self.qpClss
+        # TL = dx.dot(self.qpQlss.dot(dx) + self.qpLlss) + self.qpClss
+        TL = np.linalg.norm(self.qpHlss.dot(dx)) + self.qpLlss.dot(dx) + self.qpClss
         PL = dx.dot(self.ploadL) + self.ploadC
         TC = dx.dot(self.pcurtL)
         Vest = self.Kc2v.dot(dx + self.X0ctrl) + self.bV
-        Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
+        # Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
+        Iest = np.nan
         
         CL = self.qlossQdiag.dot(dx**2) + np.linalg.norm(self.qlossL*dx,ord=1)
         
@@ -2159,8 +2202,6 @@ class buildLinModel:
         self.qpLlss = np.real( aV.dot(PT.dot(Wcnj)) + aIcnj.dot(P.dot(M)) )
         self.qpClss = np.real( aV.dot(PT.dot(aIcnj)) )
         
-        print('PD of loss model: ',pdTest(self.qpQlss))
-        print('PD of loss model: ',pdTest(self.qpQlss + 1e-14*np.linalg.norm(self.qpQlss)*np.eye(len(self.qpQlss))))
         print('Min eigenvalue: ',np.min(np.linalg.eigvals(self.qpQlss)))
         # print('Norm:',np.linalg.norm(self.qpQlss))
         

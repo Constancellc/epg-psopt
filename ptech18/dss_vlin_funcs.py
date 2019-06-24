@@ -148,35 +148,6 @@ def cvrLinearization(Ybus,Vh,V0,H,pCvr,qCvr,kvYbase,kvDbase):
     
     return My,Md,a,dMy,dMd,da
     
-def pdTest(A):
-    # first find the symmetric part of A, then try the cholesky decomposition.
-    nP = len(A)//2
-    eigs = np.linalg.eigvals(A)
-    
-    # print(sum(np.linalg.eig(A)[-1][:nP,-1]))
-    # print(sum(np.linalg.eig(A)[-1][:nP,-2]))
-    
-    # plt.plot(np.linalg.eig(A)[-1][:,-1],'x-')
-    # plt.plot(np.linalg.eig(A)[-1][:,-2],'x-')
-    # plt.show()
-    
-    # plt.plot(np.log10(eigs + (0/(eigs>0))),'x-'); 
-    # plt.plot(np.log10(-eigs + (0/(eigs<0)) ),'x-')
-    # plt.show()
-    
-    if np.min(eigs)>0:
-        pd = True
-    else:
-        pd = False
-    # S = 0.5*(A + A.T)
-    # try:
-        # np.linalg.cholesky(S)
-        # pd = True
-    # except:
-        # pd = False
-    return pd
-    
-
 def firstOrderTaylor(Ybus,V,V0,xhy,xhd,H):
     # based on the m-file firstOrderTaylor.
     # V is YNodeV[3:]
