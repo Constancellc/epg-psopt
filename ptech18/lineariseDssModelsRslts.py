@@ -24,8 +24,7 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
     return blm
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
-feederSet = [5,6,8,24,0,18,'n4','n1','n10','n27',17]
-feederSet = [5,6,8,0]
+feederSet = [5,6,8,24,0,18,17,'n4','n1','n10','n27']
 
 lpA = [0.1,0.6,1.0]
 lpB = [0.1,0.3,0.6]
@@ -79,7 +78,7 @@ if 'f_checkFeasibility' in locals():
 # STEP 4: consider the accuracy of the models
 if 'f_checkError' in locals():
     pCvr = 0.8
-    strategy='part'
+    strategy='full'
     resultTableV = [['V error (%)'],['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
     resultTableI = [['I error (%)'],['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
     
@@ -107,7 +106,7 @@ if 'f_checkError' in locals():
 if 'f_valueComparison' in locals():
     pCvr = 0.8
     
-    strategies = ['full','part','minTap','maxTap']
+    strategies = ['full','part','phase','minTap','maxTap']
     # strategies = ['part']
     
     opCstTable = [['Operating cost (kW)'],['Feeder',*strategies]]

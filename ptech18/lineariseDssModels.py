@@ -13,9 +13,12 @@ import dss_stats_funcs as dsf
 from importlib import reload
 from scipy.linalg import toeplitz
 
+
 plt.style.use('tidySettings')
 from matplotlib.collections import LineCollection
 from matplotlib import cm, patches
+from matplotlib.patches import Polygon
+from matplotlib.collections import PatchCollection
 
 from cvxopt import matrix, solvers
 from win32com.client import makepy
@@ -214,9 +217,9 @@ class buildLinModel:
         
     def runQpSet(self,saveQpSln=True):
         objs = ['opCst','hcGen','hcLds']
-        # objs = ['opCst']
-        strategies = ['full','part','maxTap','minTap','loss','load']
-        # strategies = ['full']
+        # objs = ['hcGen']
+        strategies = ['full','part','phase','maxTap','minTap','loss','load']
+        strategies = ['full','part','phase','maxTap','minTap']
         optType = ['mosekFull']
         qpSolutions = {}
         for obj in objs:
@@ -577,7 +580,7 @@ class buildLinModel:
     
     def getObjFunc(self,strategy,obj,tLss=False):
         if obj=='opCst':
-            if strategy in ['full','part']:
+            if strategy in ['full','part','phase']:
                 H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.ploadL + self.pcurtL
             elif strategy=='maxTap':
@@ -602,12 +605,12 @@ class buildLinModel:
                 p = self.ploadL + self.pcurtL
         
         if obj=='hcGen':
-            if strategy in ['full','part','minTap','maxTap']:
+            if strategy in ['full','part','minTap','maxTap','phase']:
                 H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.ploadL + self.pcurtL
         
         if obj=='hcLds':
-            if strategy in ['full','part','minTap','maxTap']:
+            if strategy in ['full','part','minTap','maxTap','phase']:
                 H = sparse.csc_matrix((self.nCtrl,self.nCtrl))
                 p = np.r_[ np.ones(self.nPctrl), np.zeros(self.nPctrl + self.nT) ]
                 
@@ -682,6 +685,14 @@ class buildLinModel:
                 oneHat = np.zeros((self.nCtrl,1+self.nT))
                 oneHat[self.nPctrl:self.nSctrl,0] = 1
                 oneHat[self.nSctrl:,1:] = np.eye(self.nT)
+            elif strategy=='phase':
+                if 'nPh1' not in dir(self):
+                    self.getLdsPhsIdx()
+                oneHat = np.zeros((self.nCtrl,3+self.nT))
+                oneHat[self.nPctrl:self.nSctrl,0][self.Ph1] = 1
+                oneHat[self.nPctrl:self.nSctrl,1][self.Ph2] = 1
+                oneHat[self.nPctrl:self.nSctrl,2][self.Ph3] = 1
+                oneHat[self.nSctrl:,3:] = np.eye(self.nT)
             elif strategy in ['maxTap','minTap']:
                 if self.nT>0:
                     oneHat = np.zeros((self.nCtrl,self.nT))
@@ -703,6 +714,15 @@ class buildLinModel:
                 oneHat = np.zeros((self.nCtrl,1 + self.nT))
                 oneHat[:self.nPctrl,0] = 1
                 oneHat[self.nSctrl:,1:] = np.eye(self.nT)
+            if strategy=='phase':
+                if 'nPh1' not in dir(self):
+                    self.getLdsPhsIdx()
+                oneHat = np.zeros((self.nCtrl,3 + 1 + self.nT))
+                oneHat[:self.nPctrl,0] = 1
+                oneHat[self.nPctrl:self.nSctrl,1][self.Ph1] = 1
+                oneHat[self.nPctrl:self.nSctrl,2][self.Ph2] = 1
+                oneHat[self.nPctrl:self.nSctrl,3][self.Ph3] = 1
+                oneHat[self.nSctrl:,4:] = np.eye(self.nT)
             
         return sparse.csc_matrix(oneHat),x0
     
@@ -837,6 +857,9 @@ class buildLinModel:
                     qlossLabs = sum(self.qlossL)
                 if nQctrlAct==self.nPctrl:
                     qlossLabs = max(self.qlossL)
+                if nQctrlAct==3:
+                    phaseWeights = aMulBsp(self.qlossL,oneHat)
+                    qlossLabs = Matrix.dense( np.diag(phaseWeights[phaseWeights!=0]) )
                 
                 wL = M.variable("wL",nQctrlAct)
                 
@@ -1137,7 +1160,7 @@ class buildLinModel:
         print('\nTotal Q (kVAr):', sum(qOut)*self.lScale/self.xSscale)
         print('Tap Position:', tOut + np.array(self.TC_No0))
     
-    def showQpSln(self,slnX=None,slnF=None):
+    def showQpSln(self,slnX=None,slnF=None,ctrlPerPhase=True):
         if slnX is None:
             slnX = self.slnX
         if slnF is None:
@@ -1152,7 +1175,7 @@ class buildLinModel:
         TL0,PL0,TC0,CL0,V0,I0,Vc0,Ic0 = self.slnF0
         TLd,PLd,TCd,CLd,Vd,Id,Vcd,Icd = self.slnD
         
-        iDrn = (-1)**( np.abs(Ic0 - Ic)>abs(Ic0) )
+        iDrn = (-1)**( np.abs(np.angle(Ic/Ic0))>np.pi/2 )
         
         fig,[ax0,ax1,ax2] = plt.subplots(ncols=3,figsize=(11,4))
         
@@ -1182,7 +1205,18 @@ class buildLinModel:
         ax1.grid(True)
         # ax1.show()
         
-        ax2.plot(range(self.nPctrl),100*slnX[self.nPctrl:self.nPctrl*2]/self.qLim,'x-',label='Qgen (%)')
+        # nPh1 = int(sum(phs1)); nPh2 = int(sum(phs2)); nPh3 = int(sum(phs3)); 
+        self.getLdsPhsIdx()
+        if ctrlPerPhase:
+            ax2.plot(range(0,self.nPh1),
+                                100*(slnX[self.nPctrl:self.nPctrl*2][self.Ph1])/self.qLim,'x-',label='Qgen A (%)')
+            ax2.plot(range(self.nPh1,self.nPh1+self.nPh2),
+                                100*slnX[self.nPctrl:self.nPctrl*2][self.Ph2]/self.qLim,'x-',label='Qgen B (%)')
+            ax2.plot(range(self.nPh1+self.nPh2,self.nPctrl),
+                                100*slnX[self.nPctrl:self.nPctrl*2][self.Ph3]/self.qLim,'x-',label='Qgen C (%)')
+        else:
+            ax2.plot(range(self.nPctrl),
+                                100*slnX[self.nPctrl:self.nPctrl*2]/self.qLim,'x-',label='Qgen (%)')
         ax2.plot(range(self.nPctrl,self.nPctrl + self.nT),100*slnX[self.nPctrl*2:]/self.tLim,'x-',label='t (%)')
         ax2.set_xlabel('Control Index')
         ax2.set_ylabel('Control effort, %')
@@ -1192,6 +1226,24 @@ class buildLinModel:
         ax2.set_ylim((-110,110))
         plt.tight_layout()
         plt.show()
+        
+    def getLdsPhsIdx(self):
+        phs1 = np.zeros(self.nPctrl,dtype=int)
+        phs2 = np.zeros(self.nPctrl,dtype=int)
+        phs3 = np.zeros(self.nPctrl,dtype=int)
+        ii=0
+        for ld in self.SyYNodeOrder + self.SdYNodeOrder:
+            phs1[ii] = ld[-1]=='1'
+            phs2[ii] = ld[-1]=='2'
+            phs3[ii] = ld[-1]=='3'
+            ii+=1
+        self.nPh1 = int(sum(phs1))
+        self.nPh2 = int(sum(phs2))
+        self.nPh3 = int(sum(phs3))
+        
+        self.Ph1 = np.where(phs1)
+        self.Ph2 = np.where(phs2)
+        self.Ph3 = np.where(phs3)
     
     def testQpVcpf(self,k=np.arange(-1.5,1.6,0.1)):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
@@ -2503,12 +2555,13 @@ class buildLinModel:
         else:
             self.plotMarkerSize=50
             
+        self.sfDict3ph = {'13bus':6,'123bus':60,'epriK1cvr':40,'34bus':80,'n1':4,'eulv':2,'epri5':90,'epri7':50,'n10':3,'n4':3,'n27':4}
             
         vMap = cm.RdBu
         pMap = cm.GnBu
         qMap = cm.PiYG
         sOnly = cm.Blues
-        self.colormaps = { 'v0':vMap,'p0':pMap,'q0':qMap,'qSln':qMap,'vSln':vMap,'ntwk':sOnly }
+        self.colormaps = { 'v0':vMap,'p0':pMap,'q0':qMap,'qSln':qMap,'vSln':vMap,'ntwk':sOnly,'qSlnPh':qMap }
     
     def getConstraints(self):
         cns = {'mvHi':1.055,'lvHi':1.05,'mvLo':0.95,'lvLo':0.92,'plim':1e3,'qlim':1e3,'tlim':0.1,'iScale':1.2}
@@ -2673,20 +2726,29 @@ class buildLinModel:
         busCoords = self.busCoords
         if busType=='v':
             bus0 = self.bus0v
+            phs0 = self.phs0v.flatten()
         elif busType=='s':
             bus0 = self.bus0s
+            phs0 = self.phs0s.flatten()
         elif busType=='vIn':
             bus0 = self.bus0vIn
+            phs0 = self.phs0vIn.flatten()
 
-        setVals = {}
         setMin = 1e100
         setMax = -1e100
         setVals = {}
-        for bus in busCoords: setVals[bus] = np.nan #initialise
-            
-
+        if aveType=='ph':
+            setVals['1'] = {};  setVals['2'] = {}; setVals['3'] = {}
+            for bus in busCoords: #initialise
+                setVals['1'][bus] = np.nan;setVals['2'][bus] = np.nan;setVals['3'][bus] = np.nan
+        else:
+            for bus in busCoords: setVals[bus] = np.nan #initialise
+        
         for bus in busCoords:
             if not np.isnan(busCoords[bus][0]):
+                if aveType=='ph':
+                    phs = phs0[bus0==bus.lower()]
+                
                 vals = Set[bus0==bus.lower()]
                 vals = vals[~np.isnan(vals)]
                 if len(vals)>0:
@@ -2702,6 +2764,14 @@ class buildLinModel:
                         setVals[bus] = np.min(vals)
                         setMax = max(setMax,np.min(vals))
                         setMin = min(setMin,np.min(vals))
+                    elif aveType=='ph':
+                        i=0
+                        for ph in phs:
+                            setVals[ph[0]][bus] = vals[i]
+                            setMax = max(setMax,np.min(vals[i]))
+                            setMin = min(setMin,np.min(vals[i]))
+                            i+=1
+                        
         if setMin==setMax:
             setMinMax=None
         else:
@@ -2738,7 +2808,55 @@ class buildLinModel:
         
         plt.scatter(x0nne,y0nne,Color='#cccccc',marker='.',zorder=+5,s=15)
     
+    def plotBuses3ph(self,ax,scores3ph,minMax,cmap=plt.cm.viridis,edgeOn=True):
+        busCoords = self.busCoords
+        x0scr = []
+        y0scr = []
+        xyClr = []
+        x0nne = []
+        y0nne = []
+        phscr = []
+        scale = 50
+        phsOffset = {'1':[0.0,1.0],'2':[-0.86,-0.5],'3':[0.86,-0.5]}
+        for ph,scores in scores3ph.items():
+            for bus,coord in busCoords.items():
+                if not np.isnan(busCoords[bus][0]):
+                    if np.isnan(scores[bus]):
+                        x0nne = x0nne + [coord[0]]
+                        y0nne = y0nne + [coord[1]] 
+                    else:
+                        phscr = phscr + [ph]
+                        x0scr = x0scr + [coord[0]]
+                        y0scr = y0scr + [coord[1]]
+                        if minMax==None:
+                            score=scores[bus]
+                        else:
+                            score = (scores[bus]-minMax[0])/(minMax[1]-minMax[0])
+                        
+                        xyClr = xyClr + [cmap(score)]
+            
+            self.hex3phPlot(ax,x0scr,y0scr,xyClr,phscr,sf=self.sfDict3ph[self.feeder])
+            # plt.scatter(x0scr,y0scr,marker='.',Color=xyClr,zorder=+10,s=self.plotMarkerSize)
+            # if edgeOn: plt.scatter(x0scr,y0scr,marker='.',zorder=+11,s=self.plotMarkerSize,facecolors='none',edgecolors='k')
+            plt.scatter(x0nne,y0nne,Color='#cccccc',marker='.',zorder=+5,s=15)
+    
+    def hex3phPlot(self,ax,x,y,xyClr,xyPhs,sf):
+        xy0 = np.exp(1j*np.linspace(np.pi/2,5*np.pi/2,7))
+        # phsOffset = {'1':np.exp(1j*np.pi/6),'2':np.exp(1j*5*np.pi/6),'3':np.exp(1j*-np.pi/2)}
+        phsOffset = {'1':np.exp(1j*0),'2':np.exp(1j*2*np.pi/3),'3':np.exp(1j*4*np.pi/3)}
+        patches = []
+        for i in range(len(x)):
+            brSf = 1.15
+            xyPts = np.c_[ sf*(xy0 + brSf*phsOffset[xyPhs[i]]).real + x[i],sf*(xy0 + brSf*phsOffset[xyPhs[i]]).imag + y[i]]
+            patches.append(Polygon(xyPts,True,fill=1,color=xyClr[i])) #NB putting zorder here doesn't seem to work
+            patches.append(Polygon(xyPts,True,fill=0,linestyle='-',linewidth=0.4,edgecolor='k'))
+            patches.append( Polygon( [[x[i],y[i]],[x[i]+sf*brSf*phsOffset[xyPhs[i]].real,y[i]+sf*brSf*phsOffset[xyPhs[i]].imag]],False,color='k',linewidth=1.0 ))
+        p = PatchCollection(patches,match_original=True)
+        p.set_zorder(10)
+        ax.add_collection(p)
+    
     def plotNetBuses(self,type,regsOn=True,pltShow=True,minMax=None,pltType='mean',varMax=10,cmap=None):
+        self.initialiseOpenDss(); self.setupPlots()
         fig,ax = plt.subplots()
         self.getBusPhs()
         
@@ -2781,20 +2899,32 @@ class buildLinModel:
             minMaxAbs = np.max(np.abs( np.array([np.nanmax(list(scores.values())),np.nanmin(list(scores.values()))]) ) )
             minMax0 = [0.92,1.05]
             ttl = 'Voltage (pu)' # Positive implies capacitive
-            
+        elif type=='qSlnPh':
+            scoreNom = (self.slnX[self.nPctrl:self.nSctrl])*self.lScale/self.xSscale
+            scores, minMax0 = self.getSetVals(scoreNom,aveType='ph',busType='s')
+            # minMaxAbs = np.max(np.abs( np.array([np.nanmax(list(scores.values())),np.nanmin(list(scores.values()))]) ) )
+            scoresFull = list(scores['1'].values()) + list(scores['2'].values()) + list(scores['3'].values())
+            minMaxAbs = np.max(np.abs( np.array([np.nanmax(scoresFull),np.nanmin(scoresFull)]) ) )
+            minMax0 = [-minMaxAbs,minMaxAbs]
+            ttl = 'Opt Qgen (kVAr)' # Positive implies capacitive
         
         if cmap is None: cmap = self.colormaps[type]
         
         if minMax==None:
             minMax = minMax0
-        self.plotBuses(ax,scores,minMax,cmap=cmap)
+        
+        if type[-2:]=='Ph':
+            self.plotBuses3ph(ax,scores,minMax,cmap=cmap)
+        else:
+            self.plotBuses(ax,scores,minMax,cmap=cmap)
         
         # if type in ['v0','p0','q0']:
         self.plotNetColorbar(ax,minMax,cmap,ttl=ttl)
         
         ax.axis('off')
         plt.title('Feeder: '+self.feeder,loc='left')
-        plt.gca().set_aspect('equal', adjustable='box')
+        # plt.gca().set_aspect('equal', adjustable='box')
+        ax.set_aspect('equal', adjustable='box')
         plt.tight_layout()
         
         if pltShow:

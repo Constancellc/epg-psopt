@@ -25,12 +25,6 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 
 
 # self = main(8,'buildSave')
-self = main(5,modelType='loadAndRun')
-
-# self = main(0,modelType='loadOnly'); self.runCvrQp(strategy='full',obj='opCst',optType=['mosekFull']); print(sum(self.slnF[0:4]) - sum(self.slnF0[0:4]))
-
-# self = main(25,'loadOnly')
-# self.runQpSet()
 
 # feeder = 0
 # obj = 'opCst'
