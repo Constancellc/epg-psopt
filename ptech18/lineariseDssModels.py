@@ -214,11 +214,9 @@ class buildLinModel:
         
     def runQpSet(self,saveQpSln=True):
         objs = ['opCst','hcGen','hcLds']
-        objs = ['opCst']
-        # objs = ['hcGen']
-        # objs = ['hcLds']
+        # objs = ['opCst']
         strategies = ['full','part','maxTap','minTap','loss','load']
-        strategies = ['full']
+        # strategies = ['full']
         optType = ['mosekFull']
         qpSolutions = {}
         for obj in objs:
@@ -459,9 +457,18 @@ class buildLinModel:
                                             # KtW),axis=1), 1/self.xScale ) # limits for these are in self.iXfmrLims.
         # del(KyW); del(KdW); del(KtW)
         
-        self.Mc2i = dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
+        # self.Mc2i = dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
+        Mc2i = dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
                                             self.WyXfmr[:,self.nPy::],self.WdXfmr[:,self.nPd::],
                                             self.WtXfmr),axis=1), 1/self.xScale ) # limits for these are in self.iXfmrLims.
+        mc2iSmall = dsf.vmM(1/(self.iXfmrLims - np.abs(self.aIxfmr)),Mc2i)
+        mc2iNorm = np.abs( dsf.vmM( 1/np.max(np.abs(mc2iSmall),axis=1),mc2iSmall ) )
+        iFactor = 1e-5
+        nonZero = np.where(mc2iNorm>iFactor)
+        mc2iSel = np.zeros(Mc2i.shape,dtype=complex)
+        mc2iSel[nonZero] = Mc2i[nonZero]
+        self.Mc2i = sparse.csc_matrix(mc2iSel)
+        del(Mc2i); del(mc2iSmall); del(mc2iNorm); del(mc2iSel)
         delattr(self,'WyXfmr'); delattr(self,'WdXfmr'); delattr(self,'WtXfmr')
         
         Kc2d = dsf.mvM( np.concatenate( (dKy[:,self.pyIdx[0]],dKd[:,:self.nPd],
@@ -569,18 +576,11 @@ class buildLinModel:
         self.qlossQdiag = qlossQdiag
     
     def getObjFunc(self,strategy,obj,tLss=False):
-        # if tLss == True:
-            # qpQlss = self.qpQlss + np.diag(self.qlossQdiag)
-        # else:
-            # qpQlss = self.qpQlss
-        
         if obj=='opCst':
             if strategy in ['full','part']:
-                # Q = 2*qpQlss
                 H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.ploadL + self.pcurtL
             elif strategy=='maxTap':
-                # Q = 0*qpQlss
                 H = sparse.csc_matrix((self.nCtrl,self.nCtrl))
                 if self.nT>0:
                     t2vPu = np.sum( dsf.vmM( 1/self.vInKvbase,self.Kc2v[self.vIn,-self.nT:] ),axis=0 )
@@ -588,7 +588,6 @@ class buildLinModel:
                 else:
                     p = np.r_[np.zeros((self.nPctrl*2))]
             elif strategy=='minTap':
-                # Q = 0*qpQlss
                 H = sparse.csc_matrix((self.nCtrl,self.nCtrl))
                 if self.nT>0:
                     t2vPu = np.sum( dsf.vmM( 1/self.vInKvbase,self.Kc2v[self.vIn,-self.nT:] ),axis=0 )
@@ -596,23 +595,19 @@ class buildLinModel:
                 else:
                     p = np.r_[np.zeros((self.nPctrl*2))]
             elif strategy=='loss':
-                # Q = 2*qpQlss
                 H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.pcurtL
             elif strategy=='load':
-                # Q = 0*qpQlss
                 H = sparse.csc_matrix((self.nCtrl,self.nCtrl))
                 p = self.ploadL + self.pcurtL
         
         if obj=='hcGen':
             if strategy in ['full','part','minTap','maxTap']:
-                # Q = 2*qpQlss
                 H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.ploadL + self.pcurtL
         
         if obj=='hcLds':
             if strategy in ['full','part','minTap','maxTap']:
-                # Q = 0*qpQlss
                 H = sparse.csc_matrix((self.nCtrl,self.nCtrl))
                 p = np.r_[ np.ones(self.nPctrl), np.zeros(self.nPctrl + self.nT) ]
                 
@@ -626,6 +621,8 @@ class buildLinModel:
         vLimLo = (( self.vLo - self.bV - self.Kc2v.dot(self.X0ctrl) )*scaleFactor )[self.vIn]
         vLimUp = (( self.vHi - self.bV - self.Kc2v.dot(self.X0ctrl) )*scaleFactor )[self.vIn]
         Kc2vIn = (dsf.vmM( scaleFactor,self.Kc2v))[self.vIn]
+        
+        # Gvhv = np.sum(np.abs(Kc2vIn),axis=1)/np.minimum(np.abs(vLimLo),np.abs(vLimHi))
         
         Gv = np.r_[Kc2vIn,-Kc2vIn]
         hv = np.array( [np.r_[vLimUp,-vLimLo]] ).T
@@ -709,7 +706,6 @@ class buildLinModel:
             
         return sparse.csc_matrix(oneHat),x0
     
-    # def runOptimization(self,Q,p,G,h,oneHat,x0,strategy,obj,optType):
     def runOptimization(self,H,p,G,h,oneHat,x0,strategy,obj,optType):
         if strategy in ['minTap','maxTap','load']:
             tLss=False
@@ -786,7 +782,6 @@ class buildLinModel:
             self.slnX = x0.flatten(); self.slnS = np.nan
         else:
             # OBJECTIVE FUNCTION
-            # Q,p = self.getObjFunc(strategy,obj)
             H,p = self.getObjFunc(strategy,obj) # H is of the form HHt = 2*Q
             
             # INEQUALITY CONSTRAINTS
@@ -794,15 +789,6 @@ class buildLinModel:
             
             # Qp = matrix(  (oneHat.T).dot(Q.dot(oneHat)) )
             # pp = matrix(  (p.T.dot(oneHat)).T  - 2*(  (x0.T).dot(Q.dot(oneHat)).T  ) )
-            
-            # GpNz = (G.dot(oneHat)!=0)
-            # Gp = matrix( G.dot(oneHat)[GpNz] )
-            # hp = matrix( (h - G.dot(x0))[GpNz] )
-            
-            # NB: oneHat is assumed to be sparse
-            # Qp = matrix(  (oneHat.T).dot(  aMulBsp(Q,oneHat) ) )
-            # Qp = (oneHat.T).dot(  aMulBsp(Q,oneHat) )
-            # pp = aMulBsp(p.T,oneHat).T  - 2*(  (x0.T).dot(aMulBsp(Q,oneHat)).T  )
             
             Hp = aMulBsp(H.T,oneHat).T
             pp = aMulBsp(p.T,oneHat).T  - 2*(  ( H.T.dot(x0).T).dot(aMulBsp(H.T,oneHat)).T  )
@@ -812,44 +798,34 @@ class buildLinModel:
             Gp = Gp0[GpNz]
             hp = (h - G.dot(x0))[GpNz]
             
-            
-            # self.runOptimization(Qp,pp,Gp,hp,oneHat,x0,strategy,obj,optType)
             self.runOptimization(Hp,pp,Gp,hp,oneHat,x0,strategy,obj,optType)
         
         self.slnF = self.runQp(self.slnX)
-        if len(self.dssStuff)==4:
-            [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
-            self.slnD = self.qpDssValidation()
+        if len(self.dssStuff)!=4:
+            self.initialiseOpenDss()
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        self.slnD = self.qpDssValidation()
         
     
-    # def mosekQpEquiv(self,Q0,p0,G0,h0,x0,obj,tInt=False,tLss=False,oneHat=[],iRelax=False):
     def mosekQpEquiv(self,H0,p0,G0,h0,x0,obj,tInt=False,tLss=False,oneHat=[],iRelax=False):
         if type(H0)==matrix:
             H0 = np.array(H0); p0 = np.array(p0); G0 = np.array(G0); h0 = np.array(h0)
         
         nCtrlAct = p0.shape[0]
         nSctrlAct = nCtrlAct - self.nT
-        
         nPctrlAct = np.sum(np.sum( oneHat[:self.nPctrl],axis=0 )!=0)
         nQctrlAct = np.sum(np.sum( oneHat[self.nPctrl:self.nSctrl],axis=0 )!=0)
-        # nPctrlAct = np.linalg.matrix_rank( oneHat[:self.nPctrl] )
-        # nQctrlAct = np.linalg.matrix_rank( oneHat[self.nPctrl:self.nSctrl] )
         
         if p0.ndim==1:
             p0 = np.array([p0]).T
         if h0.ndim==1:
             h0 = np.array([h0]).T
         
-        # if np.sum(H0)!=0:
-            # H = QtoH(H0)[0]
-            # H = Matrix.dense(H.T) # so that the 2 norm is as xT.dot(H.dot(H.T.dot(x))) as req, NOT vice versa!
-            
-        H0sum = np.sum(H0)
-        
-        H = Matrix.dense(H0.T) # so that the 2 norm is as xT.dot(H.dot(H.T.dot(x))) as req, NOT vice versa!
-        p = Matrix.dense(p0)
-        G = Matrix.dense(G0)
-        h = Matrix.dense(h0)
+        H0norm = np.linalg.norm(H0)
+        H = Matrix.dense(H0.T); del(H0)
+        p = Matrix.dense(p0); del(p0)
+        G = Matrix.dense(G0); del(G0)
+        h = Matrix.dense(h0); del(h0)
 
         with Model('qp') as M:
             if tLss and nQctrlAct>0:
@@ -867,20 +843,24 @@ class buildLinModel:
                 M.constraint( Expr.sub( Expr.mul(qlossLabs,yQ),wL ),Domain.lessThan(0.0) )
                 M.constraint( Expr.add( Expr.mul(qlossLabs,yQ),wL ),Domain.greaterThan(0.0) )
                 
-                ii = 0
-                wQ = M.variable("wQ",nQctrlAct,Domain.greaterThan(0.0))
-                qLossQ = np.diag( oneHat.T.dot( sparse.csc_matrix(np.diag(self.qlossQdiag)).dot(oneHat) ).toarray() )[nPctrlAct:nPctrlAct+nQctrlAct]
-                for qLossFactor in qLossQ:
-                    M.constraint( "wQ"+str(ii), Expr.hstack(1.0, wQ.index(ii),Expr.mul(np.sqrt(qLossFactor),yQ.index(ii))), Domain.inRotatedQCone())
-                    ii+=1
+                qLossQ = 2*np.diag( oneHat.T.dot( sparse.csc_matrix(np.diag(self.qlossQdiag)).dot(oneHat) ).toarray() )[nPctrlAct:nPctrlAct+nQctrlAct]
                 
-                cw = Matrix.dense( np.ones((nQctrlAct*2,1)) )
+                qLossH = Matrix.sparse( range(nQctrlAct),range(nQctrlAct),np.sqrt(qLossQ) )
+                
+                wQ = M.variable("wQ",1,Domain.greaterThan(0.0))
+                
+                if nQctrlAct==1:
+                    M.constraint( "wQ", Expr.hstack(1.0, wQ,Expr.mul(qLossH,yQ)), Domain.inRotatedQCone() )
+                else:
+                    M.constraint( "wQ", Expr.vstack(1.0, wQ,Expr.mul(qLossH,yQ)), Domain.inRotatedQCone() )
+                
+                cw = Matrix.dense( np.ones((nQctrlAct + 1,1)) )
                 wCfunc = Expr.dot(cw,Expr.vstack(wL,wQ))
             else:
                 y = M.variable("y",nSctrlAct)
                 wCfunc = 0
             
-            if tInt:    
+            if tInt and self.nT>0: # even having an 'empty' one of these makes this worse if nT=0!
                 z = M.variable("z",self.nT,Domain.integral( Domain.inRange(-16,16) ))
                 # NB, throws up the following warning for some reason when running, but not when called 'normally': https://stackoverflow.com/questions/52594235/futurewarning-using-a-non-tuple-sequence-for-multidimensional-indexing-is-depre
             else:
@@ -893,23 +873,25 @@ class buildLinModel:
             # CURRENT constraints:
             ii = 0
             a2iCtrl = self.aIxfmr + self.Mc2i.dot(self.X0ctrl + x0.flatten())
-            # Mc2iCtrl = self.Mc2i.dot(oneHat)
             Mc2iCtrl = aMulBsp(self.Mc2i,oneHat)
             if nCtrlAct>1:
+                iConScaling = 1.0 # this seesm to give reasonable results for 5 + 0
+                # iConScaling = 0.01 # this seesm to give reasonable results for 5 + 0
                 for lim in self.iXfmrLims:
-                    mc2iCpx = Mc2iCtrl[ii]
-                    a2iCpx = a2iCtrl[ii]
-                    mCpx = np.r_[ [mc2iCpx.real],[mc2iCpx.imag] ]
+                    mc2iCpx = Mc2iCtrl[ii]*iConScaling
+                    a2iCpx = a2iCtrl[ii]*iConScaling
+                    # mCpx = np.r_[ [mc2iCpx.real],[mc2iCpx.imag] ]
+                    mCpx = sparse.coo_matrix(  np.r_[ [mc2iCpx.real],[mc2iCpx.imag] ]  )
                     aCpx = np.r_[ a2iCpx.real, a2iCpx.imag].reshape((2,1))
                     
-                    mCpx = Matrix.dense( mCpx )
+                    # mCpx = Matrix.dense( mCpx )
+                    mCpx = Matrix.sparse( mCpx.row,mCpx.col,mCpx.data )
                     aCpx = Matrix.dense( aCpx )
-                    # iScaleReq = 1e-9
-                    # iScaleReq = 1e-3
-                    iScaleReq = 1
+                    iScaleReq = 1e-3
+                    # iScaleReq = 1
                     if np.linalg.norm( mc2iCpx/(lim*self.iScale) )>iScaleReq:
                         iAdd = Expr.add(Expr.mul(mCpx,x),aCpx)
-                        M.constraint( "i"+str(ii), Expr.vstack( lim*self.iScale,iAdd ),Domain.inQCone() )
+                        M.constraint( "i"+str(ii), Expr.vstack( iConScaling*lim*self.iScale,iAdd ),Domain.inQCone() )
                     ii+=1
             else: # no need for conic constraints if only one decision variable! (Required!)
                 A,b,d = self.cxpaLtK( Mc2iCtrl.flatten(),a2iCtrl.flatten(),self.iXfmrLims*self.iScale )
@@ -922,15 +904,15 @@ class buildLinModel:
                 i0 = Expr.add(Expr.mul(A,x),b)
                 M.constraint( "cxpaLtKlb", Expr.add(d,i0),Domain.greaterThan(0.0) )
                 M.constraint( "cxpaLtKub", Expr.sub(d,i0),Domain.greaterThan(0.0) )
+            del(Mc2iCtrl)
             
-            if H0sum!=0:
+            if H0norm!=0:
                 # QP constraint https://docs.mosek.com/9.0/pythonfusion/tutorial-model-lib.html
                 # NB: for some annoying reason the hstack and vstack need to be used differently depending
                 # on if there is one or more than one variable...[?]
                 t = M.variable("t",1,Domain.greaterThan(0.0))
                 if nCtrlAct==1:
-                    H = np.linalg.norm(H0)
-                    M.constraint( "Qt", Expr.hstack(1.0, t,Expr.mul(H,x)), Domain.inRotatedQCone())
+                    M.constraint( "Qt", Expr.hstack(1.0, t,Expr.mul(H0norm,x)), Domain.inRotatedQCone())
                 else:
                     M.constraint( "Qt", Expr.vstack(1.0,t,Expr.mul(H,x)), Domain.inRotatedQCone() )
                 M.objective("obj",ObjectiveSense.Minimize, Expr.add( Expr.add(Expr.dot(p,x),t),wCfunc ) )
@@ -952,10 +934,8 @@ class buildLinModel:
             
             if tLss and nQctrlAct>0:
                 xOut = np.r_[yP.level(),yQ.level(),z.level()]
-            elif tInt:
-                xOut = np.r_[y.level(),z.level()]
             else:
-                xOut = x.level()
+                xOut = np.r_[y.level(),z.level()]
             
             print("MIP rel gap = %.2f (%f)" % (M.getSolverDoubleInfo(
                         "mioObjRelGap"), M.getSolverDoubleInfo("mioObjAbsGap")))
@@ -1008,6 +988,7 @@ class buildLinModel:
     def qpVarValue(self,strategy='part',obj='opCst'):
         self.loadQpSet()
         self.loadQpSln(strategy,obj)
+        
         if obj=='opCst':# HC gen (kW):
             val = sum(self.slnF[0:4]) - sum(self.slnF0[0:4])
         if obj=='hcGen':# op cost (kW):
@@ -1247,7 +1228,8 @@ class buildLinModel:
             
             vaL,iaL,vcL,icL = self.runQp(dx)[4:]
             iaL = abs(iaL)
-            icL = self.v2iBrYxfmr.dot(np.r_[self.V0,vcL])[self.iXfmrModelled]
+            # icL = self.v2iBrYxfmr.dot(np.r_[self.V0,vcL])[self.iXfmrModelled]
+            # icL = self.Mc2i(dx)
             
             vce[i] = np.linalg.norm( (vcL - vc0)/self.vKvbase )/np.linalg.norm(vc0/self.vKvbase)
             vae[i] = np.linalg.norm( (vaL - va0)/self.vKvbase )/np.linalg.norm(va0/self.vKvbase)
@@ -1482,18 +1464,18 @@ class buildLinModel:
     def runQp(self,dx):
         # Vcest = self.Mc2v.dot(dx + self.X0ctrl) + self.aV
         Vcest = np.nan
-        Icest = self.Mc2i.dot(dx + self.X0ctrl) + self.aIxfmr
+        # Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
+        Iest = np.nan
         
         self.qpHlss = self.getHmat()
         
         # dx needs to be in units of kW, kVAr, tap no.
         # TL = dx.dot(self.qpQlss.dot(dx) + self.qpLlss) + self.qpClss
-        TL = np.linalg.norm(self.qpHlss.dot(dx)) + self.qpLlss.dot(dx) + self.qpClss
+        TL = np.linalg.norm(self.qpHlss.T.dot(dx))**2 + self.qpLlss.dot(dx) + self.qpClss
         PL = dx.dot(self.ploadL) + self.ploadC
         TC = dx.dot(self.pcurtL)
         Vest = self.Kc2v.dot(dx + self.X0ctrl) + self.bV
-        # Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
-        Iest = np.nan
+        Icest = self.Mc2i.dot(dx + self.X0ctrl) + self.aIxfmr
         
         CL = self.qlossQdiag.dot(dx**2) + np.linalg.norm(self.qlossL*dx,ord=1)
         

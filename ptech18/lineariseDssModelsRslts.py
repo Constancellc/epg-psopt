@@ -25,6 +25,7 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
 feederSet = [5,6,8,24,0,18,'n4','n1','n10','n27',17]
+feederSet = [5,6,8,0]
 
 lpA = [0.1,0.6,1.0]
 lpB = [0.1,0.3,0.6]
@@ -93,8 +94,8 @@ if 'f_checkError' in locals():
             linPoints = linPointsDict[feeder][obj]
             for linPoint in linPoints:
                 self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
-                resultTableV[i].append( str(self.qpSolutionDssError(strategy,obj,err='V')*100)[:7] )
-                resultTableI[i].append( str(self.qpSolutionDssError(strategy,obj,err='I')*100)[:7] )
+                resultTableV[i].append( "%.6f" % (self.qpSolutionDssError(strategy,obj,err='V')*100))
+                resultTableI[i].append( "%.6f" % (self.qpSolutionDssError(strategy,obj,err='I')*100))
                 successTable[i].append( self.qpSolutionDssError(strategy,obj)*100<0.5 and
                                         self.qpSolutionDssError(strategy,obj,err='I')<0.05 )
         i+=1
@@ -145,7 +146,7 @@ if 'f_valueComparison' in locals():
     
     for i in range(2,len(feederSet)+2):
         for j in range(len(strategies)):
-            opCstTable[i].append( str(opCstTable_[i-2][j])[:7] )
+            opCstTable[i].append( "%.6f" % opCstTable_[i-2][j] )
         
     print(*opCstTable,sep='\n')
     print(*hcGenTable,sep='\n')
