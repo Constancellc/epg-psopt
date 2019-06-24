@@ -10,12 +10,12 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 
 
 # f_bulkBuildModels = 1
-# f_bulkRunModels = 1
+f_bulkRunModels = 1
 # f_checkFeasibility = 1
 # f_checkError = 1
-# f_valueComparison = 1
+f_valueComparison = 1
 
-def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=None,pltSave=False):
+def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,pltSave=False):
     reload(lineariseDssModels)
     
     SD = os.path.join(os.path.join(os.path.expanduser('~')), 'Desktop')
@@ -25,6 +25,7 @@ def main(fdr_i=5,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,modelType=No
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
 feederSet = [5,6,8,24,0,18,17,'n4','n1','n10','n27']
+feederSet = [5]
 
 lpA = [0.1,0.6,1.0]
 lpB = [0.1,0.3,0.6]
@@ -32,7 +33,8 @@ lpC = [1.0]
 linPointsA = {'all':lpA,'opCst':lpA,'hcGen':[lpA[0]],'hcLds':[lpA[-1]]}
 linPointsB = {'all':lpB,'opCst':lpB,'hcGen':[lpB[0]],'hcLds':[lpB[-1]]}
 linPointsC = {'all':lpC,'opCst':lpC,'hcGen':lpC,'hcLds':lpC}
-objSet = ['opCst','hcGen','hcLds']
+# objSet = ['opCst','hcGen','hcLds']
+objSet = ['opCst','hcGen']
 
 # NB remember to update n10!
 linPointsDict = {5:linPointsA,6:linPointsB,8:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
@@ -106,7 +108,8 @@ if 'f_checkError' in locals():
 if 'f_valueComparison' in locals():
     pCvr = 0.8
     
-    strategies = ['full','part','phase','minTap','maxTap']
+    # strategies = ['full','part','phase','minTap','maxTap','nomTap']
+    strategies = ['full','phase','minTap','maxTap']
     # strategies = ['part']
     
     opCstTable = [['Operating cost (kW)'],['Feeder',*strategies]]
@@ -114,14 +117,14 @@ if 'f_valueComparison' in locals():
     opCstTableB = [['Operating cost (kW)'],[*strategies]]
     opCstTableC = [['Operating cost (kW)'],[*strategies]]
     hcGenTable = [['Generation (kW)'],['Feeder',*strategies]]
-    hcLdsTable = [['Load (kW)'],['Feeder',*strategies]]
+    # hcLdsTable = [['Load (kW)'],['Feeder',*strategies]]
     
     i = 2
     for feeder in feederSet:
         print(feeder)
         linPoints = linPointsDict[feeder]
         opCstTableA.append([]); opCstTableB.append([]); opCstTableC.append([])
-        opCstTable.append([feeder]); hcGenTable.append([feeder]); hcLdsTable.append([feeder])
+        opCstTable.append([feeder]); hcGenTable.append([feeder]); # hcLdsTable.append([feeder])
         for strategy in strategies:
             for obj in objSet:
                 linPoints = linPointsDict[feeder][obj]
@@ -134,7 +137,7 @@ if 'f_valueComparison' in locals():
                     if obj=='opCst' and j==1: opCstTableB[i].append( val )
                     if obj=='opCst' and j==2: opCstTableC[i].append( val )
                     if obj=='hcGen': hcGenTable[i].append( str(val)[:7] )
-                    if obj=='hcLds': hcLdsTable[i].append( str(val)[:7] )
+                    # if obj=='hcLds': hcLdsTable[i].append( str(val)[:7] )
                     j+=1
                 
         i+=1
@@ -149,4 +152,4 @@ if 'f_valueComparison' in locals():
         
     print(*opCstTable,sep='\n')
     print(*hcGenTable,sep='\n')
-    print(*hcLdsTable,sep='\n')
+    # print(*hcLdsTable,sep='\n')

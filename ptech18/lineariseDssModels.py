@@ -149,7 +149,7 @@ class buildLinModel:
         
         if modelType in [None,'loadModel']:
             # self.testCvrQp()
-            modesAll = ['full','part','maxTap','minTap','loss','load']
+            modesAll = ['full','part','maxTap','minTap','nomTap','loss','load']
             # modesAll = ['minTap']
             modesAll = ['full']
             optType = ['mosekFull']
@@ -217,9 +217,10 @@ class buildLinModel:
         
     def runQpSet(self,saveQpSln=True):
         objs = ['opCst','hcGen','hcLds']
-        # objs = ['hcGen']
-        strategies = ['full','part','phase','maxTap','minTap','loss','load']
-        strategies = ['full','part','phase','maxTap','minTap']
+        objs = ['opCst','hcGen']
+        strategies = ['full','part','phase','maxTap','nomTap','minTap','loss','load']
+        strategies = ['full','phase','maxTap','minTap']
+        # strategies = ['full','part','phase','maxTap','minTap']
         optType = ['mosekFull']
         qpSolutions = {}
         for obj in objs:
@@ -583,7 +584,7 @@ class buildLinModel:
             if strategy in ['full','part','phase']:
                 H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.ploadL + self.pcurtL
-            elif strategy=='maxTap':
+            elif strategy in ['maxTap','nomTap']:
                 H = sparse.csc_matrix((self.nCtrl,self.nCtrl))
                 if self.nT>0:
                     t2vPu = np.sum( dsf.vmM( 1/self.vInKvbase,self.Kc2v[self.vIn,-self.nT:] ),axis=0 )
@@ -605,12 +606,12 @@ class buildLinModel:
                 p = self.ploadL + self.pcurtL
         
         if obj=='hcGen':
-            if strategy in ['full','part','minTap','maxTap','phase']:
+            if strategy in ['full','part','minTap','maxTap','nomTap','phase']:
                 H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.ploadL + self.pcurtL
         
         if obj=='hcLds':
-            if strategy in ['full','part','minTap','maxTap','phase']:
+            if strategy in ['full','part','minTap','maxTap','nomTap','phase']:
                 H = sparse.csc_matrix((self.nCtrl,self.nCtrl))
                 p = np.r_[ np.ones(self.nPctrl), np.zeros(self.nPctrl + self.nT) ]
                 
@@ -677,6 +678,8 @@ class buildLinModel:
         x0 = np.zeros((self.nCtrl,1)) # always of this dimension.
         if strategy in ['minTap']:
             x0[self.nPctrl:self.nSctrl] = np.ones((self.nPctrl,1))*self.qLim
+        if strategy in ['maxTap']:
+            x0[self.nPctrl:self.nSctrl] = -np.ones((self.nPctrl,1))*self.qLim
         
         if obj=='opCst':
             if strategy in ['full','loss','load']:
@@ -693,7 +696,7 @@ class buildLinModel:
                 oneHat[self.nPctrl:self.nSctrl,1][self.Ph2] = 1
                 oneHat[self.nPctrl:self.nSctrl,2][self.Ph3] = 1
                 oneHat[self.nSctrl:,3:] = np.eye(self.nT)
-            elif strategy in ['maxTap','minTap']:
+            elif strategy in ['maxTap','minTap','nomTap']:
                 if self.nT>0:
                     oneHat = np.zeros((self.nCtrl,self.nT))
                     oneHat[-self.nT:] = np.eye(self.nT)
@@ -710,7 +713,7 @@ class buildLinModel:
                 oneHat[:self.nPctrl,0] = 1
                 oneHat[self.nPctrl:self.nSctrl,1] = 1
                 oneHat[self.nSctrl:,2:] = np.eye(self.nT)
-            if strategy in ['minTap','maxTap']:
+            if strategy in ['minTap','maxTap','nomTap']:
                 oneHat = np.zeros((self.nCtrl,1 + self.nT))
                 oneHat[:self.nPctrl,0] = 1
                 oneHat[self.nSctrl:,1:] = np.eye(self.nT)
@@ -727,7 +730,7 @@ class buildLinModel:
         return sparse.csc_matrix(oneHat),x0
     
     def runOptimization(self,H,p,G,h,oneHat,x0,strategy,obj,optType):
-        if strategy in ['minTap','maxTap','load']:
+        if strategy in ['minTap','maxTap','load','nomTap']:
             tLss=False
         else:
             tLss=True
