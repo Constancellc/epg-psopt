@@ -10,10 +10,10 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 
 
 # f_bulkBuildModels = 1
-f_bulkRunModels = 1
+# f_bulkRunModels = 1
 # f_checkFeasibility = 1
 # f_checkError = 1
-f_valueComparison = 1
+# f_valueComparison = 1
 
 def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,pltSave=False):
     reload(lineariseDssModels)
@@ -25,11 +25,8 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
 feederSet = [5,6,8,24,0,18,17,'n4','n1','n10','n27']
-feederSet = [5]
 
-lpA = [0.1,0.6,1.0]
-lpB = [0.1,0.3,0.6]
-lpC = [1.0]
+lpA = [0.1,0.6,1.0];        lpB = [0.1,0.3,0.6];       lpC = [1.0]
 linPointsA = {'all':lpA,'opCst':lpA,'hcGen':[lpA[0]],'hcLds':[lpA[-1]]}
 linPointsB = {'all':lpB,'opCst':lpB,'hcGen':[lpB[0]],'hcLds':[lpB[-1]]}
 linPointsC = {'all':lpC,'opCst':lpC,'hcGen':lpC,'hcLds':lpC}
@@ -131,7 +128,7 @@ if 'f_valueComparison' in locals():
                 j=0
                 for linPoint in linPoints:
                     self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
-                    val = self.qpVarValue(strategy,obj)
+                    val = self.qpVarValue(strategy,obj,'power')
                     
                     if obj=='opCst' and j==0: opCstTableA[i].append( val )
                     if obj=='opCst' and j==1: opCstTableB[i].append( val )

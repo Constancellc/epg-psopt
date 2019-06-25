@@ -217,10 +217,11 @@ class buildLinModel:
         
     def runQpSet(self,saveQpSln=True):
         objs = ['opCst','hcGen','hcLds']
-        objs = ['opCst','hcGen']
+        # objs = ['opCst','hcGen']
+        objs = ['opCst']
         strategies = ['full','part','phase','maxTap','nomTap','minTap','loss','load']
-        strategies = ['full','phase','maxTap','minTap']
-        # strategies = ['full','part','phase','maxTap','minTap']
+        # strategies = ['full','phase','maxTap','minTap']
+        strategies = ['full']
         optType = ['mosekFull']
         qpSolutions = {}
         for obj in objs:
@@ -777,9 +778,10 @@ class buildLinModel:
                     self.slnX = np.zeros(self.nCtrl) + self.x0.flatten()
                     self.slnS = 'f' # failed
         
+        # debug mosek
         # self.slnX = oneHat.dot(self.mosekQpEquiv(H,p,G,h,x0,obj,tInt=False,tLss=True,oneHat=oneHat)) + x0.flatten() # for debugging
     
-    def runCvrQp(self,strategy='full',obj='opCst',optType=['cvxopt']):
+    def runCvrQp(self,strategy='full',obj='opCst',optType=['mosekFull']):
         #       (1/2)*x'*P*x + q'*x
         # subject to  G*x <= h
         #               A*x = b.
@@ -816,11 +818,13 @@ class buildLinModel:
             Hp = aMulBsp(H.T,oneHat).T
             pp = aMulBsp(p.T,oneHat).T  - 2*(  ( H.T.dot(x0).T).dot(aMulBsp(H.T,oneHat)).T  )
             
+            del(H); del(p)
             Gp0 = aMulBsp(G,oneHat)
             GpNz = (np.sum(Gp0,axis=1)!=0)
             Gp = Gp0[GpNz]
             hp = (h - G.dot(x0))[GpNz]
             
+            del(G); del(h); del(GpNz)
             self.runOptimization(Hp,pp,Gp,hp,oneHat,x0,strategy,obj,optType)
         
         self.slnF = self.runQp(self.slnX)
@@ -906,12 +910,10 @@ class buildLinModel:
                 for lim in self.iXfmrLims:
                     mc2iCpx = Mc2iCtrl[ii]*iConScaling
                     a2iCpx = a2iCtrl[ii]*iConScaling
-                    # mCpx = np.r_[ [mc2iCpx.real],[mc2iCpx.imag] ]
                     mCpx = sparse.coo_matrix(  np.r_[ [mc2iCpx.real],[mc2iCpx.imag] ]  )
                     aCpx = np.r_[ a2iCpx.real, a2iCpx.imag].reshape((2,1))
                     
-                    # mCpx = Matrix.dense( mCpx )
-                    mCpx = Matrix.sparse( mCpx.row,mCpx.col,mCpx.data )
+                    mCpx = Matrix.sparse( mCpx.shape[0],mCpx.shape[1],mCpx.row,mCpx.col,mCpx.data )
                     aCpx = Matrix.dense( aCpx )
                     iScaleReq = 1e-3
                     # iScaleReq = 1
@@ -930,7 +932,7 @@ class buildLinModel:
                 i0 = Expr.add(Expr.mul(A,x),b)
                 M.constraint( "cxpaLtKlb", Expr.add(d,i0),Domain.greaterThan(0.0) )
                 M.constraint( "cxpaLtKub", Expr.sub(d,i0),Domain.greaterThan(0.0) )
-            del(Mc2iCtrl)
+                del(A); del(b); del(d)
             
             if H0norm!=0:
                 # QP constraint https://docs.mosek.com/9.0/pythonfusion/tutorial-model-lib.html
@@ -944,6 +946,7 @@ class buildLinModel:
                 M.objective("obj",ObjectiveSense.Minimize, Expr.add( Expr.add(Expr.dot(p,x),t),wCfunc ) )
             else:
                 M.objective("obj",ObjectiveSense.Minimize, Expr.add( Expr.dot(p,x),wCfunc ) )
+            del(Mc2iCtrl); del(oneHat); del(H); del(G); del(p); del(h)
             
             try:
                 # FROM: https://docs.mosek.com/9.0/pythonfusion/accessing-solution.html
@@ -1011,16 +1014,20 @@ class buildLinModel:
         plt.tight_layout()
         plt.show()
         
-    def qpVarValue(self,strategy='part',obj='opCst'):
+    def qpVarValue(self,strategy='part',obj='opCst',res=''):
+        # res as 'norm' or 'power'
         self.loadQpSet()
         self.loadQpSln(strategy,obj)
         
-        if obj=='opCst':# HC gen (kW):
-            val = sum(self.slnF[0:4]) - sum(self.slnF0[0:4])
-        if obj=='hcGen':# op cost (kW):
-            val = -sum(self.slnF[0:4]) - -sum(self.slnF0[0:4])
+        if obj=='opCst':# op cost (kW):
+            if res=='norm': val = sum(self.slnF[0:4])/sum(self.slnF0[0:4])
+            if res=='power': val = sum(self.slnF[0:4]) - sum(self.slnF0[0:4])
+        if obj=='hcGen':# HC gen (kW):
+            if res=='norm': val = ( -sum(self.slnF[0:4]) - -sum(self.slnF0[0:4]) )/( sum(self.slnF0[0:4])/self.linPoint )
+            if res=='power': val = -sum(self.slnF[0:4]) - -sum(self.slnF0[0:4])
         if obj=='hcLds': # loadability (kW):
-            val = self.slnF[2]
+            if res=='norm': val = self.slnF[2]/(self.slnF0[2]/self.linPoint)
+            if res=='power': val = self.slnF[2]
         return val
     
     def snapQpComparison(self):
@@ -2549,10 +2556,10 @@ class buildLinModel:
         else:
             self.srcReg = 0        
         
-        if self.feeder in ['13bus','34bus']:
-            self.plotMarkerSize=150
-        elif self.feeder in ['eulv']:
-            self.plotMarkerSize=100
+        plotMarkerDict = {'13bus':150,'34bus':150,'eulv':100,'epri5':10,'epriK1cvr':15}
+        
+        if self.feeder in plotMarkerDict.keys():
+            self.plotMarkerSize=plotMarkerDict[self.feeder]
         elif self.feeder[0]=='n':
             self.plotMarkerSize=25
         else:
