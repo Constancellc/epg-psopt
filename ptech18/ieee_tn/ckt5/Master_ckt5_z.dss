@@ -19,7 +19,8 @@ Redirect  Capacitors_ckt5.dss
 
 batchedit load..* vmaxpu=3.0 vminpu=0.3
 
-Set voltagebases=[345, 115, 13.8, 12.47, 4.16, 0.48, 0.415, 0.208]
+!Set voltagebases=[345, 115, 13.8, 12.47, 4.16, 0.48, 0.415, 0.208]
+Set voltagebases=[345, 115, 13.8, 12.47, 4.16, 0.48, 0.41569219, 0.208]
 Calcvoltagebases
 
 ! Define bus coordinates

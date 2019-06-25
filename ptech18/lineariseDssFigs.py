@@ -10,12 +10,11 @@ FD = sys.argv[0]
 
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr']
 
-
 # f_valueComparisonChart = 1
 # f_plotOnly = 1
+# f_plotInvLoss = 1
 
-# feederSet = [0,17,'n1',8,24,'n27']
-feederSet = [0,17,'n1',8,'n27']
+feederSet = [0,17,'n1',8,24,'n27']
 
 strategies = ['full','phase','minTap','maxTap']
 objSet = ['opCst','hcGen']
@@ -42,11 +41,29 @@ for feeder in feederSet:
     except:
         feederTidy.append(feeder)
 
-
 # Networks considered
 if 'f_plotOnly' in locals():
     for feeder in feederSet:
         self = main(feeder,'plotOnly')
+
+if 'f_plotInvLoss' in locals():
+    # MAYBE this is a 'nicer looking' graph of losses?
+    x = np.linspace(-1,1,1001)
+    # ct1 = 0.25; ct2 = 1-ct1
+    # c0 = 0.5*ct1; c2 = ct2 + c0
+    c0 = 0.1; c2 = 1-c0
+    ct2 = c2-c0; ct1=2*c0
+    y = 5*( ct1*np.abs(x) + ct2*(x**2) )
+    z = 5*( c0 + c2*(x**2))
+    z[len(z)//2]=0
+    plt.plot(100*x,y); plt.xlabel('Q, %'); plt.ylabel('Losses - fraction of peak Q (%)')
+    plt.plot(100*x,z); plt.xlabel('Q, %'); plt.ylabel('Losses - fraction of peak Q (%)')
+    plt.ylim((-0.0,6.1))
+    plt.grid()
+    plt.show()
+    
+
+
 
 if 'f_valueComparisonChart' in locals():
     pCvr = 0.8
@@ -74,7 +91,8 @@ if 'f_valueComparisonChart' in locals():
                     j+=1
         i+=1
     
-    w = [0.3333,0.3333,0.3334]
+    # w = [0.3333,0.3333,0.3334]
+    w = [0.0,0.0,1.0]
     opCstTable_ = (w[0]*np.array(opCstTableA[2:]) + w[1]*np.array(opCstTableB[2:]) + w[2]*np.array(opCstTableC[2:])).tolist()
     
     for i in range(2,len(feederSet)+2):
@@ -86,7 +104,7 @@ if 'f_valueComparisonChart' in locals():
     
     tables={'opCst':opCstTable,'hcGen':hcGenTable}
     ylabels={'opCst':'Total P in / Total P in Ref., %','hcGen':'Hosting capacity (% of nominal load)'}
-    ylims={'opCst':(85,150),'hcGen':(-10,500)}
+    ylims={'opCst':(82.5,117.5),'hcGen':(-10,220)}
 
     for obj in objSet:
         fig,ax = plt.subplots()
@@ -115,11 +133,17 @@ if 'f_valueComparisonChart' in locals():
 # self = main(8,'loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.plotNetBuses('qSlnPh',minMax=[-1.0,1.0])
 
 
+# self = main(8,'loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.showQpSln()
+# self = main('n1','loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.showQpSln()
+
+# self = main('n1','loadOnly',linPoint=0.1); self.runCvrQp('full','hcGen')
+# self = main('n1','loadOnly',linPoint=0.1); self.runCvrQp('full','hcGen')
+
 # self = main('n1','plotOnly')
 # self = main('n1','plotOnly')
 
 # self = main('n27','loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.showQpSln()
 # self.plotNetBuses('qSlnPh',minMax=[-1.0,1.0])
 
-
-
+# self = main('n27','loadOnly',linPoint=1.0); self.initialiseOpenDss(); self.testCvrQp()
+# self = main(17,'loadOnly',linPoint=1.0); self.initialiseOpenDss(); self.testCvrQp()

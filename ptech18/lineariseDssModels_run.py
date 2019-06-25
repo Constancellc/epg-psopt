@@ -26,6 +26,11 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 
 # self = main(8,'buildSave')
 
+self = main(0,modelType='loadOnly'); self.runCvrQp('full','opCst'); self.showQpSln()
+self = main(0,modelType='loadOnly'); self.getQlossOfs(lossFact=0.02,kQlossL=0.0); self.runCvrQp('full','opCst'); self.showQpSln()
+
+self = main(17,'loadOnly'); self.initialiseOpenDss(); self.testQpVcpf(); plt.show()
+
 # feeder = 0
 # obj = 'opCst'
 # strategy = 'full'

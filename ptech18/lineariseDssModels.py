@@ -570,14 +570,14 @@ class buildLinModel:
         # self.qpHlss = H[self.qpHlssPinv]
         return H[self.qpHlssPinv]
     
-    def getQlossOfs(self):
-        self.kQlossL = 0.025 # at rated Q, the fraction of P
-        self.kQlossQ = 0.025 # at rated Q, the fraction of P due to quadratic component
+    def getQlossOfs(self,lossFact=0.05,kQlossL=0.5):
+        self.kQlossL = lossFact*kQlossL # at rated Q, the fraction of P
+        self.kQlossQ = lossFact*(1-kQlossL) # at rated Q, the fraction of P due to quadratic component
         qlossL = np.zeros(self.nCtrl)
         qlossL[self.nPctrl:self.nSctrl] = +( (self.qLim*self.kQlossL)*self.lScale/self.xSscale )/self.qLim
         self.qlossL = qlossL
         qlossQdiag = np.zeros(self.nCtrl)
-        qlossQdiag[self.nPctrl:self.nSctrl] = +( self.qLim*self.kQlossL*self.lScale/self.xSscale )/(self.qLim**2)
+        qlossQdiag[self.nPctrl:self.nSctrl] = +( self.qLim*self.kQlossQ*self.lScale/self.xSscale )/(self.qLim**2)
         self.qlossQdiag = qlossQdiag
     
     def getObjFunc(self,strategy,obj,tLss=False):
@@ -1190,25 +1190,25 @@ class buildLinModel:
         fig,[ax0,ax1,ax2] = plt.subplots(ncols=3,figsize=(11,4))
         
         # plot voltages versus voltage limits
-        ax0.plot((Vd/self.vKvbase)[self.vIn],'o',markerfacecolor='w',markeredgewidth=0.7);
+        ax0.plot((Vd/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markeredgewidth=0.7);
         ax0.plot((V/self.vKvbase)[self.vIn],'x',markeredgewidth=0.7);
-        ax0.plot((V0/self.vKvbase)[self.vIn],'.');
+        ax0.plot((V0/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markersize=3.0);
         ax0.plot((self.vHi/self.vKvbase)[self.vIn],'k_');
         ax0.plot((self.vLo/self.vKvbase)[self.vIn],'k_');
         ax0.set_title('Voltages')
         ax0.set_xlabel('Bus Index')
+        ax0.set_ylabel('Voltage, pu')
         ax0.grid(True)
         # ax0.show()
         
         # plot currents versus current limits
-        ax1.plot(iDrn*Id/(self.iScale*self.iXfmrLims),'o',label='OpenDSS',markerfacecolor='w')
-        # ax1.plot(I/(self.iScale*self.iXfmrLims),'x',label='QP sln')
+        ax1.plot(iDrn*Id/(self.iScale*self.iXfmrLims),'o',label='OpenDSS',markerfacecolor='None')
         ax1.plot(iDrn*abs(Ic/(self.iScale*self.iXfmrLims)),'x',label='QP sln')
-        ax1.plot(I0/(self.iScale*self.iXfmrLims),'.',label='Nominal')
+        ax1.plot(abs(Ic0)/(self.iScale*self.iXfmrLims),'o',label='Nominal',markerfacecolor='None',markersize=3.0)
         ax1.plot(np.ones(len(self.iXfmrLims)),'k_')
         ax1.plot(-np.ones(len(self.iXfmrLims)),'k_')
         ax1.set_xlabel('Xfmr Index')
-        ax1.set_ylabel('Current (A)')
+        ax1.set_ylabel('Current, frac of iXfmr')
         ax1.set_title('Currents')
         ax1.legend()
         ax1.set_ylim( (-1.1,1.1) )
@@ -1428,11 +1428,11 @@ class buildLinModel:
                 vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
                 iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
                 
-                VcplxEst = self.Mc2v.dot(self.X0ctrl + dx) + self.aV
-                YNodeVaug = np.concatenate((YNodeV[:3],VcplxEst,np.array([0])))
-                iOut = self.v2iBrY.dot(YNodeVaug[:-1])
-                vBusOut=YNodeVaug[list(self.yzW2V)]
-                TLcalc[i] = sum(np.delete(1e-3*vBusOut*iOut.conj(),self.wregIdxs).real) # for debugging
+                # VcplxEst = self.Mc2v.dot(self.X0ctrl + dx) + self.aV
+                # YNodeVaug = np.concatenate((YNodeV[:3],VcplxEst,np.array([0])))
+                # iOut = self.v2iBrY.dot(YNodeVaug[:-1])
+                # vBusOut=YNodeVaug[list(self.yzW2V)]
+                # TLcalc[i] = sum(np.delete(1e-3*vBusOut*iOut.conj(),self.wregIdxs).real) # for debugging
             
             fig,[ax0,ax1,ax2,ax3,ax4] = plt.subplots(ncols=5,figsize=(11,5))
             ax0.plot(dxScale,TL,label='dss'); ax0.grid(True)
