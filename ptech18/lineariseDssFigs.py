@@ -132,6 +132,17 @@ if 'f_valueComparisonChart' in locals():
 # self = main(8,'loadOnly',linPoint=1.0); self.loadQpSet(); self.loadQpSln('full','opCst'); self.plotNetBuses('qSlnPh',minMax=[-1.0,1.0])
 # self = main(8,'loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.plotNetBuses('qSlnPh',minMax=[-1.0,1.0])
 
+if 'f_batchTest' in locals():
+    # feederTest = [8,24,'n27',0,'n1',17] # NB 17 is slowwwww
+    feederTest = [8] # NB 17 is slowwwww
+    for feeder in feederTest:
+        self = main(feeder,'loadOnly',linPoint=0.6); self.initialiseOpenDss(); self.testQpVcpf(); plt.show()
+        self.testQpScpf(); plt.show()
+        self.testQpTcpf(); plt.show()
+
+feeder = 18
+self = main(feeder,'loadOnly',linPoint=0.6); self.initialiseOpenDss(); self.testQpVcpf(); plt.show()
+
 
 # self = main(8,'loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.showQpSln()
 # self = main('n1','loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.showQpSln()

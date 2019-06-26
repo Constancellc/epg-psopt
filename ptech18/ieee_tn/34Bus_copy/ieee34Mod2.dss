@@ -3,7 +3,8 @@
 ! The DSS Line model presently does not support the distributed load concept. Load objects may be attached
 ! only at buses.  Therefore, midpoint buses are created in this example.
 
-Clear
+clear
+set defaultbasefrequency=60
 
 New object=circuit.ieee34-2
 ~ basekv=69 pu=1.05 angle=30 mvasc3=200000  !stiffen up a bit over default

@@ -3,9 +3,10 @@
 ! This file is meant to be invoked from the Compile command in the "Run_IEEE123Bus.DSS"  file.
 ! 
 ! Note: DSS commands, property names, etc., are NOT case sensitive. Capitalize as you please.
-! You should always do a "Clear" before making a new circuit:
+! You should always do a "clear" before making a new circuit:
 
-Clear
+clear
+set defaultbasefrequency=60
 
 ! INSTANTIATE A NEW CIRCUIT AND DEFINE A STIFF 4160V SOURCE
 ! The new circuit is called "ieee123"

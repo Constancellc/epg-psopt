@@ -24,7 +24,7 @@ pltShow = 1
 # f_corVars = 1
 # f_hcParamSlctnCaseStudy = 1
 # f_limitSensitivityV = 1
-f_limitSensitivity = 1
+# f_limitSensitivity = 1
 # f_limitSensitivityIdv = 1
 
 # # calculating setpoints for linHcCalcs:
@@ -693,11 +693,11 @@ if 'f_limitSensitivity' in locals():
     I = range(50) # 20-80%
     ddMu = 0.05
     dMuSet = [1-ddMu,1+ddMu]
-    # nMc = 300
-    nMc = 30
+    nMc = 300
+    # nMc = 30
 
     fdr_i_set = [6,8,9,17,18,19,20,21,22]
-    fdr_i_set = [6,8,20]
+    # fdr_i_set = [6,8,20]
     # fdr_i_set = [6]
 
     mnsS = []

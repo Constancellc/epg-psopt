@@ -1,7 +1,8 @@
 // Master file for 8500-Node IEEE Test Feeder Case
 // Balanced Load Case
 
-Clear
+clear
+set defaultbasefrequency=60
 
 New Circuit.IEEE8500  
 

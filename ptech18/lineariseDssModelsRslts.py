@@ -25,7 +25,7 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
 feederSet = [5,6,8,24,0,18,17,'n4','n1','n10','n27']
-feederSet = [0,17,'n1',8,'n27'] # results set
+feederSet = [0,17,'n1',8,'n27',24] # results set
 
 lpA = [0.1,0.6,1.0];        lpB = [0.1,0.3,0.6];       lpC = [1.0]
 linPointsA = {'all':lpA,'opCst':lpA,'hcGen':[lpA[0]],'hcLds':[lpA[-1]]}

@@ -1289,7 +1289,7 @@ class buildLinModel:
             dx = (self.X0ctrl*k[i]/self.currentLinPoint) - self.X0ctrl
             
             vaL,iaL,vcL,icL = self.runQp(dx)[4:]
-            iaL = abs(iaL)
+            # iaL = abs(icL)
             # icL = self.v2iBrYxfmr.dot(np.r_[self.V0,vcL])[self.iXfmrModelled]
             # icL = self.Mc2i(dx)
             
@@ -1381,77 +1381,21 @@ class buildLinModel:
     def testCvrQp(self):
         # THREE TESTS in terms of the sensitivity of the model to real power generation, reactive power, and tap changes.
         print('Start CVR QP testing. \n',time.process_time())
-        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        
         
         # do complex voltages over loadmult first.
         self.testQpVcpf()
-        
         # Then: Taps.
+        if self.nT>0:
+            self.testQpTcpf()
+        
+        self.testQpScpf()
+        
+    
+    def testQpScpf(self):
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         # Test 1. Putting taps up and down one. Things to check:
         # - voltages; currents; loads; losses; generation
-        if self.nT>0:
-            self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
-            tapChng = [-2,1,1,1,1]
-            dxScale = np.array([-2,-1,0,1,2])*self.tLim/16
-            TL = np.zeros(5)
-            TLest = np.zeros(5)
-            TLcalc = np.zeros(5)
-            PL = np.zeros(5)
-            PLest = np.zeros(5)
-            TC = np.zeros(5)
-            TCest = np.zeros(5)
-            vErr = np.zeros(5)
-            iErr = np.zeros(5)
-            DSSText.Command='Set controlmode=off'
-            
-            xCtrl = np.zeros(self.nCtrl)
-            xCtrl[-self.nT::] = 1
-            
-            for i in range(5):
-                # set all of the taps at one above
-                j = DSSCircuit.RegControls.First
-                while j:
-                    tapNo = DSSCircuit.RegControls.TapNumber
-                    if abs(tapNo)==16:
-                        print('Sodding taps are saturated!')
-                    DSSCircuit.RegControls.TapNumber = tapChng[i]+tapNo
-                    j = DSSCircuit.RegControls.Next
-                
-                TG,TL[i],PL[i],YNodeV = runCircuit(DSSCircuit,DSSSolution)[1::]
-                absYNodeV = abs(YNodeV[3:])
-                Icalc = abs(self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
-                TC[i] = -TG
-                
-                dx = xCtrl*dxScale[i]
-                TLest[i],PLest[i],TCest[i],CL,Vest,Iest,Vcest,Icest = self.runQp(dx)
-                
-                vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
-                iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
-                
-                # VcplxEst = self.Mc2v.dot(self.X0ctrl + dx) + self.aV
-                # YNodeVaug = np.concatenate((YNodeV[:3],VcplxEst,np.array([0])))
-                # iOut = self.v2iBrY.dot(YNodeVaug[:-1])
-                # vBusOut=YNodeVaug[list(self.yzW2V)]
-                # TLcalc[i] = sum(np.delete(1e-3*vBusOut*iOut.conj(),self.wregIdxs).real) # for debugging
-            
-            fig,[ax0,ax1,ax2,ax3,ax4] = plt.subplots(ncols=5,figsize=(11,5))
-            ax0.plot(dxScale,TL,label='dss'); ax0.grid(True)
-            ax0.plot(dxScale,TLest,label='apx')
-            ax0.set_title('Losses'); ax0.set_xlabel('Tap (pu)')
-            ax0.legend()
-            ax1.plot(dxScale,PL); ax1.grid(True)
-            ax1.plot(dxScale,PLest)
-            ax1.set_title('Load power'); ax1.set_xlabel('Tap (pu)')
-            ax2.plot(dxScale,TC); ax2.grid(True)
-            ax2.plot(dxScale,TCest); ax2.grid(True)
-            ax2.set_title('Curtailment'); ax2.set_xlabel('Tap (pu)')
-            ax3.plot(dxScale,vErr); ax3.grid(True)
-            ax3.set_title('Abs voltage error'); ax3.set_xlabel('Tap (pu)')
-            ax4.plot(dxScale,iErr); ax4.grid(True)
-            ax4.set_title('Abs current error'); ax4.set_xlabel('Tap (pu)')
-            plt.tight_layout()
-            # plt.show()
-            
         # Test 2. Put a whole load of generators in and change real and reactive powers.
         for ii in range(2):
             self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
@@ -1517,6 +1461,73 @@ class buildLinModel:
             ax4.set_title('Abs current error'); ax4.set_xlabel(xlbl)
             plt.tight_layout()
         plt.show()
+    
+    
+    def testQpTcpf(self):
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
+        tapChng = [-2,1,1,1,1]
+        dxScale = np.array([-2,-1,0,1,2])*self.tLim/16
+        TL = np.zeros(5)
+        TLest = np.zeros(5)
+        TLcalc = np.zeros(5)
+        PL = np.zeros(5)
+        PLest = np.zeros(5)
+        TC = np.zeros(5)
+        TCest = np.zeros(5)
+        vErr = np.zeros(5)
+        iErr = np.zeros(5)
+        DSSText.Command='Set controlmode=off'
+        
+        xCtrl = np.zeros(self.nCtrl)
+        xCtrl[-self.nT::] = 1
+        
+        for i in range(5):
+            # set all of the taps at one above
+            j = DSSCircuit.RegControls.First
+            while j:
+                tapNo = DSSCircuit.RegControls.TapNumber
+                if abs(tapNo)==16:
+                    print('Sodding taps are saturated!')
+                DSSCircuit.RegControls.TapNumber = tapChng[i]+tapNo
+                j = DSSCircuit.RegControls.Next
+            
+            TG,TL[i],PL[i],YNodeV = runCircuit(DSSCircuit,DSSSolution)[1::]
+            absYNodeV = abs(YNodeV[3:])
+            Icalc = abs(self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
+            TC[i] = -TG
+            
+            dx = xCtrl*dxScale[i]
+            TLest[i],PLest[i],TCest[i],CL,Vest,Iest,Vcest,Icest = self.runQp(dx)
+            
+            vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
+            iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
+            
+            # VcplxEst = self.Mc2v.dot(self.X0ctrl + dx) + self.aV
+            # YNodeVaug = np.concatenate((YNodeV[:3],VcplxEst,np.array([0])))
+            # iOut = self.v2iBrY.dot(YNodeVaug[:-1])
+            # vBusOut=YNodeVaug[list(self.yzW2V)]
+            # TLcalc[i] = sum(np.delete(1e-3*vBusOut*iOut.conj(),self.wregIdxs).real) # for debugging
+        
+        fig,[ax0,ax1,ax2,ax3,ax4] = plt.subplots(ncols=5,figsize=(11,5))
+        ax0.plot(dxScale,TL,label='dss'); ax0.grid(True)
+        ax0.plot(dxScale,TLest,label='apx')
+        ax0.set_title('Losses'); ax0.set_xlabel('Tap (pu)')
+        ax0.legend()
+        ax1.plot(dxScale,PL); ax1.grid(True)
+        ax1.plot(dxScale,PLest)
+        ax1.set_title('Load power'); ax1.set_xlabel('Tap (pu)')
+        ax2.plot(dxScale,TC); ax2.grid(True)
+        ax2.plot(dxScale,TCest); ax2.grid(True)
+        ax2.set_title('Curtailment'); ax2.set_xlabel('Tap (pu)')
+        ax3.plot(dxScale,vErr); ax3.grid(True)
+        ax3.set_title('Abs voltage error'); ax3.set_xlabel('Tap (pu)')
+        ax4.plot(dxScale,iErr); ax4.grid(True)
+        ax4.set_title('Abs current error'); ax4.set_xlabel('Tap (pu)')
+        plt.tight_layout()
+        # plt.show()
+            
+
     
     def addYDgens(self,DSSObj):
         genNamesY = add_generators(DSSObj,self.SyYNodeOrder,False)

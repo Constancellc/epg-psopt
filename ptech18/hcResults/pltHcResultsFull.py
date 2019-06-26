@@ -25,6 +25,7 @@ feeders_lp = feeders_dcp
 # t_rsltSvty = 1 # sensitivity table # <--- now not in use!
 # t_results = 1
 # f_dssVlinWght = 1 # gammaFrac boxplot results
+f_dssVlinWghtConservative = 1; consFactor = 1.10 # gammaFrac boxplot results
 # f_mcLinUpg = 1
 # f_mcLinCmp = 1
 # f_linMcSns = 1
@@ -127,7 +128,7 @@ for feeder in feeders_lp:
     # LmeanNorm.append( np.mean(np.abs(rslt['dssHcRslTgt']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))*0.01 )
     # feederTidySet.append(feedersTidy[rslt['feeder']])
     
-kCdfLin = [];    kCdfDss = []; kCdfNom = []
+kCdfLin = [];    kCdfDss = []; kCdfNom = []; kCdfLinConservative=[]
 LmeanNorm = []; feederTidySet = []
 timeTableData = []
 rsltSvtyData = []
@@ -138,6 +139,7 @@ runTimeFull = []
 rslt34 = rsltsTap['34bus'] # useful for debugging
 
 idxChosen = [0,1,5,10,15,19,20]
+idxChosenConservative = (np.array(idxChosen)*5).tolist()
 # idxChosen = [0,2,5,10,15,18,20]
 
 for rslt in rsltsTap.values():
@@ -179,6 +181,12 @@ for rslt in rsltsTap.values():
     runTimeFull.append(dataSet)
     
     kCdfLin.append(rslt['linHcRsl']['kCdf'][idxChosen])
+    # kCdfLin.append(rslt['linHcRslNom']['kCdf'][idxChosen])
+    
+    param = rslt['pdfData']['prms']
+    Vp_pct_conservative = np.sum( rslt['linHcRslNom']['Lp_pct'][:,0,:]<consFactor,axis=1 )
+    kCdfLinConservative.append(  (100*getKcdf(param,Vp_pct_conservative)[0])[idxChosen])
+    
     # kCdfDss.append(rslt['dssHcRslTapLck']['kCdf'][idxChosen])
     # kCdfDss.append(rslt['dssHcRslTapSet']['kCdf'][idxChosen])
     kCdfDss.append(rslt['dssHcRslTapTgt']['kCdf'][idxChosen])
@@ -294,6 +302,33 @@ if 'f_dssVlinWght' in locals():
         i+=1
     ax.plot(0,0,'-',color=clrA,label='Linear, $\hat{f}$')
     ax.plot(0,0,'-',color=clrB,label='OpenDSS, $f$')
+    plt.legend(fontsize='small')
+    
+    plt.xlim((-3,103))
+    plt.ylim((0.4,9.6))
+    plt.grid(True)
+    plt.yticks(X,feederTidySet)
+    plt.xlabel('Loads with PV installed, %')
+    plt.tight_layout()
+    if 'pltSave' in locals():
+        plt.savefig(FD+'dssVlinWght.png',pad_inches=0.02,bbox_inches='tight')
+        plt.savefig(FD+'dssVlinWght.pdf',pad_inches=0.02,bbox_inches='tight')
+    if 'pltShow' in locals():
+        plt.show()
+
+# # RESULTS 1 - opendss vs linear model, k =====================
+if 'f_dssVlinWghtConservative' in locals():
+    fig = plt.figure(figsize=figSze0)
+    ax = fig.add_subplot(111)
+    i=0
+    for x in X:
+        ax = plotBoxWhisk(ax,x+1.5*dx,ddx,kCdfLin[i][1:-1],clrA,bds=kCdfLin[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x+0*dx,ddx,kCdfLinConservative[i][1:-1],clrC,bds=kCdfLinConservative[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x-1.5*dx,ddx,kCdfDss[i][1:-1],clrB,bds=kCdfDss[i][[0,-1]],transpose=True)
+        i+=1
+    ax.plot(0,0,'-',color=clrA,label='Linear, $\hat{f}$')
+    ax.plot(0,0,'-',color=clrB,label='OpenDSS, $f$')
+    ax.plot(0,0,'-',color=clrC,label='Linear (110%)')
     plt.legend(fontsize='small')
     
     plt.xlim((-3,103))
@@ -604,90 +639,94 @@ if 'f_plotLp' in locals():
     # plt.tight_layout()
     # plt.show()
 
-# 2 plotting the nice tables
-feeder = 'epriM1'
-rsltX = rsltsTap[feeder]
-params = rsltX['pdfData']['prms']
-nMc = rsltX['pdfData']['nMc']
-lpSns = rsltX['linHcRslNom']['Lp_pct'][:,0,:] # this is the only one which actually records the sensitivity
+# # 2 plotting the nice tables
+# feeder = 'epriM1'
+# rsltX = rsltsTap[feeder]
+# params = rsltX['pdfData']['prms']
+# nMc = rsltX['pdfData']['nMc']
+# lpSns = rsltX['linHcRslNom']['Lp_pct'][:,0,:] # this is the only one which actually records the sensitivity
 
-# 2b plotting the stuff again
-I = [9,19,29,39] # 40%
+# # 2b plotting the stuff again
+# I = [9,19,29,39,49] # 40%
 
-mults = np.linspace(0.7,1.3)
-for i in I:
-    frac = []
-    for mult in mults:
-        fracOut = 100*np.sum((lpSns[i]/mult)<1.0)/nMc
-        frac.append(fracOut)
-    plt.plot(100*mults,frac,label=str(100*params[i])+' %')
+# mults = np.linspace(0.7,1.3)
+# for i in I:
+    # frac = []
+    # for mult in mults:
+        # fracOut = 100*np.sum((lpSns[i]/mult)<1.0)/nMc
+        # frac.append(fracOut)
+    # plt.plot(100*mults,frac,label=str(100*params[i])+' %')
 
-plt.title(feeder)
-plt.legend()
-plt.xlabel('Scaled generation (%)')
-plt.ylabel('Constraint violations (%)')
-plt.show()
+# plt.title(feeder)
+# plt.legend()
+# plt.xlabel('Scaled generation (%)')
+# plt.ylabel('Constraint violations (%)')
+# plt.show()
 
-    
-fig,ax = plt.subplots()
-jj = 0
-for sns in lpSns[::1]:
-    pctls = np.percentile(sns,[5,25,50,75,95])
-    rngs = np.percentile(sns,[0,100])
-    plotBoxWhisk(ax,params[jj],0.01,pctls,bds=rngs)
-    jj+=1
+# stvy = np.sum(lpSns<0.95,axis=1)
+# sntvyVals = [0.95,1.00,1.05]
 
-xlm = ax.get_xlim()
-ax.plot(xlm,(1.0,1.0),'k--')
-ax.set_xlim(xlm)
-ax.set_ylim((0,4.5))
-ax.set_xlabel('Fraction of Loads with PV')
-ax.set_ylabel('Gen scale factor to violation')
-plt.show()
+# plt.plot(stvy); plt.plot(rsltX['linHcRslNom']['Vp_pct']); plt.show()
 
-# 3. Plotting the sensitivity to tap position
-tapPosSns = rsltX['linHcRslNom']['tapPosSns'] # this is the only one which actually records the sensitivity
-Bwdth = 0.666 #taps
-linM1 = rsltX['linHcRslNom']
+# fig,ax = plt.subplots()
+# jj = 0
+# for sns in lpSns[::1]:
+    # pctls = np.percentile(sns,[5,25,50,75,95])
+    # rngs = np.percentile(sns,[0,100])
+    # plotBoxWhisk(ax,params[jj],0.01,pctls,bds=rngs)
+    # jj+=1
 
-tapPsnMin = tapPosSns[:,:,1,:]
-tapPsnOutBnds = (tapPsnMin<Bwdth)
+# xlm = ax.get_xlim()
+# ax.plot(xlm,(1.0,1.0),'k--')
+# ax.set_xlim(xlm)
+# ax.set_ylim((0,4.5))
+# ax.set_xlabel('Fraction of Loads with PV')
+# ax.set_ylabel('Gen scale factor to violation')
+# plt.show()
+
+# # 3. Plotting the sensitivity to tap position
+# tapPosSns = rsltX['linHcRslNom']['tapPosSns'] # this is the only one which actually records the sensitivity
+# Bwdth = 0.666 #taps
+# linM1 = rsltX['linHcRslNom']
+
+# tapPsnMin = tapPosSns[:,:,1,:]
+# tapPsnOutBnds = (tapPsnMin<Bwdth)
+# # tapPsnOut = 100*np.sum(tapPsnOutBnds,axis=1)/nMc
 # tapPsnOut = 100*np.sum(tapPsnOutBnds,axis=1)/nMc
-tapPsnOut = 100*np.sum(tapPsnOutBnds,axis=1)/nMc
 
-kCdf = 100*getKcdf(params,tapPsnOut)[0][idxChosen]
-# kCdf2 = 100*getKcdf(params,linM1['Vp_pct'])[0][idxChosen]
+# kCdf = 100*getKcdf(params,tapPsnOut)[0][idxChosen]
+# # kCdf2 = 100*getKcdf(params,linM1['Vp_pct'])[0][idxChosen]
 
-i=5
-x = X[i]
-fig,ax = plt.subplots(figsize=figSze0)
-plt.plot(100*params,tapPsnOut,label='Lin \'conservative\'')
-plt.plot(100*params,linM1['Vp_pct'],label='Lin \'nominal\'')
-plt.plot(100*params,rsltX['dssHcRslTapTgt']['Vp_pct'],label='Dss \'Unlocked\'')
-plt.plot(100*params,rsltX['dssHcRslTapLck']['Vp_pct'],label='Dss \'Locked tap\'')
-plt.legend()
-plt.xlabel('Fraction of loads with PV')
-plt.ylabel('% constraint violations')
-plt.show()
+# i=5
+# x = X[i]
+# fig,ax = plt.subplots(figsize=figSze0)
+# plt.plot(100*params,tapPsnOut,label='Lin \'conservative\'')
+# plt.plot(100*params,linM1['Vp_pct'],label='Lin \'nominal\'')
+# plt.plot(100*params,rsltX['dssHcRslTapTgt']['Vp_pct'],label='Dss \'Unlocked\'')
+# plt.plot(100*params,rsltX['dssHcRslTapLck']['Vp_pct'],label='Dss \'Locked tap\'')
+# plt.legend()
+# plt.xlabel('Fraction of loads with PV')
+# plt.ylabel('% constraint violations')
+# plt.show()
 
-# # plt.plot(params,rsltX['dssHcRslTapSet']['Vp_pct'],label='Dss Set')
+# # # plt.plot(params,rsltX['dssHcRslTapSet']['Vp_pct'],label='Dss Set')
 
 
-fig,ax = plt.subplots(figsize=figSze0)
-ax = plotBoxWhisk(ax,x,ddx,kCdf[1:-1],clrC,bds=kCdf[[0,-1]],transpose=True)
-ax = plotBoxWhisk(ax,x+2*dx,ddx,kCdfLin[i][1:-1],clrA,bds=kCdfLin[i][[0,-1]],transpose=True)
-ax = plotBoxWhisk(ax,x-2*dx,ddx,kCdfDss[i][1:-1],clrB,bds=kCdfDss[i][[0,-1]],transpose=True)
-ax.plot(0,0,'-',color=clrA,label='Linear, $\hat{f}$')
-ax.plot(0,0,'-',color=clrB,label='OpenDSS, $f$')
-ax.plot(0,0,'-',color=clrC,label='Linear conservative')
-plt.legend(fontsize='small')
-plt.xlim((-3,103))
-plt.ylim((0.4,9.6))
-plt.grid(True)
-# plt.yticks(X,feederTidySet)
-plt.xlabel('Loads with PV installed, %')
-plt.tight_layout()
-plt.show()
+# fig,ax = plt.subplots(figsize=figSze0)
+# ax = plotBoxWhisk(ax,x,ddx,kCdf[1:-1],clrC,bds=kCdf[[0,-1]],transpose=True)
+# ax = plotBoxWhisk(ax,x+2*dx,ddx,kCdfLin[i][1:-1],clrA,bds=kCdfLin[i][[0,-1]],transpose=True)
+# ax = plotBoxWhisk(ax,x-2*dx,ddx,kCdfDss[i][1:-1],clrB,bds=kCdfDss[i][[0,-1]],transpose=True)
+# ax.plot(0,0,'-',color=clrA,label='Linear, $\hat{f}$')
+# ax.plot(0,0,'-',color=clrB,label='OpenDSS, $f$')
+# ax.plot(0,0,'-',color=clrC,label='Linear conservative')
+# plt.legend(fontsize='small')
+# plt.xlim((-3,103))
+# plt.ylim((0.4,9.6))
+# plt.grid(True)
+# # plt.yticks(X,feederTidySet)
+# plt.xlabel('Loads with PV installed, %')
+# plt.tight_layout()
+# plt.show()
 
 # # # tapMinLo = np.min(tapPosSns[:,:,1,:],axis=2)
 # # # prms = np.linspace(100/tapMinLo.shape[0],100,tapMinLo.shape[0])

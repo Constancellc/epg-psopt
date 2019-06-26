@@ -4,7 +4,8 @@
 ! impact on the Ybus matrix. 
 ! Note: Mod 2 better accounts for distributed load.
 
-Clear
+clear
+set defaultbasefrequency=60
 
 New object=circuit.ieee34-1
 ~ basekv=69 pu=1.05 angle=30 mvasc3=200000  !stiffen up a bit over DSS default

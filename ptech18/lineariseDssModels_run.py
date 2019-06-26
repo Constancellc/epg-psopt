@@ -1,11 +1,10 @@
 import lineariseDssModels, sys, os, pickle, random, time
 from importlib import reload
 import numpy as np
-from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar
+from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, runCircuit
 import matplotlib.pyplot as plt
 from lineariseDssModels import dirPrint
 import dss_stats_funcs as dsf
-
 
 
 from scipy import sparse

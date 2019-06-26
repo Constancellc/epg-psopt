@@ -1,4 +1,5 @@
 clear
+set defaultbasefrequency=60
  
 new circuit.ieee390 basekv=230 pu=1.05 bus1=P1
  
