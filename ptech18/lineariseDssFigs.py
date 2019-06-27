@@ -13,6 +13,7 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 # f_valueComparisonChart = 1
 # f_plotOnly = 1
 # f_plotInvLoss = 1
+# f_batchTest = 1
 
 feederSet = [0,17,'n1',8,24,'n27']
 
@@ -29,7 +30,7 @@ linPointsDict = {5:linPointsA,6:linPointsB,8:linPointsA,24:linPointsA,18:linPoin
 def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,pltSave=False):
     reload(lineariseDssModels)
     
-    SD = os.path.join(os.path.join(os.path.expanduser('~')), 'Desktop')
+    SD = os.path.join(os.path.join(os.path.exanduser('~')), 'Desktop')
     blm = lineariseDssModels.buildLinModel(FD=FD,fdr_i=fdr_i,linPoints=[linPoint],pCvr=pCvr,
                                                 modelType=modelType,method=method,saveModel=saveModel,SD=SD,pltSave=pltSave)
     return blm
@@ -49,20 +50,65 @@ if 'f_plotOnly' in locals():
 if 'f_plotInvLoss' in locals():
     # MAYBE this is a 'nicer looking' graph of losses?
     x = np.linspace(-1,1,1001)
-    # ct1 = 0.25; ct2 = 1-ct1
-    # c0 = 0.5*ct1; c2 = ct2 + c0
-    c0 = 0.1; c2 = 1-c0
+    
+    
+sRated = 2 # compared to Q = 1
+x = np.linspace(0,sRated,100)
+# lossFracSmaxs = [9.11/(sRated**2),5.4/(sRated**2)]
+lossFracSmaxs = [4.37/(sRated**2),3.45/(sRated**2),11.49/(sRated**2)] # from paper by Notton et al
+# lossFracS0s = [2.0,1.0]
+lossFracS0s = [1.45,0.72,0.88] # from paper by Notton et al
+
+fig,[ax0,ax1] = plt.subplots(2,sharex = True)
+for i in range(3):
+    lossFracSmax = lossFracSmaxs[i]
+    lossFracS0 = lossFracS0s[i]
+    Plss = 0.01*sRated*( lossFracS0 + lossFracSmax*(x**2) )
+
+    ax0.plot(100*x/sRated,100*Plss/sRated);
+    ax0.set_ylabel('Inverter Losses, % of $S_{rated}$')
+    ax0.set_ylim((0.0,12.0))
+    ax1.plot(100*x/sRated, 100*x/(Plss + x)); 
+    ax1.set_ylim((84,98));   ax1.set_xlim((0.0,100))
+    ax1.set_xlabel('Apparent Power Throughput, % of $S_{rated}$')
+    ax1.set_ylabel('Efficiency')
+
+plt.tight_layout()
+plt.show()
+    
+
+for i in range(3):
+    lossFracSmax = lossFracSmaxs[i]
+    lossFracS0 = lossFracS0s[i]
+    
+    lossFrac = ( lossFracS0 + lossFracSmax*(1**2) )*sRated # losses per Q
+    c0 = lossFracS0*sRated/lossFrac # losses per Q
+    c2 = 1-c0
+    x = np.linspace(-1,1,1001)
     ct2 = c2-c0; ct1=2*c0
-    y = 5*( ct1*np.abs(x) + ct2*(x**2) )
-    z = 5*( c0 + c2*(x**2))
+    y = lossFrac*( ct1*np.abs(x) + ct2*(x**2) )
+    z = lossFrac*( c0 + c2*(x**2))
+    print('lossFrac',lossFrac)
+    print('c0',c0)
+    print('c2',c2)
+    print('ct1',ct1)
+    print('ct2',ct2)
+    
+
+    # # # ct1 = 0.25; ct2 = 1-ct1
+    # # # c0 = 0.5*ct1; c2 = ct2 + c0
+    # # c0 = 0.1; c2 = 1-c0
+    # # ct2 = c2-c0; ct1=2*c0
+    # # y = 5*( ct1*np.abs(x) + ct2*(x**2) )
+    # # z = 5*( c0 + c2*(x**2))
+
     z[len(z)//2]=0
     plt.plot(100*x,y); plt.xlabel('Q, %'); plt.ylabel('Losses - fraction of peak Q (%)')
     plt.plot(100*x,z); plt.xlabel('Q, %'); plt.ylabel('Losses - fraction of peak Q (%)')
-    plt.ylim((-0.0,6.1))
-    plt.grid()
-    plt.show()
-    
-
+    # plt.ylim((-0.0,6.1))
+plt.grid()
+plt.show()
+        
 
 
 if 'f_valueComparisonChart' in locals():
@@ -140,8 +186,8 @@ if 'f_batchTest' in locals():
         self.testQpScpf(); plt.show()
         self.testQpTcpf(); plt.show()
 
-feeder = 18
-self = main(feeder,'loadOnly',linPoint=0.6); self.initialiseOpenDss(); self.testQpVcpf(); plt.show()
+# feeder = 18
+# self = main(feeder,'loadOnly',linPoint=0.6); self.initialiseOpenDss(); self.testQpVcpf(); plt.show()
 
 
 # self = main(8,'loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.showQpSln()

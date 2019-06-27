@@ -217,11 +217,7 @@ class buildLinModel:
         
     def runQpSet(self,saveQpSln=True):
         objs = ['opCst','hcGen','hcLds']
-        # objs = ['opCst','hcGen']
-        objs = ['opCst']
         strategies = ['full','part','phase','maxTap','nomTap','minTap','loss','load']
-        # strategies = ['full','phase','maxTap','minTap']
-        strategies = ['full']
         optType = ['mosekFull']
         qpSolutions = {}
         for obj in objs:
@@ -570,9 +566,12 @@ class buildLinModel:
         # self.qpHlss = H[self.qpHlssPinv]
         return H[self.qpHlssPinv]
     
-    def getQlossOfs(self,lossFact=0.05,kQlossL=0.5):
-        self.kQlossL = lossFact*kQlossL # at rated Q, the fraction of P
-        self.kQlossQ = lossFact*(1-kQlossL) # at rated Q, the fraction of P due to quadratic component
+    def getQlossOfs(self,lossFact=0.05,kQlossQ=0.5,kQlossL=None):
+        self.kQlossQ = lossFact*kQlossQ # at rated Q, the fraction of P due to quadratic component
+        if kQlossL is None:
+            self.kQlossL = lossFact*(1-kQlossQ) # at rated Q, the fraction of P
+        else:
+            self.kQlossL = kQlossL
         qlossL = np.zeros(self.nCtrl)
         qlossL[self.nPctrl:self.nSctrl] = +( (self.qLim*self.kQlossL)*self.lScale/self.xSscale )/self.qLim
         self.qlossL = qlossL

@@ -31,14 +31,13 @@ lpA = [0.1,0.6,1.0];        lpB = [0.1,0.3,0.6];       lpC = [1.0]
 linPointsA = {'all':lpA,'opCst':lpA,'hcGen':[lpA[0]],'hcLds':[lpA[-1]]}
 linPointsB = {'all':lpB,'opCst':lpB,'hcGen':[lpB[0]],'hcLds':[lpB[-1]]}
 linPointsC = {'all':lpC,'opCst':lpC,'hcGen':lpC,'hcLds':lpC}
-# objSet = ['opCst','hcGen','hcLds']
-objSet = ['opCst','hcGen']
+objSet = ['opCst','hcGen','hcLds']
 
 # NB remember to update n10!
 linPointsDict = {5:linPointsA,6:linPointsB,8:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
                                 'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA,25:linPointsC}
 pCvrSet = [0.2,0.8]
-pCvrSet = [0.8]
+pCvrSet = [0.4,0.8]
 
 # STEP 1: building and saving the models. =========================
 tBuild = []
