@@ -48,66 +48,49 @@ if 'f_plotOnly' in locals():
         self = main(feeder,'plotOnly')
 
 if 'f_plotInvLoss' in locals():
-    # MAYBE this is a 'nicer looking' graph of losses?
-    x = np.linspace(-1,1,1001)
-    
-    
-sRated = 2 # compared to Q = 1
-x = np.linspace(0,sRated,100)
-# lossFracSmaxs = [9.11/(sRated**2),5.4/(sRated**2)]
-lossFracSmaxs = [4.37/(sRated**2),3.45/(sRated**2),11.49/(sRated**2)] # from paper by Notton et al
-# lossFracS0s = [2.0,1.0]
-lossFracS0s = [1.45,0.72,0.88] # from paper by Notton et al
+    sRated = 2 # compared to Q = 1
+    x = np.linspace(0,sRated,100)
+    # lossFracSmaxs = [9.11/(sRated**2),5.4/(sRated**2)]
+    # lossFracS0s = [2.0,1.0]
+    lossFracSmaxs = [4.37/(sRated**2),3.45/(sRated**2),11.49/(sRated**2)] # from paper by Notton et al
+    lossFracS0s = [1.45,0.72,0.88] # from paper by Notton et al
 
-fig,[ax0,ax1] = plt.subplots(2,sharex = True)
-for i in range(3):
-    lossFracSmax = lossFracSmaxs[i]
-    lossFracS0 = lossFracS0s[i]
-    Plss = 0.01*sRated*( lossFracS0 + lossFracSmax*(x**2) )
+    fig,[ax0,ax1] = plt.subplots(2,sharex = True)
+    for i in range(3):
+        lossFracSmax = lossFracSmaxs[i]
+        lossFracS0 = lossFracS0s[i]
+        Plss = 0.01*sRated*( lossFracS0 + lossFracSmax*(x**2) )
 
-    ax0.plot(100*x/sRated,100*Plss/sRated);
-    ax0.set_ylabel('Inverter Losses, % of $S_{rated}$')
-    ax0.set_ylim((0.0,12.0))
-    ax1.plot(100*x/sRated, 100*x/(Plss + x)); 
-    ax1.set_ylim((84,98));   ax1.set_xlim((0.0,100))
-    ax1.set_xlabel('Apparent Power Throughput, % of $S_{rated}$')
-    ax1.set_ylabel('Efficiency')
+        ax0.plot(100*x/sRated,100*Plss/sRated);
+        ax0.set_ylabel('Inverter Losses, % of $S_{rated}$')
+        ax0.set_ylim((0.0,15.0))
+        ax1.plot(100*x/sRated, 100*x/(Plss + x)); 
+        ax1.set_ylim((84,98));   ax1.set_xlim((0.0,100))
+        ax1.set_xlabel('Apparent Power Throughput, % of $S_{rated}$')
+        ax1.set_ylabel('Efficiency')
 
-plt.tight_layout()
-plt.show()
+    plt.tight_layout()
+    plt.show()
     
 
-for i in range(3):
-    lossFracSmax = lossFracSmaxs[i]
-    lossFracS0 = lossFracS0s[i]
-    
-    lossFrac = ( lossFracS0 + lossFracSmax*(1**2) )*sRated # losses per Q
-    c0 = lossFracS0*sRated/lossFrac # losses per Q
-    c2 = 1-c0
-    x = np.linspace(-1,1,1001)
-    ct2 = c2-c0; ct1=2*c0
-    y = lossFrac*( ct1*np.abs(x) + ct2*(x**2) )
-    z = lossFrac*( c0 + c2*(x**2))
-    print('lossFrac',lossFrac)
-    print('c0',c0)
-    print('c2',c2)
-    print('ct1',ct1)
-    print('ct2',ct2)
-    
-
-    # # # ct1 = 0.25; ct2 = 1-ct1
-    # # # c0 = 0.5*ct1; c2 = ct2 + c0
-    # # c0 = 0.1; c2 = 1-c0
-    # # ct2 = c2-c0; ct1=2*c0
-    # # y = 5*( ct1*np.abs(x) + ct2*(x**2) )
-    # # z = 5*( c0 + c2*(x**2))
-
-    z[len(z)//2]=0
-    plt.plot(100*x,y); plt.xlabel('Q, %'); plt.ylabel('Losses - fraction of peak Q (%)')
-    plt.plot(100*x,z); plt.xlabel('Q, %'); plt.ylabel('Losses - fraction of peak Q (%)')
-    # plt.ylim((-0.0,6.1))
-plt.grid()
-plt.show()
+    for i in range(3):
+        lossFracSmax = lossFracSmaxs[i]
+        lossFracS0 = lossFracS0s[i]
+        
+        lossFrac = ( lossFracS0 + lossFracSmax*(1**2) )*sRated # losses per Q
+        c0 = lossFracS0*sRated/lossFrac # losses per Q
+        c2 = 1-c0
+        x = np.linspace(-1,1,1001)
+        ct2 = c2-c0; ct1=2*c0
+        y = lossFrac*( ct1*np.abs(x) + ct2*(x**2) )
+        z = lossFrac*( c0 + c2*(x**2))
+        print('lossFrac',lossFrac); print('c0',c0); print('c2',c2); print('ct1',ct1); print('ct2',ct2)
+        z[len(z)//2]=0
+        plt.plot(100*x,y); plt.xlabel('Q, %'); plt.ylabel('Losses - fraction of peak Q (%)')
+        plt.plot(100*x,z); plt.xlabel('Q, %'); plt.ylabel('Losses - fraction of peak Q (%)')
+        
+    plt.grid()
+    plt.show()
         
 
 

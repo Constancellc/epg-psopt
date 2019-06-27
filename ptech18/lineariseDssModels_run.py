@@ -26,6 +26,8 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 # self = main(8,'buildSave')
 
 self = main(0,modelType='loadOnly'); self.runCvrQp('full','opCst'); self.showQpSln()
+self = main('n1',modelType='loadOnly'); self.runCvrQp('full','opCst'); self.showQpSln()
+self = main('n1',modelType='loadOnly'); self.loadQpSet(); self.loadQpSln('full','opCst'); self.showQpSln()
 self.getQlossOfs(0.05,0.5,0.0);self.runCvrQp('full','opCst'); self.showQpSln()
 
 # self = main(0,modelType='loadOnly'); self.runCvrQp('full','opCst'); self.showQpSln()

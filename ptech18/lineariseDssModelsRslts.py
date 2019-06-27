@@ -14,6 +14,7 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 # f_checkFeasibility = 1
 # f_checkError = 1
 # f_valueComparison = 1
+f_psccResults = 1
 
 def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,pltSave=False):
     reload(lineariseDssModels)
@@ -114,14 +115,14 @@ if 'f_valueComparison' in locals():
     opCstTableB = [['Operating cost (kW)'],[*strategies]]
     opCstTableC = [['Operating cost (kW)'],[*strategies]]
     hcGenTable = [['Generation (kW)'],['Feeder',*strategies]]
-    # hcLdsTable = [['Load (kW)'],['Feeder',*strategies]]
+    hcLdsTable = [['Load (kW)'],['Feeder',*strategies]]
     
     i = 2
     for feeder in feederSet:
         print(feeder)
         linPoints = linPointsDict[feeder]
         opCstTableA.append([]); opCstTableB.append([]); opCstTableC.append([])
-        opCstTable.append([feeder]); hcGenTable.append([feeder]); # hcLdsTable.append([feeder])
+        opCstTable.append([feeder]); hcGenTable.append([feeder]); hcLdsTable.append([feeder])
         for strategy in strategies:
             for obj in objSet:
                 linPoints = linPointsDict[feeder][obj]
@@ -134,7 +135,7 @@ if 'f_valueComparison' in locals():
                     if obj=='opCst' and j==1: opCstTableB[i].append( val )
                     if obj=='opCst' and j==2: opCstTableC[i].append( val )
                     if obj=='hcGen': hcGenTable[i].append( str(val)[:7] )
-                    # if obj=='hcLds': hcLdsTable[i].append( str(val)[:7] )
+                    if obj=='hcLds': hcLdsTable[i].append( str(val)[:7] )
                     j+=1
                 
         i+=1
@@ -149,4 +150,12 @@ if 'f_valueComparison' in locals():
         
     print(*opCstTable,sep='\n')
     print(*hcGenTable,sep='\n')
-    # print(*hcLdsTable,sep='\n')
+    print(*hcLdsTable,sep='\n')
+
+if 'f_psccResults' in locals():
+    feederSet = ['n1','n27']
+    
+    sRated = 2
+    # lossFracS0s = [1.45,0.72,0.88] # from paper by Notton et al
+    # lossFracSmaxs = [4.37/(sRated**2),3.45/(sRated**2),11.49/(sRated**2)] # from paper by Notton et al
+    lossSettings = {'Low':[  ],'Med':[ ], 'Hi':[ ] }
