@@ -17,7 +17,8 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 
 feederSet = [0,17,'n1',8,24,'n27']
 
-strategies = ['full','phase','minTap','maxTap']
+# strategies = ['full','phase','minTap','maxTap']
+strategies = ['full','phase','load','loss']
 objSet = ['opCst','hcGen']
 
 lpA = [0.1,0.6,1.0];        lpB = [0.1,0.3,0.6];       lpC = [1.0]
@@ -30,7 +31,7 @@ linPointsDict = {5:linPointsA,6:linPointsB,8:linPointsA,24:linPointsA,18:linPoin
 def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,pltSave=False):
     reload(lineariseDssModels)
     
-    SD = os.path.join(os.path.join(os.path.exanduser('~')), 'Desktop')
+    SD = os.path.join(os.path.join(os.path.expanduser('~')), 'Desktop')
     blm = lineariseDssModels.buildLinModel(FD=FD,fdr_i=fdr_i,linPoints=[linPoint],pCvr=pCvr,
                                                 modelType=modelType,method=method,saveModel=saveModel,SD=SD,pltSave=pltSave)
     return blm
@@ -158,12 +159,9 @@ if 'f_valueComparisonChart' in locals():
 
 # self = main(0,'loadOnly',linPoint=1.0); self.loadQpSet(); self.loadQpSln('full','opCst'); self.plotNetBuses('qSlnPh',minMax=[-1.0,1.0])
 # self = main(0,'loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.plotNetBuses('qSlnPh',minMax=[-1.0,1.0])
-# self = main(8,'loadOnly',linPoint=1.0); self.loadQpSet(); self.loadQpSln('full','opCst'); self.plotNetBuses('qSlnPh',minMax=[-1.0,1.0])
-# self = main(8,'loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.plotNetBuses('qSlnPh',minMax=[-1.0,1.0])
 
 if 'f_batchTest' in locals():
-    # feederTest = [8,24,'n27',0,'n1',17] # NB 17 is slowwwww
-    feederTest = [8] # NB 17 is slowwwww
+    feederTest = [8,24,'n27',0,'n1',17]
     for feeder in feederTest:
         self = main(feeder,'loadOnly',linPoint=0.6); self.initialiseOpenDss(); self.testQpVcpf(); plt.show()
         self.testQpScpf(); plt.show()
@@ -172,18 +170,6 @@ if 'f_batchTest' in locals():
 # feeder = 18
 # self = main(feeder,'loadOnly',linPoint=0.6); self.initialiseOpenDss(); self.testQpVcpf(); plt.show()
 
-
 # self = main(8,'loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.showQpSln()
-# self = main('n1','loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.showQpSln()
-
 # self = main('n1','loadOnly',linPoint=0.1); self.runCvrQp('full','hcGen')
-# self = main('n1','loadOnly',linPoint=0.1); self.runCvrQp('full','hcGen')
-
 # self = main('n1','plotOnly')
-# self = main('n1','plotOnly')
-
-# self = main('n27','loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.showQpSln()
-# self.plotNetBuses('qSlnPh',minMax=[-1.0,1.0])
-
-# self = main('n27','loadOnly',linPoint=1.0); self.initialiseOpenDss(); self.testCvrQp()
-# self = main(17,'loadOnly',linPoint=1.0); self.initialiseOpenDss(); self.testCvrQp()

@@ -549,7 +549,7 @@ class buildLinModel:
         self.pcurtL = pcurtL
         
         self.setupConstraints()
-        self.getQlossOfs()
+        self.setQlossOfs()
         
         self.loadCvrDssModel(self.pCvr,self.qCvr,loadMult=lin_point)
         self.log.info('Actual losses:'+str(DSSCircuit.Losses))
@@ -566,18 +566,27 @@ class buildLinModel:
         # self.qpHlss = H[self.qpHlssPinv]
         return H[self.qpHlssPinv]
     
-    def getQlossOfs(self,lossFact=0.05,kQlossQ=0.5,kQlossL=None):
-        self.kQlossQ = lossFact*kQlossQ # at rated Q, the fraction of P due to quadratic component
-        if kQlossL is None:
-            self.kQlossL = lossFact*(1-kQlossQ) # at rated Q, the fraction of P
-        else:
-            self.kQlossL = kQlossL
-        qlossL = np.zeros(self.nCtrl)
-        qlossL[self.nPctrl:self.nSctrl] = +( (self.qLim*self.kQlossL)*self.lScale/self.xSscale )/self.qLim
-        self.qlossL = qlossL
+    def setQlossOfs(self,kQlossQ=0.0,kQlossL=0.0,kQlossC=0.0,qlossRegC=0.0):
+        # these should come in in WATTS (per kVA, per kVA**2 for non constant)
         qlossQdiag = np.zeros(self.nCtrl)
-        qlossQdiag[self.nPctrl:self.nSctrl] = +( self.qLim*self.kQlossQ*self.lScale/self.xSscale )/(self.qLim**2)
+        qlossQdiag[self.nPctrl:self.nSctrl] = kQlossQ*self.lScale/self.xSscale
         self.qlossQdiag = qlossQdiag
+        
+        qlossL = np.zeros(self.nCtrl)
+        qlossL[self.nPctrl:self.nSctrl] = kQlossL*self.lScale/self.xSscale
+        self.qlossL = qlossL
+        
+        qlossC = np.zeros(self.nCtrl)
+        qlossC[self.nPctrl:self.nSctrl] = kQlossC*self.lScale/self.xSscale
+        self.qlossC = qlossC
+        
+        qlossCzero = np.zeros(self.nCtrl)
+        qlossCzero[self.nPctrl:self.nSctrl] = self.qLim/1e4
+        self.qlossCzero = qlossCzero
+        
+        qlossReg = np.zeros(self.nCtrl)
+        qlossReg[self.nPctrl:self.nSctrl] = qlossRegC*self.lScale/self.xSscale
+        self.qlossReg = qlossReg
     
     def getObjFunc(self,strategy,obj,tLss=False):
         if obj=='opCst':
@@ -795,7 +804,6 @@ class buildLinModel:
         # 2. 'hcGen' for gen HC
         # 3. 'hcLds' for load HC
         
-        
         # GET RID OF APPROPRIATE VARIABLES
         self.oneHat,self.x0 = self.remControlVrlbs(strategy,obj)
         x0 = self.x0; oneHat = self.oneHat
@@ -859,19 +867,6 @@ class buildLinModel:
                 yQ = M.variable("yQ",nQctrlAct)
                 y = Expr.vstack( yP,yQ )
                 
-                if nQctrlAct==1:
-                    qlossLabs = sum(self.qlossL)
-                if nQctrlAct==self.nPctrl:
-                    qlossLabs = max(self.qlossL)
-                if nQctrlAct==3:
-                    phaseWeights = aMulBsp(self.qlossL,oneHat)
-                    qlossLabs = Matrix.dense( np.diag(phaseWeights[phaseWeights!=0]) )
-                
-                wL = M.variable("wL",nQctrlAct)
-                
-                M.constraint( Expr.sub( Expr.mul(qlossLabs,yQ),wL ),Domain.lessThan(0.0) )
-                M.constraint( Expr.add( Expr.mul(qlossLabs,yQ),wL ),Domain.greaterThan(0.0) )
-                
                 qLossQ = 2*np.diag( oneHat.T.dot( sparse.csc_matrix(np.diag(self.qlossQdiag)).dot(oneHat) ).toarray() )[nPctrlAct:nPctrlAct+nQctrlAct]
                 
                 qLossH = Matrix.sparse( range(nQctrlAct),range(nQctrlAct),np.sqrt(qLossQ) )
@@ -883,8 +878,26 @@ class buildLinModel:
                 else:
                     M.constraint( "wQ", Expr.vstack(1.0, wQ,Expr.mul(qLossH,yQ)), Domain.inRotatedQCone() )
                 
-                cw = Matrix.dense( np.ones((nQctrlAct + 1,1)) )
-                wCfunc = Expr.dot(cw,Expr.vstack(wL,wQ))
+                if sum(self.qlossL + self.qlossReg)>0:
+                    oneNormLin = self.qlossL + self.qlossReg
+                    if nQctrlAct==1:
+                        qlossLabs = sum(oneNormLin)
+                    if nQctrlAct==self.nPctrl:
+                        qlossLabs = max(oneNormLin)
+                    if nQctrlAct==3:
+                        phaseWeights = aMulBsp(oneNormLin,oneHat)
+                        qlossLabs = Matrix.dense( np.diag(phaseWeights[phaseWeights!=0]) )
+                    
+                    wL = M.variable("wL",nQctrlAct)
+                    
+                    M.constraint( Expr.sub( Expr.mul(qlossLabs,yQ),wL ),Domain.lessThan(0.0) )
+                    M.constraint( Expr.add( Expr.mul(qlossLabs,yQ),wL ),Domain.greaterThan(0.0) )
+                    
+                    cw = Matrix.dense( np.ones((nQctrlAct + 1,1)) )
+                    wCfunc = Expr.dot(cw,Expr.vstack(wL,wQ))
+                else:
+                    # wCfunc = Expr.dot(1,wQ)
+                    wCfunc = wQ
             else:
                 y = M.variable("y",nSctrlAct)
                 wCfunc = 0
@@ -1092,11 +1105,22 @@ class buildLinModel:
             DSSSolution.ControlMode = ctrlModel # return control to nominal state
             print('Old tap pos:',slnX[self.nSctrl:] + np.array(self.TC_No0))
             print('New tap pos:',find_tap_pos(DSSCircuit))
-            
-        CL = self.qlossQdiag.dot(slnX**2) + np.linalg.norm(self.qlossL*slnX,ord=1)
+        CL = self.getInverterLosses(slnX)
         iXfrmC = self.v2iBrYxfmr.dot(YNodeV)[self.iXfmrModelled]
         outSet = [TL,PL,-TG,CL,abs(YNodeV)[3:],iXfrm,YNodeV[3:],iXfrmC] # as in runQp
         return outSet
+    
+    def getInverterLosses(self,slnX=None,onLoss=True):
+        if slnX is None:
+            slnX = self.slnX
+        
+        qLossQ = self.qlossQdiag.dot(slnX**2)
+        qLossL = np.linalg.norm(self.qlossL*slnX,ord=1)
+        if onLoss:
+            qLossC = self.qlossC.dot( np.abs(slnX)>self.qlossCzero )
+        else:
+            qLossC = 0
+        return qLossQ + qLossL + qLossC
         
     def qpSolutionDssError(self,strategy,obj,err='V'):
         self.loadQpSet()
@@ -1533,13 +1557,14 @@ class buildLinModel:
         genNamesD = add_generators(DSSObj,self.SdYNodeOrder,True)
         return genNamesY + genNamesD
     
-    def runQp(self,dx):
+    def runQp(self,dx,onLoss=True):
         # Vcest = self.Mc2v.dot(dx + self.X0ctrl) + self.aV
         Vcest = np.nan
         # Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
         Iest = np.nan
         
-        self.qpHlss = self.getHmat()
+        if 'qpHlss' not in dir(self):
+            self.qpHlss = self.getHmat()
         
         # dx needs to be in units of kW, kVAr, tap no.
         # TL = dx.dot(self.qpQlss.dot(dx) + self.qpLlss) + self.qpClss
@@ -1549,7 +1574,7 @@ class buildLinModel:
         Vest = self.Kc2v.dot(dx + self.X0ctrl) + self.bV
         Icest = self.Mc2i.dot(dx + self.X0ctrl) + self.aIxfmr
         
-        CL = self.qlossQdiag.dot(dx**2) + np.linalg.norm(self.qlossL*dx,ord=1)
+        CL = self.getInverterLosses(dx,onLoss=onLoss)
         
         return TL,PL,TC,CL,Vest,Iest,Vcest,Icest
 
@@ -2590,7 +2615,8 @@ class buildLinModel:
         # EU style networks have slightly different characteristics
         if self.feeder=='eulv' or self.feeder[0]=='n':
             cns['mvHi']=1.055 # keep the same
-            cns['mvLo']=0.95
+            # cns['mvLo']=0.95
+            cns['mvLo']=0.90
             cns['lvHi']=1.10
             cns['lvLo']=0.90
             cns['iScale'] = (nHouses[self.feeder]*2)/800

@@ -25,15 +25,21 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 
 # self = main(8,'buildSave')
 
-self = main(0,modelType='loadOnly'); self.runCvrQp('full','opCst'); self.showQpSln()
-self = main('n1',modelType='loadOnly'); self.runCvrQp('full','opCst'); self.showQpSln()
-self = main('n1',modelType='loadOnly'); self.loadQpSet(); self.loadQpSln('full','opCst'); self.showQpSln()
-self.getQlossOfs(0.05,0.5,0.0);self.runCvrQp('full','opCst'); self.showQpSln()
+# self = main(0,modelType='loadOnly'); self.runCvrQp('full','opCst'); self.showQpSln()
+
+self = main(5,modelType='loadOnly');
+self.setQlossOfs(lossFact=0.05,kQlossQ=0.5,kQlossL=0.0,kQlossC=0.5,qlossRegC=0.0); self.runCvrQp('full','opCst'); self.showQpSln()
+
+print(sum(self.runQp(self.slnX,True)[:4]))
+print(sum(self.runQp(self.slnX,False)[:4]))
+
+# self = main('n1',modelType='loadOnly'); self.loadQpSet(); self.loadQpSln('full','opCst'); self.showQpSln()
+# self.setQlossOfs(0.05,0.5,0.0);self.runCvrQp('full','opCst'); self.showQpSln()
 
 # self = main(0,modelType='loadOnly'); self.runCvrQp('full','opCst'); self.showQpSln()
 
 # self = main(0,modelType='loadOnly'); self.runCvrQp('full','opCst'); self.showQpSln()
-# self = main(0,modelType='loadOnly'); self.getQlossOfs(lossFact=0.02,kQlossL=0.0); self.runCvrQp('full','opCst'); self.showQpSln()
+# self = main(0,modelType='loadOnly'); self.setQlossOfs(lossFact=0.02,kQlossL=0.0); self.runCvrQp('full','opCst'); self.showQpSln()
 
 # self = main(17,'loadOnly'); self.initialiseOpenDss(); self.testQpVcpf(); plt.show()
 

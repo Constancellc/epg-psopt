@@ -1,7 +1,7 @@
 import lineariseDssModels, sys, os, pickle, random, time
 from importlib import reload
 import numpy as np
-from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar
+from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, basicTable
 import matplotlib.pyplot as plt
 
 FD = sys.argv[0]
@@ -14,7 +14,7 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 # f_checkFeasibility = 1
 # f_checkError = 1
 # f_valueComparison = 1
-f_psccResults = 1
+f_psccAbstract = 1
 
 def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,pltSave=False):
     reload(lineariseDssModels)
@@ -39,6 +39,7 @@ linPointsDict = {5:linPointsA,6:linPointsB,8:linPointsA,24:linPointsA,18:linPoin
                                 'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA,25:linPointsC}
 pCvrSet = [0.2,0.8]
 pCvrSet = [0.4,0.8]
+pCvrSet = [0.6]
 
 # STEP 1: building and saving the models. =========================
 tBuild = []
@@ -152,10 +153,142 @@ if 'f_valueComparison' in locals():
     print(*hcGenTable,sep='\n')
     print(*hcLdsTable,sep='\n')
 
-if 'f_psccResults' in locals():
-    feederSet = ['n1','n27']
+if 'f_psccAbstract' in locals():
+    # feederSet = ['n1','n27']
+    # feederSet = 8
+    feeder = 24
+    # feeder = 'n27'
+    # feeder = 5
+    linPoint = 1.0
+    # linPoint = 0.6
+    pCvr=0.6
     
-    sRated = 2
-    # lossFracS0s = [1.45,0.72,0.88] # from paper by Notton et al
-    # lossFracSmaxs = [4.37/(sRated**2),3.45/(sRated**2),11.49/(sRated**2)] # from paper by Notton et al
-    lossSettings = {'Low':[  ],'Med':[ ], 'Hi':[ ] }
+    strategy='full'; obj='opCst'
+    
+    sRated = 2 #kVA
+    lossFracS0s = 1e-2*np.array([1.45,0.72,0.88])*(sRated**1) # from paper by Notton et al
+    lossFracSmaxs = 1e-2*np.array([4.37,3.45,11.49])*(sRated**-1) # from paper by Notton et al
+    
+    lossSettings = {'Low':[lossFracS0s[1],lossFracSmaxs[1]],'Med':[lossFracS0s[2],lossFracSmaxs[2]], 'Hi':[lossFracS0s[0],lossFracSmaxs[0]] }
+    lossSetting = 'Hi'
+    
+    loss = lossSettings[lossSetting]
+    slnSet = [['','Base','With losses','Ignore losses'],['$f^{*}$, kW'],['$\Delta f^{*}$, kW'],['$\|Q^{*}\|_{1}$, kVAr']]
+    
+    
+    # RESULTS TABLE ================
+    self = main(feeder,linPoint=linPoint,pCvr=pCvr,modelType='loadOnly')
+    
+    self.setQlossOfs(kQlossQ=loss[1],kQlossC=0)
+    self.qLim = 0
+    self.runCvrQp(); # self.showQpSln()
+    
+    fStar0 = sum(self.runQp(self.slnX)[0:4])
+    fStar = sum(self.runQp(self.slnX)[0:4])
+    slnSet[1].append( '%.1f' % np.round(fStar,1) )
+    slnSet[2].append( '%.2f' % np.round(fStar-fStar0,2) )
+    slnSet[3].append( '%.1f' % np.linalg.norm(self.slnX[self.nPctrl:self.nSctrl],ord=1))
+    
+    # first solve with no inverter losses (but get the solution with losses)
+    self = main(feeder,linPoint=linPoint,pCvr=pCvr,modelType='loadOnly')
+    self.setQlossOfs(kQlossQ=0.0,kQlossC=0.0)
+    self.runCvrQp()
+    
+    self.setQlossOfs(kQlossQ=loss[1],kQlossC=0)
+    
+    fStar = sum(self.runQp(self.slnX)[0:4])
+    slnSet[1].append( '%.1f' % np.round(fStar,1) )
+    slnSet[2].append( '%.2f' % np.round(fStar-fStar0,2) )
+    slnSet[3].append( '%.1f' % np.linalg.norm(self.slnX[self.nPctrl:self.nSctrl],ord=1))
+    
+    self.runCvrQp()
+    fStar = sum(self.runQp(self.slnX)[0:4])
+    slnSet[1].append( '%.1f' % np.round(fStar,1) )
+    slnSet[2].append( '%.2f' % np.round(fStar-fStar0,2) )
+    slnSet[3].append( '%.1f' % np.linalg.norm(self.slnX[self.nPctrl:self.nSctrl],ord=1))
+    
+    caption='EPRI Circuit K1 Optimization Results'
+    heading = slnSet[0]
+    data = slnSet[1:]
+    TD = r"C:\Users\Matt\Documents\DPhil\papers\pscc20\tables\\"
+    label='results'
+    basicTable(caption,label,heading,data,TD)
+    print(*slnSet,sep='\n')
+    
+    # RESULTS FIGURE ================
+    if feeder==5: qlossRegs = np.linspace(0,0.14,15)
+    if feeder==24: qlossRegs = np.linspace(0.0,0.6,30)
+    if feeder=='n27': qlossRegs = np.linspace(0.00,0.14,15)
+    # qlossRegs = np.linspace(0,0.45,45) # 123bus (?)
+    # qlossRegs = np.linspace(0,1.0,4)
+    
+    self = main(feeder,linPoint=linPoint,pCvr=pCvr,modelType='loadOnly')
+    self.setupConstraints()
+    
+    costA = []; costB = []
+    nnz = []; taps = []
+    i=0
+    for qlossRegC in qlossRegs:
+        print(i); i+=1
+        self.setQlossOfs(kQlossQ=loss[1],kQlossC=loss[0],qlossRegC=qlossRegC)
+        self.runCvrQp()
+        costA.append(sum(self.runQp(self.slnX,True)[:4]))
+        costB.append(sum(self.runQp(self.slnX,False)[:4]))
+        nnz.append(np.sum( (np.abs(self.slnX)>self.qlossCzero)[self.nPctrl:self.nSctrl] ))
+        taps.append(self.slnX[self.nSctrl:])
+
+    fig,ax = plt.subplots(figsize=(4.7,2.2))
+    ax.plot(qlossRegs,costA);
+    # ax.plot(qlossRegs,costB,label='Without $c_{0}$');
+    ax.set_ylabel('Cost $f$ (kW)')
+    ax.set_xlabel('Regularization parameter $\eta$')
+    ax.annotate("Optimal point",
+                xy=(0.05, 12425), xycoords='data',
+                xytext=(0.06, 12440), textcoords='data',
+                arrowprops=dict(arrowstyle="->",
+                                connectionstyle="arc3"),
+                )
+    ax.annotate("$||Q||_{1}=0$",
+                xy=(0.45, 12463), xycoords='data',
+                xytext=(0.43, 12450), textcoords='data',
+                arrowprops=dict(arrowstyle="->",
+                                connectionstyle="arc3"),
+                )            
+    plt.grid(); plt.xlim((0.0,0.6))
+    plt.tight_layout(); 
+    plt.savefig(r"C:\Users\Matt\Documents\DPhil\papers\pscc20\figures\rglrz.png",bbox_inches='tight', pad_inches=0)
+    plt.savefig(r"C:\Users\Matt\Documents\DPhil\papers\pscc20\figures\rglrz.pdf",bbox_inches='tight', pad_inches=0)
+    plt.show()
+        
+    # taps= np.array(taps);
+    fig,[ax0,ax1,ax2] = plt.subplots(3,sharex=True)
+    ax0.plot(qlossRegs,costB,label='Incl turn on');
+    ax0.plot(qlossRegs,costA,label='No turn on');
+    ax0.set_ylabel('Cost (kW)'); 
+    ax0.legend(); 
+    ax1.plot(qlossRegs,nnz)
+    ax1.set_ylabel('No. zero elements')
+    ax2.step(qlossRegs,taps)
+    ax2.set_ylabel('Tap Positions')
+    ax2.set_xlabel('Regularization parameter')
+    plt.tight_layout()
+    plt.show()
+
+# self = main(feeder,linPoint=linPoint,pCvr=pCvr,modelType='loadOnly')
+# self.setQlossOfs(kQlossQ=0.5,kQlossC=0.0)
+# self.runCvrQp();sum(self.slnF[:4])
+
+# self = main(feeder,linPoint=linPoint,pCvr=pCvr,modelType='loadOnly')
+# self.setQlossOfs(kQlossQ=0.5,kQlossC=0.0)
+# self.runCvrQp(); sum(self.slnF[:4])
+
+
+# self.setQlossOfs(kQlossQ=0.5,kQlossC=0.0,qlossRegC=1.0)
+# self.runCvrQp()
+# sum(self.slnF[:4])
+
+# self = main(feeder,linPoint=linPoint,pCvr=pCvr,modelType='loadOnly')
+# self.setupConstraints()
+# self.setQlossOfs(kQlossQ=loss[1])
+# self.runCvrQp()
+# self.showQpSln()
