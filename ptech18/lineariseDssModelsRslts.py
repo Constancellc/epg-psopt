@@ -173,7 +173,7 @@ if 'f_psccAbstract' in locals():
     lossSetting = 'Hi'
     
     loss = lossSettings[lossSetting]
-    slnSet = [['','Base','With losses','Ignore losses'],['$f^{*}$, kW'],['$\Delta f^{*}$, kW'],['$\|Q^{*}\|_{1}$, kVAr']]
+    slnSet = [['','Base','Ignore losses','Incl. losses'],['$f^{*}$, kW'],['$\Delta f^{*}$, kW'],['$\|Q^{*}\|_{1}$, kVAr']]
     
     
     # RESULTS TABLE ================
@@ -238,17 +238,20 @@ if 'f_psccAbstract' in locals():
         taps.append(self.slnX[self.nSctrl:])
 
     fig,ax = plt.subplots(figsize=(4.7,2.2))
-    ax.plot(qlossRegs,costA);
-    # ax.plot(qlossRegs,costB,label='Without $c_{0}$');
+
+    fig,ax = plt.subplots(figsize=(4.7,1.8))
+    ax.plot(qlossRegs,costA,'k',label='With $c_{\mathrm{Turn\,on}}$');
+    ax.plot(qlossRegs,costB,'k--',label='No $c_{\mathrm{Turn\,on}}$');
+    ax.legend(loc='lower right')
     ax.set_ylabel('Cost $f$ (kW)')
     ax.set_xlabel('Regularization parameter $\eta$')
     ax.annotate("Optimal point",
                 xy=(0.05, 12425), xycoords='data',
-                xytext=(0.06, 12440), textcoords='data',
+                xytext=(0.045, 12440), textcoords='data',
                 arrowprops=dict(arrowstyle="->",
                                 connectionstyle="arc3"),
                 )
-    ax.annotate("$||Q||_{1}=0$",
+    ax.annotate("$||Q^{*}||_{1}=0$",
                 xy=(0.45, 12463), xycoords='data',
                 xytext=(0.43, 12450), textcoords='data',
                 arrowprops=dict(arrowstyle="->",
@@ -256,8 +259,8 @@ if 'f_psccAbstract' in locals():
                 )            
     plt.grid(); plt.xlim((0.0,0.6))
     plt.tight_layout(); 
-    plt.savefig(r"C:\Users\Matt\Documents\DPhil\papers\pscc20\figures\rglrz.png",bbox_inches='tight', pad_inches=0)
-    plt.savefig(r"C:\Users\Matt\Documents\DPhil\papers\pscc20\figures\rglrz.pdf",bbox_inches='tight', pad_inches=0)
+    # plt.savefig(r"C:\Users\Matt\Documents\DPhil\papers\pscc20\figures\rglrz.png",bbox_inches='tight', pad_inches=0)
+    # plt.savefig(r"C:\Users\Matt\Documents\DPhil\papers\pscc20\figures\rglrz.pdf",bbox_inches='tight', pad_inches=0)
     plt.show()
         
     # taps= np.array(taps);

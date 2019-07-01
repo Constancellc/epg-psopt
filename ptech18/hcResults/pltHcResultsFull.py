@@ -2,6 +2,7 @@ import pickle, sys, os, getpass
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.cm as cm
+from scipy.stats import pearsonr
 plt.style.use('tidySettings')
 
 WD = os.path.dirname(sys.argv[0])
@@ -25,7 +26,7 @@ feeders_lp = feeders_dcp
 # t_rsltSvty = 1 # sensitivity table # <--- now not in use!
 # t_results = 1
 # f_dssVlinWght = 1 # gammaFrac boxplot results
-f_dssVlinWghtConservative = 1; consFactor = 1.10 # gammaFrac boxplot results
+# f_dssVlinWghtConservative = 1
 # f_mcLinUpg = 1
 # f_mcLinCmp = 1
 # f_linMcSns = 1
@@ -33,6 +34,9 @@ f_dssVlinWghtConservative = 1; consFactor = 1.10 # gammaFrac boxplot results
 # f_plotCns_paramUpdate = 1
 # f_plotLpUpg = 1
 # f_plotLp = 1
+# f_errorCorr = 1
+
+consFactor = 1.10 # for f_dssVlinWghtConservative
 
 # pltSave=True
 pltShow=True
@@ -71,6 +75,10 @@ for feeder in feeders_lp:
         rsltsLp[feeder] = pickle.load(handle)
     with open(RDupgNom,'rb') as handle:
         rsltsUnom[feeder] = pickle.load(handle)
+SDerrors = os.path.join(WD,'feederErrors.pkl')
+with open(SDerrors,'rb') as saveFile:
+    feederErrors = pickle.load(saveFile) # NB these are actually sensitivities
+feederDict = {'34bus':6,'123bus':8,'8500node':9,'epri5':17,'epri7':18,'epriJ1':19,'epriK1':20,'epriM1':21,'epri24':22}
 
 # kCdfLin = [];    kCdfDss = []; kCdfNom = []; 
 # LmeanNorm = []; feederTidySet = []
@@ -129,7 +137,7 @@ for feeder in feeders_lp:
     # feederTidySet.append(feedersTidy[rslt['feeder']])
     
 kCdfLin = [];    kCdfDss = []; kCdfNom = []; kCdfLinConservative=[]
-LmeanNorm = []; feederTidySet = []
+LmeanNorm = []; feederTidySet = []; corrPlot = []
 timeTableData = []
 rsltSvtyData = []
 resultsData = []
@@ -194,6 +202,9 @@ for rslt in rsltsTap.values():
     
     # LmeanNorm.append( np.mean(np.abs(rslt['dssHcRslTgt']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))*0.01 )
     feederTidySet.append(feedersTidy[rslt['feeder']])
+    
+    corrPlot.append( [ feederErrors[feederDict[rslt['feeder']]], rslt['maeVals']['dssTgtMae'] ] )
+    
         
 kCdfSns0 = []; kCdfSns1 = []; kCdfLinSns = [] # new lin needed coz this is only some models
 feederSnsSmart = []; LsnsNorm = []
@@ -318,28 +329,28 @@ if 'f_dssVlinWght' in locals():
 
 # # RESULTS 1 - opendss vs linear model, k =====================
 if 'f_dssVlinWghtConservative' in locals():
-    fig = plt.figure(figsize=figSze0)
+    fig = plt.figure(figsize=figSze2)
     ax = fig.add_subplot(111)
     i=0
     for x in X:
         ax = plotBoxWhisk(ax,x+1.5*dx,ddx,kCdfLin[i][1:-1],clrA,bds=kCdfLin[i][[0,-1]],transpose=True)
-        ax = plotBoxWhisk(ax,x+0*dx,ddx,kCdfLinConservative[i][1:-1],clrC,bds=kCdfLinConservative[i][[0,-1]],transpose=True)
-        ax = plotBoxWhisk(ax,x-1.5*dx,ddx,kCdfDss[i][1:-1],clrB,bds=kCdfDss[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x+0*dx,ddx,kCdfDss[i][1:-1],clrB,bds=kCdfDss[i][[0,-1]],transpose=True)
+        ax = plotBoxWhisk(ax,x-1.5*dx,ddx,kCdfLinConservative[i][1:-1],clrC,bds=kCdfLinConservative[i][[0,-1]],transpose=True)
         i+=1
     ax.plot(0,0,'-',color=clrA,label='Linear, $\hat{f}$')
     ax.plot(0,0,'-',color=clrB,label='OpenDSS, $f$')
-    ax.plot(0,0,'-',color=clrC,label='Linear (110%)')
-    plt.legend(fontsize='small')
+    ax.plot(0,0,'-',color=clrC,label='Linear, $\hat{f}^{\:110\%}$ ')
+    plt.legend(loc='center left', bbox_to_anchor=(1.01, 0.5),fontsize='small')
     
     plt.xlim((-3,103))
     plt.ylim((0.4,9.6))
     plt.grid(True)
     plt.yticks(X,feederTidySet)
-    plt.xlabel('Loads with PV installed, %')
+    plt.xlabel('Fraction of Loads with PV, %')
     plt.tight_layout()
     if 'pltSave' in locals():
-        plt.savefig(FD+'dssVlinWght.png',pad_inches=0.02,bbox_inches='tight')
-        plt.savefig(FD+'dssVlinWght.pdf',pad_inches=0.02,bbox_inches='tight')
+        plt.savefig(FD+'dssVlinWghtConservative.png',pad_inches=0.02,bbox_inches='tight')
+        plt.savefig(FD+'dssVlinWghtConservative.pdf',pad_inches=0.02,bbox_inches='tight')
     if 'pltShow' in locals():
         plt.show()
 
@@ -539,10 +550,10 @@ if 'f_plotLpUpg' in locals():
     ax = plotBoxWhisk(ax,3,0.2,kCdfLp00[i][1:-1],clrG,bds=kCdfLp00[i][[0,-1]],transpose=True)
     ax = plotBoxWhisk(ax,2,0.2,kCdfLpT0[i][1:-1],clrG,bds=kCdfLpT0[i][[0,-1]],transpose=True)
     ax = plotBoxWhisk(ax,1,0.2,kCdfLpTQ[i][1:-1],clrG,bds=kCdfLpTQ[i][[0,-1]],transpose=True)
-    plt.yticks([5,4,3,2,1],['PF = 1.00 (Dcpld.)','PF = 0.95 (Dcpld.)','No T or Q','T, no Q (DERMS)','T and Q (DERMS)'])
+    plt.yticks([5,4,3,2,1],['PF = 1.00 (RLF)','PF = 0.95 (RLF)','No T or Q','T, no Q (DERMS)','T and Q (DERMS)'])
     plt.xlim((-2,102))
     plt.grid(True)
-    plt.xlabel('Loads with PV installed, %')
+    plt.xlabel('Fraction of Loads with PV, %')
     plt.title(feederLpSmart[i])
     plt.tight_layout()
     if 'pltSave' in locals():
@@ -588,9 +599,9 @@ if 'f_plotLp' in locals():
         ax1 = plotBoxWhisk(ax1,x+dx,ddx*1.0,kCdfUpgNomAft[i][1:-1],clrA,bds=kCdfUpgNomAft[i][[0,-1]],transpose=True)
         ax1 = plotBoxWhisk(ax1,x-dx,ddx*1.0,kCdfLpTQ[i][1:-1],clrG,bds=kCdfLpTQ[i][[0,-1]],transpose=True)
         i+=1
-    ax0.plot(0,0,'-',color=clrA,label='Dcpld.')
+    ax0.plot(0,0,'-',color=clrA,label='RLF')
     ax0.plot(0,0,'-',color=clrG,label='DERMS')
-    ax1.plot(0,0,'-',color=clrA,label='Dcpld.')
+    ax1.plot(0,0,'-',color=clrA,label='RLF')
     ax1.plot(0,0,'-',color=clrG,label='DERMS')
     ax0.legend(title='Unity PF',fontsize='small',loc='center left', bbox_to_anchor=(1.01, 0.5))
     ax1.legend(title='0.95 lag. PF',fontsize='small',loc='center left', bbox_to_anchor=(1.01, 0.5))
@@ -609,7 +620,7 @@ if 'f_plotLp' in locals():
     # ax1.set_ymargin(6.3, 3)
     
     plt.grid(True)
-    plt.xlabel('Loads with PV installed, %')
+    plt.xlabel('Fraction of Loads with PV, %')
     plt.tight_layout()
     if 'pltSave' in locals():
         plt.savefig(FD+'plotLp.png',pad_inches=0.02,bbox_inches='tight')
@@ -619,6 +630,33 @@ if 'f_plotLp' in locals():
 
 
 
+def set_size(w,h, ax=None):
+    """ w, h: width, height in inches """
+    if not ax: ax=plt.gca()
+    l = ax.figure.subplotpars.left
+    r = ax.figure.subplotpars.right
+    t = ax.figure.subplotpars.top
+    b = ax.figure.subplotpars.bottom
+    figw = float(w)/(r-l)
+    figh = float(h)/(t-b)
+    ax.figure.set_size_inches(figw, figh)
+
+
+
+if 'f_errorCorr' in locals():
+    corrPlot = np.array(corrPlot).T
+    fig,ax = plt.subplots()
+    ax.scatter(corrPlot[0]/0.10,corrPlot[1],marker='x')
+    ax.set_ylabel('Linear MAE, %')
+    ax.set_xlabel('Hosting capacity sensitivity $f_{\mathrm{S}}$, %')
+    set_size(2.2,2.2,ax)
+    plt.tight_layout()
+    print('Pearson correlation coefficient:',pearsonr(corrPlot[0],corrPlot[1]) )
+    if 'pltSave' in locals():
+        plt.savefig(FD+'errorCorr.png',pad_inches=0.02,bbox_inches='tight')
+        plt.savefig(FD+'errorCorr.pdf',pad_inches=0.02,bbox_inches='tight')
+    if 'pltShow' in locals():    
+        plt.show()
 
 # # 1. seeing how the tap positions change for the feeder
 # for feeder in feeders:
