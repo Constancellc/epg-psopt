@@ -27,11 +27,13 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 
 # self = main(0,modelType='loadOnly'); self.runCvrQp('full','opCst'); self.showQpSln()
 
-self = main(5,modelType='loadOnly');
-self.setQlossOfs(lossFact=0.05,kQlossQ=0.5,kQlossL=0.0,kQlossC=0.5,qlossRegC=0.0); self.runCvrQp('full','opCst'); self.showQpSln()
+# self = main(5,modelType='loadOnly');
+# self.loadQpSet(); self.loadQpSln(strategy,obj); self.showQpSln()
 
-print(sum(self.runQp(self.slnX,True)[:4]))
-print(sum(self.runQp(self.slnX,False)[:4]))
+# self.setQlossOfs(lossFact=0.05,kQlossQ=0.5,kQlossL=0.0,kQlossC=0.5,qlossRegC=0.0); self.runCvrQp('full','opCst'); self.showQpSln()
+
+# print(sum(self.runQp(self.slnX,True)[:4]))
+# print(sum(self.runQp(self.slnX,False)[:4]))
 
 # self = main('n1',modelType='loadOnly'); self.loadQpSet(); self.loadQpSln('full','opCst'); self.showQpSln()
 # self.setQlossOfs(0.05,0.5,0.0);self.runCvrQp('full','opCst'); self.showQpSln()
@@ -43,13 +45,15 @@ print(sum(self.runQp(self.slnX,False)[:4]))
 
 # self = main(17,'loadOnly'); self.initialiseOpenDss(); self.testQpVcpf(); plt.show()
 
-# feeder = 0
-# obj = 'opCst'
-# strategy = 'full'
-# pCvr = 0.8
-# linPoint = 0.1
-# self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint); # self.initialiseOpenDss();
-# self.loadQpSet(); self.loadQpSln(strategy,obj); self.showQpSln()
+feeder = 6
+obj = 'hcLds'
+strategy = 'full'
+pCvr = 0.6
+linPoint = 0.6
+self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint); # self.initialiseOpenDss();
+self.loadQpSet(); self.loadQpSln(strategy,obj); self.showQpSln(); 
+
+self.plotNetBuses('qSlnPh')
 
 # self.testGenSetting(k=np.arange(-10,11,2),dPlim=0.10,dQlim=0.10); plt.show()
 # self.slnD = self.qpDssValidation(method='relaxT')

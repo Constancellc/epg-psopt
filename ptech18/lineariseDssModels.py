@@ -549,7 +549,9 @@ class buildLinModel:
         self.pcurtL = pcurtL
         
         self.setupConstraints()
-        self.setQlossOfs()
+        
+        kQlossC,kQlossQ = self.getInvLossCoeffs()
+        self.setQlossOfs(kQlossQ=kQlossQ,kQlossC=0) # nominall do NOT include turn on losses!
         
         self.loadCvrDssModel(self.pCvr,self.qCvr,loadMult=lin_point)
         self.log.info('Actual losses:'+str(DSSCircuit.Losses))
@@ -565,6 +567,21 @@ class buildLinModel:
         H[getTrilIdxs(n)] = self.qpHlssLin
         # self.qpHlss = H[self.qpHlssPinv]
         return H[self.qpHlssPinv]
+    
+    
+    def getInvLossCoeffs(self,sRated=4.0,type='Low'):
+        lossFracS0s = 1e-2*np.array([1.45,0.72,0.88]) #*(sRated**1) # from paper by Notton et al
+        lossFracSmaxs = 1e-2*np.array([4.37,3.45,11.49]) #*(sRated**-1) # from paper by Notton et al
+    
+        lossSettings = {'Low':[lossFracS0s[1],lossFracSmaxs[1]],'Med':[lossFracS0s[2],lossFracSmaxs[2]], 'Hi':[lossFracS0s[0],lossFracSmaxs[0]] }
+        lossSetting = 'Hi'
+        
+        kQlossC = lossSettings[type][0]*(sRated**1)
+        kQlossQ = lossSettings[type][1]*(sRated**-1)
+        self.invLossSrated = sRated
+        self.invLossType = type
+        return kQlossC,kQlossQ
+    
     
     def setQlossOfs(self,kQlossQ=0.0,kQlossL=0.0,kQlossC=0.0,qlossRegC=0.0):
         # these should come in in WATTS (per kVA, per kVA**2 for non constant)
@@ -2609,7 +2626,8 @@ class buildLinModel:
         self.colormaps = { 'v0':vMap,'p0':pMap,'q0':qMap,'qSln':qMap,'vSln':vMap,'ntwk':sOnly,'qSlnPh':qMap }
     
     def getConstraints(self):
-        cns = {'mvHi':1.055,'lvHi':1.05,'mvLo':0.95,'lvLo':0.92,'plim':1e3,'qlim':1e3,'tlim':0.1,'iScale':1.2}
+        # cns = {'mvHi':1.055,'lvHi':1.05,'mvLo':0.95,'lvLo':0.92,'plim':1e3,'qlim':1e3,'tlim':0.1,'iScale':1.2}
+        cns = {'mvHi':1.055,'lvHi':1.05,'mvLo':0.95,'lvLo':0.92,'plim':1e3,'qlim':2400,'tlim':0.1,'iScale':1.2}
         
         nHouses = {'n1':200 ,'n4':186,'n10':64,'n27':200 ,'eulv':55}
         # EU style networks have slightly different characteristics
@@ -2691,9 +2709,11 @@ class buildLinModel:
         plt.tight_layout()
         
         if pltSave:
-            SN = os.path.join(self.SD,'plotNetwork','plotNetwork'+self.feeder)
+            # SN = os.path.join(self.SD,'plotNetwork','plotNetwork'+self.feeder)
+            SN = os.path.join(self.SD,'plotNetwork'+self.feeder)
             plt.savefig(SN+'.png',bbox_inches='tight', pad_inches=0.01)
             plt.savefig(SN+'.pdf',bbox_inches='tight', pad_inches=0)
+            print('Network plot saved to '+SN)
         if pltShow:
             plt.title('Feeder: '+self.feeder,loc='left') # TITLE only in show.
             plt.tight_layout()
