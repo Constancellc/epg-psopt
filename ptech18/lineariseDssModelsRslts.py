@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 
 FD = sys.argv[0]
 
-fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr']
+fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr','123busCvr']
 
 
-f_bulkBuildModels = 1
-f_bulkRunModels = 1
+# f_bulkBuildModels = 1
+# f_bulkRunModels = 1
 # f_checkFeasibility = 1
 # f_checkError = 1
 # f_valueComparison = 1
@@ -26,24 +26,21 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
 feederSet = [5,6,8,24,0,18,17,'n4','n1','n10','n27']
-# feederSet = [0,17,'n1',8,'n27',24] # results set
-feederSet = [24,'n1','n27',18,'n10'] # away set.
-# feederSet = [0,17] # med set
-# feederSet = [5,6,8] # fast
-# feederSet = [6,8] # fast
+feederSet = [0,17,'n1',26,'n27',24] # results set
 
 lpA = [0.1,0.6,1.0];        lpB = [0.1,0.3,0.6];       lpC = [1.0]
 linPointsA = {'all':lpA,'opCst':lpA,'hcGen':[lpA[0]],'hcLds':[lpA[-1]]}
 linPointsB = {'all':lpB,'opCst':lpB,'hcGen':[lpB[0]],'hcLds':[lpB[-1]]}
 linPointsC = {'all':lpC,'opCst':lpC,'hcGen':lpC,'hcLds':lpC}
+
 objSet = ['opCst','hcGen','hcLds']
+# strategySet = { 'opCst':['full','phase','nom','load','loss'],'hcGen':['full','phase','nom','minTap'],'hcLds':['full','phase','nom','maxTap'] }
+strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','minTap'],'hcLds':['full','phase','nomTap','maxTap'] }
 
 # NB remember to update n10!
-linPointsDict = {5:linPointsA,6:linPointsB,8:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
+linPointsDict = {5:linPointsA,6:linPointsB,26:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
                                 'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA,25:linPointsC}
-# pCvrSet = [0.2,0.8]
 pCvrSet = [0.3,0.6]
-# pCvrSet = [0.6]
 
 # STEP 1: building and saving the models. =========================
 tBuild = []
@@ -82,10 +79,11 @@ if 'f_checkFeasibility' in locals():
 
 # STEP 4: consider the accuracy of the models
 if 'f_checkError' in locals():
-    pCvr = 0.8
+    pCvr = 0.6
     strategy='full'
     resultTableV = [['V error (%)'],['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
     resultTableI = [['I error (%)'],['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
+    resultTableP = [['I error (%)'],['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
     
     successTable = [['Success Table'],['Feeder','A','B','C','G','L']]
     i = len(successTable)
@@ -93,6 +91,7 @@ if 'f_checkError' in locals():
         print('Feeder ',feeder)
         resultTableV.append([feeder])
         resultTableI.append([feeder])
+        resultTableP.append([feeder])
         successTable.append([feeder])
         for obj in objSet:
             linPoints = linPointsDict[feeder][obj]
@@ -100,27 +99,26 @@ if 'f_checkError' in locals():
                 self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
                 resultTableV[i].append( "%.6f" % (self.qpSolutionDssError(strategy,obj,err='V')*100))
                 resultTableI[i].append( "%.6f" % (self.qpSolutionDssError(strategy,obj,err='I')*100))
+                resultTableP[i].append( "%.6f" % (self.qpSolutionDssError(strategy,obj,err='P')*100))
                 successTable[i].append( self.qpSolutionDssError(strategy,obj)*100<0.5 and
-                                        self.qpSolutionDssError(strategy,obj,err='I')<0.05 )
+                                        self.qpSolutionDssError(strategy,obj,err='I')<0.05 and
+                                        self.qpSolutionDssError(strategy,obj,err='P')<0.05 )
         i+=1
     print(*resultTableV,sep='\n')
     print(*resultTableI,sep='\n')
+    print(*resultTableP,sep='\n')
     print(*successTable,sep='\n')
 
 # STEP 5: consider the value of the different control schemes ----> do here!
 if 'f_valueComparison' in locals():
-    pCvr = 0.8
+    pCvr = 0.6
     
-    # strategies = ['full','part','phase','minTap','maxTap','nomTap']
-    strategies = ['full','phase','minTap','maxTap']
-    # strategies = ['part']
-    
-    opCstTable = [['Operating cost (kW)'],['Feeder',*strategies]]
-    opCstTableA = [['Operating cost (kW)'],[*strategies]]
-    opCstTableB = [['Operating cost (kW)'],[*strategies]]
-    opCstTableC = [['Operating cost (kW)'],[*strategies]]
-    hcGenTable = [['Generation (kW)'],['Feeder',*strategies]]
-    hcLdsTable = [['Load (kW)'],['Feeder',*strategies]]
+    opCstTable = [['Operating cost (kW)'],['Feeder',*strategySet['opCst']]]
+    opCstTableA = [['Operating cost (kW)'],[*strategySet['opCst']]]
+    opCstTableB = [['Operating cost (kW)'],[*strategySet['opCst']]]
+    opCstTableC = [['Operating cost (kW)'],[*strategySet['opCst']]]
+    hcGenTable = [['Generation (kW)'],['Feeder',*strategySet['hcGen']]]
+    hcLdsTable = [['Load (kW)'],['Feeder',*strategySet['hcLds']]]
     
     i = 2
     for feeder in feederSet:
@@ -128,8 +126,8 @@ if 'f_valueComparison' in locals():
         linPoints = linPointsDict[feeder]
         opCstTableA.append([]); opCstTableB.append([]); opCstTableC.append([])
         opCstTable.append([feeder]); hcGenTable.append([feeder]); hcLdsTable.append([feeder])
-        for strategy in strategies:
-            for obj in objSet:
+        for obj in objSet:
+            for strategy in strategySet[obj]:
                 linPoints = linPointsDict[feeder][obj]
                 j=0
                 for linPoint in linPoints:
@@ -150,7 +148,7 @@ if 'f_valueComparison' in locals():
     # opCstTable_ = opCstTableA[2:]
     
     for i in range(2,len(feederSet)+2):
-        for j in range(len(strategies)):
+        for j in range(len(strategySet['opCst'])):
             opCstTable[i].append( "%.6f" % opCstTable_[i-2][j] )
         
     print(*opCstTable,sep='\n')

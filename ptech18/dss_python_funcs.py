@@ -2,6 +2,7 @@ import numpy as np
 import os, time, win32com.client
 from scipy import sparse
 from cvxopt import matrix
+import matplotlib.pyplot as plt
 
 from win32com.client import makepy
 
@@ -559,8 +560,8 @@ def print_node_array(YZ,thing):
         print(YZ[i]+': '+str(thing[i]))
 
 def get_ckt(WD,feeder):
-    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr',feeder]
-    # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr'] # for editing
+    fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr','123busCvr',feeder]
+    # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr','123busCvr'] # for editing
     ckts = {'feeder_name':['fn_ckt','fn']}
     ckts[fdrs[0]]=[WD+'\\LVTestCase_copy',WD+'\\LVTestCase_copy\\master_z']
     ckts[fdrs[1]]=feeder_to_fn(WD,fdrs[1])
@@ -588,6 +589,7 @@ def get_ckt(WD,feeder):
     ckts[fdrs[23]]=[WD+'\\ieee_tn\\4Bus-YY-Bal',WD+'\\ieee_tn\\4Bus-YY-Bal\\4Bus-YY-Bal_z']
     ckts[fdrs[24]]=[WD+'\\ieee_tn\\k1',WD+'\\ieee_tn\\k1\\Master_NoPV_z_cvr']
     ckts[fdrs[25]]=[WD+'\\ieee_tn\\ckt24',WD+'\\ieee_tn\\ckt24\\master_ckt24_z_cvr']
+    ckts[fdrs[26]]=[WD+'\\ieee_tn\\123Bus_copy',WD+'\\ieee_tn\\123Bus_copy\\IEEE123Master_cvr']
     
     if not feeder in ckts.keys():
         if feeder[0]=='n' and int(feeder[1:])<26:
@@ -994,3 +996,9 @@ def basicTable(caption,label,heading,data,TD):
     with open(TD+label+'.tex','wt') as handle:
         handle.write(latexText)
     return latexText
+
+def plotSaveFig(SN,pltSave=True,pltClose=False):
+    if pltSave:
+        plt.savefig(SN+'.png',bbox_inches='tight',pad_inches=0.01)
+        plt.savefig(SN+'.pdf',bbox_inches='tight',pad_inches=0.01)
+    if pltClose: plt.close()

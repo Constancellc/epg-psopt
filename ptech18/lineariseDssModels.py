@@ -75,8 +75,8 @@ class buildLinModel:
         self.log = logging.getLogger()
         self.log.info('Feeder: '+str(fdr_i))
         
-        fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr']
-        # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr']
+        fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr','123busCvr']
+        # fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr','123busCvr']
         
         if type(fdr_i) is int:
             self.feeder=fdrs[fdr_i]
@@ -1055,7 +1055,7 @@ class buildLinModel:
             if res=='norm': val = ( -sum(self.slnF[0:4]) - -sum(self.slnF0[0:4]) )/( sum(self.slnF0[0:4])/self.linPoint )
             if res=='power': val = -sum(self.slnF[0:4]) - -sum(self.slnF0[0:4])
         if obj=='hcLds': # loadability (kW):
-            if res=='norm': val = self.slnF[2]/(self.slnF0[2]/self.linPoint)
+            if res=='norm': val = self.slnF[2]/( sum(self.slnF0[0:4])/self.linPoint )
             if res=='power': val = self.slnF[2]
         return val
     
@@ -1146,6 +1146,8 @@ class buildLinModel:
             dssError = np.linalg.norm( (self.slnF[4] - self.slnD[4])/self.vKvbase )/np.linalg.norm( self.slnF[4]/self.vKvbase )
         elif err=='I':
             dssError = np.linalg.norm(  (self.slnF[7] - self.slnD[7])/self.iXfmrLims )/np.linalg.norm( self.iXfmrLims )
+        elif err=='P':
+            dssError = np.linalg.norm( np.sum(self.slnF[0:4]) - np.sum(self.slnD[0:4]) )/np.linalg.norm( np.sum(self.slnD[0:4]) )
         return dssError
         
     def setDssSlnX(self,genNames,slnX=None,method=None):
@@ -1169,23 +1171,24 @@ class buildLinModel:
             regIdx = np.array(get_regIdx(DSSCircuit)[0])-3
             Vrto = getRegBwVrto(DSSCircuit)[1]
             
-            regV = vOut[regIdx]/np.array(Vrto)
-            
-            # BW = 0.2*( self.vKvbase[regIdx]/np.array(Vrto) )*0.1/16
-            BW = 0.1*( self.vKvbase[regIdx]/np.array(Vrto) )*0.1/16
-            
-            RGC = DSSCircuit.RegControls           
-            i = RGC.First
-            while i:
-                RGC.ForwardVreg = regV[i-1]
-                RGC.ForwardBand = BW[i-1]
-                RGC.ReverseVreg = regV[i-1]
-                RGC.ReverseBand = BW[i-1]
-                RGC.ForwardR=0
-                RGC.ReverseR=0
-                RGC.ForwardX=0
-                RGC.ReverseX=0
-                i = RGC.Next
+            if len(regIdx)>0:
+                regV = vOut[regIdx]/np.array(Vrto)
+                
+                # BW = 0.2*( self.vKvbase[regIdx]/np.array(Vrto) )*0.1/16
+                BW = 0.1*( self.vKvbase[regIdx]/np.array(Vrto) )*0.1/16
+                
+                RGC = DSSCircuit.RegControls           
+                i = RGC.First
+                while i:
+                    RGC.ForwardVreg = regV[i-1]
+                    RGC.ForwardBand = BW[i-1]
+                    RGC.ReverseVreg = regV[i-1]
+                    RGC.ReverseBand = BW[i-1]
+                    RGC.ForwardR=0
+                    RGC.ReverseR=0
+                    RGC.ForwardX=0
+                    RGC.ReverseX=0
+                    i = RGC.Next
             DSSText.Command='Set controlmode=static'
             DSSText.Command = 'batchedit capcontrol..* enabled=false'
     
@@ -1276,6 +1279,57 @@ class buildLinModel:
         ax2.set_ylim((-110,110))
         plt.tight_layout()
         plt.show()
+        
+    def plotArcy(self,slnX=None,slnF=None,ctrlPerPhase=True,pltShow=True):
+        if slnX is None:
+            slnX = self.slnX
+        if slnF is None:
+            slnF = self.slnF
+        
+        self.printQpSln(slnX,slnF)
+        pOut = slnX[:self.nPctrl]
+        qOut = slnX[self.nPctrl:self.nPctrl*2]
+        tOut = slnX[self.nPctrl*2:]
+        
+        TL,PL,TC,CL,V,I,Vc,Ic = slnF
+        TL0,PL0,TC0,CL0,V0,I0,Vc0,Ic0 = self.slnF0
+        TLd,PLd,TCd,CLd,Vd,Id,Vcd,Icd = self.slnD
+        
+        iDrn = (-1)**( np.abs(np.angle(Ic/Ic0))>np.pi/2 )
+        
+        fig,[ax0,ax1] = plt.subplots(ncols=2,figsize=(5.5,2.6))
+        
+        # plot voltages versus voltage limits
+        Vdpu =  ((V0 - Vd)/self.vKvbase)[self.vIn]
+        Vpu =  ((V0 - V)/self.vKvbase)[self.vIn]
+        
+        nSortV = np.argsort(Vpu)
+        ax0.plot(Vdpu[nSortV],label='$\Delta V_{\mathrm{DSS.}}$')
+        ax0.plot(Vpu[nSortV],label='$\Delta V_{\mathrm{Apx.}}$')
+        ax0.legend()
+        ax0.set_xlabel('Bus Index')
+        ax0.set_ylabel('Bus Voltage change, pu')
+        ax0.grid(True)
+        
+        # plot currents versus current limits
+        ax1.plot(100*iDrn*Id/(self.iScale*self.iXfmrLims),'o',label='DSS.',markerfacecolor='None')
+        ax1.plot(100*iDrn*abs(Ic/(self.iScale*self.iXfmrLims)),'x',label='Apx.')
+        # ax1.plot(100*Id/(self.iScale*self.iXfmrLims),'o',label='DSS.',markerfacecolor='None')
+        # ax1.plot(100*abs(Ic/(self.iScale*self.iXfmrLims)),'x',label='Apx.')
+        ax1.plot(100*abs(Ic0)/(self.iScale*self.iXfmrLims),'o',label='Nom.',markerfacecolor='None',markersize=3.0)
+        ax1.plot(100*np.ones(len(self.iXfmrLims)),'k_')
+        ax1.plot(-100*np.ones(len(self.iXfmrLims)),'k_')
+        ax1.set_xlabel('Branch Index')
+        ax1.set_ylabel('Current, % of $I_{\mathrm{max}}$')
+        # ax1.set_title('Currents')
+        ax1.legend(fontsize='small')
+        ax1.set_ylim( (-110,110) )
+        ax1.grid()
+        # ax1.set_ylim( (-10,110) )
+        
+        plt.tight_layout()
+        if pltShow: plt.show()
+
         
     def getLdsPhsIdx(self):
         phs1 = np.zeros(self.nPctrl,dtype=int)
@@ -1437,6 +1491,13 @@ class buildLinModel:
         # Test 1. Putting taps up and down one. Things to check:
         # - voltages; currents; loads; losses; generation
         # Test 2. Put a whole load of generators in and change real and reactive powers.
+        TLboth = []
+        TLestBoth = []
+        PLboth = []
+        PLestBoth = []
+        vErrBoth = []
+        SsetBoth = []
+        
         for ii in range(2):
             self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
             genNames = self.addYDgens(DSSObj)
@@ -1500,7 +1561,16 @@ class buildLinModel:
             ax4.plot(Sset*self.lScale/self.xSscale,iErr); ax4.grid(True)
             ax4.set_title('Abs current error'); ax4.set_xlabel(xlbl)
             plt.tight_layout()
+            
+            TLboth.append(TL)
+            TLestBoth.append(TLest)
+            PLboth.append(PL)
+            PLestBoth.append(PLest)
+            vErrBoth.append(vErr)
+            SsetBoth.append(Sset)
         plt.show()
+        
+        return TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,SsetBoth
     
     
     def testQpTcpf(self):
@@ -1566,7 +1636,8 @@ class buildLinModel:
         ax4.set_title('Abs current error'); ax4.set_xlabel('Tap (pu)')
         plt.tight_layout()
         # plt.show()
-            
+        
+        return TL,TLest,PL,PLest,vErr,dxScale
 
     
     def addYDgens(self,DSSObj):
@@ -2972,7 +3043,7 @@ class buildLinModel:
             scoresFull = list(scores['1'].values()) + list(scores['2'].values()) + list(scores['3'].values())
             minMaxAbs = np.max(np.abs( np.array([np.nanmax(scoresFull),np.nanmin(scoresFull)]) ) )
             minMax0 = [-minMaxAbs,minMaxAbs]
-            ttl = 'Opt Qgen (kVAr)' # Positive implies capacitive
+            ttl = '$Q^{*}$, kVAr' # Positive implies capacitive
         
         if cmap is None: cmap = self.colormaps[type]
         
@@ -2984,12 +3055,10 @@ class buildLinModel:
         else:
             self.plotBuses(ax,scores,minMax,cmap=cmap)
         
-        # if type in ['v0','p0','q0']:
         self.plotNetColorbar(ax,minMax,cmap,ttl=ttl)
         
         ax.axis('off')
-        plt.title('Feeder: '+self.feeder,loc='left')
-        # plt.gca().set_aspect('equal', adjustable='box')
+        if pltShow: plt.title('Feeder: '+self.feeder,loc='left')
         ax.set_aspect('equal', adjustable='box')
         plt.tight_layout()
         
@@ -3006,7 +3075,8 @@ class buildLinModel:
         cntr = ax.contourf( np.array([x0*2,x0*2]),np.array([y0*2,y0*2]), np.array([minMax,minMax[::-1]]),nCbar,cmap=cmap )
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
-        cbar = plt.colorbar(cntr,shrink=0.75,ticks=np.linspace(minMax[0],minMax[1],5))
+        # cbar = plt.colorbar(cntr,shrink=0.75,ticks=np.linspace(minMax[0],minMax[1],5))
+        cbar = plt.colorbar(cntr,shrink=0.6,ticks=np.linspace(minMax[0],minMax[1],5))
         if ttl!=None:
             cbar.ax.set_title(ttl,pad=10,fontsize=10)
     
@@ -3017,7 +3087,7 @@ class buildLinModel:
             for regBus in self.regBuses:
                 regCoord = self.busCoords[regBus.split('.')[0].lower()]
                 if not np.isnan(regCoord[0]):
-                    ax.plot(regCoord[0],regCoord[1],'r',marker=(6,1,0),zorder=+15)
+                    ax.plot(regCoord[0],regCoord[1],'r',marker=(6,1,0),zorder=+5)
                     # ax.annotate(str(i),(regCoord[0],regCoord[1]),zorder=+40)
                 else:
                     print('Could not plot regulator bus'+regBus+', no coordinate')
