@@ -215,11 +215,11 @@ class buildLinModel:
             except:
                 print('Solution failed.')
         
-    def runQpSet(self,saveQpSln=True):
+    def runQpSet(self,saveQpSln=True,objs=None,strategySet=None,invLossTypes=None):
     
-        objs = ['opCst','hcGen','hcLds']
-        strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','minTap'],'hcLds':['full','phase','nomTap','maxTap'] }
-        invLossTypes = ['None']
+        if objs is None: objs = ['opCst','hcGen','hcLds']
+        if strategySet is None: strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','minTap'],'hcLds':['full','phase','nomTap','maxTap'] }
+        if invLossTypes is None: invLossTypes = ['None','Low','Hi']
         
         for invType in invLossTypes:
             kQlossC,kQlossQ = self.getInvLossCoeffs(type=invType)

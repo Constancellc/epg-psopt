@@ -10,10 +10,10 @@ FD = sys.argv[0]
 
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr','123busCvr']
 
-feederAllTidy = {'13bus':'13 Bus','34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24','123busCvr':'123 Bus','epriK1cvr':'Ckt. K1','n1':'EULV-A','n27':'EULV-AR','eulv':'EULV'}
+feederAllTidy = {'13bus':'13 Bus','34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24','123busCvr':'123 Bus','epriK1cvr':'Ckt. K1','n1':'EULV-A','n27':'EULV-AR','eulv':'EULV','n4':'Ntwk. 4','n10':'Ntwk. 10'}
 
 
-f_valueComparisonChart = 1
+# f_valueComparisonChart = 1
 # f_plotOnly = 1
 # f_plotInvLoss = 1
 # f_batchTest = 1
@@ -21,13 +21,15 @@ f_valueComparisonChart = 1
 # f_daisy = 1
 # f_solutionError = 1
 # f_caseStudyChart = 1
+# f_sensitivities = 1
 
-# pltSave=1
+pltSave=1
 
 SDfig = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19','figures')
 
 # feederSet = [0,17,'n1',26,24,'n27']
-feederSet = [0,17,'n1',26,24,'n27']
+# feederSet = [0,17,'n1',26,24,'n27']
+feederSet = ['n1','n10',17,18,26,24,'n27']
 # feederSet = [0,5] # fast
 
 strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','minTap'],'hcLds':['full','phase','nomTap','maxTap'] }
@@ -161,11 +163,11 @@ if 'f_valueComparisonChart' in locals():
     
     tables={'opCst':opCstTable,'hcGen':hcGenTable,'hcLds':hcLdsTable}
     ylabels={'opCst':'Total P in / Total P in Ref., %','hcGen':'Generation (% of nominal load)','hcLds':'Load (% of nominal load)'}
-    ylims={'opCst':(82.5,117.5),'hcGen':(-10,220),'hcLds':(-10,100)}
+    ylims={'opCst':(92.0,106.0),'hcGen':(-0,220),'hcLds':(-0,100)}
     
     colorSet = {'opCst':cm.matlab([0,1,2,3,4]),'hcGen':cm.matlab([0,1,2,5]),'hcLds':cm.matlab([0,1,2,6])}
     
-    objSet = ['opCst']
+    # objSet = ['opCst']
     for obj in objSet:
         fig,ax = plt.subplots(figsize=(5.5,3.0))
         table = tables[obj]
@@ -182,7 +184,8 @@ if 'f_valueComparisonChart' in locals():
         ax.set_ylim(ylims[obj])
         ax.set_xticks(np.arange(len(feederSet)))
         ax.set_xticklabels(feederTidy,rotation=90)
-        ax.legend(fontsize='small')
+        # ax.legend(fontsize='small')
+        ax.legend(loc='center left', bbox_to_anchor=(1.01, 0.5),fontsize='small')
         ax.set_ylabel(ylabels[obj])
         ax.set_title(obj)
         if 'pltSave' in locals():

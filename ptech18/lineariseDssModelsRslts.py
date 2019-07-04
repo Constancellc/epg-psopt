@@ -10,25 +10,29 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 
 
 # f_bulkBuildModels = 1
-f_bulkRunModels = 1
+# f_bulkRunModels = 1
 # f_checkFeasibility = 1
 # f_checkError = 1
 # f_valueComparison = 1
 # f_psccAbstract = 1
 
+SD0 = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19')
+
 def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,pltSave=False):
     reload(lineariseDssModels)
     
-    SD = os.path.join(os.path.join(os.path.expanduser('~')), 'Desktop')
+    SD = SD0
     blm = lineariseDssModels.buildLinModel(FD=FD,fdr_i=fdr_i,linPoints=[linPoint],pCvr=pCvr,
                                                 modelType=modelType,method=method,saveModel=saveModel,SD=SD,pltSave=pltSave)
     return blm
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
-feederSet = [5,6,8,24,0,18,17,'n4','n1','n10','n27']
-# feederSet = [0,17,'n1',26,'n27',24] # results set
-# feederSet = [24] # results set
-feederSet = [5,0,26] # results set
+feederSet = [5,6,8,26,24,0,18,17,'n4','n1','n10','n27']
+feederSet = [6,0,17,'n1',26,'n27',24,'n10',18] # results set
+
+
+feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20:'Ckt. K1',21:'Ckt. M1',17:'Ckt. 5',18:'Ckt. 7',22:'Ckt. 24',26:'123 Bus',24:'Ckt. K1','n1':'EULV-A','n27':'EULV-AR',0:'EULV','n4':'Ntwk. 4','n10':'Ntwk. 10'}
+
 
 lpA = [0.1,0.6,1.0];        lpB = [0.1,0.3,0.6];       lpC = [1.0]
 linPointsA = {'all':lpA,'opCst':lpA,'hcGen':[lpA[0]],'hcLds':[lpA[-1]]}
@@ -42,7 +46,7 @@ strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full',
 linPointsDict = {5:linPointsA,6:linPointsB,26:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
                                 'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA,25:linPointsC}
 pCvrSet = [0.3,0.6]
-pCvrSet = [0.6]
+# pCvrSet = [0.6]
 
 # STEP 1: building and saving the models. =========================
 tBuild = []
@@ -83,18 +87,20 @@ if 'f_checkFeasibility' in locals():
 if 'f_checkError' in locals():
     pCvr = 0.6
     strategy='full'
-    resultTableV = [['V error (%)'],['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
-    resultTableI = [['I error (%)'],['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
-    resultTableP = [['I error (%)'],['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']]
+    heading = ['Feeder','opCstA','opCstB','opCstC','hcGen','hcLds']
+    resultTableV = [['Voltage error, $\|V_{\mathrm{Apx}} - V_{\mathrm{DSS}}\|_{2}/\|V_{\mathrm{DSS}}\|_{2}$, \%'],heading]
+    resultTableI = [['Current error, $\|I_{\mathrm{Apx}} - I_{\mathrm{DSS}}\|_{2}/\|I_{\mathrm{Xfmr}}\|_{2}$, \%'],heading]
+    resultTableP = [['Power error, $(P_{\mathrm{feeder}}^{\mathrm{Apx.}} - P_{\mathrm{feeder}}^{\mathrm{DSS.}})/P_{\mathrm{feeder}}$, \%'],heading]
     
     successTable = [['Success Table'],['Feeder','A','B','C','G','L']]
     i = len(successTable)
     for feeder in feederSet:
+        feederTidy = feederIdxTidy[feeder]
         print('Feeder ',feeder)
-        resultTableV.append([feeder])
-        resultTableI.append([feeder])
-        resultTableP.append([feeder])
-        successTable.append([feeder])
+        resultTableV.append([feederTidy])
+        resultTableI.append([feederTidy])
+        resultTableP.append([feederTidy])
+        successTable.append([feederTidy])
         for obj in objSet:
             linPoints = linPointsDict[feeder][obj]
             for linPoint in linPoints:
@@ -110,7 +116,11 @@ if 'f_checkError' in locals():
     print(*resultTableI,sep='\n')
     print(*resultTableP,sep='\n')
     print(*successTable,sep='\n')
-
+    TD = os.path.join(SD0,'tables\\')
+    basicTable(resultTableV[0][0],'checkErrorV',heading,resultTableV[2:],TD)
+    basicTable(resultTableI[0][0],'checkErrorI',heading,resultTableI[2:],TD)
+    basicTable(resultTableP[0][0],'checkErrorP',heading,resultTableP[2:],TD)
+    
 # STEP 5: consider the value of the different control schemes ----> do here!
 if 'f_valueComparison' in locals():
     pCvr = 0.6
@@ -152,7 +162,9 @@ if 'f_valueComparison' in locals():
     for i in range(2,len(feederSet)+2):
         for j in range(len(strategySet['opCst'])):
             opCstTable[i].append( "%.6f" % opCstTable_[i-2][j] )
-        
+    
+    
+    
     print(*opCstTable,sep='\n')
     print(*hcGenTable,sep='\n')
     print(*hcLdsTable,sep='\n')

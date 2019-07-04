@@ -38,7 +38,7 @@ feeders_lp = feeders_dcp
 # f_plotLpUpg = 1
 # f_plotLp = 1
 # f_errorCorr = 1
-f_maeRerun = 1
+# f_maeRerun = 1
 
 # consFactor = 1.10 # for f_dssVlinWghtConservative
 consFactor = 1.10 # for f_dssVlinWghtConservative
@@ -304,7 +304,7 @@ if 't_rsltSvty' in locals():
 if 't_results' in locals():
     caption='Sensitivity to simulation parameters'
     label='results'
-    heading = ['Model','MAE (Dcpld.), \%','MAE (MC rerun), \%','OpenDSS time','Linear time']
+    heading = ['Model','MAE (DSS.), \%','MAE (MC rerun), \%','OpenDSS time','Linear time']
     data = resultsData
     if 'pltShow' in locals():
         print('\n',heading)

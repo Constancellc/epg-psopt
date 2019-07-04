@@ -300,7 +300,8 @@ for fdr_i in fdr_i_set:
             print('Linear Run Time:',linHcRsl['runTime'])
             print('Sampling Time:',linHcRsl['runTimeSample'])
             
-            LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,setCapsModel=setCapsOpt,runType='tapSet',tapPosStart=linHcRsl['tapPosSeq'])
+            # NB: TIGHT running is required! (regBand=1.0)
+            LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=1.0,setCapsModel=setCapsOpt,runType='tapSet',tapPosStart=linHcRsl['tapPosSeq'])
             dssHcRslTapSet = LM.dssHcRsl
             multResults[ii] = {'dss':dssHcRslTapSet,'lin':linHcRsl}
             ibResults[ii] = {'dss':np.sum(dssHcRslTapSet['inBds'],axis=2).flatten()/nMc,
@@ -311,9 +312,10 @@ for fdr_i in fdr_i_set:
         
         for ii in range(nMult):
             print( 'MAE ',ii,':',maeSet[ii] )
-            plt.plot(pdf.pdf['prms'],ibResults[ii]['dss'],label='dss')
-            plt.plot(pdf.pdf['prms'],ibResults[ii]['lin'],label='lin');
-            plt.legend(); plt.show()
+            print( 'svtyResults ',ii,':',svtyResults[ii] )
+            # plt.plot(pdf.pdf['prms'],ibResults[ii]['dss'],label='dss')
+            # plt.plot(pdf.pdf['prms'],ibResults[ii]['lin'],label='lin');
+            # plt.legend(); plt.show()
 
         rslt = {'ibResults':ibResults,'multResults':multResults,'maeSet':maeSet,'svtyResults':svtyResults}
         if pltSave:
