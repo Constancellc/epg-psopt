@@ -32,7 +32,10 @@ mcDssOn = False
 # mcLinUpg = 1
 # mcLinLds = 1
 # mcLinPrg = 1
-mcTapSet = 1
+# mcTapSet = 1
+# mcTapMultSet = 1
+
+
 
 # # PLOTTING options:
 # pltHcVltn = 1
@@ -42,6 +45,7 @@ mcTapSet = 1
 plotShow = 1
 
 nMc = 100 # nominal value of 100
+# nMc = 10 # nominal value of 100
 
 pltSave = True # for saving both plots and results
 # pltSave = False
@@ -55,6 +59,7 @@ fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14,17,18,20,21]
 fdr_i_set = [6,8,9,17,18,19,20,21,22]
 fdr_i_set = [8,20,17,18,21,19,22,9]
+fdr_i_set = [6,8,20,17,18,21]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'; prms=np.array([]) 
@@ -93,6 +98,14 @@ DSSObj = win32com.client.Dispatch("OpenDSSEngine.DSS")
 DSSText = DSSObj.Text
 DSSCircuit = DSSObj.ActiveCircuit
 DSSSolution = DSSCircuit.Solution
+
+
+def getResultSensitivity(linResult):
+    dBnds = 0.05
+    HcA = np.sum(linResult['Lp_pct']<(1+dBnds),axis=2)
+    HcB = np.sum(linResult['Lp_pct']<(1-dBnds),axis=2)
+    return np.sum(np.abs(HcA - HcB))/(2*dBnds*HcA.shape[0])
+    
 
 for fdr_i in fdr_i_set:
     feeder = fdrs[fdr_i]
@@ -268,6 +281,46 @@ for fdr_i in fdr_i_set:
             SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_tapSet.pkl')
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
+    
+    if 'mcTapMultSet' in locals():
+        Mu,Sgm = pdf.getMuStd(LM,0)
+        LM.busViolationVar(Sgm)
+        LM.makeCorrModel()
+        
+        nMult = 5 # This version should work up to 40 or so
+        
+        multResults = {}
+        ibResults = {}
+        svtyResults = np.array([])
+        maeSet = np.array([])
+        for ii in range(nMult):
+            pdfMult = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,WD=WD,nMc=nMc,rndSeed=int(ii*1e8),prms=prms )
+            LM.runLinHc(pdfMult,model='cor',fast=False)
+            linHcRsl = LM.linHcRsl
+            print('Linear Run Time:',linHcRsl['runTime'])
+            print('Sampling Time:',linHcRsl['runTimeSample'])
+            
+            LM.runDssHc(pdf,DSSObj,genNames,BB0,SS0,regBand=regBand,setCapsModel=setCapsOpt,runType='tapSet',tapPosStart=linHcRsl['tapPosSeq'])
+            dssHcRslTapSet = LM.dssHcRsl
+            multResults[ii] = {'dss':dssHcRslTapSet,'lin':linHcRsl}
+            ibResults[ii] = {'dss':np.sum(dssHcRslTapSet['inBds'],axis=2).flatten()/nMc,
+                             'lin':np.sum(linHcRsl['inBds'],axis=2).flatten()/nMc}
+            
+            svtyResults = np.r_[svtyResults,getResultSensitivity(linHcRsl)]
+            maeSet = np.r_[ maeSet, np.sum( np.abs(ibResults[ii]['lin'] - ibResults[ii]['dss']) )/pdfMult.pdf['nP'][0] ]
+        
+        for ii in range(nMult):
+            print( 'MAE ',ii,':',maeSet[ii] )
+            plt.plot(pdf.pdf['prms'],ibResults[ii]['dss'],label='dss')
+            plt.plot(pdf.pdf['prms'],ibResults[ii]['lin'],label='lin');
+            plt.legend(); plt.show()
+
+        rslt = {'ibResults':ibResults,'multResults':multResults,'maeSet':maeSet,'svtyResults':svtyResults}
+        if pltSave:
+            SN = os.path.join(os.path.dirname(SD),'TapMultSet',LM.feeder+'linHcCalcsRslt_'+pdfName+'_tapMultSet.pkl')
+            with open(SN,'wb') as file:
+                pickle.dump(rslt,file)
+        
     
     if mcLinSns:
         regs0 = LMsns.regVreg0

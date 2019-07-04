@@ -25,6 +25,8 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 
 # self = main(8,'buildSave')
 
+# self = main(24,modelType='loadOnly'); self.runCvrQp('nomTap','opCst'); self.showQpSln()
+
 # self = main(0,modelType='loadOnly'); self.runCvrQp('full','opCst'); self.showQpSln()
 
 # self = main(5,modelType='loadOnly');
@@ -45,13 +47,17 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 
 # self = main(17,'loadOnly'); self.initialiseOpenDss(); self.testQpVcpf(); plt.show()
 
+# self = main(feeder,pCvr=pCvr,modelType='loadAndRun',linPoint=linPoint); # self.initialiseOpenDss();
+
 feeder = 6
-obj = 'hcLds'
+obj = 'opCst'
 strategy = 'full'
 pCvr = 0.6
 linPoint = 0.6
+
 self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint); # self.initialiseOpenDss();
-self.loadQpSet(); self.loadQpSln(strategy,obj); self.showQpSln(); 
+self.loadQpSet('None'); self.loadQpSln(strategy,obj); self.showQpSln()
+self.loadQpSet('Low'); self.loadQpSln(strategy,obj); self.showQpSln()
 
 self.plotNetBuses('qSlnPh')
 

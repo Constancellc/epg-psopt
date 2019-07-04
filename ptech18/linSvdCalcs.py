@@ -623,7 +623,7 @@ class linModel:
             lpPct = np.nan
         else:
             lpPct = np.zeros(list(pdfData['nP'])+[nMc])
-        
+        inBds = np.zeros(list(pdfData['nP'])+[nMc],dtype=bool)
         
         tapPos = np.zeros((pdfData['nP'][0],nMc,2,self.nT)) # 2 load points. Only designed to work with some options...
         tapPosSeq = tapPos.copy()
@@ -708,6 +708,7 @@ class linModel:
                 
                 Cns_pct[i,jj], inBounds = cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,self)
                 
+                inBds[i,jj] = inBounds
                 Vp_pct[i,jj] = 100*sum(inBounds)/nMc
                 hcGen = genTot[inBounds]
                 
@@ -762,6 +763,7 @@ class linModel:
         self.linHcRsl['Vp_pct'] = Vp_pct
         self.linHcRsl['Cns_pct'] = Cns_pct
         self.linHcRsl['Lp_pct'] = lpPct
+        self.linHcRsl['inBds'] = inBds
         self.linHcRsl['hcGenAll'] = hcGenAll
         self.linHcRsl['genTotSet'] = genTotSet
         self.linHcRsl['runTime'] = tEnd - tStart
@@ -808,6 +810,8 @@ class linModel:
         Ic,Vr = getRegIcVr(DSSCircuit)
         BW,Vrto = getRegBwVrto(DSSCircuit)
         
+        inBds = np.zeros(list(pdfData['nP'])+[nMc],dtype=bool)
+        
         if fdr_i != 6:
             DSSText.Command='Batchedit load..* vmin=0.33 vmax=3.0 model=1'
         DSSText.Command='Batchedit generator..* vmin=0.33 vmax=3.0'
@@ -826,7 +830,9 @@ class linModel:
         tStart = time.process_time()
         tStartClk = time.time()
         
-        tapPosSet = np.zeros(tapPosStart.shape,dtype=int)
+        tapPosSet = np.zeros( (pdfData['nP'][0],nMc,2,self.nT),dtype=int )
+        if tapPosStart is None:
+            tapPosStart = tapPosSet
         
         capLoMc = []; capHiMc = []; capDvMc = []
         for i in range(pdfData['nP'][0]):
@@ -1032,6 +1038,7 @@ class linModel:
                 
                 # NOW: calculate the HC value:
                 Cns_pct[i,jj], inBoundsDss = cnsBdsCalc(vLsMv,vLsLv,vHsMv,vHsLv,vDv,self)
+                inBds[i,jj] = inBoundsDss
                 Vp_pct[i,jj] = 100*sum(inBoundsDss)/nMc
                 hcGen = genTot[inBoundsDss]
 
@@ -1074,6 +1081,7 @@ class linModel:
         self.dssHcRsl['hcGenSet'] = hcGenSet
         self.dssHcRsl['Vp_pct'] = Vp_pct
         self.dssHcRsl['Cns_pct'] = Cns_pct
+        self.dssHcRsl['inBds'] = inBds
         self.dssHcRsl['hcGenAll'] = hcGenAll
         self.dssHcRsl['genTotSet'] = genTotSet
         self.dssHcRsl['runTime'] = tEnd - tStart

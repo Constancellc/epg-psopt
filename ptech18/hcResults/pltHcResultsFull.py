@@ -18,6 +18,9 @@ feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7
 
 feedersTidy = {'34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24'}
 
+feeders_mult = ['34bus','123bus','epriK1']
+# feeders_mult = ['34bus']
+
 # feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
 feeders_dcp = ['8500node','epriJ1','epriM1','epri24']
 feeders_lp = feeders_dcp
@@ -35,7 +38,9 @@ feeders_lp = feeders_dcp
 # f_plotLpUpg = 1
 # f_plotLp = 1
 # f_errorCorr = 1
+f_maeRerun = 1
 
+# consFactor = 1.10 # for f_dssVlinWghtConservative
 consFactor = 1.10 # for f_dssVlinWghtConservative
 
 # pltSave=True
@@ -49,7 +54,7 @@ figSze4 = (5.2,1.8)
 TD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\tables\\"
 FD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
-rsltsFrac = {}; rsltsSns = {}; rsltsUpg = {}; rsltsLp = {}; rsltsUnom = {}; rsltsTap = {}
+rsltsFrac = {}; rsltsSns = {}; rsltsUpg = {}; rsltsLp = {}; rsltsUnom = {}; rsltsTap = {}; rsltsMult = {}
 for feeder in feeders:
     # RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_finale.pkl')
     RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_finale_dpndnt.pkl')
@@ -79,6 +84,20 @@ SDerrors = os.path.join(WD,'feederErrors.pkl')
 with open(SDerrors,'rb') as saveFile:
     feederErrors = pickle.load(saveFile) # NB these are actually sensitivities
 feederDict = {'34bus':6,'123bus':8,'8500node':9,'epri5':17,'epri7':18,'epriJ1':19,'epriK1':20,'epriM1':21,'epri24':22}
+
+for feeder in feeders_mult:
+    RDmult = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_tapMultSet.pkl')
+    with open(RDmult,'rb') as handle:
+        rsltsMult[feeder] = pickle.load(handle)
+
+ii = 0
+for feeder,rslt in rsltsMult.items():
+    plt.scatter(rslt['svtyResults'],rslt['maeSet'],color=cm.matlab(ii),label=feeder)
+    ii+=1
+
+plt.xlabel('Fraction of Loads with PV, %')
+plt.ylabel('Constraint Violations, %')
+plt.legend(); plt.show()
 
 # kCdfLin = [];    kCdfDss = []; kCdfNom = []; 
 # LmeanNorm = []; feederTidySet = []
@@ -786,3 +805,15 @@ if 'f_errorCorr' in locals():
 # # # ax.set_ylabel('No. taps to upper voltage constraint')
 # # # ax.set_ylim((-3.5,4.5))
 # # # plt.show()
+
+# for rslt in rsltsTap.values():
+    # linHc = rslt['linHcRslNom']
+    # Lp_pct = (linHc['Lp_pct'][:,0,:]<1)
+    # Lp50 = np.sum(Lp_pct[:,:50],axis=1)/50
+    # mae = []
+    # for i in range(1,Lp_pct.shape[1]):
+        # mae.append( (1/50)*np.sum(np.abs( np.sum(Lp_pct[:,:i],axis=1)/i - Lp50)) )
+    
+    # plt.plot(mae); plt.title(rslt['feeder']); plt.show()
+
+# dssHc = rslt34['dssHcRslTapTgt']

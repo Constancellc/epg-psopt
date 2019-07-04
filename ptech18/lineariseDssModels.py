@@ -216,32 +216,41 @@ class buildLinModel:
                 print('Solution failed.')
         
     def runQpSet(self,saveQpSln=True):
-        objs = ['opCst','hcGen','hcLds']
-        strategies = ['full','part','phase','maxTap','nomTap','minTap','loss','load']
-        optType = ['mosekFull']
-        qpSolutions = {}
-        for obj in objs:
-            for strategy in strategies:
-                self.runCvrQp(strategy=strategy,obj=obj,optType=optType)
-                if 'slnD' in dir(self):
-                    qpSolutions[strategy+'_'+obj] = [self.slnX,self.slnF,self.slnS,self.slnD]
-                else:
-                    qpSolutions[strategy+'_'+obj] = [self.slnX,self.slnF,self.slnS]
-        
-        self.qpSolutions = qpSolutions
-        
-        if saveQpSln:
-            SD = os.path.join( os.path.dirname(self.getSaveDirectory()),'results',self.feeder+'_runQpSet_out')
-            SN = os.path.join(SD,self.getFilename()+'_sln.pkl')
-            if not os.path.exists(SD):
-                os.mkdir(SD)
-            with open(SN,'wb') as outFile:
-                print('Results saved to '+ SN)
-                pickle.dump(qpSolutions,outFile)
     
-    def loadQpSet(self):
+        objs = ['opCst','hcGen','hcLds']
+        strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','minTap'],'hcLds':['full','phase','nomTap','maxTap'] }
+        invLossTypes = ['None']
+        
+        for invType in invLossTypes:
+            kQlossC,kQlossQ = self.getInvLossCoeffs(type=invType)
+            self.setQlossOfs(kQlossQ=kQlossQ,kQlossC=0) # nominally does NOT include turn on losses!
+            
+            optType = ['mosekFull']
+            qpSolutions = {}
+            for obj in objs:
+                for strategy in strategySet[obj]:
+                    self.runCvrQp(strategy=strategy,obj=obj,optType=optType)
+                    if 'slnD' in dir(self):
+                        qpSolutions[strategy+'_'+obj] = [self.slnX,self.slnF,self.slnS,self.slnD]
+                    else:
+                        qpSolutions[strategy+'_'+obj] = [self.slnX,self.slnF,self.slnS]
+            
+            self.qpSolutions = qpSolutions
+            
+            if saveQpSln:
+                SD = os.path.join( os.path.dirname(self.getSaveDirectory()),'results',self.feeder+'_runQpSet_out')
+                SN = os.path.join(SD,self.getFilename()+'i'+self.invLossType+'_sln.pkl')
+                if not os.path.exists(SD):
+                    os.mkdir(SD)
+                with open(SN,'wb') as outFile:
+                    print('Results saved to '+ SN)
+                    pickle.dump(qpSolutions,outFile)
+    
+    def loadQpSet(self,invType=None):
+        if invType is None:
+            invType = self.invLossType
         # SN = os.path.join(self.getSaveDirectory(),self.feeder+'_runQpSet_out',self.getFilename()+'_sln.pkl')
-        SN = os.path.join(os.path.dirname(self.getSaveDirectory()),'results',self.feeder+'_runQpSet_out',self.getFilename()+'_sln.pkl')
+        SN = os.path.join(os.path.dirname(self.getSaveDirectory()),'results',self.feeder+'_runQpSet_out',self.getFilename()+'i'+invType+'_sln.pkl')
         with open(SN,'rb') as outFile:
             self.qpSolutions = pickle.load(outFile)
     
@@ -573,7 +582,7 @@ class buildLinModel:
         lossFracS0s = 1e-2*np.array([1.45,0.72,0.88]) #*(sRated**1) # from paper by Notton et al
         lossFracSmaxs = 1e-2*np.array([4.37,3.45,11.49]) #*(sRated**-1) # from paper by Notton et al
     
-        lossSettings = {'Low':[lossFracS0s[1],lossFracSmaxs[1]],'Med':[lossFracS0s[2],lossFracSmaxs[2]], 'Hi':[lossFracS0s[0],lossFracSmaxs[0]] }
+        lossSettings = {'None':[0.0,0.0],'Low':[lossFracS0s[1],lossFracSmaxs[1]],'Med':[lossFracS0s[2],lossFracSmaxs[2]], 'Hi':[lossFracS0s[0],lossFracSmaxs[0]] }
         lossSetting = 'Hi'
         
         kQlossC = lossSettings[type][0]*(sRated**1)
@@ -607,10 +616,10 @@ class buildLinModel:
     
     def getObjFunc(self,strategy,obj,tLss=False):
         if obj=='opCst':
-            if strategy in ['full','part','phase']:
+            if strategy in ['full','part','phase','nomTap']:
                 H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.ploadL + self.pcurtL
-            elif strategy in ['maxTap','nomTap']:
+            elif strategy in ['maxTap']:
                 H = sparse.csc_matrix((self.nCtrl,self.nCtrl))
                 if self.nT>0:
                     t2vPu = np.sum( dsf.vmM( 1/self.vInKvbase,self.Kc2v[self.vIn,-self.nT:] ),axis=0 )
@@ -703,9 +712,11 @@ class buildLinModel:
         oneHat = np.nan # so there is something to return if all ifs fail
         x0 = np.zeros((self.nCtrl,1)) # always of this dimension.
         if strategy in ['minTap']:
-            x0[self.nPctrl:self.nSctrl] = np.ones((self.nPctrl,1))*self.qLim
+            # x0[self.nPctrl:self.nSctrl] = np.ones((self.nPctrl,1))*self.qLim
+            x0[self.nPctrl:self.nSctrl] = np.ones((self.nPctrl,1)) # just use 1 kVA to avoid thermal issues
         if strategy in ['maxTap']:
-            x0[self.nPctrl:self.nSctrl] = -np.ones((self.nPctrl,1))*self.qLim
+            # x0[self.nPctrl:self.nSctrl] = -np.ones((self.nPctrl,1))*self.qLim
+            x0[self.nPctrl:self.nSctrl] = -np.ones((self.nPctrl,1)) # just use 1 kVA to avoid thermal issues
         
         if obj=='opCst':
             if strategy in ['full','loss','load']:
@@ -756,12 +767,12 @@ class buildLinModel:
         return sparse.csc_matrix(oneHat),x0
     
     def runOptimization(self,H,p,G,h,oneHat,x0,strategy,obj,optType):
-        if strategy in ['minTap','maxTap','load','nomTap']:
+        if strategy in ['minTap','maxTap','load']:
             tLss=False
         else:
             tLss=True
         
-        print('Starting optimizations, strategy: ',strategy,'; Solver types: ',optType)
+        print('----->  Opt run, feeder:', self.feeder,' strgy: ',strategy,'; Solver: ',optType)
         if 'cvxopt' in optType:
             Q = matrix(H.dot(H.T)); p = matrix(p); G = matrix(G); h = matrix(h)
             self.sln = solvers.qp(Q,p,G,h)
@@ -825,7 +836,7 @@ class buildLinModel:
         self.oneHat,self.x0 = self.remControlVrlbs(strategy,obj)
         x0 = self.x0; oneHat = self.oneHat
         
-        if obj=='opCst' and strategy in ['minTap','maxTap'] and self.nT==0:
+        if obj=='opCst' and strategy in ['minTap','maxTap','nomTap'] and self.nT==0:
             self.slnX = x0.flatten(); self.slnS = np.nan
         elif obj in ['hcGen','hcLds'] and strategy in ['loss','load']:
             self.slnX = x0.flatten(); self.slnS = np.nan
@@ -951,7 +962,11 @@ class buildLinModel:
                         M.constraint( "i"+str(ii), Expr.vstack( iConScaling*lim*self.iScale,iAdd ),Domain.inQCone() )
                     ii+=1
             else: # no need for conic constraints if only one decision variable! (Required!)
-                A,b,d = self.cxpaLtK( Mc2iCtrl.flatten(),a2iCtrl.flatten(),self.iXfmrLims*self.iScale )
+                if sum(Mc2iCtrl==0)>0:
+                    Mc2iCtrlNz = (Mc2iCtrl!=0).flatten()
+                    A,b,d = self.cxpaLtK( Mc2iCtrl[Mc2iCtrlNz].flatten(),a2iCtrl[Mc2iCtrlNz].flatten(),self.iXfmrLims[Mc2iCtrlNz]*self.iScale )
+                else:
+                    A,b,d = self.cxpaLtK( Mc2iCtrl.flatten(),a2iCtrl.flatten(),self.iXfmrLims*self.iScale )
                 # plt.plot(A,label='a'); plt.plot(np.abs(b),label='|b|'); plt.plot(d,label='d'); 
                 # plt.title('|Ax + b|  < c'); plt.legend(); plt.show()
                 A = Matrix.dense( A.reshape((len(A),1)) )
@@ -1210,7 +1225,7 @@ class buildLinModel:
         print('Total power (kW):', PL + TL + TC)
         print('\nTotal converter losses (kW):', CL)
         print('Total power + CL (kW):', PL + TL + TC + CL)
-        print('\nTotal Q (kVAr):', sum(qOut)*self.lScale/self.xSscale)
+        print('\n ||Q|| (1 norm, kVAr):', np.linalg.norm(qOut,ord=1)*self.lScale/self.xSscale)
         print('Tap Position:', tOut + np.array(self.TC_No0))
     
     def showQpSln(self,slnX=None,slnF=None,ctrlPerPhase=True):
