@@ -1058,9 +1058,9 @@ class buildLinModel:
         plt.tight_layout()
         plt.show()
         
-    def qpVarValue(self,strategy='part',obj='opCst',res=''):
+    def qpVarValue(self,strategy='part',obj='opCst',res='',invType=None):
         # res as 'norm' or 'power'
-        self.loadQpSet()
+        self.loadQpSet(invType=invType)
         self.loadQpSln(strategy,obj)
         
         if obj=='opCst':# op cost (kW):

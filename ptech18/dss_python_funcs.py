@@ -1002,3 +1002,30 @@ def plotSaveFig(SN,pltSave=True,pltClose=False):
         plt.savefig(SN+'.png',bbox_inches='tight',pad_inches=0.01)
         plt.savefig(SN+'.pdf',bbox_inches='tight',pad_inches=0.01)
     if pltClose: plt.close()
+
+def np2lsStr(npArray,nF=2):
+    strThing = "%."+str(nF)+"f"
+    if npArray.ndim==1:
+        listArray = []
+        for elem in npArray:
+            listArray.append( (strThing % elem) )
+    elif npArray.ndim==2:
+        listArray = []
+        for row in npArray:
+            listArray.append([])
+            for elem in row:
+                listArray[-1].append( (strThing % elem) )
+    return listArray
+
+def set_ax_size(w,h, ax=None):
+    """ w, h: width, height in inches """
+    if not ax: ax=plt.gca()
+    l = ax.figure.subplotpars.left
+    r = ax.figure.subplotpars.right
+    t = ax.figure.subplotpars.top
+    b = ax.figure.subplotpars.bottom
+    figw = float(w)/(r-l)
+    figh = float(h)/(t-b)
+    ax.figure.set_size_inches(figw, figh)
+
+

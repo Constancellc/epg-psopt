@@ -8,8 +8,9 @@ plt.style.use('tidySettings')
 WD = os.path.dirname(sys.argv[0])
 sys.path.append(os.path.dirname(WD))
 
-from dss_python_funcs import basicTable, vecSlc
+from dss_python_funcs import basicTable, vecSlc, set_ax_size
 from linSvdCalcs import plotBoxWhisk, getKcdf, plotCns
+from matplotlib.patches import Ellipse
 
 # feeders = ['13bus','34bus','123bus','8500node','eulv','usLv','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
 feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
@@ -18,8 +19,7 @@ feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7
 
 feedersTidy = {'34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24'}
 
-feeders_mult = ['34bus','123bus','epriK1']
-# feeders_mult = ['34bus']
+feeders_mult = ['34bus','123bus','epriK1','epri5','epri7','epriM1','epriJ1','epri24']
 
 # feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
 feeders_dcp = ['8500node','epriJ1','epriM1','epri24']
@@ -37,13 +37,12 @@ feeders_lp = feeders_dcp
 # f_plotCns_paramUpdate = 1
 # f_plotLpUpg = 1
 # f_plotLp = 1
-# f_errorCorr = 1
+f_errorCorr = 1
 # f_maeRerun = 1
 
-# consFactor = 1.10 # for f_dssVlinWghtConservative
 consFactor = 1.10 # for f_dssVlinWghtConservative
 
-# pltSave=True
+pltSave=True
 pltShow=True
 
 figSze0 = (5.2,3.4)
@@ -80,24 +79,17 @@ for feeder in feeders_lp:
         rsltsLp[feeder] = pickle.load(handle)
     with open(RDupgNom,'rb') as handle:
         rsltsUnom[feeder] = pickle.load(handle)
-SDerrors = os.path.join(WD,'feederErrors.pkl')
+# SDerrors = os.path.join(WD,'feederErrors.pkl')
+SDerrors = os.path.join(WD,'feederErrors_corr.pkl')
 with open(SDerrors,'rb') as saveFile:
     feederErrors = pickle.load(saveFile) # NB these are actually sensitivities
 feederDict = {'34bus':6,'123bus':8,'8500node':9,'epri5':17,'epri7':18,'epriJ1':19,'epriK1':20,'epriM1':21,'epri24':22}
 
 for feeder in feeders_mult:
-    RDmult = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_tapMultSet.pkl')
+    RDmult = os.path.join(WD,'tapMultSet',feeder+'linHcCalcsRslt_gammaFrac_tapMultSet.pkl')
     with open(RDmult,'rb') as handle:
         rsltsMult[feeder] = pickle.load(handle)
 
-ii = 0
-for feeder,rslt in rsltsMult.items():
-    plt.scatter(rslt['svtyResults'],rslt['maeSet'],color=cm.matlab(ii),label=feeder)
-    ii+=1
-
-plt.xlabel('Fraction of Loads with PV, %')
-plt.ylabel('Constraint Violations, %')
-plt.legend(); plt.show()
 
 # kCdfLin = [];    kCdfDss = []; kCdfNom = []; 
 # LmeanNorm = []; feederTidySet = []
@@ -189,9 +181,9 @@ for rslt in rsltsTap.values():
     dataSet.append(feedersTidy[rslt['feeder']])
     # dataSet.append('%.2f' %  rslt['maeVals']['dssLckMae'])
     dataSet.append('%.2f' %  rslt['maeVals']['dssTgtMae'])
-    dataSet.append('%.2f' % (rslt['maeVals']['nmcMae'])) # <--- to do! [?]
     dataSet.append('%.2f' % rslt['dssHcRslTapSet']['runTime'])
     dataSet.append('%.2f' % rslt['linHcRsl']['runTime'])
+    dataSet.append('%.2f' % (rslt['maeVals']['nmcMae'])) # <--- to do! [?]
     resultsData.append(dataSet)
     
     dataSet = []
@@ -304,7 +296,7 @@ if 't_rsltSvty' in locals():
 if 't_results' in locals():
     caption='Sensitivity to simulation parameters'
     label='results'
-    heading = ['Model','MAE (DSS.), \%','MAE (MC rerun), \%','OpenDSS time','Linear time']
+    heading = ['Model','MAE (DSS.), \%','OpenDSS time','Linear time','MAE (MC rerun), \%']
     data = resultsData
     if 'pltShow' in locals():
         print('\n',heading)
@@ -649,28 +641,39 @@ if 'f_plotLp' in locals():
 
 
 
-def set_size(w,h, ax=None):
-    """ w, h: width, height in inches """
-    if not ax: ax=plt.gca()
-    l = ax.figure.subplotpars.left
-    r = ax.figure.subplotpars.right
-    t = ax.figure.subplotpars.top
-    b = ax.figure.subplotpars.bottom
-    figw = float(w)/(r-l)
-    figh = float(h)/(t-b)
-    ax.figure.set_size_inches(figw, figh)
-
-
 
 if 'f_errorCorr' in locals():
-    corrPlot = np.array(corrPlot).T
+    # corrPlot = np.array(corrPlot).T
+    corrPlotAve = np.zeros((len(rsltsMult),2))
+    corrElps = {}
     fig,ax = plt.subplots()
-    ax.scatter(corrPlot[0]/0.10,corrPlot[1],marker='x')
+    ii = 0
+    for feeder,rslt in rsltsMult.items():
+        ax.scatter(rslt['svtyResults'],rslt['maeSet'],color=cm.Dark2(ii),marker='.')
+        corrPlotAve[ii] = [np.mean(rslt['svtyResults']),np.mean(rslt['maeSet'])]
+        ax.plot(corrPlotAve[ii,0],corrPlotAve[ii,1],'X',color=cm.Dark2(ii),label=feedersTidy[feeder],markeredgecolor='k')
+        corrElps[ii] = np.cov(rslt['svtyResults'],rslt['maeSet'])
+        lambda_, v = np.linalg.eig(corrElps[ii])
+        lambda_ = np.sqrt(lambda_)
+        # for j in range(1, 4): # This makes the variance look quite big, it seems.
+            # ell = Ellipse(xy=corrPlotAve[ii],
+                    # width=lambda_[0]*j*2, height=lambda_[1]*j*2,
+                    # angle=np.rad2deg(np.arccos(v[0, 0])))
+            # ell.set_facecolor(cm.Dark2(ii))
+            # ell.set_alpha(0.15)
+            # ell.set_edgecolor('k')
+            # ax.add_artist(ell)
+        ii+=1
+
+    # ax.set_xlim((-5,160))
+    # ax.set_ylim((-0.01,0.18))
     ax.set_ylabel('Linear MAE, %')
     ax.set_xlabel('Hosting capacity sensitivity $f_{\mathrm{S}}$, %')
-    set_size(2.2,2.2,ax)
+    plt.legend(title='Feeder',fontsize='small',loc='center left', bbox_to_anchor=(1.01, 0.5)); 
+    set_ax_size(3.0,2.2,ax)
     plt.tight_layout()
-    print('Pearson correlation coefficient:',pearsonr(corrPlot[0],corrPlot[1]) )
+    
+    print('Pearson correlation coefficient:',pearsonr(corrPlotAve.T[0],corrPlotAve.T[1]) )
     if 'pltSave' in locals():
         plt.savefig(FD+'errorCorr.png',pad_inches=0.02,bbox_inches='tight')
         plt.savefig(FD+'errorCorr.pdf',pad_inches=0.02,bbox_inches='tight')

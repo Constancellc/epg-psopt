@@ -1,7 +1,7 @@
 import lineariseDssModels, sys, os, pickle, random, time
 from importlib import reload
 import numpy as np
-from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, plotSaveFig
+from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, plotSaveFig, basicTable, np2lsStr
 import matplotlib.pyplot as plt
 from matplotlib import cm, rc
 plt.style.use('tidySettings')
@@ -12,6 +12,8 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 
 feederAllTidy = {'13bus':'13 Bus','34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24','123busCvr':'123 Bus','epriK1cvr':'Ckt. K1','n1':'EULV-A','n27':'EULV-AR','eulv':'EULV','n4':'Ntwk. 4','n10':'Ntwk. 10'}
 
+feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20:'Ckt. K1',21:'Ckt. M1',17:'Ckt. 5',18:'Ckt. 7',22:'Ckt. 24',26:'123 Bus',24:'Ckt. K1','n1':'EULV-A','n27':'EULV-AR',0:'EULV','n4':'Ntwk. 4','n10':'Ntwk. 10'}
+
 
 # f_valueComparisonChart = 1
 # f_plotOnly = 1
@@ -21,11 +23,15 @@ feederAllTidy = {'13bus':'13 Bus','34bus':'34 Bus','123bus':'123 Bus','8500node'
 # f_daisy = 1
 # f_solutionError = 1
 # f_caseStudyChart = 1
-# f_sensitivities = 1
+f_sensitivities = 1
+
 
 pltSave=1
 
-SDfig = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19','figures')
+SD0 = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19')
+SDfig = os.path.join(SD0,'figures')
+TD = os.path.join(SD0,'tables\\')
+
 
 # feederSet = [0,17,'n1',26,24,'n27']
 # feederSet = [0,17,'n1',26,24,'n27']
@@ -340,6 +346,118 @@ if 'f_daisy' in locals():
     SN = os.path.join(SDfig,'daisy')
     if 'pltSave' in locals():
         plotSaveFig(os.path.join(SDfig,'daisy'),pltClose=True)
+
+
+if 'f_sensitivities' in locals():
+    # sensitivity_base: just the results of smart inverter control
+    
+    # go through and calculate the benefits of full (SI) control versus nominal control
+    strategies = ['full','phase','nomTap']
+    opCst = np.zeros((3,len(feederSet)))
+    pCvr = 0.6;     linPoint = 1.0;    obj='opCst'
+    i = 0
+    heading = ['Control']
+    for feeder in feederSet:
+        heading.append(feederIdxTidy[feeder])
+        j=0
+        for strategy in strategies:
+            self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][obj][-1])
+            opCst[j,i] = self.qpVarValue(strategy,obj,'norm',invType='Low')
+            j+=1
+        i+=1
+    benefits = -100*(opCst[0:2] - opCst[2])
+    benefits = np2lsStr(benefits,3)
+    data = [ ['Full']+benefits[0],['Phase']+benefits[1] ]
+    caption='Smart inverter benefits, \% of load'
+    label='sensitivities_base'
+    if 'pltSave' in locals():
+        basicTable(caption,label,heading,data,TD)
+    
+    # sensitivities_invLoss, sensitivities_efficacy: the results considering smaller and larger losses
+    strategies = ['full','nomTap']
+    invTypes = ['None','Low','Hi']
+    opCst = np.zeros((2,len(feederSet),3))
+    wCst = np.zeros((2,len(feederSet),3))
+    qCst = np.zeros((2,len(feederSet),3))
+    i=0
+    for feeder in feederSet:
+        j=0
+        for strategy in strategies:
+            k=0
+            self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][obj][-1])
+            for invType in invTypes:
+                opCst[j,i,k] = self.qpVarValue(strategy,obj,'norm',invType=invType)
+                wCst[j,i,k] = self.qpVarValue(strategy,obj,'power',invType=invType)
+                qCst[j,i,k] = np.linalg.norm(self.slnX[self.nPctrl:self.nSctrl],ord=1)
+                k+=1
+            j+=1
+        i+=1
+
+    benefits = -100*(opCst[0] - opCst[1])
+    benefits = np2lsStr(benefits.T,3)
+    wBenefit = -(wCst[0] - wCst[1])
+    qCost = qCst[0]
+    efficacy = np2lsStr( (1e3*wBenefit/qCost).T,2)
+
+    data = [ ['None']+benefits[0],['Low (base)']+benefits[1],['High']+benefits[2] ]
+    eData = [ ['None']+efficacy[0],['Low (base)']+efficacy[1],['High']+efficacy[2] ]
+
+    heading[0]='Inv. Losses'
+    label='sensitivities_invLoss'
+    if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
+
+    heading[0]='Inv. Losses'
+    label='sensitivities_efficacy'
+    caption='Smart inverter efficacy ($P/||Q||_{1}$), W/kVAr'
+    if 'pltSave' in locals(): basicTable(caption,label,heading,eData,TD)
+
+    # sensitivities_aCvr
+    caption='Smart inverter benefits, \% of load'
+    pCvrSet = [0.3,0.6]
+    opCst = np.zeros((2,len(feederSet),2))
+    i=0
+    for feeder in feederSet:
+        j=0
+        for strategy in strategies:
+            k=0
+            for pCvr in pCvrSet:
+                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][obj][-1])
+                opCst[j,i,k] = self.qpVarValue(strategy,obj,'norm')
+                k+=1
+            j+=1
+        i+=1
+
+    benefits = -100*(opCst[0] - opCst[1])
+    benefits = np2lsStr(benefits.T,3)
+    data = [ ['0.3']+benefits[0],['0.6']+benefits[1] ]
+
+    heading[0]='$\\alpha_{\mathrm{CVR}}$'
+    label='sensitivities_aCvr'
+    basicTable(caption,label,heading,data,TD)
+    
+    # sensitivities_loadPoint
+    opCst = np.zeros((2,len(feederSet),3))
+    i=0
+    for feeder in feederSet:
+        j=0
+        for strategy in strategies:
+            k=0
+            for linPoint in linPointsDict[feeder][obj]:
+                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+                opCst[j,i,k] = self.qpVarValue(strategy,obj,'norm')
+                k+=1
+            j+=1
+        i+=1
+
+    benefits = -100*(opCst[0] - opCst[1])
+    benefits = np2lsStr(benefits.T,3)
+    data = [ ['10\\%']+benefits[0],['60\\%']+benefits[1],['100\\%']+benefits[2] ]
+
+    heading[0]='Loading'
+    label='sensitivities_loadPoint'
+    basicTable(caption,label,heading,data,TD)
+        
+    
     
 if 'f_solutionError' in locals():
     feeder = 26

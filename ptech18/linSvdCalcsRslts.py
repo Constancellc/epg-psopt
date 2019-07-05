@@ -693,19 +693,27 @@ if 'f_limitSensitivity' in locals():
     I = range(50) # 20-80%
     ddMu = 0.05
     dMuSet = [1-ddMu,1+ddMu]
-    nMc = 300
+    # nMc = 300
+    nMc = 100
     # nMc = 30
 
     fdr_i_set = [6,8,9,17,18,19,20,21,22]
     # fdr_i_set = [6,8,20]
     # fdr_i_set = [6]
-
+    
     mnsS = []
     std = []
     rslts = []
     rsltsDiff = []
     for fdr_i in fdr_i_set:
         LM = linModel(fdr_i,WD)
+        
+        pdf0 = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName='gammaFrac',nMc=nMc )
+        
+        Mu,Sgm = pdf0.getMuStd(LM,0)
+        LM.busViolationVar(Sgm)
+        LM.makeCorrModel()
+        
         SD = os.path.join(WD,'hcResults','th_kW_mult.pkl')
         with open(SD,'rb') as handle:
             circuitK = pickle.load(handle)
@@ -715,7 +723,8 @@ if 'f_limitSensitivity' in locals():
         for dMu in dMuSet:
             print(dMu)
             pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName='gammaFrac',dMu=dMu*dMu0,nMc=nMc )
-            LM.runLinHc(pdf,fast=True)
+            # LM.runLinHc(pdf,fast=True)
+            LM.runLinHc(pdf,model='cor',fast=False)
             rslt = np.hstack((rslt,LM.linHcRsl['Vp_pct'][I]))
         rslts.append(rslt)
         rsltsDiff.append(np.diff(rslt))
@@ -738,7 +747,7 @@ if 'f_limitSensitivity' in locals():
     # plt.show()
     
     feederErrors = dict( zip(fdr_i_set,mnsS) )
-    SDerrors = os.path.join(WD,'hcResults','feederErrors.pkl')
+    SDerrors = os.path.join(WD,'hcResults','feederErrors_corr.pkl')
     with open(SDerrors,'wb') as saveFile:
         pickle.dump(feederErrors,saveFile)
     
