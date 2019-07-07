@@ -12,7 +12,7 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 # f_bulkBuildModels = 1
 # f_bulkRunModels = 1
 # f_checkFeasibility = 1
-# f_checkError = 1
+f_checkError = 1
 # f_valueComparison = 1
 # f_psccAbstract = 1
 
@@ -28,8 +28,8 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
 feederSet = [5,6,8,26,24,0,18,17,'n4','n1','n10','n27']
-# feederSet = [6,0,17,'n1',26,'n27',24,'n10',18] # results set
-feederSet = [26,0,17,24] # results set small
+feederSet = [6,0,17,'n1',26,'n27',24,'n10',18] # results set
+# feederSet = [26,0,17,24,18,'n1','n10','n27','n4']
 
 
 feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20:'Ckt. K1',21:'Ckt. M1',17:'Ckt. 5',18:'Ckt. 7',22:'Ckt. 24',26:'123 Bus',24:'Ckt. K1','n1':'EULV-A','n27':'EULV-AR',0:'EULV','n4':'Ntwk. 4','n10':'Ntwk. 10'}
@@ -46,8 +46,8 @@ strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full',
 # NB remember to update n10!
 linPointsDict = {5:linPointsA,6:linPointsB,26:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
                                 'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA,25:linPointsC}
-pCvrSet = [0.3,0.6]
-pCvrSet = [0.0,0.9]
+pCvrSet = [0.0,0.3,0.6,0.9]
+# pCvrSet = [0.0,0.9]
 # pCvrSet = [0.6]
 
 # STEP 1: building and saving the models. =========================

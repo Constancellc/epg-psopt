@@ -34,6 +34,7 @@ mcDssOn = False
 # mcLinPrg = 1
 # mcTapSet = 1
 # mcTapMultSet = 1
+# mcTapMultSetLinFull = 1 #NB this is SLOW!!!
 
 
 
@@ -59,7 +60,7 @@ fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14,17,18,20,21]
 fdr_i_set = [6,8,9,17,18,19,20,21,22]
 fdr_i_set = [8,20,17,18,21,19,22,9]
-fdr_i_set = [6,8,20,17,18,21]
+# fdr_i_set = [6,8,20,17,18,21]
 
 pdfName = 'gammaWght'
 pdfName = 'gammaFrac'; prms=np.array([]) 
@@ -322,7 +323,36 @@ for fdr_i in fdr_i_set:
             SN = os.path.join(os.path.dirname(SD),'TapMultSet',LM.feeder+'linHcCalcsRslt_'+pdfName+'_tapMultSet.pkl')
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
+    
+    if 'mcTapMultSetLinFull' in locals():
+        Mu,Sgm = pdf.getMuStd(LM,0)
+        LM.busViolationVar(Sgm)
+        LM.makeCorrModel()
         
+        nMult = 5 # This version should work up to 40 or so
+        
+        multResults = {}
+        ibResults = {}
+        svtyResults = np.array([])
+        maeSet = np.array([])
+        for ii in range(nMult):
+            pdfMult = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,WD=WD,nMc=nMc,rndSeed=int(ii*1e8),prms=prms )
+            LM.runLinHc(pdfMult,fast=False)
+            linHcRsl = LM.linHcRsl
+            print('Linear Run Time:',linHcRsl['runTime'])
+            print('Sampling Time:',linHcRsl['runTimeSample'])
+            
+            multResults[ii] = {'linFull':linHcRsl}
+            ibResults[ii] = {'linFull':np.sum(linHcRsl['inBds'],axis=2).flatten()/nMc}
+            
+            svtyResults = np.r_[svtyResults,getResultSensitivity(linHcRsl)]
+            # maeSet = np.r_[ maeSet, np.sum( np.abs(ibResults[ii]['lin'] - ibResults[ii]['dss']) )/pdfMult.pdf['nP'][0] ]
+
+        rslt = {'ibResults':ibResults,'multResults':multResults,'svtyResults':svtyResults}
+        if pltSave:
+            SN = os.path.join(os.path.dirname(SD),'TapMultSet',LM.feeder+'linHcCalcsRslt_'+pdfName+'_tapMultSetLinFull.pkl')
+            with open(SN,'wb') as file:
+                pickle.dump(rslt,file)
     
     if mcLinSns:
         regs0 = LMsns.regVreg0

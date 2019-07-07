@@ -19,7 +19,8 @@ feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7
 
 feedersTidy = {'34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24'}
 
-feeders_mult = ['34bus','123bus','epriK1','epri5','epri7','epriM1','epriJ1','epri24']
+feeders_mult = ['34bus','123bus','8500node','epriK1','epri5','epri7','epriM1','epriJ1','epri24']
+# feeders_mult = ['34bus','123bus','epriK1','epri5','epri7','epriM1','epriJ1','epri24']
 
 # feeders_dcp = ['8500node','epriJ1','epriK1','epriM1','epri24']
 feeders_dcp = ['8500node','epriJ1','epriM1','epri24']
@@ -37,7 +38,7 @@ feeders_lp = feeders_dcp
 # f_plotCns_paramUpdate = 1
 # f_plotLpUpg = 1
 # f_plotLp = 1
-f_errorCorr = 1
+# f_errorCorr = 1
 # f_maeRerun = 1
 
 consFactor = 1.10 # for f_dssVlinWghtConservative
@@ -53,7 +54,8 @@ figSze4 = (5.2,1.8)
 TD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\tables\\"
 FD = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
-rsltsFrac = {}; rsltsSns = {}; rsltsUpg = {}; rsltsLp = {}; rsltsUnom = {}; rsltsTap = {}; rsltsMult = {}
+rsltsFrac = {}; rsltsSns = {}; rsltsUpg = {}; rsltsLp = {}; rsltsUnom = {}; rsltsTap = {}; 
+rsltsMult = {}; rsltsMultFull = {}
 for feeder in feeders:
     # RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_finale.pkl')
     RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_finale_dpndnt.pkl')
@@ -89,64 +91,11 @@ for feeder in feeders_mult:
     RDmult = os.path.join(WD,'tapMultSet',feeder+'linHcCalcsRslt_gammaFrac_tapMultSet.pkl')
     with open(RDmult,'rb') as handle:
         rsltsMult[feeder] = pickle.load(handle)
+    RDmultFull = os.path.join(WD,'tapMultSet',feeder+'linHcCalcsRslt_gammaFrac_tapMultSetLinFull.pkl')
+    with open(RDmultFull,'rb') as handle:
+        rsltsMultFull[feeder] = pickle.load(handle)
+    
 
-
-# kCdfLin = [];    kCdfDss = []; kCdfNom = []; 
-# LmeanNorm = []; feederTidySet = []
-# timeTableData = []
-# rsltSvtyData = []
-# resultsData = []
-# dssComparisonData = []
-# runTimeSample = []
-# runTimeFull = []
-# rslt34 = rsltsFrac['34bus'] # useful for debugging
-
-# idxChosen = [0,1,5,10,15,19,20]
-# # idxChosen = [0,2,5,10,15,18,20]
-
-# for rslt in rsltsFrac.values():
-    # dataSet = []
-    # dataSet.append(feedersTidy[rslt['feeder']])
-    # dataSet.append('%.2f' % rslt['dssHcRslNom']['runTime'])
-    # dataSet.append('%.2f' % rslt['linHcRsl']['runTime'])
-    # dataSet.append('%.2f' %  rslt['maeVals']['dssTgtMae'])
-    # dataSet.append('%.2f' %  rslt['maeVals']['dssNomMae'])
-    # timeTableData.append(dataSet)
-
-    # dataSet = []
-    # dataSet.append(feedersTidy[rslt['feeder']])
-    # dataSet.append('%.1f' % (100-rslt['preCndLeft']))
-    # dataSet.append('%.2f' % rslt['maeVals']['nomMae'])
-    # dataSet.append('%.2f' % (rslt['maeVals']['nmcMae'])) # <--- to do! [?]
-    # rsltSvtyData.append(dataSet)
-    
-    # dataSet = []
-    # dataSet.append(feedersTidy[rslt['feeder']])
-    # dataSet.append('%.2f' %  rslt['maeVals']['dssTgtMae'])
-    # dataSet.append('%.2f' % (rslt['maeVals']['nmcMae'])) # <--- to do! [?]
-    # dataSet.append('%.2f' % rslt['dssHcRslNom']['runTime'])
-    # dataSet.append('%.2f' % rslt['linHcRsl']['runTime'])
-    # resultsData.append(dataSet)
-    
-    # dataSet = []
-    # dataSet.append(feedersTidy[rslt['feeder']])
-    # dataSet.append('%.2f' % (rslt['maeVals']['dssMae']))
-    # dssComparisonData.append(dataSet)
-    
-    # dataSet = []
-    # dataSet.append('%.2f' % (rslt['linHcRsl']['runTimeSample'])) # <--- to do! [?]
-    # runTimeSample.append(dataSet)
-    
-    # dataSet = []
-    # dataSet.append('%.2f' % (rslt['linHcRslNom']['runTime'])) # <--- to do! [?]
-    # runTimeFull.append(dataSet)
-    
-    # kCdfLin.append(rslt['linHcRsl']['kCdf'][idxChosen])
-    # kCdfDss.append(rslt['dssHcRslTgt']['kCdf'][idxChosen])
-    # kCdfNom.append(rslt['dssHcRslNom']['kCdf'][[0,1,5,10,15,19,20]])
-    # LmeanNorm.append( np.mean(np.abs(rslt['dssHcRslTgt']['Vp_pct']-rslt['linHcRsl']['Vp_pct']))*0.01 )
-    # feederTidySet.append(feedersTidy[rslt['feeder']])
-    
 kCdfLin = [];    kCdfDss = []; kCdfNom = []; kCdfLinConservative=[]
 LmeanNorm = []; feederTidySet = []; corrPlot = []
 timeTableData = []
@@ -215,6 +164,9 @@ for rslt in rsltsTap.values():
     feederTidySet.append(feedersTidy[rslt['feeder']])
     
     corrPlot.append( [ feederErrors[feederDict[rslt['feeder']]], rslt['maeVals']['dssTgtMae'] ] )
+    
+    
+    
     
         
 kCdfSns0 = []; kCdfSns1 = []; kCdfLinSns = [] # new lin needed coz this is only some models
@@ -504,7 +456,7 @@ if 'f_plotCns_paramUpdate' in locals():
     ax0.plot(x_vals,rsltBef['Vp_pct'],'-')
     ax0.plot(x_vals,rsltAft['Vp_pct'],'-.',color=clrA)
     
-    ax0.legend(['1.00','0.95 (lag.)'],loc='center left', bbox_to_anchor=(1.04, 0.5),fontsize='small',title='Power Factor')
+    ax0.legend(['1.00','0.95 (ind.)'],loc='center left', bbox_to_anchor=(1.04, 0.5),fontsize='small',title='Power Factor')
     
     ax0.set_ylabel('Constraint violations, %');
     # ax0.set_xlabel('Fraction of loads with PV, %');
@@ -615,7 +567,7 @@ if 'f_plotLp' in locals():
     ax1.plot(0,0,'-',color=clrA,label='RLF')
     ax1.plot(0,0,'-',color=clrG,label='DERMS')
     ax0.legend(title='Unity PF',fontsize='small',loc='center left', bbox_to_anchor=(1.01, 0.5))
-    ax1.legend(title='0.95 lag. PF',fontsize='small',loc='center left', bbox_to_anchor=(1.01, 0.5))
+    ax1.legend(title='0.95 ind. PF',fontsize='small',loc='center left', bbox_to_anchor=(1.01, 0.5))
     
     ax0.set_yticks(Xlp)
     ax0.set_yticklabels(feederLpSmart)
@@ -640,8 +592,6 @@ if 'f_plotLp' in locals():
         plt.show()
 
 
-
-
 if 'f_errorCorr' in locals():
     # corrPlot = np.array(corrPlot).T
     corrPlotAve = np.zeros((len(rsltsMult),2))
@@ -649,15 +599,29 @@ if 'f_errorCorr' in locals():
     fig,ax = plt.subplots()
     ii = 0
     for feeder,rslt in rsltsMult.items():
-        ax.scatter(rslt['svtyResults'],rslt['maeSet'],color=cm.Dark2(ii),marker='.')
-        corrPlotAve[ii] = [np.mean(rslt['svtyResults']),np.mean(rslt['maeSet'])]
-        ax.plot(corrPlotAve[ii,0],corrPlotAve[ii,1],'X',color=cm.Dark2(ii),label=feedersTidy[feeder],markeredgecolor='k')
-        corrElps[ii] = np.cov(rslt['svtyResults'],rslt['maeSet'])
+        # ax.scatter(rslt['svtyResults'],100*rslt['maeSet'],color=cm.Dark2(ii),marker='.',s=10)
+        # corrPlotAve[ii] = [np.mean(rslt['svtyResults']),100*np.mean(rslt['maeSet'])]
+        # ax.plot(corrPlotAve[ii,0],corrPlotAve[ii,1],'X',color=cm.Dark2(ii),label=feedersTidy[feeder],markeredgecolor='k')
+        # corrElps[ii] = np.cov(rslt['svtyResults'],rslt['maeSet'])
+        # svtyResults = rslt['svtyResults']
+        
+        nParam = rslt['multResults'][0]['lin']['inBds'].shape[0]
+        maeSet = np.array([])
+        for jj in range( len(rslt['ibResults']) ):
+            maeSet = np.r_[ maeSet, np.sum( np.abs( rsltsMultFull[feeder]['ibResults'][jj]['linFull'] 
+                                                        - rslt['ibResults'][jj]['dss']) )/nParam ]
+        svtyResults = rsltsMultFull[feeder]['svtyResults']
+        
+        ax.scatter(svtyResults,100*maeSet,color=cm.Dark2(ii),marker='.',s=10)
+        corrPlotAve[ii] = [np.mean(svtyResults),100*np.mean(maeSet)]
+        # ax.plot(corrPlotAve[ii,0],corrPlotAve[ii,1],'X',color=cm.Dark2(ii),label=feedersTidy[feeder],markeredgecolor='k',markeredgewidth=1.0)
+        ax.plot(corrPlotAve[ii,0],corrPlotAve[ii,1],'X',color=cm.Dark2(ii),label=feedersTidy[feeder],markeredgecolor='k',markeredgewidth=0.33)
+        corrElps[ii] = np.cov(svtyResults,maeSet)
         lambda_, v = np.linalg.eig(corrElps[ii])
         lambda_ = np.sqrt(lambda_)
         # for j in range(1, 4): # This makes the variance look quite big, it seems.
             # ell = Ellipse(xy=corrPlotAve[ii],
-                    # width=lambda_[0]*j*2, height=lambda_[1]*j*2,
+                    # width=lambda_[0]*j*2, height=100*lambda_[1]*j*2,
                     # angle=np.rad2deg(np.arccos(v[0, 0])))
             # ell.set_facecolor(cm.Dark2(ii))
             # ell.set_alpha(0.15)
