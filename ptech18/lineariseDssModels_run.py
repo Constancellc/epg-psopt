@@ -23,11 +23,31 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.6,method='fpl',saveModel=Fal
     return blm
 
 
-self = main(8,modelType='loadOnly')
-self = main(8,modelType='buildSave')
-self = main(8,modelType='buildOnly')
+# self = main(8,modelType='loadOnly')
+# self = main(8,modelType='buildSave')
+# self = main(8,modelType='buildOnly',pCvr=0.0)
 
-# self = main(8,'buildSave')
+# self = main(18,modelType='loadOnly',linPoint=0.6)
+# self = main('n1',modelType='loadOnly',linPoint=1.0)
+
+# self = main('n1',modelType='loadOnly',linPoint=1.0,pCvr=0.6)
+
+self = main(17,modelType='loadOnly',linPoint=0.1,pCvr=0.6)
+self.loadQpSet(); 
+self.loadQpSln('full','hcGen'); self.showQpSln()
+self.runCvrQp('minTap','hcGen'); self.showQpSln()
+self.runCvrQp('maxTap','hcGen'); self.showQpSln()
+self.loadQpSln('nomTap','hcGen'); self.showQpSln()
+self.loadQpSln('phase','hcGen'); self.showQpSln()
+
+self = main(26,modelType='loadOnly',linPoint=1.0,pCvr=0.6)
+self.loadQpSet()
+self.loadQpSln('full','hcLds'); self.showQpSln()
+self.runCvrQp('minTap','hcLds'); self.showQpSln()
+self.runCvrQp('maxTap','hcLds'); self.showQpSln()
+self.loadQpSln('nomTap','hcLds'); self.showQpSln()
+self.loadQpSln('phase','hcLds'); self.showQpSln()
+
 
 # self = main(24,modelType='loadOnly'); self.runCvrQp('nomTap','opCst'); self.showQpSln()
 

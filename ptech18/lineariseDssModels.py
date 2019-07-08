@@ -108,14 +108,14 @@ class buildLinModel:
         self.method=method
         
         # BUILD MODELS
-        if modelType in ['buildSave']:
+        if modelType in ['buildSave','buildOnly']:
             self.makeCvrQp()
             self.initialiseOpenDss()
             self.setupPlots()
             self.slnF0 = self.runQp(np.zeros(self.nCtrl))
             delattr(self,'qpHlss')
             self.slnD0 = self.qpDssValidation(np.zeros(self.nCtrl))
-            self.saveLinModel()
+            if modelType=='buildSave': self.saveLinModel()
         elif modelType == 'linOnly':
             self.createNrelModel(linPoints[0])
             self.testVoltageModel()
@@ -216,9 +216,9 @@ class buildLinModel:
                 print('Solution failed.')
         
     def runQpSet(self,saveQpSln=True,objs=None,strategySet=None,invLossTypes=None):
-    
+        
         if objs is None: objs = ['opCst','hcGen','hcLds']
-        if strategySet is None: strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','minTap'],'hcLds':['full','phase','nomTap','maxTap'] }
+        if strategySet is None: strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','maxTap'],'hcLds':['full','phase','nomTap','minTap'] }
         if invLossTypes is None: invLossTypes = ['None','Low','Hi']
         
         for invType in invLossTypes:
@@ -1232,7 +1232,10 @@ class buildLinModel:
         if slnX is None:
             slnX = self.slnX
         if slnF is None:
-            slnF = self.slnF
+            if 'slnF' in dir(self):
+                slnF = self.slnF
+            else:
+                slnF = self.runQp(slnX)
         
         self.printQpSln(slnX,slnF)
         pOut = slnX[:self.nPctrl]
@@ -1241,7 +1244,12 @@ class buildLinModel:
         
         TL,PL,TC,CL,V,I,Vc,Ic = slnF
         TL0,PL0,TC0,CL0,V0,I0,Vc0,Ic0 = self.slnF0
-        TLd,PLd,TCd,CLd,Vd,Id,Vcd,Icd = self.slnD
+        if 'slnD' not in dir(self):
+            self.initialiseOpenDss()
+            slnD = self.qpDssValidation(slnX)
+        else:
+            slnD = self.slnD
+        TLd,PLd,TCd,CLd,Vd,Id,Vcd,Icd = slnD
         
         iDrn = (-1)**( np.abs(np.angle(Ic/Ic0))>np.pi/2 )
         
@@ -1659,6 +1667,45 @@ class buildLinModel:
         genNamesY = add_generators(DSSObj,self.SyYNodeOrder,False)
         genNamesD = add_generators(DSSObj,self.SdYNodeOrder,True)
         return genNamesY + genNamesD
+    
+    def solveQpUnc(self,paSet=None):
+        # paSet should be tuple, if used (pLoad,aCvr).
+        # based on runQp.
+        if 'qQpUnc' not in dir(self):
+            H = self.getHmat()
+            self.qQpUnc = (H.dot(H.T))
+        
+        Q = self.qQpUnc[self.nPctrl:self.nSctrl,self.nPctrl:self.nSctrl] + np.diag(self.qlossQdiag[self.nPctrl:self.nSctrl])
+        Qpq = self.qQpUnc[:self.nPctrl,self.nPctrl:self.nSctrl]
+        
+        # pLoad0 = self.ploadL[self.nPctrl:self.nSctrl]/self.pCvr
+        pLoad0 = self.ploadL[self.nPctrl:self.nSctrl]/self.pCvr
+        pLoss0 = (self.X0ctrl[:self.nPctrl]/self.linPoint).dot(Qpq)
+        
+        if paSet is None:
+            pLoad = self.ploadL[self.nPctrl:self.nSctrl]
+            pLoss = self.qpLlss[self.nPctrl:self.nSctrl]
+        else:
+            Pctrl = self.X0ctrl[:self.nPctrl]*( (paSet[0]-self.linPoint)/self.linPoint )
+            pLoss = 2*Pctrl.dot(Qpq) + self.qpLlss[self.nPctrl:self.nSctrl]
+            pLoad = (paSet[1]/self.pCvr)*self.ploadL[self.nPctrl:self.nSctrl]*( paSet[0]/self.linPoint )
+            
+        p = pLoad + pLoss
+        # xStar = np.linalg.solve(Q,-0.5*p)
+        xStar = np.r_[np.zeros(self.nPctrl),np.linalg.solve(Q,-0.5*p),np.zeros(self.nT)]
+        
+        # aNonlin = 1.5*pLoad0.dot( np.linalg.solve(Q,pLoad0) ) # this does not seem to work well.
+        # pNonlin = pLoss0.dot( np.linalg.solve(Q,pLoss0) ) # this is NOT correct!
+        
+        # fStar = xStar.dot(Q).dot(xStar) + p.dot(xStar)
+        # fStar = self.runQp(np.r_[np.zeros(len(xStar)),xStar,np.zeros(self.nT)])
+        fStar = self.runQp(xStar)
+        
+        gradP = 1e3*np.linalg.norm(p,ord=1)/p.shape[0]
+        pInf = 1e3*np.linalg.norm(p,ord=np.inf)
+        
+        return xStar, fStar, gradP, pInf
+    
     
     def runQp(self,dx,onLoss=True):
         # Vcest = self.Mc2v.dot(dx + self.X0ctrl) + self.aV

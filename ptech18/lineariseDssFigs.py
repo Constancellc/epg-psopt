@@ -10,9 +10,9 @@ FD = sys.argv[0]
 
 fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr','123busCvr']
 
-feederAllTidy = {'13bus':'13 Bus','34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24','123busCvr':'123 Bus','epriK1cvr':'Ckt. K1','n1':'EULV-A','n27':'EULV-AR','eulv':'EULV','n4':'Ntwk. 4','n10':'Ntwk. 10'}
+feederAllTidy = {'13bus':'13 Bus','34bus':'34 Bus','123bus':'123 Bus','8500node':'8500 Node','epriJ1':'Ckt. J1','epriK1':'Ckt. K1','epriM1':'Ckt. M1','epri5':'Ckt. 5','epri7':'Ckt. 7','epri24':'Ckt. 24','123busCvr':'123 Bus','epriK1cvr':'Ckt. K1','n1':'EULVa','n27':'EULVa-r','eulv':'EULV','n4':'Nwk. 4','n10':'Nwk. 10'}
 
-feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20:'Ckt. K1',21:'Ckt. M1',17:'Ckt. 5',18:'Ckt. 7',22:'Ckt. 24',26:'123 Bus',24:'Ckt. K1','n1':'EULV-A','n27':'EULV-AR',0:'EULV','n4':'Ntwk. 4','n10':'Ntwk. 10'}
+feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20:'Ckt. K1',21:'Ckt. M1',17:'Ckt. 5',18:'Ckt. 7',22:'Ckt. 24',26:'123 Bus',24:'Ckt. K1','n1':'EULVa','n27':'EULVa-r',0:'EULV','n4':'Nwk. 4','n10':'Nwk. 10'}
 
 
 # f_valueComparisonChart = 1
@@ -23,14 +23,14 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_daisy = 1
 # f_solutionError = 1
 # f_caseStudyChart = 1
-# f_sensitivities_base = 1
-# f_sensitivities_invLoss = 1
-# f_sensitivities_efficacy = 1
+# t_sensitivities_base = 1 #not used
+# f_sensitivities_all = 1
 # f_sensitivities_aCvr = 1
 # f_sensitivities_loadPoint = 1
-# f_checkErrorSummary = 1
+# t_checkErrorSummary = 1
+# t_networkSummary = 1
 
-pltSave=1
+# pltSave=1
 
 SD0 = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19')
 SDfig = os.path.join(SD0,'figures')
@@ -40,10 +40,9 @@ TD = os.path.join(SD0,'tables\\')
 # feederSet = [0,17,'n1',26,24,'n27']
 # feederSet = [0,17,'n1',26,24,'n27']
 feederSet = ['n1','n10',17,18,26,24,'n27']
-feederSet = ['n1','n10',17,18,26,24,'n27']
 # feederSet = [0,5] # fast
 
-strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','minTap'],'hcLds':['full','phase','nomTap','maxTap'] }
+strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','maxTap'],'hcLds':['full','phase','nomTap','minTap'] }
 objSet = ['opCst','hcGen','hcLds']
 
 lpA = [0.1,0.6,1.0];        lpB = [0.1,0.3,0.6];       lpC = [1.0]
@@ -353,11 +352,9 @@ if 'f_daisy' in locals():
     if 'pltSave' in locals():
         plotSaveFig(os.path.join(SDfig,'daisy'),pltClose=True)
 
-if 'f_checkErrorSummary' in locals():
+if 't_checkErrorSummary' in locals():
     pCvr = 0.6
     strategy='full'
-    # heading = ['Feeder','Voltage error, $\|V_{\mathrm{Apx}} - V_{\mathrm{DSS}}\|_{2}/\|V_{\mathrm{DSS}}\|_{2}$, \%','Current error, $\|I_{\mathrm{Apx}} - I_{\mathrm{DSS}}\|_{2}/\|I_{\mathrm{Xfmr}}\|_{2}$, \%','Power error, $(P_{\mathrm{feeder}}^{\mathrm{Apx.}} - P_{\mathrm{feeder}}^{\mathrm{DSS.}})/P_{\mathrm{feeder}}$, \%']
-    # heading = ['Feeder','Voltage error, \\ $\|\Delta V\|_{2}/\|V_{\mathrm{DSS}}\|_{2}$, \%','Current error, $\|\Delta I\|_{2}/\|I_{\mathrm{Xfmr}}\|_{2}$, \%','Power error, $(\Delta P)/P$, \%']
     heading = ['Feeder','Voltage error, $\delta _{V}$','Current error, $\delta _{I}$','Power error, $\delta _{P}$']
     
     resultTable = [heading]
@@ -381,9 +378,8 @@ if 'f_checkErrorSummary' in locals():
     TD = os.path.join(SD0,'tables\\')
     if 'pltSave' in locals(): basicTable('Maximum error, \%','checkErrorSummary',heading,resultTable[1:],TD)
     
-
-
-if 'f_sensitivities_base' in locals():
+    
+if 't_sensitivities_base' in locals():
     # sensitivity_base: just the results of smart inverter control
     # go through and calculate the benefits of full (SI) control versus nominal control
     strategies = ['full','phase','nomTap']
@@ -400,14 +396,16 @@ if 'f_sensitivities_base' in locals():
             j+=1
         i+=1
     benefits = -100*(opCst[0:2] - opCst[2])
+    benefitsRatio = benefits[1]/benefits[0]
     benefits = np2lsStr(benefits,3)
     data = [ ['Full']+benefits[0],['Phase']+benefits[1] ]
     caption='Smart inverter benefits, \% of load'
     label='sensitivities_base'
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
     print(heading); print(*data,sep='\n')
+    print('Benefits ratio:\n',100*benefitsRatio)
     
-if 'f_sensitivities_invLoss' in locals() or 'f_sensitivities_efficacy' in locals():
+if 'f_sensitivities_all' in locals():
     # sensitivities_invLoss, sensitivities_efficacy: the results considering smaller and larger losses
     pCvr = 0.6;     obj='opCst'
     strategies = ['full','nomTap']
@@ -435,20 +433,26 @@ if 'f_sensitivities_invLoss' in locals() or 'f_sensitivities_efficacy' in locals
     benefits = np2lsStr(benefits.T,3)
     wBenefit = -(wCst[0] - wCst[1])
     qCost = qCst[0]
-    efficacy = np2lsStr( (1e3*wBenefit/qCost).T,2)
+    efficacy = np2lsStr( (1e3*wBenefit/qCost).T,1)
 
-    data = [ ['None']+benefits[0],['Low (base)']+benefits[1],['High']+benefits[2] ]
-    eData = [ ['None']+efficacy[0],['Low (base)']+efficacy[1],['High']+efficacy[2] ]
+    data = [ ['None']+benefits[0],['Low']+benefits[1],['High']+benefits[2] ]
+    eData = [ ['None']+efficacy[0],['Low']+efficacy[1],['High']+efficacy[2] ]
     
     label='sensitivities_invLoss'
-    if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
+    # if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
     print(heading); print(*data,sep='\n')
 
-    # heading[0]='Inv. Losses'
     label='sensitivities_efficacy'
     caption='Smart inverter efficacy ($P/||Q||_{1}$), W/kVAr'
-    if 'pltSave' in locals(): basicTable(caption,label,heading,eData,TD)
+    # if 'pltSave' in locals(): basicTable(caption,label,heading,eData,TD)
     print(heading); print(*eData,sep='\n')
+    
+    heading[0]='Network'
+    newData = list(map(list, zip(*(  [heading]+data+eData  ))))
+    caption='Smart inverter load benefit (\%) and efficacy ($P/||Q||_{1}$, W/kVAr)'
+    label='sensitivities_all'
+    if 'pltSave' in locals(): basicTable(caption,label,newData[0],newData[1:],TD)
+    
 
 if 'f_sensitivities_aCvr' in locals():
     # sensitivities_aCvr
@@ -457,8 +461,11 @@ if 'f_sensitivities_aCvr' in locals():
     obj='opCst'
     strategies = ['full','nomTap']
     opCst = np.zeros((2,len(feederSet),len(pCvrSet)))
+    wCst = np.zeros((2,len(feederSet),len(pCvrSet)))
+    qCst = np.zeros((2,len(feederSet),len(pCvrSet)))
     i=0
     heading = ['$\\alpha_{\mathrm{CVR}}$']
+    nonLinearity = ['Non-lin']
     for feeder in feederSet:
         heading.append(feederIdxTidy[feeder])
         j=0
@@ -467,17 +474,37 @@ if 'f_sensitivities_aCvr' in locals():
             for pCvr in pCvrSet:
                 self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][obj][-1])
                 opCst[j,i,k] = self.qpVarValue(strategy,obj,'norm')
+                wCst[j,i,k] = self.qpVarValue(strategy,obj,'power')
+                qCst[j,i,k] = np.linalg.norm(self.slnX[self.nPctrl:self.nSctrl],ord=1)                
                 k+=1
             j+=1
         i+=1
-
-    benefits = -100*(opCst[0] - opCst[1])
-    benefits = np2lsStr(benefits.T,3)
-    data = [ ['0.0']+benefits[0],['0.3']+benefits[1],['0.6']+benefits[2],['0.9']+benefits[3] ]
     
+    nLinCvr = ['Non-lin meas']
+    benefits = -100*(opCst[0] - opCst[1])
+    # for benefit in benefits:
+        # cfs = np.polyfit(pCvrSet,benefit,2)
+        # nLinCvr.append('%.3f' % (cfs[0]) )
+        # print(cfs)
+    
+    wBenefit = -(wCst[0] - wCst[1])
+    qCost = qCst[0]
+    efficacy = np2lsStr( (1e3*wBenefit/qCost).T,1)
+    benefits = np2lsStr(benefits.T,2)
+    data = [ ['0.0']+benefits[0],['0.3']+benefits[1],['0.6']+benefits[2],['0.9']+benefits[3] ]
+    eData = [ ['0.0']+efficacy[0],['0.3']+efficacy[1],['0.6']+efficacy[2],['0.9']+efficacy[3] ]
+
     label='sensitivities_aCvr'
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
     print(heading); print(*data,sep='\n')
+    print(heading); print(*eData,sep='\n')
+    
+    heading[0]='Network'
+    newData = list(map(list, zip(*(  [heading]+data+eData  ))))
+    caption='Smart inverter load benefit (\%) and efficacy ($P/||Q||_{1}$, W/kVAr) against $\\alpha_{\mathrm{CVR}}$'
+    label='sensitivities_aCvr'
+    if 'pltSave' in locals(): basicTable(caption,label,newData[0],newData[1:],TD)
+    
     
 if 'f_sensitivities_loadPoint' in locals():
     opCst = np.zeros((2,len(feederSet),3))
@@ -503,6 +530,30 @@ if 'f_sensitivities_loadPoint' in locals():
     label='sensitivities_loadPoint'
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
     print(heading); print(*data,sep='\n')
+    
+if 't_networkSummary' in locals():
+    # NB: annoyingly the regulator is at a higher tap nominally so the values are a bit different
+    # self2 = main('n27','loadOnly',linPoint=linPointsDict[feeder]['opCst'][0])
+    # self2.TC_No0
+    
+    heading = ['Network', 'No. Lds.', 'No. Buses', 'Q-sensitivity $\eta_{\mathrm{Sns}}$','Unc. cost $\delta^{*}$']
+    data = []; i=0
+    for feeder in feederSet:
+        self = main(feeder,'loadOnly',linPoint=linPointsDict[feeder]['opCst'][-1])
+        data.append([feederIdxTidy[feeder]])
+        data[i].append(str(self.nPctrl))
+        data[i].append(str(self.Kc2v.shape[0] + 3))
+        slnXunc = self.solveQpUnc()[0]
+        data[i].append( '%.1f' % self.solveQpUnc()[2] )
+        slnFunc = self.solveQpUnc()[1]
+        data[i].append( '%.3f' % ( -100*( np.sum(slnFunc[0:4]) - np.sum(self.slnF0[0:4]))/np.sum(self.slnF0[0:4]))  )
+        i+=1
+    
+    label='t_networkSummary'
+    caption='Summary of Network'
+    if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
+    print(heading); print(*data,sep='\n')
+    
     
     
 if 'f_solutionError' in locals():
