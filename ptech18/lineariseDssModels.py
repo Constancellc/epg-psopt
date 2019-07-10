@@ -2741,7 +2741,7 @@ class buildLinModel:
         else:
             self.srcReg = 0        
         
-        plotMarkerDict = {'13bus':150,'34bus':150,'eulv':100,'epri5':10,'epriK1cvr':15}
+        plotMarkerDict = {'13bus':150,'34bus':150,'eulv':100,'epri5':10,'epriK1cvr':15,'epriK1':15}
         
         if self.feeder in plotMarkerDict.keys():
             self.plotMarkerSize=plotMarkerDict[self.feeder]

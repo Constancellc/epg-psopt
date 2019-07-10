@@ -29,10 +29,12 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_sensitivities_loadPoint = 1
 # t_checkErrorSummary = 1
 # t_networkSummary = 1
+f_epriK1detail = 1
 
-# pltSave=1
+pltSave=1
 
 SD0 = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19')
+SDT = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','thesis')
 SDfig = os.path.join(SD0,'figures')
 TD = os.path.join(SD0,'tables\\')
 
@@ -75,6 +77,18 @@ if 'f_plotOnly' in locals():
     self = main('n1','plotOnly',pltSave=True)
     for feeder in feederSet:
         self = main(feeder,'plotOnly')
+    
+if 'f_epriK1detail' in locals():
+    self = main('epriK1','plotOnly')
+    self.plotNetwork(pltShow=False)
+    plt.annotate('Substation', (2637962.769000+4e2, 623062.072000),xycoords='data')
+    plt.scatter(2642631.410000, 628706.594000,zorder=+20,color=cm.matlab(3),edgecolor='k')
+    plt.annotate('Capacitor\nbank', (2642631.410000-39e2, 628706.594000-9e2),xycoords='data',zorder=20)
+    plt.scatter(2644756.213000, 631315.808000,marker='p',zorder=+20,color=cm.matlab(4),s=60,edgecolor='k')
+    plt.annotate('Generator', (2644756.213000+6e2, 631315.808000-3e2),xycoords='data')
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT,'c2litreview','c2figures','epriK1detail'),pltClose=True)
+    plt.show()
+    
 
 if 'f_plotInvLoss' in locals():
     sRated = 2
@@ -131,7 +145,7 @@ if 'f_plotInvLoss' in locals():
 
 
 if 'f_valueComparisonChart' in locals():
-    # pCvr = 0.6
+    pCvr = 0.6
     # pCvr = 0.0
     opCstTable = [['Operating cost (kW)'],['Feeder',*strategySet['opCst']]]
     opCstTableA = [['Operating cost (kW)'],[*strategySet['opCst']]];    opCstTableB = [['Operating cost (kW)'],[*strategySet['opCst']]]
@@ -178,7 +192,7 @@ if 'f_valueComparisonChart' in locals():
     
     colorSet = {'opCst':cm.matlab([0,1,2,3,4]),'hcGen':cm.matlab([0,1,2,5]),'hcLds':cm.matlab([0,1,2,6])}
     
-    objSet = ['opCst']
+    objSet = ['opCst','hcGen','hcLds']
     for obj in objSet:
         fig,ax = plt.subplots(figsize=(5.5,3.0))
         table = tables[obj]
