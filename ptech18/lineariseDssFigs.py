@@ -15,6 +15,24 @@ feederAllTidy = {'13bus':'13 Bus','34bus':'34 Bus','123bus':'123 Bus','8500node'
 feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20:'Ckt. K1',21:'Ckt. M1',17:'Ckt. 5',18:'Ckt. 7',22:'Ckt. 24',26:'123 Bus',24:'Ckt. K1','n1':'EULVa','n27':'EULVa-r',0:'EULV','n4':'Nwk. 4','n10':'Nwk. 10'}
 
 
+
+# # THREE EXAMPLES from transmission papers?
+# x = [-100,0,100]
+# y= [3.25,2.9,3.82]
+# xL = np.linspace(-120,120,1000)
+
+# x = [0,100,200]
+# y = [0,100,200]
+
+# # paper 1
+# c = np.polyfit(x,y,2)
+# plt.plot(xL,c[0]*(xL**2) + c[1]*xL + x[0]);plt.show()
+# plt.plot(x,y,'x');
+# plt.plot(xL,2*c[0]*xL + c[1]);plt.show()
+# plt.plot(xL,1000*(2*c[0]*xL + c[1]));plt.show()
+
+# plt.plot(xL,c[0]*(xL**2) + c[1]*xL + c[2]);plt.show()
+
 # f_valueComparisonChart = 1
 # f_plotOnly = 1
 # f_plotInvLoss = 1
@@ -29,9 +47,10 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_sensitivities_loadPoint = 1
 # t_checkErrorSummary = 1
 # t_networkSummary = 1
-f_epriK1detail = 1
+# f_epriK1detail = 1
+# f_costFunc = 1
 
-pltSave=1
+# pltSave=1
 
 SD0 = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19')
 SDT = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','thesis')
@@ -568,7 +587,36 @@ if 't_networkSummary' in locals():
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
     print(heading); print(*data,sep='\n')
     
-    
+if 'f_costFunc' in locals():
+    feeder = 0
+    self = main(feeder,modelType='loadOnly')
+    fig,[ax1,ax2] = plt.subplots(ncols=2)
+
+    ldsQ = 1e3*self.ploadL[self.nPctrl:self.nSctrl]
+    lssQ = 1e3*self.qpLlss[self.nPctrl:self.nSctrl]
+    tot = lssQ + ldsQ
+    ax1.plot(tot,'k',label='$\lambda_{\mathrm{Q}}$ (tot)');
+    ax1.plot(ldsQ,'--',label='$\lambda_{\mathrm{Q}}^{\mathrm{Load}}$');
+    ax1.plot(lssQ,'--',label='$\lambda_{\mathrm{Q}}^{\mathrm{Loss}}$');
+    ax1.legend(fontsize='small')
+    ax1.set_xlabel('Bus index $i$')
+    ax1.set_ylim((-20,20))
+    ax1.set_ylabel('QP Sensitivity  $\lambda_{\mathrm{Q}}^{[i]}$, W/kVAr')
+
+    H = self.getHmat()
+    qpQlss = 1e3*H.dot(H.T)
+    qpQtot = qpQlss + np.diag(1e3*self.qlossQdiag)
+    # plt.plot(np.diag(qpQlss)[self.nPctrl:self.nSctrl],label='qpQtot')
+    ax2.plot(np.sum(np.abs(qpQtot),axis=1)[self.nPctrl:self.nSctrl],'k',label='$\Lambda_{\mathrm{QQ}}$ (tot)')
+    ax2.plot(np.sum(np.abs(qpQlss),axis=1)[self.nPctrl:self.nSctrl],'--',label='$\Lambda_{\mathrm{QQ}}^{\mathrm{Loss}}$')
+    ax2.plot(1e3*self.qlossQdiag[self.nPctrl:self.nSctrl],'--',label='$\Lambda_{\mathrm{QQ}}^{\mathrm{Inverter}}$')
+    ax2.set_xlabel('Bus index $i$')
+    ax2.set_ylabel('QP Hessian  $\|\| \Lambda_{\mathrm{QQ}}^{[i,:]} \|\|_{1}$, W/kVAr$^{2}$ ')
+    ax2.legend(fontsize='small',loc='upper left')
+    ax2.set_ylim((0,100))
+    plt.tight_layout()
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'costFunc'))
+    plt.show()
     
 if 'f_solutionError' in locals():
     feeder = 26
