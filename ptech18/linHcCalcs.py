@@ -34,7 +34,7 @@ mcDssOn = False
 # mcLinPrg = 1
 # mcTapSet = 1
 # mcTapMultSet = 1
-# mcTapMultSetLinFull = 1 #NB this is SLOW!!!
+mcTapMultSetLinFull = 1 #NB this is SLOW!!!
 
 
 
@@ -59,7 +59,7 @@ setCapsOpt = 'linModel' # opendss options. 'linModels' is the 'right' option, cf
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 # fdr_i_set = [5,6,8,0,14,17,18,20,21]
 fdr_i_set = [6,8,9,17,18,19,20,21,22]
-fdr_i_set = [8,20,17,18,21,19,22,9]
+fdr_i_set = [6,8,20,17,18,21,19,22,9]
 # fdr_i_set = [6,8,20,17,18,21]
 
 pdfName = 'gammaWght'
@@ -327,7 +327,8 @@ for fdr_i in fdr_i_set:
     if 'mcTapMultSetLinFull' in locals():
         Mu,Sgm = pdf.getMuStd(LM,0)
         LM.busViolationVar(Sgm)
-        LM.makeCorrModel()
+        # LM.makeCorrModel()
+        LM.makeCorrModel(stdLim=0.7,corrLim=[0.98])
         
         nMult = 5 # This version should work up to 40 or so
         
@@ -337,7 +338,7 @@ for fdr_i in fdr_i_set:
         maeSet = np.array([])
         for ii in range(nMult):
             pdfMult = hcPdfs(LM.feeder,netModel=LM.netModelNom,pdfName=pdfName,WD=WD,nMc=nMc,rndSeed=int(ii*1e8),prms=prms )
-            LM.runLinHc(pdfMult,fast=False)
+            LM.runLinHc(pdfMult,model='cor',fast=False)
             linHcRsl = LM.linHcRsl
             print('Linear Run Time:',linHcRsl['runTime'])
             print('Sampling Time:',linHcRsl['runTimeSample'])
@@ -350,7 +351,8 @@ for fdr_i in fdr_i_set:
 
         rslt = {'ibResults':ibResults,'multResults':multResults,'svtyResults':svtyResults}
         if pltSave:
-            SN = os.path.join(os.path.dirname(SD),'TapMultSet',LM.feeder+'linHcCalcsRslt_'+pdfName+'_tapMultSetLinFull.pkl')
+            # SN = os.path.join(os.path.dirname(SD),'TapMultSet',LM.feeder+'linHcCalcsRslt_'+pdfName+'_tapMultSetLinFull.pkl')
+            SN = os.path.join(os.path.dirname(SD),'TapMultSet',LM.feeder+'linHcCalcsRslt_'+pdfName+'_tapMultSetLinFull2.pkl')
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
     

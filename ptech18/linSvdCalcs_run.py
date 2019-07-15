@@ -28,10 +28,13 @@ pdfName = 'gammaFrac'
 # feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
 feeders = ['34bus','123bus','8500node','epriJ1','epriK1','epriM1','epri5','epri7','epri24']
 fdrs_is = [6,8,9,19,20,21,17,18,22]
+# fdrs_is = [6]
+# fdrs_is = [21,22]
 # fdrs_is = [22]
 
 stdLim = np.array([0.7])
-CorLim = np.array([0.95])
+# CorLim = np.array([0.95,0.96,0.97,0.98])
+CorLim = np.array([0.98])
 
 # stdLim = np.array([0.66,0.7,0.75,0.8])
 # CorLim = np.array([0.9,0.95]) 

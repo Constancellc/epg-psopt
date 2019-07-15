@@ -47,10 +47,11 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_sensitivities_loadPoint = 1
 # t_checkErrorSummary = 1
 # t_networkSummary = 1
+t_networkMetrics = 1
 # f_epriK1detail = 1
 # f_costFunc = 1
 
-# pltSave=1
+pltSave=1
 
 SD0 = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19')
 SDT = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','thesis')
@@ -584,6 +585,27 @@ if 't_networkSummary' in locals():
     
     label='t_networkSummary'
     caption='Summary of Network'
+    if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
+    print(heading); print(*data,sep='\n')
+    
+if 't_networkMetrics' in locals():
+    heading = ['Network','Average sense $\hat{\lambda}_{\mathrm{Ave}}$, kVAr','Average cost saving, $\hat{f}_{\mathrm{Ave}}$, W','Unc. cost $f_{\mathrm{Q\,Unc}}^{*}$, \%','Control efficacy, $f_{\mathrm{Q\,Unc}}^{*}/\|x_{\mathrm{Q\,Unc}}^{*}\|$, W/kVAr']
+    data = []; i=0
+    for feeder in feederSet:
+        self = main(feeder,'loadOnly',linPoint=linPointsDict[feeder]['opCst'][-1])
+        
+        data.append([feederIdxTidy[feeder]])
+        
+        slnXunc, slnFunc, gradP = self.solveQpUnc()[0:3]
+        
+        data[i].append( '%.1f' % gradP)
+        data[i].append( '%.1f' % ( 1e3*(np.sum(slnFunc[0:4]) - np.sum(self.slnF0[0:4]))/self.nPctrl ) )
+        data[i].append( '%.3f' % ( -100*(np.sum(slnFunc[0:4]) - np.sum(self.slnF0[0:4]) )/np.sum(self.slnF0[0:4])) )
+        data[i].append( '%.3f' % ( -1e3*(np.sum(slnFunc[0:4]) - np.sum(self.slnF0[0:4]))/np.linalg.norm(slnXunc) ) )
+        i+=1
+    
+    label='t_networkMetrics'
+    caption='Unconstrained Network Analysis'
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
     print(heading); print(*data,sep='\n')
     
