@@ -1,11 +1,17 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import os
-import getpass
+import os,getpass
+plt.style.use('tidySettings')
+
+# WD = os.path.dirname(sys.argv[0])
+SDT = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','thesis','c4tech2','c4figures')
 
 if getpass.getuser()=='chri3793':
     fn = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18\datasets\\fit_report_part1.csv"
+    fn1 = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18\datasets\\fit_report_part1.csv"
+    fn2 = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18\datasets\fit_report_part2.csv"
+    fn3 = r"C:\Users\chri3793\Documents\MATLAB\DPhil\epg-psopt\ptech18\datasets\fit_report_part3.csv"
 elif getpass.getuser()=='Matt':
     sn = r"C:\Users\Matt\Desktop\wc190128\\"
     fn = r"C:\Users\Matt\Documents\MATLAB\epg-psopt\ptech18\datasets\fit_report_part1.csv"
@@ -47,18 +53,25 @@ histyTot = histTot[0]
 histxTotIns = histTotIns[1][:-1]
 histyTotIns = histTotIns[0]
 # plt.step(histx,histy)
-plt.step(histxTotIns,histyTotIns)
-plt.step(histxTot,histyTot)
-plt.title('UK Domestic PV FIT Sizes (Oct 18)')
-plt.xlabel('x = Capacity (kW)')
-plt.ylabel('p(x)')
+
+fig,ax = plt.subplots(figsize=(4.7,2.2))
+# plt.step(histxTotIns,histyTotIns)
+# plt.step(histxTot,histyTot)
+# plt.title('UK Domestic PV FIT Sizes (Oct 18)')
+# plt.xlabel('x = Capacity (kW)')
+plt.step(histxTot,histyTot,label='UK FIT Domestic Installations')
+plt.xlabel('Capacity (kW)')
+# plt.ylabel('p(x)')
+plt.ylabel('Probability Density')
 plt.grid(True)
 plt.xlim((0,pmax))
 plt.ylim((0,plt.ylim()[1]))
 plt.xticks(np.arange(0,22,2))
-plt.legend(('Installed Capacity','Declared Net Capacity'))
-
-# plt.savefig(sn+"plot_uk_pv.png")
+# plt.legend(('Installed Capacity','Declared Net Capacity'))
+plt.legend()
+plt.tight_layout()
+plt.savefig(os.path.join(SDT,"plot_uk_pv.png"),pad_inches=0.02,bbox_inches='tight')
+plt.savefig(os.path.join(SDT,"plot_uk_pv.pdf"),pad_inches=0.02,bbox_inches='tight')
 plt.show()
 
 

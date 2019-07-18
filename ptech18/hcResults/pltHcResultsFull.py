@@ -91,7 +91,8 @@ for feeder in feeders_mult:
     RDmult = os.path.join(WD,'tapMultSet',feeder+'linHcCalcsRslt_gammaFrac_tapMultSet.pkl')
     with open(RDmult,'rb') as handle:
         rsltsMult[feeder] = pickle.load(handle)
-    RDmultFull = os.path.join(WD,'tapMultSet',feeder+'linHcCalcsRslt_gammaFrac_tapMultSetLinFull.pkl')
+    # RDmultFull = os.path.join(WD,'tapMultSet',feeder+'linHcCalcsRslt_gammaFrac_tapMultSetLinFull.pkl')
+    RDmultFull = os.path.join(WD,'tapMultSet',feeder+'linHcCalcsRslt_gammaFrac_tapMultSetLinFull2.pkl')
     with open(RDmultFull,'rb') as handle:
         rsltsMultFull[feeder] = pickle.load(handle)
     
