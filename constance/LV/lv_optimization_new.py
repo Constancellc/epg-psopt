@@ -217,6 +217,8 @@ class LVTestFeeder:
 
                     if needed>start and needed-start<60:
                         needed += 30
+                        if needed >= 1440:
+                            needed -= 1440
 
                     vehicles[hh].append([kWh,int(start/self.t_res),
                                          int(needed/self.t_res)])
@@ -241,7 +243,7 @@ class LVTestFeeder:
                 if vehicles[hh][j][1] < vehicles[hh][j][2]:
                     maxTime = vehicles[hh][j][2]-vehicles[hh][j][1]
                 else:
-                    maxTime = 1440+vehicles[hh][j][2]-vehicles[hh][j][1]
+                    maxTime = 1440/self.t_res+vehicles[hh][j][2]-vehicles[hh][j][1]
                 maxEnergy = maxTime*self.t_res*6.3/60 # 7kw at 90% eff
                 
                 if vehicles[hh][j][0] > maxEnergy:
@@ -796,22 +798,29 @@ class LVTestFeeder:
 
         ld = copy.deepcopy(self.base)
 
+        en = []
+        for rn in range(self.rN):
+            en.append(copy.deepcopy(self.b[rn]))
+
         av = {}
         for t in range(self.T):
             av[t] = []
         for rn in range(self.rN):
+            if en[rn] < eps*0.01:
+                en[rn] = 0
+                continue
             if self.times[rn][1] > self.times[rn][0]:
                 for t in range(self.times[rn][0],self.times[rn][1]):
-                    av[t].append(rn)
+                    try:
+                        av[t].append(rn)
+                    except:
+                        print(t)
+                        continue
             else:
                 for t in range(0,self.times[rn][1]):
                     av[t].append(rn)
                 for t in range(self.times[rn][0],self.T):
                     av[t].append(rn)
-
-        en = []
-        for rn in range(self.rN):
-            en.append(copy.deepcopy(self.b[rn]))
 
         while sum(en) > eps:
             t = np.argmin(ld)

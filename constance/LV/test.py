@@ -6,10 +6,9 @@ import matplotlib.pyplot as plt
 from lv_optimization_new import LVTestFeeder
 
 network = LVTestFeeder('manc_models/1',1)
-#network.set_households_NR('../../../Documents/netrev/TC2a/03-Dec-2013.csv')
-#network.set_evs_MEA('../../../Documents/My_Electric_Avenue_Technical_Data/'+'constance/ST1charges/')
-network.set_households_synthetic(4.0)
-network.set_evs_synthetic(5,nTrips=2)
+network.set_households_NR('../../../Documents/netrev/TC2a/03-Dec-2013.csv')
+network.set_evs_MEA('../../../Documents/My_Electric_Avenue_Technical_Data/'+
+                    'constance/ST1charges/')
 p1 = network.get_feeder_load()
 network.uncontrolled()
 p2 = network.get_feeder_load()
