@@ -1029,3 +1029,20 @@ def set_ax_size(w,h, ax=None):
     ax.figure.set_size_inches(figw, figh)
 
 
+def sdt(chapter=None):
+    SDT0 = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','thesis')
+    if chapter=='c1':
+        SDT = os.path.join(SDT0,'c1introduction','c1figures')
+    elif chapter=='c2':
+        SDT = os.path.join(SDT0,'c2litreview','c2figures')
+    elif chapter=='c3' or chapter=='t1':
+        SDT = os.path.join(SDT0,'c3tech1','c3figures')
+    elif chapter=='c4' or chapter=='t2':
+        SDT = os.path.join(SDT0,'c4tech2','c4figures')
+    elif chapter=='c5' or chapter=='t3':
+        SDT = os.path.join(SDT0,'c5tech3','c5figures')
+    elif chapter=='c6':
+        SDT = os.path.join(SDT0,'c6conclusions','c6figures')
+    elif chapter is None:
+        SDT = SDT0
+    return SDT

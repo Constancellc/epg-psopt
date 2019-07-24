@@ -1,7 +1,7 @@
 import lineariseDssModels, sys, os, pickle, random, time
 from importlib import reload
 import numpy as np
-from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, plotSaveFig, basicTable, np2lsStr
+from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, plotSaveFig, basicTable, np2lsStr, sdt
 import matplotlib.pyplot as plt
 from matplotlib import cm, rc
 plt.style.use('tidySettings')
@@ -47,14 +47,15 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_sensitivities_loadPoint = 1
 # t_checkErrorSummary = 1
 # t_networkSummary = 1
-t_networkMetrics = 1
+# t_networkMetrics = 1
 # f_epriK1detail = 1
 # f_costFunc = 1
+# f_37busVal = 1
 
 pltSave=1
 
 SD0 = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19')
-SDT = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','thesis')
+SDT = sdt()
 SDfig = os.path.join(SD0,'figures')
 TD = os.path.join(SD0,'tables\\')
 
@@ -674,3 +675,20 @@ if 'f_solutionError' in locals():
 # self = main(8,'loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.showQpSln()
 # self = main('n1','loadOnly',linPoint=0.1); self.runCvrQp('full','hcGen')
 # self = main('n1','plotOnly')
+
+
+
+if 'f_37busVal' in locals():
+    self = main(10,'linOnly')
+    [vce,vae,k] = self.testVoltageModel(k=np.arange(-1.5,1.51,0.01))
+    fig,ax = plt.subplots(figsize=(4.4,2.8))
+    plt.plot(k,100*abs(vce),label='Cplx. Model');
+    plt.plot(k,100*vae,label='Mag. Model');
+    plt.xlim((-1.5,1.5))
+    plt.ylim((0,0.45))
+    plt.xlabel('Load scaling factor')
+    plt.ylabel('Error, $||V_{\mathrm{DSS}} - V_{\mathrm{Lin}}||_{2}/||V_{\mathrm{DSS}}||_{2}$, %')
+    plt.legend()
+    plt.tight_layout()
+    if 'pltSave' in locals():
+        plotSaveFig(os.path.join(sdt('t2'),'37busBal'),pltClose=False)

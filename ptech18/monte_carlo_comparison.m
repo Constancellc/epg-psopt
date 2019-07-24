@@ -1,116 +1,116 @@
 clear all;
 set(0,'DefaultTextInterpreter','Latex')
 % addpath('lin_functions');
-
+%%
 FD = 'C:\Users\Matt\Documents\DPhil\pesgm19\pesgm19_paper\tables\';
 pltD = 'C:\Users\Matt\Documents\DPhil\papers\pesgm19\pesgm19_poster\figures\';
 nl = 0.5;
 
-modes = {'Wfix','Vfix'};
+thesisTable = 1;
 
+modes = {'Wfix','Vfix'};
+% modes = {'Vfix'};
 
 frac_set = 0.05;
 
-models = {'eulv','n1f1','n2f1','n3f1','n4f1'};
-% models = {'eulv'};
-fn{1} = [pwd,'\LVTestCase_copy\master_z_g'];
-fn{2} = [pwd,'\manchester_models\network_1\Feeder_1\master_g'];
-fn{3} = [pwd,'\manchester_models\network_2\Feeder_1\master_g'];
-fn{4} = [pwd,'\manchester_models\network_3\Feeder_1\master_g'];
-fn{5} = [pwd,'\manchester_models\network_4\Feeder_1\master_g'];
+% models = {'eulv','n1f1','n2f1','n3f1','n4f1'};
+models = {'eulv','n1f1','n2f1','n3f1','n4f1','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr','123busCvr'};
+model_is = [4+1];
+model_is = [20,17,18,22]+1;
 
-[~,DSSObj,DSSText] = DSSStartup;
-DSSCircuit = DSSObj.ActiveCircuit;
-DSSSolution = DSSCircuit.Solution;
-LDS = DSSCircuit.loads;
+Ns = 3000; % number of samples
+tConv = 0.003; % convergence criteria
+% qgen = 0;
 
-Ns = 1000; % number of samples
+mc_time = zeros(numel(model_is),numel(modes));
+Pout = zeros(numel(model_is),numel(modes));
+counts = zeros(numel(model_is),1);
 
-Vb = 230;
-vp = 1.10;
-vmax = Vb*vp;
-% gen_pf = -0.95;
-gen_pf = 1.00;
-aa = exp(1i*2*pi/3);
+for K = 1:numel(model_is)
+    
+    modeli = model_is(K);
+    
+    if modeli<6
+        Vb = 230;
+        vp = 1.10;
+    else
+        Vb = 1;
+        if modeli==1
+            vp=1.10;
+        else
+            vp = 1.055;
+        end
+    end
+    vmax = Vb*vp;
+    
+    rng(0);
+    model = models{modeli};
+    display(model );
+    
+    load([pwd,'\lin_models\',model]);
+    LDScount = nnz(xhy0)/2;
+    Nl = ceil(nl*LDScount);
+    sn = [pwd,'\lin_models\mc_out_',model];
 
-qgen = sin(acos(abs(gen_pf)))/gen_pf;
+    vmag=zeros(Ns,numel(Nl));
+    X=zeros(Ns,numel(Nl));
+    Vub=zeros(Ns,numel(Nl));
+    Vout_mx=zeros(Ns,numel(Nl));
 
-mc_time = zeros(numel(models),numel(modes));
-Pout = zeros(numel(models),numel(modes));
-counts = zeros(numel(models),1);
+    tic
+
+    % set up linear model & solve:
+    f = -1;
+    xhy0=sparse(xhy0);
+    Vh0 = My*xhy0 + a;
+    ang0 = exp(1i*angle(Vh0));
+    Va0 = real(Vh0./ang0);
+
+    Vmax = vmax*ones(size(Vh0));
+    b = Vmax - Va0;
+
+    xhp0 = xhy0(1:numel(xhy0)/2);
+    fxp0 = find(xhp0);
+    
+    Ky = real((1./ang0).*My);
+%     Ky2 = real(asd*My);
+%     isequal(Ky,Ky2)
+    Kynew = Ky(:,1:numel(xhy0)/2);
+    bnew = b;
+%     Kynew = Ky(xhp0~=0,1:numel(xhy0)/2);
+%     bnew = b(xhp0~=0);
 
 
-% mode = 'Wfix'; K = 5;
-for k = 1:numel(modes)
-    mode = modes{k};
-    for K = 1:numel(models)
-        display(K);
-        rng(0);
-        modeli = K;
+    nV = numel(bnew);
+    nS = numel(xhy0);
+    nP = numel(xhy0)/2;
+
+    PPa = [];
+    PPb = [];
+    
+    for k = 1:numel(modes)
+        mode = modes{k};
+        display(mode)
         
-        DSSText.Command=['Compile (',fn{modeli},')'];
-        model = models{modeli};
-
-        load([pwd,'\lin_models\',model]);
-        Nl = ceil(nl*LDS.count);
-        sn = [pwd,'\lin_models\mc_out_',model];
-        % sn = [pwd,'\lin_models\mc_out_',model,'_upf']
-
-        vmag=zeros(Ns,numel(Nl));
-        X=zeros(Ns,numel(Nl));
-        Vub=zeros(Ns,numel(Nl));
-        Vout_mx=zeros(Ns,numel(Nl));
-
         tic
-
-        % set up linear model & solve:
-        f = -1;
-        xhy0=sparse(xhy0);
-        Vh0 = My*xhy0 + a;
-        ang0 = exp(1i*angle(Vh0));
-        Va0 = real(Vh0./ang0);
-
-        Vmax = vmax*ones(size(Vh0));
-        b = Vmax - Va0;
-
-        xhp0 = xhy0(1:numel(xhy0)/2);
-        fxp0 = find(xhp0);
-
-        PPa = [];
-        PPb = [];
         if strcmp(mode,'Vfix')
             for i = 1:numel(Nl)
                 for j = 1:Ns
-                    rdi = randperm(LDS.count,Nl(i));
-                    xhs = sparse(zeros(size(xhp0)));
-
-                    xhs(fxp0(rdi)) = 1;
-                    xhs = [xhs;xhs*qgen];
-                    Mk = My*xhs;
-                    A = real(Mk./ang0);
-                    Anew = A(xhp0~=0);
-                    bnew = b(xhp0~=0);
-
+                    rdi = randperm(LDScount,Nl(i));
+                    xhs = sparse(fxp0(rdi),1,ones(Nl(i),1),nP,1);
+                    Anew = Kynew*xhs;
                     xab = bnew./Anew;
                     xab = xab + 0./(xab>0); % get rid of negative values
 
-                    X(j,i) = min(xab); % this is the value that maximises the o.f.
-                    
-                    Vout = My*(xhy0 + xhs*X(j,i)) + a;
+                    X(j,i) = min(xab); % this is the value that maximises the o.f.#
                 end
             end
             kX = X.*Nl*1e-3;
             Pout(K,k) = quantile(kX(:),frac_set);
             
         elseif strcmp(mode,'Wfix')
-            xhs = sparse(zeros(size(xhp0)));
-            xhs(fxp0) = 1;
-            xhs = [xhs;xhs*qgen];
-            Mk = My*xhs;
-            A = real(Mk./ang0);
-
-            Anew = A(xhp0~=0);
-            bnew = b(xhp0~=0);
+            xhs = sparse(fxp0,1,ones(numel(fxp0),1),nP,1);
+            Anew = Kynew*xhs;
             
             xab = bnew./Anew;
             xab = xab + 0./(xab>0); % get rid of negative values
@@ -122,14 +122,13 @@ for k = 1:numel(modes)
             
             Pb = P100;
             for i = 1:numel(Nl)
+                Pgen = Pb*LDScount/Nl(i);
                 for j = 1:Ns
-                    rdi = randperm(LDS.count,Nl(i));
-                    xhs = sparse(zeros(size(xhp0)));
-                    xhs(fxp0(rdi)) = Pb*LDS.count/Nl(i);
-                    xhs = [xhs;xhs*qgen];
-                    
-                    Vout = My*(xhy0 + xhs) + a;
-                    Vout_ld = Vout(xhp0~=0)/Vb;
+                    rdi = randperm(LDScount,Nl(i));
+                    xhs = sparse(fxp0(rdi),1,ones(Nl(i),1)*Pgen,nP,1);
+                    Vout = Va0 + Kynew*xhs; % Vout2
+
+                    Vout_ld = Vout/Vb;
                     Vout_mx(j,i) = max(abs(Vout_ld));
                 end
             end
@@ -138,18 +137,16 @@ for k = 1:numel(modes)
             
             error = abs((frac_a-frac_b))/(abs(frac_b) + 1);
             count = 0;
-            while error > 0.01
+            while error > tConv
                 PPa(end+1) = Pa;
                 PPb(end+1) = Pb;
                 for i = 1:numel(Nl)
+                    Pgen = Pc*LDScount/Nl(i);
                     for j = 1:Ns
-                        rdi = randperm(LDS.count,Nl(i));
-                        xhs = sparse(zeros(size(xhp0)));
-                        xhs(fxp0(rdi)) = Pc*LDS.count/Nl(i);
-                        xhs = [xhs;xhs*qgen];
-                        
-                        Vout = My*(xhy0 + xhs) + a;
-                        Vout_ld = Vout(xhp0~=0)/Vb;
+                        rdi = randperm(LDScount,Nl(i));
+                        xhs = sparse(fxp0(rdi),1,ones(Nl(i),1)*Pgen,nP,1);
+                        Vout = Va0 + Kynew*xhs; % Vout2
+                        Vout_ld = Vout/Vb;
                         Vout_mx(j,i) = max(abs(Vout_ld));
                     end
                 end
@@ -168,7 +165,7 @@ for k = 1:numel(modes)
                 error = abs((frac_a-frac_b))/(abs(frac_b) + 1);
                 count = count + 1;
             end
-            Pout(K,k) = mean([Pa,Pb])*LDS.count*1e-3;
+            Pout(K,k) = mean([Pa,Pb])*LDScount*1e-3;
             counts(K) = count;
         end
         mc_time(K,k)=toc;
@@ -179,38 +176,51 @@ end
 Tnm = 'montecarlo_comparison';
 mat = [counts,mc_time(:,1),Pout(:,1),mc_time(:,2),Pout(:,2)];
 Tfn = [FD,Tnm];
+display(mat)
 
 headerRow = {'Feeder','Iterations','Time, s','$\Phi _{5\%}$, kW','Time, s','$\Phi _{5\%}$, kW'};
-headerCol = {'EU LV','N1.1','N2.1','N3.1','N4.1'};
-caption = 'Comparison of timings and estimated hosting capacities for the fixed power and fixed voltage methods'
+headerCol = models(model_is);
+caption = 'Comparison of timings and estimated hosting capacities for the fixed power and fixed voltage methods';
 formatCol = {'$%d$','$%.2f$','$%.1f$','$%.2f$','$%.1f$'};
 
 % matrix2latex(mat,Tfn,'label',Tnm,'formatColumns',formatCol,'alignment','l','caption',caption,...
 %                     'headerRow',headerRow,'headerColumn',headerCol)
 
-%% POSTER BAR CHARTS
-figure('Position',[100 150 260 400]);
-subplot(211)
-bar(mc_time);
-set(gca,'yscale','log')
-ylim([0.06,300])
-yticks([0.1,1,10,100])
-% xticklabels({'EU LV','N1.1','N2.1','N3.1','N4.1'})
-xticklabels({'N1','N2','N3','N4','N5'})
-xlabel('Feeder ID')
-ylabel('Solution time, s')
+if exist('thesisTable')
+    mat = [mc_time(:,1),Pout(:,1),mc_time(:,2),Pout(:,2),mc_time(:,1)./mc_time(:,2),counts];
+    headerRow = {'Feeder','Time, s','$\Phi _{5\%}$, kW','Time, s','$\Phi _{5\%}$, kW','Time ratio','Iterations'};
+    caption = 'Comparison of timings and estimated hosting capacities for the fixed power and fixed voltage methods';
+    formatCol = {'$%.2f$','$%.1f$','$%.2f$','$%.1f$','$%.1f$','$%d$'};
+    
+    Tnm = 'montecarlo_comparison_thesis';
+    TF = ['C:\Users\Matt\Documents\DPhil\thesis\c4tech2\c4tables\',Tnm];
+    matrix2latex(mat,TF,'label',Tnm,'formatColumns',formatCol,'alignment','l','caption',caption,...
+                    'headerRow',headerRow,'headerColumn',headerCol)
+end
 
-subplot(212)
-bar(Pout);
+% %% POSTER BAR CHARTS
+% figure('Position',[100 150 260 400]);
+% subplot(211)
+% bar(mc_time);
 % set(gca,'yscale','log')
-xticklabels({'N1','N2','N3','N4','N5'})
-xlabel('Feeder ID')
-ylabel('Hosting Capacity $\Phi_{5\%}$, kW')
-ylim([0,400])
-legend('Fixed power','Fixed voltage')
-
-FL = [pltD,'monteCarloComparisonPstr'];
-export_fig(gcf,[FL,'.pdf'],'-pdf','-transparent');
+% ylim([0.06,300])
+% yticks([0.1,1,10,100])
+% % xticklabels({'EU LV','N1.1','N2.1','N3.1','N4.1'})
+% xticklabels({'N1','N2','N3','N4','N5'})
+% xlabel('Feeder ID')
+% ylabel('Solution time, s')
+% 
+% subplot(212)
+% bar(Pout);
+% % set(gca,'yscale','log')
+% xticklabels({'N1','N2','N3','N4','N5'})
+% xlabel('Feeder ID')
+% ylabel('Hosting Capacity $\Phi_{5\%}$, kW')
+% ylim([0,400])
+% legend('Fixed power','Fixed voltage')
+% 
+% FL = [pltD,'monteCarloComparisonPstr'];
+% export_fig(gcf,[FL,'.pdf'],'-pdf','-transparent');
 
 
 

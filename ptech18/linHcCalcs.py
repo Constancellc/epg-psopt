@@ -34,7 +34,7 @@ mcDssOn = False
 # mcLinPrg = 1
 # mcTapSet = 1
 # mcTapMultSet = 1
-mcTapMultSetLinFull = 1 #NB this is SLOW!!!
+# mcTapMultSetLinFull = 1 #NB this is SLOW!!!
 
 
 
@@ -244,7 +244,9 @@ for fdr_i in fdr_i_set:
         # precondition linear model + MC run 2
         Mu,Sgm = pdf.getMuStd(LM,0)
         LM.busViolationVar(Sgm)
-        LM.makeCorrModel()
+        # LM.makeCorrModel()
+        LM.makeCorrModel(stdLim=0.7,corrLim=[0.98]) # FFS!!!!!!
+        
         LM.runLinHc(pdfVal,model='cor',fast=True) # equivalent at the moment. PDFVAL is what changes this here cf 'pdf'.
         linHcRslNmc = LM.linHcRsl
         preCndLeft = len(LM.NSetCor[0])/len(LM.varKfullU)*100
@@ -279,7 +281,8 @@ for fdr_i in fdr_i_set:
         
         rslt = {'linHcRsl':linHcRsl,'linHcRslNom':linHcRslNom,'linHcRslNmc':linHcRslNmc,'dssHcRslTapSet':dssHcRslTapSet,'dssHcRslTapLck':dssHcRslTapLck,'dssHcRslTapTgt':dssHcRslTapTgt,'pdfData':pdf.pdf,'pdfDataNmc':pdfVal.pdf,'feeder':feeder,'maeVals':maeVals,'rgeVals':rgeVals,'preCndLeft':preCndLeft,'TC_No0':LM.TC_No0}
         if pltSave:
-            SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_tapSet.pkl')
+            # SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_tapSet.pkl')
+            SN = os.path.join(SD,'linHcCalcsRslt_'+pdfName+'_tapSet2.pkl')
             with open(SN,'wb') as file:
                 pickle.dump(rslt,file)
     

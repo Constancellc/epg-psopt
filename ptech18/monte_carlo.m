@@ -1,66 +1,63 @@
 clear all; % close all;
 tic
-set(0,'DefaultTextInterpreter','Latex')
 
-posterPlt = 1;
+set(0,'DefaultTextInterpreter','Latex');
+
+ax = gca; colorSet = ax.ColorOrder; close;
+colorOrder = get(0, 'DefaultAxesColorOrder');
+
+% paperPlt = 1
+% posterPlt = 1;
+thesisPlot = 1;
+% plotExport = 1;
 
 % FD = 'C:\Users\Matt\Documents\DPhil\pesgm19\pesgm19_paper\figures\'; % paper version
 FD = 'C:\Users\Matt\Documents\DPhil\papers\pesgm19\pesgm19_poster\figures\'; % poster version
 
-modeli = 3; % CHOOSE model here
+modeli = 17+1; % CHOOSE model here
 nl = linspace(0,1,7); % number of load here
 nl = linspace(0,1,13);
+
 nl(1) = 1e-4;
-% nl = 0.1;
-% nl = linspace(0.4,0.6,5); % number of load here
-mode = 'Vfix'; % fix voltages
-% mode = 'Wfix'; % fix powers (W)
+
+mode = 'Vfix'; % fix voltages. Wfix not implemented
 rng(0);
 frac_set = 0.05;
 % frac_set = 0.95;
 
-models = {'eulv','n1f1','n2f1','n3f1','n4f1'};
-fn{1} = [pwd,'\LVTestCase_copy\master_z_g'];
-fn{2} = [pwd,'\manchester_models\network_1\Feeder_1\master_g'];
-fn{3} = [pwd,'\manchester_models\network_2\Feeder_1\master_g'];
-fn{4} = [pwd,'\manchester_models\network_3\Feeder_1\master_g'];
-fn{5} = [pwd,'\manchester_models\network_4\Feeder_1\master_g'];
-
-[~,DSSObj,DSSText] = DSSStartup;
-DSSCircuit = DSSObj.ActiveCircuit;
-DSSSolution = DSSCircuit.Solution;
-LDS = DSSCircuit.loads;
-DSSText.Command=['Compile (',fn{modeli},')'];
+models = {'eulv','n1f1','n2f1','n3f1','n4f1','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr','123busCvr'};
 model = models{modeli};
 
 load([pwd,'\lin_models\',model]);
+LDScount = nnz(xhy0)/2;
 
-Nl = ceil(nl*LDS.count);
+Nl = ceil(nl*LDScount);
 
-Ns = 1000; % number of samples
-% Ns = 100; % number of samples
+% Ns = 3000; % number of samples
+Ns = 100; % number of samples
 
-Vb = 230;
-vp = 1.10;
+% if and(2<modeli,modeli<6)
+if modeli<6
+    Vb = 230;
+    vp = 1.10;
+else
+    Vb = 1;
+    if modeli==1
+        vp=1.10;
+    else
+        vp = 1.055;
+    end
+end
+
 vmax = Vb*vp;
-% gen_pf = -0.95;
-% gen_pf = 1.00;
-gen_pf = 0.95;
-aa = exp(1i*2*pi/3);
-
-sn = [pwd,'\lin_models\mc_out_',model];
-% sn = [pwd,'\lin_models\mc_out_',model,'_upf']
-
-qgen = sin(acos(abs(gen_pf)))/gen_pf;
 
 vmag=zeros(Ns,numel(Nl));
 X=zeros(Ns,numel(Nl));
-Vub=zeros(Ns,numel(Nl));
+
 Vout_mx=zeros(Ns,numel(Nl));
 
 
 tic
-
 % set up linear model & solve:
 f = -1;
 xhy0=sparse(xhy0);
@@ -68,118 +65,33 @@ Vh0 = My*xhy0 + a;
 ang0 = exp(1i*angle(Vh0));
 Va0 = real(Vh0./ang0);
 
-PSm = sparse(kron(eye(numel(xhy0)/6),[1,aa,aa^2]))/(sqrt(3)*(Vb*sqrt(3)));
-NSm = sparse(kron(eye(numel(xhy0)/6),[1,aa^2,aa]))/(sqrt(3)*(Vb*sqrt(3)));
-
 Vmax = vmax*ones(size(Vh0));
 b = Vmax - Va0;
 
 xhp0 = xhy0(1:numel(xhy0)/2);
 fxp0 = find(xhp0);
 
-PPa = [];
-PPb = [];
+Ky = real((1./ang0).*My);
+Kynew = Ky(:,1:numel(xhy0)/2);
 
-if strcmp(mode,'Wfix')
-    xhs = sparse(zeros(size(xhp0)));
-    xhs(fxp0) = 1;
-    xhs = [xhs;xhs*qgen];
-    Mk = My*xhs;
-    A = real(Mk./ang0);
-    Anew = A(xhp0~=0);
-    bnew = b(xhp0~=0);
-    [P100,FVal,exitflag] = linprog(f,Anew,bnew);
-    
-    Pa = 0;
-    frac_a = -frac_set;
-    
-    Pb = P100;
-    for i = 1:numel(Nl)
-        for j = 1:Ns
-            rdi = randperm(LDS.count,Nl(i));
-            xhs = sparse(zeros(size(xhp0)));
-            xhs(fxp0(rdi)) = Pb*LDS.count/Nl(i);
-            xhs = [xhs;xhs*qgen];
-            
-            Vout = My*(xhy0 + xhs) + a;
-            Vps = PSm*Vout;
-            Vns = NSm*Vout;
-            Vub(j,i) = max(100*abs(Vns)./abs(Vps)); % in %
-            
-            Vout_ld = Vout(xhp0~=0)/Vb;
-            Vout_mx(j,i) = max(abs(Vout_ld));
-        end
-    end
-    frac_b = (nnz(Vout_mx>vp)/numel(Vout_mx)) - frac_set;
-    Pc = 0.5*(Pb + Pa);
-    
-    error = abs((frac_a-frac_b))/(abs(frac_b) + 1);
-    count = 0;
-    while error > 0.01
-        PPa(end+1) = Pa;
-        PPb(end+1) = Pb;
-        for i = 1:numel(Nl)
-            for j = 1:Ns
-                rdi = randperm(LDS.count,Nl(i));
-                xhs = sparse(zeros(size(xhp0)));
-                xhs(fxp0(rdi)) = Pc*LDS.count/Nl(i);
-                xhs = [xhs;xhs*qgen];
-                
-                Vout = My*(xhy0 + xhs) + a;
-                Vout_ld = Vout(xhp0~=0)/Vb;
-                Vout_mx(j,i) = max(abs(Vout_ld));
-            end
-        end
-        
-        frac_c = (nnz(Vout_mx>vp)/numel(Vout_mx)) - frac_set;
-        
-        if frac_c > 0
-            Pa = Pa; frac_a = frac_a;
-            Pb = Pc; frac_b = frac_c;
-            Pc = 0.5*(Pa + Pb);
-        else
-            Pa = Pc; frac_a = frac_c;
-            Pb = Pb; frac_b = frac_b;
-            Pc = 0.5*(Pa + Pb);
-        end
-        error = abs((frac_a-frac_b))/(abs(frac_b) + 1);
-        count = count + 1;
-    end
-    Pout = mean([Pa,Pb])*LDS.count/mean(Nl);
-    display(count);
-    display(Pout);
-end
+nV = numel(b);
+nP = numel(xhy0)/2;
 
 tic
-if strcmp(mode,'Vfix')
-    for i = 1:numel(Nl)
-        toc
-        for j = 1:Ns
-            rdi = randperm(LDS.count,Nl(i));
-            xhs = sparse(zeros(size(xhp0)));
-
-            xhs(fxp0(rdi)) = 1;
-            xhs = [xhs;xhs*qgen];
-            
-            Mk = My*xhs;
-            A = real(Mk./ang0);
-            Anew = A(xhp0~=0);
-            bnew = b(xhp0~=0);
-
-			xab = bnew./Anew;
-			xab = xab + 0./(xab>0); % get rid of negative values
-
-			X(j,i) = min(xab); % this is the value that maximises the o.f.
-            
-            Vout = My*(xhy0 + xhs*X(j,i)) + a;
-            Vps = PSm*Vout;
-            Vns = NSm*Vout;
-            Vub(j,i) = max(100*abs(Vns)./abs(Vps)); % in %
-        end
-        Pout(i) = quantile(X(:,i),frac_set);
+% run Vfix
+for i = 1:numel(Nl)
+    toc
+    for j = 1:Ns
+        rdi = randperm(LDScount,Nl(i));
+        xhs = sparse(fxp0(rdi),1,ones(Nl(i),1),nP,1); % this does seem faster than non-sparse alternatives.
+        Anew = Kynew*xhs;
+        xab = b./Anew;
+        xab = xab + 0./(xab>0); % get rid of negative values
+        X(j,i) = min(xab); % this is the value that maximises the o.f.
     end
-    kX = X.*Nl*1e-3;
+    Pout(i) = quantile(X(:,i),frac_set);
 end
+kX = X.*Nl*1e-3;
 % mc_time=toc;
 % display(mc_time);
 
@@ -187,56 +99,50 @@ fig = figure('Color','White','Position',[100 150 550 270]);
 
 FL = [FD,'variable_N_',num2str(modeli)];
 
-if modeli==3
-    fdr = 'N2.1';
-    xx = 100*Nl./Nl(end);
-    xtl = cellstr(num2str(xx','%.0f'));
-    xtl(2:3:end) = {''};
-    xtl(3:3:end) = {''};
-    xtl(1) = {'0.57'};
-elseif modeli==5
-    fdr = 'N4.1';
-    xx = 100*Nl./Nl(end);
-    xtl = cellstr(num2str(xx','%.0f'));
-    xtl(2:3:end) = {''};
-    xtl(3:3:end) = {''};
-    xtl(1) = {'4.2'};
-else
-    fdr = num2str(modeli);
-    xtl = cellstr(num2str(Nl'));
+xx = 100*Nl./Nl(end);
+xtl = cellstr(num2str(xx','%.0f'));
+xtl{1} = num2str(xx(1),'%.2f');
+xtl(2:3:end) = {''};
+xtl(3:3:end) = {''};
+fdr = num2str(modeli);
+
+if exist('paperPlt','var')
+    % xtl = cellstr(num2str(Nl'));
+    
+    subplot(121);
+    plot(xx,Pout*1e-3.*Nl,'rx'); hold on;
+    boxplot(kX,'Positions',xx,'Whisker',10); hold on;
+    xticklabels(xtl);
+    xlabel(['Penetration $n_{\mathrm{pen}}$, \% (Fdr. ',fdr,')']); 
+    ylabel('Hosting capacity $\Phi$, kW'); grid on;
+    xs = axis; axis([xs(1:2),0,xs(4)])
+    lgnd = legend('$\Phi_{\mathrm{5\%}}$');
+    set(lgnd,'Interpreter','Latex','FontSize',12,'Location','SouthEast');
+    
+    
+    subplot(122);
+    plot(xx,Pout*1e-3,'ro'); hold on;
+    boxplot(X*1e-3,'Positions',xx,'Whisker',10); hold on;
+    xticklabels(xtl)
+    xlabel(['Penetration $n_{\mathrm{pen}}$, \% (Fdr. ',fdr,')']); 
+    ylabel('Power per generator $\phi$, kW'); grid on;
+    if modeli==3
+        xs=axis; axis([xs(1:2),0,25]);
+    elseif model==5
+        xs = axis; axis([xs(1:2),0,40]);
+    else
+        xs = axis; axis([xs(1:2),0,xs(4)]);
+    end
+    
+    lgnd = legend('$\phi_{\mathrm{5\%}}$');
+    set(lgnd,'Interpreter','Latex','FontSize',12);
+
+    export_fig(gcf,FL);
+    export_fig(gcf,[FL,'.pdf'],'-pdf');
+    saveas(gcf,FL,'meta')
 end
 
-subplot(121);
-plot(xx,Pout*1e-3.*Nl,'rx'); hold on;
-boxplot(kX,'Positions',xx,'Whisker',10); hold on;
-xticklabels(xtl);
-xlabel(['Penetration $n_{\mathrm{pen}}$, \% (Fdr. ',fdr,')']); 
-ylabel('Hosting capacity $\Phi$, kW'); grid on;
-xs = axis; axis([xs(1:2),0,xs(4)])
-lgnd = legend('$\Phi_{\mathrm{5\%}}$');
-set(lgnd,'Interpreter','Latex','FontSize',12,'Location','SouthEast');
-
-
-subplot(122);
-plot(xx,Pout*1e-3,'ro'); hold on;
-boxplot(X*1e-3,'Positions',xx,'Whisker',10); hold on;
-xticklabels(xtl)
-xlabel(['Penetration $n_{\mathrm{pen}}$, \% (Fdr. ',fdr,')']); 
-ylabel('Power per generator $\phi$, kW'); grid on;
-if modeli==3
-    xs=axis; axis([xs(1:2),0,25]);
-else
-    xs = axis; axis([xs(1:2),0,40]);
-end
-lgnd = legend('$\phi_{\mathrm{5\%}}$');
-set(lgnd,'Interpreter','Latex','FontSize',12);
-
-% export_fig(gcf,FL);
-% export_fig(gcf,[FL,'.pdf'],'-pdf');
-% saveas(gcf,FL,'meta')
-
-
-if posterPlt
+if exist('posterPlt','var')
     close
     fig = figure('Position',[100 150 300 450]);
     subplot(211);
@@ -265,12 +171,58 @@ if posterPlt
     set(lgnd,'Interpreter','Latex','FontSize',12);
     
     FL = [FD,'variable_N_',num2str(modeli),'Pstr'];
-    export_fig(gcf,[FL,'.pdf'],'-pdf','-transparent'); close;
+    if exist('plotExport','var')
+       export_fig(gcf,[FL,'.pdf'],'-pdf','-transparent'); close;
+    end
 end
 
+if exist('thesisPlot','var')
+    close
+    PositionSet = [100 150 650 350];
+    fig = figure('Position',PositionSet);
+    subplot(121);
+    boxplot(kX,'Positions',xx,'Whisker',10,'colors',colorOrder(1,:),'Whisker',1000); hold on;
+    xticklabels(xtl);
+    xlabel(['Fraction of loads with PV, \%']); 
+    ylabel('Power hosting capacity curve $f_{\mathrm{Pwr}}$, kW'); grid on;
 
+    xs = axis; axis([xs(1:2),0,Pout(end)*1e-3.*Nl(end)*1.5]); xs = axis;
+    
+    dP = xs(4)/PositionSet(4);
+    MSize = 5;
 
+    plot(xx,max(X).*Nl*1e-3 + dP*MSize,'v','color',colorOrder(1,:),'MarkerFaceColor','w','MarkerSize',MSize);
+    plot(xx,min(X).*Nl*1e-3 - dP*MSize,'^','color',colorOrder(1,:),'MarkerFaceColor','w','MarkerSize',MSize);
+    
+    pp = plot(xx,Pout*1e-3.*Nl,'x','color',colorOrder(2,:));
+    lgnd = legend([pp],'Total power, $P^{\mathrm{5\%}}_{\mathrm{PV}}$');
+    set(lgnd,'Interpreter','Latex','FontSize',12,'Location','SouthEast');
 
+    subplot(122);
+    boxplot(X*1e-3,'Positions',xx,'Whisker',10,'colors',colorOrder(1,:),'Whisker',1000); hold on;
+    
+    xticklabels(xtl)
+    xlabel(['Fraction of loads with PV, \%']); 
+    ylabel('Power per generator, $f_{\mathrm{Pwr}}/N_{\mathrm{Gen}}$, kW'); grid on;
+    xs = axis; axis([xs(1:2),0,Pout(1)*1e-3*1.25]); xs = axis;
+    
+    dP = xs(4)/PositionSet(4);
+    MSize = 5;
+    plot(xx,max(X)*1e-3 + dP*MSize,'v','color',colorOrder(1,:),'MarkerFaceColor','w','MarkerSize',MSize);
+    plot(xx,min(X)*1e-3 - dP*MSize,'^','color',colorOrder(1,:),'MarkerFaceColor','w','MarkerSize',MSize);
+    axis(xs);
+    
+    pp = plot(xx,Pout*1e-3,'o','color',colorOrder(2,:));
+    lgnd = legend([pp],'Power per gen., $P^{\mathrm{5\%}}_{\mathrm{Gen}}$');
+    set(lgnd,'Interpreter','Latex','FontSize',12);
+    
+    SD = 'C:\Users\Matt\Documents\DPhil\thesis\c4tech2\c4figures\';
+    FL = [SD,'monte_carlo_',model];
+    if exist('plotExport','var')
+        export_fig(gcf,FL);
+        export_fig(gcf,[FL,'.pdf'],'-pdf','-transparent'); close;
+    end
+end
 
 
 
