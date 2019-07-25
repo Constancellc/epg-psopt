@@ -1,22 +1,38 @@
 import csv
-import random
-import copy
-import numpy as np
-import matplotlib.pyplot as plt
-from lv_optimization_new import LVTestFeeder
+'''
+days = {}
+energy = {}
+with open('../../../Documents/pecan-street/1min-texas/summer-18.csv','rU') as csvfile:
+    reader = csv.reader(csvfile)
+    next(reader)
+    for row in reader:
+        hh = row[1]
+        d = row[0][:10]
+        p = float(row[3])-float(row[2])
 
-network = LVTestFeeder('manc_models/1',1)
-network.set_households_NR('../../../Documents/netrev/TC2a/03-Dec-2013.csv')
-network.set_evs_MEA('../../../Documents/My_Electric_Avenue_Technical_Data/'+
-                    'constance/ST1charges/')
-p1 = network.get_feeder_load()
-network.uncontrolled()
-p2 = network.get_feeder_load()
-network.load_flatten2()
-p3 = network.get_feeder_load()
+        if hh not in days:
+            days[hh] = []
+            energy[hh] = 0
 
-plt.figure()
-plt.plot(p1)
-plt.plot(p2)
-plt.plot(p3)
-plt.show()
+        if d not in days[hh]:
+            days[hh].append(d)
+        energy[hh] += p/60
+
+av = 0
+n = 0
+for hh in energy:
+    av += energy[hh]
+    n += len(days[hh])
+
+print(av/n)
+'''
+
+av = 0
+with open('../../../Documents/netrev/TC2a/03-Dec-2013.csv','rU') as csvfile:
+    reader = csv.reader(csvfile)
+    next(reader)
+    for row in reader:
+        n = len(row)-1
+        for i in range(1,len(row)):
+            av += float(row[i])/60
+print(av/n)

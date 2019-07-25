@@ -92,7 +92,7 @@ xt = ['04:00','12:00','20:00']
 xt_ = [240,720,1200]
 plt.figure(figsize=(8,3))
 plt.rcParams["font.family"] = 'serif'
-plt.rcParams['font.size'] = 14
+plt.rcParams['font.size'] = 11
 
 res = []
 for i in range(9):
@@ -106,8 +106,9 @@ with open(res_stem+la+'_load.csv','rU') as csvfile:
 
 for i in range(3):    
     plt.subplot(1,3,i+1)
+    plt.plot([time[0],time[-1]],[300,300],c='r',ls='--')
     plt.plot(time,res[3*i+1],c='g')
-    plt.title(ttls[i],y=0.8)
+    plt.title(ttls[i],y=0.85)
     if i == 0:
         plt.ylabel('Power Demand (kW)')
     else:
@@ -118,8 +119,8 @@ for i in range(3):
     plt.grid(ls=':')
     plt.xticks(xt_,xt)
 plt.tight_layout()
-#plt.savefig('../../../Dropbox/papers/Nature/img/lv_power.eps', format='eps',
-            #dpi=1000, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('../../../Dropbox/thesis/chapter6/img/lv_power.eps', format='eps',
+            dpi=300, bbox_inches='tight', pad_inches=0.1)
 
 # this is voltages
 plt.figure(figsize=(8,3))
@@ -203,11 +204,13 @@ for i in range(3):
         #plt.yticks([0,20,40,60,80,100,120],['','','','','','',''])
     plt.ylim(0.85,1.1)
     plt.xlim(0,1439)
+    if i > 0:
+        plt.plot([0,1439],[0.9,0.9],c='r',ls='--')
     plt.grid(ls=':')
     plt.xticks(xt_,xt)
 plt.tight_layout()
-#plt.savefig('../../../Dropbox/papers/Nature/img/lv_voltages.eps', format='eps',
-            #dpi=1000, bbox_inches='tight', pad_inches=0)
+plt.savefig('../../../Dropbox/thesis/chapter6/img/lv_voltages.eps', format='eps',
+            dpi=300, bbox_inches='tight', pad_inches=0)
 
 # this is losses
 
@@ -259,8 +262,9 @@ plt.ylim(0,250)
 plt.ylabel('Losses (kWh)')
 plt.xticks([1,2,3],ttls)
 plt.tight_layout()
-#plt.savefig('../../../Dropbox/papers/Nature/img/lv_losses.eps', format='eps',
-            #dpi=1000, bbox_inches='tight', pad_inches=0.1)
+#plt.show()
+plt.savefig('../../../Dropbox/thesis/chapter6/img/lv_losses.eps', format='eps',
+            dpi=300, bbox_inches='tight', pad_inches=0.1)
 
 # ok, but next I'm ging to want to do something about nationally
 
@@ -299,7 +303,7 @@ for la in locs:
                     res[i].append(float(row[i+1]))
             for i in range(3):
                 mu = min(res[3*i+1])
-                sigma = (mu-min(res[3*i]))/3
+                sigma = (mu-min(res[3*i]))/2
                 z = (0.9-mu)/sigma
                 v_zscore[ty[i]][la] = z
     except:
@@ -319,7 +323,7 @@ for la in locs:
                     res[i].append(float(row[i+1]))
             for i in range(3):
                 mu = max(res[3*i+1])
-                sigma = (max(res[3*i+2]))/3
+                sigma = (max(res[3*i+2])-mu)/2
 
                 z = (mu-maxP[la])/sigma
                 p_zscore[ty[i]][la] = z
@@ -399,7 +403,7 @@ plt.plot(range(2020,2055),yp[2],label='Uncontrolled',c='b')
 plt.plot(range(2020,2055),yp[3],label='Controlled',c='r',ls='--')
 plt.xlabel('Year')
 plt.ylabel('Networks (%)')
-plt.ylim(0,18)
+plt.ylim(0,23)
 plt.xlim(2018,2054)
 plt.grid()
 plt.subplot(1,2,2)
@@ -407,14 +411,14 @@ plt.title('Voltage Violations')
 plt.plot(range(2020,2055),yp[0],label='Uncontrolled',c='b')
 plt.plot(range(2020,2055),yp[1],label='Controlled',c='r',ls='--')
 plt.xlabel('Year')
-plt.ylim(0,18)
+plt.ylim(0,23)
 plt.xlim(2018,2054)
 plt.legend()
 plt.grid()
 plt.tight_layout()
 plt.savefig('../../../Dropbox/papers/Nature/img/av_violations.eps', format='eps', dpi=300,
             bbox_inches='tight', pad_inches=0)
-plt.show()
+
 
 rl = [res,res2,res3,res4]
 for r in range(4):
@@ -424,7 +428,6 @@ for r in range(4):
         for row in rs:
             writer.writerow(row)
 print('DONE')
-    
 
 rType = {}
 with open(r_type_data,'rU') as csvfile:
