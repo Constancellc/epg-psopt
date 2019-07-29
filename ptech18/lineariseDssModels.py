@@ -13,7 +13,6 @@ import dss_stats_funcs as dsf
 from importlib import reload
 from scipy.linalg import toeplitz
 
-
 plt.style.use('tidySettings')
 from matplotlib.collections import LineCollection
 from matplotlib import cm, patches
@@ -1748,6 +1747,9 @@ class buildLinModel:
         print(self.Cap_No0)
         
         Ybus, YNodeOrder = createYbus( DSSObj,self.TC_No0,self.capPosLin )
+        self.YbusN2 = Ybus.shape[0]**2
+        self.YbusNnz = Ybus.nnz
+        self.YbusFrac = self.YbusNnz/(self.YbusN2)
         
         # >>> 2. Reproduce delta-y power flow eqns (1)
         self.loadDssModel(loadMult=lin_point)
@@ -1782,14 +1784,16 @@ class buildLinModel:
         if len(H)==0:
             print('Create linear models My:\n',time.process_time());  t = time.time()
             My,a = nrel_linearization_My( Ybus,Vh,V0 )
-            print('Time M:',time.time()-t,'\nCreate linear models Ky:\n',time.process_time()); t = time.time()
+            self.Mtime = time.time() - t
+            print('Time M:',self.Mtime,'\nCreate linear models Ky:\n',time.process_time()); t = time.time()
             Ky,b = nrelLinKy(My,Vh,self.xY*lin_point)
             print('Time K:',time.time()-t)
             Md = np.zeros((len(Vh),0), dtype=complex); Kd = np.zeros((len(Vh),0))
         else:
             print('Create linear models My + Md:\n',time.process_time()); t = time.time()
             My,Md,a = nrel_linearization( Ybus,Vh,V0,H )
-            print('Time M:',time.time()-t,'\nCreate linear models Ky + Kd:\n',time.process_time()); t = time.time()
+            self.Mtime = time.time() - t
+            print('Time M:',self.Mtime,'\nCreate linear models Ky + Kd:\n',time.process_time()); t = time.time()
             Ky,Kd,b = nrelLinK(My,Md,Vh,self.xY*lin_point,self.xD*lin_point)
             print('Time K:',time.time()-t)
         

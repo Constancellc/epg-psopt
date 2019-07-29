@@ -51,6 +51,7 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_epriK1detail = 1
 # f_costFunc = 1
 # f_37busVal = 1
+# t_thssSizes = 1
 
 pltSave=1
 
@@ -692,3 +693,25 @@ if 'f_37busVal' in locals():
     plt.tight_layout()
     if 'pltSave' in locals():
         plotSaveFig(os.path.join(sdt('t2'),'37busBal'),pltClose=False)
+        
+if 't_thssSizes' in locals():
+    feederSet = [6,8,20,19,21,17,18,9,22]
+    feederSet = [6,8]
+    # heading = ['Feeder','Size, $(N_{Y_{\mathrm{bus}}})^{2}$','$\mathrm{nnz}(Y_{\mathrm{bus}})$', '$\dfrac{\mathrm{nnz}(Y_{\mathrm{bus}})}{N_{Y_{\mathrm{bus}}}^{2}}$, \%','Inverse calc. time, s']
+    heading = ['Feeder','$\mathrm{numel}(Y_{\mathrm{bus}})$','$\mathrm{nnz}(Y_{\mathrm{bus}})$','$Y_{\mathrm{bus}}$ Inverse calc. time, s']
+    data = []; i=0
+    for feeder in feederSet:
+        data.append([feederIdxTidy[feeder]])
+        
+        self = main(feeder,modelType='linOnly')
+        
+        data[i].append( '%d' % self.YbusN2)
+        data[i].append( '%d' % self.YbusNnz )
+        # data[i].append( '%.2f' % (100*self.YbusFrac) )
+        data[i].append( '%.2f' % self.Mtime )
+        i+=1
+    TD = sdt('c4','t') + '\\'
+    label='t_thssSizes'
+    caption='Sparsity properties of the networks studied and inversion times.'
+    if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
+    print(heading); print(*data,sep='\n')
