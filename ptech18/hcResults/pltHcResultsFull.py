@@ -61,7 +61,8 @@ for feeder in feeders:
     RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_finale_dpndnt.pkl')
     with open(RD,'rb') as handle:
         rsltsFrac[feeder] = pickle.load(handle)
-    RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_tapSet.pkl')
+    # RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_tapSet.pkl')
+    RD = os.path.join(WD,feeder,'linHcCalcsRslt_gammaFrac_tapSet2.pkl')
     with open(RD,'rb') as handle:
         rsltsTap[feeder] = pickle.load(handle)
 
