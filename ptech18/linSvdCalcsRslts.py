@@ -26,6 +26,7 @@ pltShow = 1
 # f_limitSensitivityV = 1
 # f_limitSensitivity = 1
 # f_limitSensitivityIdv = 1
+# f_corVarScan = 1
 
 # # calculating setpoints for linHcCalcs:
 # f_nStdVreg_8500 = 1
@@ -780,3 +781,59 @@ if 'f_limitSensitivityIdv' in locals():
 
     plt.plot(dMuSet,rslt.T,'-'); plt.xlabel('Scaled generation (%)'); plt.ylabel('Constraint Violations (%)');
     plt.legend(('20','40','60','80','100'),title='% PV'); plt.title(LM.feeder); plt.show()
+    
+if 'f_corVarScan' in locals():
+    # NOTE: not yet working! to finish on the laptop
+    # fdrs_is = [6,8,9,19,20,21,17,18,22]
+    # fdrs_is = [22]
+    fdrs_is = [6]
+
+    pdfName = 'gammaFrac'
+
+    stdLim = np.array([0.5,0.6,0.7,0.8,0.9,0.99])
+    CorLim = np.array([0.95,0.98,0.99,1.00])
+
+    Errors = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
+    Times = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
+    Sizes = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
+    CovCalcTimes = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
+    VarCalcTimes = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
+
+    for i in range(len(fdrs_is)):
+        LM = linModel(fdrs_is[i],WD)
+        pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
+        LM.runLinHc(pdf,fast=True)
+        rslA = LM.linHcRsl
+        rslAt = rslA['runTime']
+        Mu,Sgm = pdf.getMuStd(LM,0)
+        for j in range( len(stdLim) ):
+            for k in range( len(CorLim) ):
+                tCov0 = time.time()
+                LM.busViolationVar(Sgm)
+                LM.makeCorrModel(stdLim=stdLim[j],corrLim=[CorLim[k]]) # this takes ages and ages!
+                CovCalcTimes[i,j,k] = time.time() - tCov0
+                LM.runLinHc(pdf,model='cor',fast=True)
+                # tVar0 = time.time()
+                # LM.busViolationVar(Sgm,calcSrsVals=True)
+                # LM.makeVarLinModel(stdLim=[stdLim[j]])
+                # VarCalcTimes[i,j,k] = time.time() - tVar0
+                # LM.runLinHc(pdf,model='std',fast=True)
+                rslB = LM.linHcRsl
+                Errors[i,j,k] = np.mean(np.abs(rslB['Vp_pct']-rslA['Vp_pct']))
+                Times[i,j,k] = LM.linHcRsl['runTime']
+                Sizes[i,j,k] = len(LM.NSetCor[0])/len(LM.varKfullU)*100
+
+    fig,[ax0,ax1] = plt.subplots(figsize=(5.5,3.2),ncols=2)
+    for i in range(len(CorLim)):
+        # ax0.plot(100*stdLim,np.max(Errors[:,:,i],axis=0),'x-',label=( '%.0f' % (100*CorLim[i]) ) + ' %')
+        # ax0.plot(100*stdLim,np.max(Times[:,:,i],axis=0),'x-',label=( '%.0f' % (100*CorLim[i]) ) + ' %')
+        ax0.plot(100*stdLim,np.max(CovCalcTimes[:,:,i],axis=0),'x-',label=( '%.0f' % (100*CorLim[i]) ) + ' %')
+        ax1.plot(100*stdLim,np.mean(Sizes[:,:,i],axis=0),'x-',label='$\eta _{\mathrm{Cor}}=$'+( '%.0f' % (100*CorLim[i]) ))
+
+    ax0.legend(title='Cov. Cutoff, $\eta _{\mathrm{Cor}}$')
+    ax0.set_xlabel('Variance cutoff, $\eta _{\mathrm{Var}}$, %')
+    ax1.set_xlabel('Variance cutoff, $\eta _{\mathrm{Var}}$, %')
+    ax0.set_title('Errors')
+    ax1.set_title('Sizes, %')
+    plt.tight_layout()
+    plt.show()

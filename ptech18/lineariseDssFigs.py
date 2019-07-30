@@ -1,7 +1,8 @@
 import lineariseDssModels, sys, os, pickle, random, time
 from importlib import reload
 import numpy as np
-from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, plotSaveFig, basicTable, np2lsStr, sdt
+from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, plotSaveFig, basicTable, np2lsStr, sdt, createYbus,find_tap_pos
+from dss_voltage_funcs import getCapPos
 import matplotlib.pyplot as plt
 from matplotlib import cm, rc
 plt.style.use('tidySettings')
@@ -52,8 +53,9 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_costFunc = 1
 # f_37busVal = 1
 # t_thssSizes = 1
+# f_thssSparsity = 1
 
-pltSave=1
+# pltSave=1
 
 SD0 = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19')
 SDT = sdt()
@@ -715,3 +717,30 @@ if 't_thssSizes' in locals():
     caption='Sparsity properties of the networks studied and inversion times.'
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
     print(heading); print(*data,sep='\n')
+
+if 'f_thssSparsity' in locals():
+    # feederSet = [6,8]
+    feederSet = [5,6,8]
+    markerSzs = {5:0.8,6:0.3,8:0.1}
+    for feeder in feederSet:
+        self = main(feeder,modelType='linOnly')
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        # >>> 1. Run the DSS; fix loads and capacitors at their linearization points, then load the Y-bus matrix at those points.
+        DSSText.Command='Compile ('+self.fn+'.dss)'
+        DSSText.Command='Batchedit load..* vminpu=0.02 vmaxpu=50 model=1 status=variable'
+        DSSSolution.Tolerance=1e-10
+        DSSSolution.LoadMult = 1.0
+        DSSSolution.Solve()
+        print('\nNominally converged:',DSSSolution.Converged)
+
+        self.TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
+        self.Cap_No0 = getCapPos(DSSCircuit)
+        Ybus, YNodeOrder = createYbus( DSSObj,self.TC_No0,self.capPosLin )
+        
+        plt.spy(Ybus.toarray(),markersize=markerSzs[feeder])
+        plt.grid()
+        if 'pltSave' in locals():
+            plotSaveFig(os.path.join(sdt('t2','f'),'thssSparsity'+fdrs[feeder]),pltClose=False)
+        plt.show()

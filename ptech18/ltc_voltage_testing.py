@@ -20,7 +20,9 @@ from scipy import random
 import scipy.linalg as spla
 from win32com.client import makepy
 from dss_stats_funcs import vmM, mvM, vmvM
+
 plt.style.use('tidySettings')
+from matplotlib import cm, rc
 
 print('Start.\n',time.process_time())
 
@@ -41,8 +43,15 @@ test_model_bus = False
 save_model = True
 save_model = False
 ltcVoltageTestingFig = True
-# ltcVoltageTestingFig = False
+ltcVoltageTestingFig = False
+
+# tssModelBus = 1
+# tssLdcTesting = 1
+# tssSatTesting = 1
 figSze0 = (5.2,2.8)
+
+pltSave = 1
+
 SD = r"C:\Users\\"+getpass.getuser()+r"\\Documents\DPhil\papers\psfeb19\figures\\"
 
 setCapsModel='linPoint'
@@ -50,6 +59,7 @@ setCapsModel='linPoint'
 fdr_i_set = [5,6,8]
 fdr_i_set = [6,8]
 fdr_i_set = [6]
+# fdr_i_set = [8]
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr','123busCvr']
     feeder=fdrs[fdr_i]
@@ -57,7 +67,7 @@ for fdr_i in fdr_i_set:
     k = np.concatenate((np.arange(-1.5,1.6,0.05),np.arange(1.6,-1.5,-0.05)))
     # k = np.arange(-1.5,1.6,0.025)
     
-    if ltcVoltageTestingFig:
+    if ltcVoltageTestingFig or ('tssLdcTesting' in locals()) or ('tssSatTesting' in locals()) or ('tssModelBus' in locals()):
         k = np.arange(-1.5,1.6,0.10)
         k = -np.arange(-1.5,1.6,0.025)
 
@@ -235,7 +245,7 @@ for fdr_i in fdr_i_set:
 
     DSSText.Command='set controlmode=static'
 
-    if test_model_plt or test_model_bus or ltcVoltageTestingFig:
+    if test_model_plt or test_model_bus or ltcVoltageTestingFig or ('tssLdcTesting' in locals()) or ('tssSatTesting' in locals()) or ('tssModelBus' in locals()):
         DSSText.Command='set controlmode=off'
         print('--- Start Testing, 1/2 --- \n',time.process_time())
         for i in range(len(k)):
@@ -353,14 +363,51 @@ for fdr_i in fdr_i_set:
         legend=ax.legend(('Lin: Locked     DSS: Locked','Lin: Locked     DSS: Unlocked','Lin: Unlocked $\, $DSS: Unlocked'),fontsize='small',loc='upper right',title='Tap control settings')
 
         plt.tight_layout()
-        plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.png')
-        plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.pdf')
+        if 'pltSave' in locals():
+            plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.png')
+            plt.savefig(SD+'ltcVoltageTestingFig_'+feeder+'.pdf')
         plt.show()
+        
+    if 'tssLdcTesting' in locals():
+        fig = plt.figure(figsize=figSze0)
+        ax = fig.add_subplot(111)
+        ax.plot(k,vef,'k',markersize=4,label='Lin: Locked     DSS: Locked')
+        ax.plot(k,veR,'.-',markersize=4,label='Lin: Locked     DSS: Unlocked')
+        ax.plot(k,veL,'.-',markersize=4,label='Lin: Unlocked (LDC) $\, $DSS: Unlocked')
+        ax.plot(k,veN,'.-',markersize=4,label='Lin: Unlocked (Fxd)   DSS: Unlocked')
+        ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,0.055)), 
+        ax.set_xlabel('Load power continuation factor, $\kappa$'), ax.set_ylabel('Error, $||V_{\mathrm{DSS}} - V_{\mathrm{Lin}} ||_{2}$ / $||V_{\mathrm{DSS}}||_{2}$')
+        legend=ax.legend(fontsize='small',loc='upper right',title='Tap control settings')
+        plt.tight_layout()
+        if 'pltSave' in locals():
+            plt.savefig(sdt('c4','f')+'\\tssLdcTesting_'+feeder+'.png')
+            plt.savefig(sdt('c4','f')+'\\tssLdcTesting_'+feeder+'.pdf')
+        plt.show()
+        
+        
+    if 'tssSatTesting' in locals():
+        fig = plt.figure(figsize=figSze0)
+        ax = fig.add_subplot(111)
+        ax.plot(k,vef,'k',markersize=4,label='Lin: Locked     DSS: Locked')
+        # ax.plot(k,veR,'.-',markersize=4,label='Lin: Locked     DSS: Unlocked')
+        ax.plot(k[unSat],veL[unSat],'.-',markersize=4,label='Lin: Unlocked (Unsat.) $\, $DSS: Unlocked',color = cm.matlab(1))
+        ax.plot(k[:len(k)//2][sat[:len(k)//2]],veL[:len(k)//2][sat[:len(k)//2]],'.--',markersize=2,label='Lin: Unlocked (Sat.) $\, $DSS: Unlocked',color = cm.matlab(1),linewidth=0.5)
+        ax.plot(k[len(k)//2::][sat[len(k)//2::]],veL[len(k)//2::][sat[len(k)//2::]],'.--',markersize=2,color = cm.matlab(1),linewidth=0.5)
+        # ax.plot(k,veN,'.-',markersize=4,label='Lin: Unlocked (Fxd)   DSS: Unlocked')
+        ax.set_xlim((-1.5,1.5)); ylm = ax.get_ylim(); ax.set_ylim((0,0.055)), 
+        ax.set_xlabel('Load power continuation factor, $\kappa$'), ax.set_ylabel('Error, $||V_{\mathrm{DSS}} - V_{\mathrm{Lin}} ||_{2}$ / $||V_{\mathrm{DSS}}||_{2}$')
+        legend=ax.legend(fontsize='small',loc='upper right',title='Tap control settings')
+        plt.tight_layout()
+        if 'pltSave' in locals():
+            plt.savefig(sdt('c4','f')+'\\tssSatTesting_'+feeder+'.png')
+            plt.savefig(sdt('c4','f')+'\\tssSatTesting_'+feeder+'.pdf')
+        plt.show()
+    
 
     if test_model_bus:
         krnd = np.around(k,5) # this breaks at 0.000 for the error!
         idxs = np.concatenate( ( (krnd==-1.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.5).nonzero()[0] ) )
-        
+
         plt.figure(figsize=(12,4))
         for i in range(len(idxs)):
             plt.subplot(1,len(idxs),i+1)
@@ -374,4 +421,29 @@ for fdr_i in fdr_i_set:
             if i==0:
                 plt.ylabel('Voltage Magnitude (pu)')
                 plt.legend(('OpenDSS','Fixed Tap','Free, no LTC','Free, with LTC'))
+                plt.show()
+        
+    if 'tssModelBus' in locals():
+        krnd = np.around(k,5) # this breaks at 0.000 for the error!
+        if feeder=='34bus':
+            idxs = np.concatenate( ( (krnd==-0.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.0).nonzero()[0] ) )
+        else:
+            idxs = np.concatenate( ( (krnd==-1.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.5).nonzero()[0] ) )
+        
+        mrksze = 3
+        plt.figure(figsize=(8,3.2))
+        for i in range(len(idxs)):
+            plt.subplot(1,len(idxs),i+1)
+            plt.title('Load scaling $\kappa$ = '+str(krnd[idxs[i]]))
+            plt.plot(vv_0R[idxs[i]]/Yvbase_new,'o',markersize=mrksze,markerfacecolor='None',label='OpenDSS')
+            plt.plot(vv_lL[idxs[i]]/Yvbase_new,'.',markersize=mrksze,label='Linear (with LDC)')
+            plt.xlabel('Node index'); plt.grid(True)
+            plt.axis((-0.5,len(v_idx)+0.5,0.9,1.15)); plt.grid(True)
+            if i==0:
+                plt.ylabel('Voltage Magnitude (pu)')
+                plt.legend(fontsize='small')
+        if 'pltSave' in locals():
+            plt.savefig(sdt('c4','f')+'\\tssModelBus_'+feeder+'.png')
+            plt.savefig(sdt('c4','f')+'\\tssModelBus_'+feeder+'.pdf')
         plt.show()
+        
