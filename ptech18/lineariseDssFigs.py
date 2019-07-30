@@ -698,24 +698,38 @@ if 'f_37busVal' in locals():
         
 if 't_thssSizes' in locals():
     feederSet = [6,8,20,19,21,17,18,9,22]
-    feederSet = [6,8]
+    # feederSet = [6,8]
     # heading = ['Feeder','Size, $(N_{Y_{\mathrm{bus}}})^{2}$','$\mathrm{nnz}(Y_{\mathrm{bus}})$', '$\dfrac{\mathrm{nnz}(Y_{\mathrm{bus}})}{N_{Y_{\mathrm{bus}}}^{2}}$, \%','Inverse calc. time, s']
-    heading = ['Feeder','$\mathrm{numel}(Y_{\mathrm{bus}})$','$\mathrm{nnz}(Y_{\mathrm{bus}})$','$Y_{\mathrm{bus}}$ Inverse calc. time, s']
+    # heading = ['Feeder','$\mathrm{numel}(Y_{\mathrm{bus}})$','$\mathrm{nnz}(Y_{\mathrm{bus}})$','$Y_{\mathrm{bus}}$ Inverse calc. time, s']
+    heading = ['Feeder','$\mathrm{nnz}(Y_{\mathrm{bus}})$','$\dfrac{\mathrm{nnz}(Y_{\mathrm{bus}})}{\mathrm{numel}(Y_{\mathrm{bus}})}$, \%', '$t_{\mathrm{Lin}}$, s','$\dfrac{t_{\mathrm{Lin}}\\times 10^{7}}{\mathrm{nnz}(Y_{\mathrm{bus}})\mathrm{numel}(Y_{\mathrm{bus}})^{1/2} }$']
     data = []; i=0
     for feeder in feederSet:
         data.append([feederIdxTidy[feeder]])
         
         self = main(feeder,modelType='linOnly')
         
-        data[i].append( '%d' % self.YbusN2)
+        # data[i].append( '%d' % self.YbusN2)
         data[i].append( '%d' % self.YbusNnz )
-        # data[i].append( '%.2f' % (100*self.YbusFrac) )
+        data[i].append( '%.2f' % (100*self.YbusFrac) )
         data[i].append( '%.2f' % self.Mtime )
+        data[i].append( '%.2f' % (1e7*self.Mtime/(np.sqrt(self.YbusNnz*self.YbusN2)**1.5)) )
         i+=1
+    # modifying the table - this could be tided up.
+    for i in range(9):
+        nnz = float(data[i][1])
+        numel = nnz/(0.01*float(data[i][2]))
+        tms = float(data[i][3])
+        n0 = np.sqrt(nnz)
+        n1 = np.sqrt(numel)
+        k = 2
+        print(tms*1e7/((n0**k)*(n1**(3-k))))
+        data[i][4] = ( '%.2f' % (tms*1e7/((n0**k)*(n1**(3-k)))) )
+        
     TD = sdt('c4','t') + '\\'
     label='t_thssSizes'
     caption='Sparsity properties of the networks studied and inversion times.'
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
+
     print(heading); print(*data,sep='\n')
 
 if 'f_thssSparsity' in locals():
