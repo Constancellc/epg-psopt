@@ -26,6 +26,7 @@ pltShow = 1
 # f_limitSensitivityV = 1
 # f_limitSensitivity = 1
 # f_limitSensitivityIdv = 1
+# f_corVarScanCalc = 1
 # f_corVarScan = 1
 
 # # calculating setpoints for linHcCalcs:
@@ -34,6 +35,7 @@ pltShow = 1
 # f_nStdVreg_epri24 = 1
 # f_nStdVreg_epriJ1 = 1
 # f_nStdVreg_epriK1 = 1
+# f_varCheck = 1
 
 
 def main(fdr_i=6):
@@ -781,12 +783,59 @@ if 'f_limitSensitivityIdv' in locals():
 
     plt.plot(dMuSet,rslt.T,'-'); plt.xlabel('Scaled generation (%)'); plt.ylabel('Constraint Violations (%)');
     plt.legend(('20','40','60','80','100'),title='% PV'); plt.title(LM.feeder); plt.show()
-    
-if 'f_corVarScan' in locals():
-    # NOTE: not yet working! to finish on the laptop
-    # fdrs_is = [6,8,9,19,20,21,17,18,22]
+
+
+if 'f_varCheck' in locals():
+    fdrs_is = [6,8,9,19,20,21,17,18,22]
+    fdrs_is = [6,20,17]
+    muIdxs = [-1,-1,-1]
+    pdfName = 'gammaFrac'
+    for [fdr_i,idx] in zip(fdrs_is,muIdxs):
+        LM = linModel(fdr_i,WD)
+        pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
+
+        Mu,Sgm = pdf.getMuStd(LM,0)
+        LM.busViolationVar(Sgm)
+        LM.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
+        vars0 = LM.varKfullU.copy()
+        varSortN0 = vars0.argsort()[::-1]
+
+        Mu, Sgm = pdf.getMuStd(LM,idx)
+        LM.busViolationVar(Sgm,Mu=Mu)
+        LM.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
+        vars = LM.varKfullU.copy()
+        allLims = np.r_[LM.svdLim,LM.svdLimDv]
+
+        varsMax = max(vars)
+        vars[allLims<0] = varsMax
+        varSortN = vars.argsort()[::-1]
+        varSortN_update = vars[varSortN0].argsort()[::-1]
+        varsMaxCount = sum(vars==varsMax)
+
+        fig,ax = plt.subplots(figsize=(2.4,2.4))    
+        # ax.plot(vars0[varSortN0]/vars0[varSortN0[0]])
+        # ax.plot(vars[varSortN0]/vars[varSortN[0]])
+        # ax.plot(vars[varSortN0][varSortN_update]/vars[varSortN[0]])
+        # ax.set_yscale('log')
+        # ax.set_ylim((1e-6,1e1))
+
+        Nupdate = varSortN0[varSortN_update]
+        plt.plot( np.arange(len(Nupdate)),np.r_[np.arange(varsMaxCount),varSortN_update[varsMaxCount:]],'.',markersize=1 ); 
+        # plt.plot( np.arange(len(Nupdate)),varSortN,'.',markersize=1 ); 
+        plt.axis('equal')
+        plt.grid()
+        plt.xlabel('Original Index')
+        plt.ylabel('Shifted Index')
+        plt.tight_layout()
+        if 'pltSave' in locals():
+            plotSaveFig(sdt('c4','f')+'\\varCheck_'+fdrs[fdr_i])
+        plt.show()
+
+
+if 'f_corVarScanCalc' in locals():
+    fdrs_is = [6,8,9,19,20,21,17,18,22]
     # fdrs_is = [22]
-    fdrs_is = [6]
+    # fdrs_is = [6]
 
     pdfName = 'gammaFrac'
 
@@ -797,7 +846,7 @@ if 'f_corVarScan' in locals():
     Times = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
     Sizes = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
     CovCalcTimes = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
-    VarCalcTimes = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
+    # VarCalcTimes = np.zeros( (len(fdrs_is),len(stdLim),len(CorLim)) )
 
     for i in range(len(fdrs_is)):
         LM = linModel(fdrs_is[i],WD)
@@ -822,18 +871,50 @@ if 'f_corVarScan' in locals():
                 Errors[i,j,k] = np.mean(np.abs(rslB['Vp_pct']-rslA['Vp_pct']))
                 Times[i,j,k] = LM.linHcRsl['runTime']
                 Sizes[i,j,k] = len(LM.NSetCor[0])/len(LM.varKfullU)*100
+    
+    
+    rsltsDict = {'fdrs_is':fdrs_is,'fdrs':fdrs,'Errors':Errors,'Times':Times,'Sizes':Sizes,'CovCalcTimes':CovCalcTimes,'stdLim':stdLim,'CorLim':CorLim}
+    SN = os.path.join(WD,'hcResults','corVarScan.pkl')
+    # with open(SN,'wb') as file: # <--------------- UNCOMMENT THESE TO SAVE
+        # pickle.dump(rsltsDict,file)
 
-    fig,[ax0,ax1] = plt.subplots(figsize=(5.5,3.2),ncols=2)
+
+
+
+
+if 'f_corVarScan' in locals():
+    SN = os.path.join(WD,'hcResults','corVarScan.pkl')
+    with open(SN,'rb') as file:
+        rsltsDictOut = pickle.load(file)
+
+    stdLim = rsltsDictOut['stdLim']
+    CorLim = rsltsDictOut['CorLim']
+    Errors = rsltsDictOut['Errors']
+    Times = rsltsDictOut['Times']
+    Sizes = rsltsDictOut['Sizes']
+    CovCalcTimes = rsltsDictOut['CovCalcTimes']
+    
+    fig,[ax0,ax1,ax2] = plt.subplots(figsize=(8,3.2),ncols=3)
     for i in range(len(CorLim)):
         # ax0.plot(100*stdLim,np.max(Errors[:,:,i],axis=0),'x-',label=( '%.0f' % (100*CorLim[i]) ) + ' %')
-        # ax0.plot(100*stdLim,np.max(Times[:,:,i],axis=0),'x-',label=( '%.0f' % (100*CorLim[i]) ) + ' %')
-        ax0.plot(100*stdLim,np.max(CovCalcTimes[:,:,i],axis=0),'x-',label=( '%.0f' % (100*CorLim[i]) ) + ' %')
-        ax1.plot(100*stdLim,np.mean(Sizes[:,:,i],axis=0),'x-',label='$\eta _{\mathrm{Cor}}=$'+( '%.0f' % (100*CorLim[i]) ))
+        ax0.plot(100*stdLim,np.mean(Sizes[:,:,i],axis=0),'x-',label='$\eta _{\mathrm{Cor}}=$'+( '%.0f' % (100*CorLim[i]) ))
+        ax1.plot(100*stdLim,np.max(Errors[:,:,i],axis=0),'x-',label=( '%.0f' % (100*CorLim[i]) ) + ' %')
+        ax2.plot(100*stdLim,np.max(Times[:,:,i],axis=0),'x-',label=( '%.0f' % (100*CorLim[i]) ) + ' %')
 
     ax0.legend(title='Cov. Cutoff, $\eta _{\mathrm{Cor}}$')
     ax0.set_xlabel('Variance cutoff, $\eta _{\mathrm{Var}}$, %')
     ax1.set_xlabel('Variance cutoff, $\eta _{\mathrm{Var}}$, %')
-    ax0.set_title('Errors')
-    ax1.set_title('Sizes, %')
+    ax2.set_xlabel('Variance cutoff, $\eta _{\mathrm{Var}}$, %')
+
+    ax1.set_ylim((-0.1,10))
+
+    ax0.set_ylabel('Average size, %')
+    ax1.set_ylabel('Max Error, %')
+    ax2.set_ylabel('Max Time, s')
+    # ax1.set_title('Average Sizes, %')
     plt.tight_layout()
+    plotSaveFig(sdt('c4','f')+'\\corVarScan')
+    
+    if 'pltSave' in locals():
+        plotSaveFig(sdt('c4','f')+'\\corVarScan')
     plt.show()
