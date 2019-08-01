@@ -85,6 +85,21 @@ admd = '../../../Documents/census/admd.csv'
 
 la = 'E08000005'
 
+ruType = {}
+with open(r_type_data,'rU') as csvfile:
+    reader = csv.reader(csvfile)
+    next(reader)
+    for row in reader:
+        ruType[row[0]] = int(row[1])
+
+        
+nHH = {}
+with open('../../../Documents/simulation_results/NTS/clustering/power/locationsLA_/censusParams.csv','r',encoding='ISO-8859-1') as csvfile:
+    reader = csv.reader(csvfile)
+    next(reader)
+    for row in reader:
+        nHH[row[0]] = [int(row[3])]
+
 # power demand first 
 time = np.arange(0,1440,10)
 ttls = ['No Charging','Uncontrolled','Controlled']
@@ -308,8 +323,11 @@ for la in locs:
                 v_zscore[ty[i]][la] = z
     except:
         continue
-    
+
+bs = [0]*40
 p_zscore = {'b':{},'u':{},'f':{}}
+addCap = []
+addCap2 = []
 for la in locs:
     try:
         with open(res_stem+la+'_load.csv','rU') as csvfile:
@@ -327,9 +345,68 @@ for la in locs:
 
                 z = (mu-maxP[la])/sigma
                 p_zscore[ty[i]][la] = z
+
+                ex = maxP[la]-3*sigma-mu
+
+                if i == 2:
+                    h = float(nHH[la][0])
+
+                    if ruType[la] == '1':
+                        nN = h/64
+                    elif ruType[la] == '2':
+                        nN = h/200
+                    else:
+                        nN = h/471
+
+                    addCap.append([ex/1e6,nN])
+                    addCap2.append([100*ex/mu,la,nN])
+
+                    if ex < 0:
+                        bs[0] += nN
+                    else:
+                        bs[int(ex/10)] += nN
+
     except:
         continue
 
+sf = sum(bs)/100
+for i in range(len(bs)):
+    bs[i] = bs[i]/sf
+plt.figure()
+plt.bar(range(40),bs)
+plt.xticks([0,10,20,30,40],['Fully\nConstrained','100 kW','200 kW','300kW','400kW'],
+           rotation=90)
+plt.xlabel('Additional Capacity')
+plt.grid()
+plt.tight_layout()
+
+addCap = sorted(addCap,reverse=True)
+addCap2 = sorted(addCap2,reverse=True)
+
+with open('headroom.csv','w') as csvfile:
+    writer = csv.writer(csvfile)
+    writer.writerow(['LA','Headroom (%)','No. Networks'])
+    for i in range(len(addCap2)):
+        writer.writerow([addCap2[i][1],addCap2[i][0],addCap2[i][2]])
+
+y = [0]
+x = [0]
+
+for i in range(len(addCap)):
+    x.append(x[-1]+addCap[i][1]/sf)
+    if addCap[i][0] > 0:
+        y.append(y[-1]+addCap[i][0]*addCap[i][1])
+    else:
+        y.append(y[-1])
+plt.figure()
+plt.plot(x,y)
+plt.xlim(0,100)
+plt.ylim(0,10)
+plt.grid()
+plt.ylabel('Cumulative Excess Capacity (GW)')
+plt.xlabel('Percentage of Networks')
+plt.tight_layout()
+plt.show()
 def find_nearest(p1):
     closest = 100000
     best = None
