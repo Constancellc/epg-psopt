@@ -431,7 +431,7 @@ for fdr_i in fdr_i_set:
             idxs = np.concatenate( ( (krnd==-1.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.5).nonzero()[0] ) )
         
         mrksze = 3
-        plt.figure(figsize=(8,3.2))
+        plt.figure(figsize=(8,2.3))
         for i in range(len(idxs)):
             plt.subplot(1,len(idxs),i+1)
             plt.title('Load scaling $\kappa$ = '+str(krnd[idxs[i]]))
@@ -442,6 +442,7 @@ for fdr_i in fdr_i_set:
             if i==0:
                 plt.ylabel('Voltage Magnitude (pu)')
                 plt.legend(fontsize='small')
+        plt.tight_layout()
         if 'pltSave' in locals():
             plt.savefig(sdt('c4','f')+'\\tssModelBus_'+feeder+'.png')
             plt.savefig(sdt('c4','f')+'\\tssModelBus_'+feeder+'.pdf')

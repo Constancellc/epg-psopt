@@ -54,7 +54,7 @@ histxTotIns = histTotIns[1][:-1]
 histyTotIns = histTotIns[0]
 # plt.step(histx,histy)
 
-fig,ax = plt.subplots(figsize=(4.7,2.2))
+fig,ax = plt.subplots(figsize=(5.4,2.2))
 # plt.step(histxTotIns,histyTotIns)
 # plt.step(histxTot,histyTot)
 # plt.title('UK Domestic PV FIT Sizes (Oct 18)')
