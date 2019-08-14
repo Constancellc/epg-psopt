@@ -27,6 +27,42 @@ def scurve(data,x):
         f.append(1/(1+np.exp(-1*(m*x[i]+c))))
     return f
 
+def national_flat(eV,n=48):
+    p = [31.83083333333333, 32.601, 32.89416666666666, 32.49383333333333,
+         32.263666666666666, 32.05883333333333, 31.681333333333335,
+         31.143833333333333, 30.832666666666665, 30.95, 31.4, 32.43416666666667,
+         35.81033333333333, 40.05233333333334, 42.334, 44.2905, 45.543,
+         45.87716666666666, 45.596999999999994, 45.485166666666665,
+         45.17733333333333, 44.85, 44.293499999999995, 43.85566666666667,
+         43.73, 43.622166666666665, 43.32533333333333, 43.23733333333334,
+         43.3825, 43.69533333333334, 44.13633333333333, 44.99333333333333,
+         46.2515, 46.83566666666666, 48.37216666666667, 48.721333333333334,
+         48.56100000000001, 48.42366666666667, 47.844833333333334, 47.701,
+         47.09883333333333, 45.95016666666667, 43.94833333333333,
+         41.56033333333333, 39.278666666666666, 37.0585, 35.374,
+         34.292833333333334]
+    if n != 48:
+        sr = int(n/48)
+        _p = [0]*n
+        for t in range(n):
+            f1 = p[int(t/sr)]
+            try:
+                f2 = p[int(t/sr)+1]
+            except:
+                f2 = p[0]
+            alpha = float(n%sr)/sr
+            _p[t] = alpha*f2+(1-alpha)*f1
+    p = _p
+    p2 = []
+    for i in range(len(p)):
+        p2.append(max(p)+0.01-p[i])
+
+    sf = eV/sum(p2)
+    for i in range(len(p2)):
+        p2[i] = p2[i]*sf
+
+    return p2
+
 
 with open(census_stem+'veh0105.csv','rU') as csvfile:
     reader = csv.reader(csvfile)
@@ -135,6 +171,33 @@ for i in range(3):
     plt.xticks(xt_,xt)
 plt.tight_layout()
 plt.savefig('../../../Dropbox/thesis/chapter6/img/lv_power.eps', format='eps',
+            dpi=300, bbox_inches='tight', pad_inches=0.1)
+plt.figure(figsize=(8,3))
+plt.rcParams["font.family"] = 'serif'
+plt.rcParams['font.size'] = 11
+
+for i in range(3):
+    if i == 2:
+        for j in range(3):
+            ev = sum(res[3*i+j])-sum(res[j])
+            ev_p = national_flat(ev,144)
+            for t in range(144):
+                res[3*i+j][t] = res[j][t] + ev_p[t]
+    plt.subplot(1,3,i+1)
+    plt.plot([time[0],time[-1]],[300,300],c='r',ls='--')
+    plt.plot(time,res[3*i+1],c='g')
+    plt.title(ttls[i],y=0.85)
+    if i == 0:
+        plt.ylabel('Power Demand (kW)')
+    else:
+        plt.yticks([0,200,400,600],['','','',''])
+    plt.fill_between(time,res[3*i],res[3*i+2],color='#CCFFCC')
+    plt.ylim(0,600)
+    plt.xlim(0,1439)
+    plt.grid(ls=':')
+    plt.xticks(xt_,xt)
+plt.tight_layout()
+plt.savefig('../../../Dropbox/thesis/chapter7/img/lv_power2.eps', format='eps',
             dpi=300, bbox_inches='tight', pad_inches=0.1)
 
 # this is voltages
@@ -326,6 +389,8 @@ for la in locs:
 
 bs = [0]*40
 p_zscore = {'b':{},'u':{},'f':{}}
+p_zscore2 = {'f':{}}
+
 addCap = []
 addCap2 = []
 for la in locs:
@@ -345,6 +410,20 @@ for la in locs:
 
                 z = (mu-maxP[la])/sigma
                 p_zscore[ty[i]][la] = z
+
+                if i == 2:
+                    ev = sum(res[3*i+1])-sum(res[1])
+                    ev_p = national_flat(ev,144)
+                    for t in range(144):
+                        ev_p[t] += res[1][t]
+                    mu2 = max(ev_p)
+                    ev = sum(res[3*i+2])-sum(res[2])
+                    ev_p = national_flat(ev,144)
+                    for t in range(144):
+                        ev_p[t] += res[2][t]
+                    sigma2 = (max(ev_p)-mu2)/2
+                    z2 = (mu2-maxP[la])/sigma2
+                    p_zscore2[ty[i]][la] = z2
 
                 ex = maxP[la]-3*sigma-mu
 
@@ -406,7 +485,8 @@ plt.grid()
 plt.ylabel('Cumulative Excess Capacity (GW)')
 plt.xlabel('Percentage of Networks')
 plt.tight_layout()
-plt.show()
+plt.savefig('../../../Dropbox/thesis/chapter7/img/extra_cap.eps', format='eps', dpi=300,
+            bbox_inches='tight', pad_inches=0)
 def find_nearest(p1):
     closest = 100000
     best = None
@@ -424,6 +504,7 @@ def find_nearest(p1):
 pList = []
 z = [[],[],[],[],[]]
 z2 = [[],[],[],[],[]]
+z3 = []
 
 res = []
 res2 = []
@@ -434,7 +515,7 @@ n = 0
 years = {}
 
 for y in range(2020,2055):
-    years[y] = {0:0,1:0,2:0,3:0}
+    years[y] = {0:0,1:0,2:0,3:0,4:0}
 for la in v_zscore['f']:
     pList.append(locs[la])
     z[0].append(100*st.norm.cdf(v_zscore['b'][la]))
@@ -443,6 +524,7 @@ for la in v_zscore['f']:
     z2[0].append(100*st.norm.cdf(p_zscore['b'][la]))
     z2[1].append(100*st.norm.cdf(p_zscore['u'][la])-z2[0][-1])
     z2[2].append(100*st.norm.cdf(p_zscore['f'][la])-z2[0][-1])
+    z3.append(100*st.norm.cdf(p_zscore2['f'][la])-z2[0][-1])
     # 2030
     try:
         per = scurve(data[la],[2030])[0]
@@ -461,6 +543,7 @@ for la in v_zscore['f']:
             years[y][1] += z[2][-1]*per
             years[y][2] += z2[1][-1]*per
             years[y][3] += z2[2][-1]*per
+            years[y][4] += z3[-1]*per
 
     res.append([z[1][-1],la])
     res2.append([z2[1][-1],la])
@@ -468,7 +551,7 @@ for la in v_zscore['f']:
     res4.append([z2[3][-1],la])
 
 yp = []
-for i in range(4):
+for i in range(5):
     yp.append([])
     for y in years:
         yp[-1].append(years[y][i]/n)
@@ -477,7 +560,8 @@ plt.figure(figsize=(7.5,4))
 plt.subplot(1,2,1)
 plt.title('Transformer Violations')
 plt.plot(range(2020,2055),yp[2],label='Uncontrolled',c='b')
-plt.plot(range(2020,2055),yp[3],label='Controlled',c='r',ls='--')
+plt.plot(range(2020,2055),yp[3],label='Controlled (D)',c='r',ls='--')
+plt.plot(range(2020,2055),yp[4],label='Controlled (T)',c='g',ls=':')
 plt.xlabel('Year')
 plt.ylabel('Networks (%)')
 plt.ylim(0,23)
@@ -486,17 +570,23 @@ plt.grid()
 plt.subplot(1,2,2)
 plt.title('Voltage Violations')
 plt.plot(range(2020,2055),yp[0],label='Uncontrolled',c='b')
-plt.plot(range(2020,2055),yp[1],label='Controlled',c='r',ls='--')
+plt.plot(range(2020,2055),yp[1],label='Controlled (D)',c='r',ls='--')
+yy = []
+for i in range(len(yp[1])):
+    yy.append(yp[1][i]*1.1)
+plt.plot(range(2020,2055),yy,label='Controlled (T)',c='g',ls=':')
 plt.xlabel('Year')
 plt.ylim(0,23)
 plt.xlim(2018,2054)
 plt.legend()
 plt.grid()
 plt.tight_layout()
-plt.savefig('../../../Dropbox/papers/Nature/img/av_violations.eps', format='eps', dpi=300,
+#plt.savefig('../../../Dropbox/papers/Nature/img/av_violations.eps', format='eps', dpi=300,
+#            bbox_inches='tight', pad_inches=0)
+plt.savefig('../../../Dropbox/thesis/chapter7/img/av_violations2.eps', format='eps', dpi=300,
             bbox_inches='tight', pad_inches=0)
 
-
+plt.show()
 rl = [res,res2,res3,res4]
 for r in range(4):
     with open('res'+str(r+1)+'.csv','w') as csvfile:
