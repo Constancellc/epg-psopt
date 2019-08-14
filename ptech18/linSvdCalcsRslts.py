@@ -21,7 +21,7 @@ pltShow = 1
 # f_nStdAfter = 1
 # f_nStdVreg = 1
 # f_nStdVregVal = 1
-# f_corVars = 1
+f_corVars = 1
 # f_hcParamSlctnCaseStudy = 1
 # f_limitSensitivityV = 1
 # f_limitSensitivity = 1
@@ -128,17 +128,23 @@ if 'f_corVars' in locals():
     LM = linModel(fdr_i,WD,QgenPf=1.0)
     pdf = hcPdfs(LM.feeder,WD=WD,netModel=LM.netModelNom,pdfName=pdfName )
     Mu, Sgm = pdf.getMuStd(LM=LM,prmI=0) # in W
+    
+    # LM.CovSqrt = (LM.CovSqrt[0],np.array([0]))
+    # LM.CovSqrt = (np.array([1]),np.array([0]))
 
     LM.busViolationVar(Sgm)
-    LM.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
+    # LM.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
+    LM.getCovMat(getFixCov=True)
     # LM.makeCorrModel()
     # LM.corrPlot()
 
-    vars = LM.varKfullU.copy()
+    vars = LM.varKtotU.copy()
     varSortN = vars.argsort()[::-1]
+    corrLogAbs = np.log10(abs((1-LM.KtotUcorr)) + np.diag(np.ones(len(LM.KtotPu))) +1e-14 )
 
-    # corrLogAbs = np.log10(abs((1-LM.KtotUcorr)) + np.diag(np.ones(len(LM.KtotPu))) +1e-14 )
-    corrLogAbs = np.log10(abs((1-LM.KfullUcorr)) + np.diag(np.ones(len(LM.KfullUcorr))) +1e-14 )
+    # vars = LM.varKfullU.copy()
+    # varSortN = vars.argsort()[::-1]
+    # corrLogAbs = np.log10(abs((1-LM.KfullUcorr)) + np.diag(np.ones(len(LM.KfullUcorr))) +1e-14 )
     corrLogAbs = corrLogAbs[varSortN][:,varSortN]
 
     # fig,(ax1,ax0) = plt.subplots(figsize=(5.9,3.8),nrows=1,ncols=2, gridspec_kw = {'width_ratios':[1,1.8]})

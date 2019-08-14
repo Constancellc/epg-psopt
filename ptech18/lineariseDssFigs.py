@@ -701,7 +701,7 @@ if 't_thssSizes' in locals():
     # feederSet = [6,8]
     # heading = ['Feeder','Size, $(N_{Y_{\mathrm{bus}}})^{2}$','$\mathrm{nnz}(Y_{\mathrm{bus}})$', '$\dfrac{\mathrm{nnz}(Y_{\mathrm{bus}})}{N_{Y_{\mathrm{bus}}}^{2}}$, \%','Inverse calc. time, s']
     # heading = ['Feeder','$\mathrm{numel}(Y_{\mathrm{bus}})$','$\mathrm{nnz}(Y_{\mathrm{bus}})$','$Y_{\mathrm{bus}}$ Inverse calc. time, s']
-    heading = ['Feeder','$\mathrm{nnz}(Y_{\mathrm{bus}})$','$\dfrac{\mathrm{nnz}(Y_{\mathrm{bus}})}{\mathrm{numel}(Y_{\mathrm{bus}})}$, \%', '$t_{\mathrm{Lin}}$, s','$\dfrac{t_{\mathrm{Lin}}\\times 10^{7}}{\mathrm{nnz}(Y_{\mathrm{bus}})\mathrm{numel}(Y_{\mathrm{bus}})^{1/2} }$']
+    heading = ['Feeder','$\mathrm{nnz}(Y_{\mathrm{bus}})$','\dfrac{\mathrm{nnz}(Y_{\mathrm{bus}})}{N_{V}^{2}}$, \%', '$t_{\mathrm{Lin}}$, s','$\dfrac{t_{\mathrm{Lin}}\times 10^{7}}{\mathrm{nnz}(Y_{\mathrm{bus}})N_{V} }$']
     data = []; i=0
     for feeder in feederSet:
         data.append([feederIdxTidy[feeder]])
@@ -727,7 +727,7 @@ if 't_thssSizes' in locals():
         
     TD = sdt('c4','t') + '\\'
     label='t_thssSizes'
-    caption='Sparsity properties of the networks studied and inversion times.'
+    caption='Sparsity properties of nine admittance matrices, and the corresponding time required to build the linear model, $t_{\mathrm{Lin}}$.'
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
 
     print(heading); print(*data,sep='\n')

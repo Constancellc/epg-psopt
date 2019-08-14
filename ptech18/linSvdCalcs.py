@@ -319,6 +319,7 @@ def plotBoxWhisk(ax,x,ddx,y,clr=cm.tab10(0),zOrder=10,lineWidth=1.0,bds=[None],t
         ax.plot([x]*2,y[3::],'--',color=clr,zorder=zOrder,linewidth=lineWidth)
     if transpose:
         if bds[0]!=None:
+            print('--- Warning! For repeatability of bounds, add/subtract 1 where required, as in bds+np.array([1,-1]).')
             ax.plot(bds[0]-1,[x],color=clr, zorder=zOrder,marker='>',markersize=5,markerfacecolor='none')
             ax.plot(bds[1]+1,[x],color=clr, zorder=zOrder,marker='<',markersize=5,markerfacecolor='none')
         ax.plot(y[0:2],[x]*2,'--',color=clr,zorder=zOrder,linewidth=lineWidth)
