@@ -2,8 +2,8 @@ close all; clear all
 
 fig_loc = 'C:\Users\Matt\Documents\DPhil\thesis\c3tech1\c3figures';
 
-% set(0,'defaulttextinterpreter','latex');
-% set(0,'defaultaxesfontsize',12);
+set(0,'defaulttextinterpreter','latex');
+set(0,'defaultaxesfontsize',12);
 fig_nompos = [100 100 550 320];
 %%
 V0 = 1;
@@ -73,18 +73,18 @@ semilogx(lz,real(P0upf),'b'); %avoid small imaginary residuals
 
 grid on;
 xlabel('$R/X$ ratio, $\lambda$');
-ylabel('Line/substation power $P_{(\cdot)}$, p.u.');
+ylabel('Sent/Rcvd. power $P_{(\cdot)}$, p.u.');
 %title('Analytic versus Heuristic maximum generation power transfer');
 
-%lgnd = legend('$P_{\mathrm{Snd: MPT}}$','$P_{\mathrm{Sub,\,MPT}}$','$P_{\mathrm{Snd: MPT,\,MPT}}$','$P_{\mathrm{Sub,\,MPT,\,MPT}}$',...
-%              '$P_{\mathrm{Snd,\,Stb}}$','$P_{\mathrm{Sub,\,Stb}}$','$P_{\mathrm{Snd,\,UPF}}$','$P_{\mathrm{Sub,\,UPF}}$');
-lgnd = legend('$P_{\mathrm{Snd,\,MPT}}$','$P_{\mathrm{Sub,\,MPT}}$',...
-              '$P_{\mathrm{Snd,\,Stb}}$','$P_{\mathrm{Sub,\,Stb}}$','$P_{\mathrm{Snd,\,UPF}}$','$P_{\mathrm{Sub,\,UPF}}$');
+%lgnd = legend('$P_{\mathrm{Snd: MPT}}$','$P_{\mathrm{Rcv,\,MPT}}$','$P_{\mathrm{Snd: MPT,\,MPT}}$','$P_{\mathrm{Rcv,\,MPT,\,MPT}}$',...
+%              '$P_{\mathrm{Snd,\,Stb}}$','$P_{\mathrm{Rcv,\,Stb}}$','$P_{\mathrm{Snd,\,UPF}}$','$P_{\mathrm{Rcv,\,UPF}}$');
+lgnd = legend('$P_{\mathrm{Snd,\,MPT}}$','$P_{\mathrm{Rcv,\,MPT}}$',...
+              '$P_{\mathrm{Snd,\,Stb}}$','$P_{\mathrm{Rcv,\,Stb}}$','$P_{\mathrm{Snd,\,UPF}}$','$P_{\mathrm{Rcv,\,UPF}}$');
 
 set(lgnd,'Interpreter','latex','Location','SouthWest','fontsize',13);
 
 
-% export_fig(gcf,fig_name);
+% % export_fig(gcf,fig_name);
 % export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
 
 

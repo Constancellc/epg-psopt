@@ -76,10 +76,10 @@ figure('Color','White','Position',fig_nompos);
 [c_con,~] = contour(lz,V0,P0pr,(-0.1:0.1:2));
 set(gca,'xscale','log');
 clabel(c_con)
-xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Substation voltage, $V_{\mathrm{Sub}}$, pu');
+xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Source voltage, $V_{\mathrm{Rcv}}$, pu');
 %title('Maximum Generation Transfer ($|V_{g}| = 1.1$ pu)');
 
-lgnd = legend('$P_{\mathrm{Sub,\,MPT}}$','Location','SouthEast');
+lgnd = legend('$P_{\mathrm{Rcv,\,MPT}}$','Location','SouthEast');
 set(lgnd,'FontSize',12,'Interpreter','Latex');
 grid on;
 
@@ -93,10 +93,10 @@ figure('Color','White','Position',fig_nompos);
 set(gca,'xscale','log');
 clabel(c_con)
 
-xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Substation voltage, $V_{\mathrm{Sub}}$, pu');
+xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Source voltage, $V_{\mathrm{Rcv}}$, pu');
 title('Maximum Generation Transfer ($|V_{g}| = 1.1$ pu)');
 
-lgnd = legend('$P_{\mathrm{Sub,\,MPT}}$');
+lgnd = legend('$P_{\mathrm{Rcv,\,MPT}}$');
 set(lgnd,'FontSize',12,'Interpreter','Latex');
 grid on;
 
@@ -114,16 +114,14 @@ clabel(c_con,[0 0.2 0.4 0.6 0.8 0.9]); grid on;
 % [~,~] = contour(lz,V0,P0pr,[-0.001,0.001],'k');
 set(gca,'xscale','log');
 
-xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Substation voltage, $V_{\mathrm{Sub}}$, pu');
+xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Source voltage, $V_{\mathrm{Rcv}}$, pu');
 % title('Efficiency $\eta$ of power transmission ($|V_{g}| = 1.1$ pu)'); 
 
-lgnd = legend('$\frac{P_{\mathrm{Sub,\,MPT}}}{P_{\mathrm{Snd,\,MPT}}}$ ','Location','NorthWest');
+lgnd = legend('$\frac{P_{\mathrm{Rcv,\,MPT}}}{P_{\mathrm{Snd,\,MPT}}}$ ','Location','NorthWest');
 set(lgnd,'FontSize',18,'Interpreter','Latex');
 
 % export_fig(gcf,fig_name);
 % export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
-
-
 %% mgtt_pf_g
 figure('Color','White','Position',fig_nompos);
 fig_name = strcat(fig_loc,'\mgtt_pf_g_tss');
@@ -133,7 +131,7 @@ fig_name = strcat(fig_loc,'\mgtt_pf_g_tss');
 set(gca,'xscale','log');
 clabel(c_con,[0.1 0.3 0.5 0.7 0.8 0.9]); grid on;
 
-xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Substation voltage, $V_{\mathrm{Sub}}$, pu');
+xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Source voltage, $V_{\mathrm{Rcv}}$, pu');
 %lgnd = legend('$/$');
 lgnd = legend('$\frac{P_{\mathrm{Snd,\,MPT}}}{|S_{\mathrm{Snd,\,MPT}}|}$');
 set(lgnd,'FontSize',18,'Interpreter','Latex','Location','NorthWest');
@@ -150,9 +148,9 @@ fig_name = strcat(fig_loc,'\mgtt_pf_0_tss');
 set(gca,'xscale','log');
 clabel(c_con,[0.1 0.3 0.5 0.7 0.9]); grid on;
 
-xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Substation voltage, $V_{\mathrm{Sub}}$, pu');
+xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Source voltage, $V_{\mathrm{Rcv}}$, pu');
 %lgnd = legend('$/$');
-lgnd = legend('$\frac{P_{\mathrm{Sub,\,MPT}}}{|S_{\mathrm{Sub,\,MPT}}|}$');
+lgnd = legend('$\frac{P_{\mathrm{Rcv,\,MPT}}}{|S_{\mathrm{Rcv,\,MPT}}|}$');
 set(lgnd,'FontSize',18,'Interpreter','Latex','Location','NorthWest');
 %title('Generator power factor at maximum power transfer ($|V_{g}| = 1.1$)'); 
 
