@@ -15,6 +15,9 @@ New object=circuit.ieee34-1
 new line.sourceZ bus1=SourceBus bus2=SourceBusZ phases=3 R1=0.0057736 X1=0.023094 R0=2.1358 X0=6.4074
 
 ! Substation Transformer  -- Modification: Make source very stiff by defining a tiny leakage Z
+!New Transformer.SubXF Phases=3 Windings=2 Xhl=8    ! normally 8. FOR EXPERIMENTING WITH HOW R/X RATIOS CHANGE
+!~ wdg=1 bus=sourcebusZ conn=Delta kv=69    kva=2500   %r=0.5   !reduce %r, too
+!~ wdg=2 bus=800       conn=wye   kv=24.9  kva=2500   %r=0.5
 New Transformer.SubXF Phases=3 Windings=2 Xhl=0.01    ! normally 8
 ~ wdg=1 bus=sourcebusZ conn=Delta kv=69    kva=25000   %r=0.0005   !reduce %r, too
 ~ wdg=2 bus=800       conn=wye   kv=24.9  kva=25000   %r=0.0005

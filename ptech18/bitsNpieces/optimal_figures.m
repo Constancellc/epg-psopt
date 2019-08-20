@@ -6,7 +6,10 @@ fig_loc = 'C:\Users\Matt\Documents\DPhil\thesis\c3tech1\c3figures';
 
 set(0,'defaulttextinterpreter','latex');
 set(0,'defaultaxesfontsize',12);
-fig_nompos = [100 100 550 320];
+% fig_nompos = [100 100 550 320];
+fig_nompos = [100 100 400 320];
+
+exportOn = 1;
 
 %%
 % Vg = 1.1;
@@ -65,7 +68,7 @@ eta = (P0pr./Pgpr).*(P0pr>=0) ...
 % clabel(c_con)
 % xlabel('log10(Lz[= R/X]) '); ylabel('Lv = Vg/V0');
 % legend('P0stb');
-% grid on;
+% grid on; xticks([0.01,0.1,1,10,100])
 
 
 %subplot(3,2,1)
@@ -81,10 +84,13 @@ xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Source voltage, $V_{\mathrm{Rcv}}$, p
 
 lgnd = legend('$P_{\mathrm{Rcv,\,MPT}}$','Location','SouthEast');
 set(lgnd,'FontSize',12,'Interpreter','Latex');
-grid on;
+grid on; xticks([0.01,0.1,1,10,100])
+
 
 % export_fig(gcf,fig_name);
-% export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf');
+if exportOn
+    export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
+end
 %%
 fig_name = strcat(fig_loc,'\mgtt_p0_stb_tss');
 
@@ -98,9 +104,11 @@ title('Maximum Generation Transfer ($|V_{g}| = 1.1$ pu)');
 
 lgnd = legend('$P_{\mathrm{Rcv,\,MPT}}$');
 set(lgnd,'FontSize',12,'Interpreter','Latex');
-grid on;
+grid on; xticks([0.01,0.1,1,10,100])
 
-% export_fig(gcf,fig_name);
+if exportOn
+    export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
+end
 % export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf');
 
 %% mgtt_eta
@@ -109,7 +117,7 @@ fig_name = strcat(fig_loc,'\mgtt_eta_tss');
 [c_con,~] = contour(lz,V0,eta,(0:0.1:1)); hold on;
 [~,~] = contour(lz,V0,P0pr,[-1,1]*1e-6,'k','linewidth',1.5);
 
-clabel(c_con,[0 0.2 0.4 0.6 0.8 0.9]); grid on;
+clabel(c_con,[0 0.2 0.4 0.6 0.8 0.9]); grid on; xticks([0.01,0.1,1,10,100])
 
 % [~,~] = contour(lz,V0,P0pr,[-0.001,0.001],'k');
 set(gca,'xscale','log');
@@ -121,7 +129,9 @@ lgnd = legend('$\frac{P_{\mathrm{Rcv,\,MPT}}}{P_{\mathrm{Snd,\,MPT}}}$ ','Locati
 set(lgnd,'FontSize',18,'Interpreter','Latex');
 
 % export_fig(gcf,fig_name);
-% export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
+if exportOn
+    export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
+end
 %% mgtt_pf_g
 figure('Color','White','Position',fig_nompos);
 fig_name = strcat(fig_loc,'\mgtt_pf_g_tss');
@@ -129,7 +139,7 @@ fig_name = strcat(fig_loc,'\mgtt_pf_g_tss');
 [~,~] = contour(lz,V0,P0pr,[-1,1]*1e-6,'k','linewidth',1.5);
 
 set(gca,'xscale','log');
-clabel(c_con,[0.1 0.3 0.5 0.7 0.8 0.9]); grid on;
+clabel(c_con,[0.1 0.3 0.5 0.7 0.8 0.9]); grid on; xticks([0.01,0.1,1,10,100])
 
 xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Source voltage, $V_{\mathrm{Rcv}}$, pu');
 %lgnd = legend('$/$');
@@ -138,7 +148,9 @@ set(lgnd,'FontSize',18,'Interpreter','Latex','Location','NorthWest');
 %title('Generator power factor at maximum power transfer ($|V_{g}| = 1.1$)'); 
 
 % export_fig(gcf,fig_name);
-% export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
+if exportOn
+    export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
+end
 %% mgtt_pf_0
 figure('Color','White','Position',fig_nompos);
 fig_name = strcat(fig_loc,'\mgtt_pf_0_tss');
@@ -146,7 +158,7 @@ fig_name = strcat(fig_loc,'\mgtt_pf_0_tss');
 [~,~] = contour(lz,V0,P0pr,[-1,1]*1e-6,'k','linewidth',1.5);
 
 set(gca,'xscale','log');
-clabel(c_con,[0.1 0.3 0.5 0.7 0.9]); grid on;
+clabel(c_con,[0.1 0.3 0.5 0.7 0.9]); grid on; xticks([0.01,0.1,1,10,100])
 
 xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Source voltage, $V_{\mathrm{Rcv}}$, pu');
 %lgnd = legend('$/$');
@@ -155,7 +167,9 @@ set(lgnd,'FontSize',18,'Interpreter','Latex','Location','NorthWest');
 %title('Generator power factor at maximum power transfer ($|V_{g}| = 1.1$)'); 
 
 % export_fig(gcf,fig_name);
-% export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
+if exportOn
+    export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
+end
 
 
 
