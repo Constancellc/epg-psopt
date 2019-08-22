@@ -432,15 +432,10 @@ class buildLinModel:
             f0 = f0 + df*np.ones(len(f0))
             fNoload = fNoload + df*np.ones(len(fNoload))
         
-        # KyW, KdW, KtW, self.bW = lineariseMfull(self.WyXfmr,self.WdXfmr,self.WtXfmr,f0,xYcvr[self.syIdx],xDcvr,np.zeros(self.WtXfmr.shape[1]))
         
         f0cpx = self.WyXfmr.dot(xYcvr[self.syIdx]) + self.WdXfmr.dot(xDcvr) + self.WtXfmr.dot(np.zeros(self.WtXfmr.shape[1])) + self.aIxfmr
-        # f0lin = KyW.dot(xYcvr[self.syIdx]) + KdW.dot(xDcvr) + KtW.dot(np.zeros(self.WtXfmr.shape[1])) + self.bW
-        
         self.log.info('\nCurrent cpx error (lin point):'+str(np.linalg.norm(f0cpx-f0)/np.linalg.norm(f0)))
         self.log.info('Current cpx error (no load point):'+str(np.linalg.norm(self.aIxfmr-fNoload)/np.linalg.norm(fNoload)))
-        # self.log.info('\nCurrent abs error (lin point):'+str(np.linalg.norm(f0lin-abs(f0))/np.linalg.norm(abs(f0))))
-        # self.log.info('Current abs error (no load point):'+str(np.linalg.norm(self.bW-abs(fNoload))/np.linalg.norm(abs(fNoload)))+'( note that this is usually not accurate, it seems.)')
         
         # control (c) variables (in order): Pgen(Y then D) (kW),Qgen(Y then D) (kvar),t (no.).
         # notation as 'departure2arrival'
@@ -461,11 +456,16 @@ class buildLinModel:
         del(Ky); del(Kd)
         delattr(self,'Ky'); delattr(self,'Kd'); delattr(self,'Kt')
         
-        # self.Kc2i = dsf.mvM( np.concatenate( (KyW[:,:self.nPy],KdW[:,:self.nPd],
-                                            # KyW[:,self.nPy::],KdW[:,self.nPd::],
-                                            # KtW),axis=1), 1/self.xScale ) # limits for these are in self.iXfmrLims.
-        # del(KyW); del(KdW); del(KtW)
-        
+        if 'recreateKc2i' in dir(self):
+            KyW, KdW, KtW, self.bW = lineariseMfull(self.WyXfmr,self.WdXfmr,self.WtXfmr,f0,xYcvr[self.syIdx],xDcvr,np.zeros(self.WtXfmr.shape[1]))
+            f0lin = KyW.dot(xYcvr[self.syIdx]) + KdW.dot(xDcvr) + KtW.dot(np.zeros(self.WtXfmr.shape[1])) + self.bW
+            self.log.info('\nCurrent abs error (lin point):'+str(np.linalg.norm(f0lin-abs(f0))/np.linalg.norm(abs(f0))))
+            self.log.info('Current abs error (no load point):'+str(np.linalg.norm(self.bW-abs(fNoload))/np.linalg.norm(abs(fNoload)))+'( note that this is usually not accurate, it seems.)')
+            self.Kc2i = dsf.mvM( np.concatenate( (KyW[:,:self.nPy],KdW[:,:self.nPd],
+                                                KyW[:,self.nPy::],KdW[:,self.nPd::],
+                                                KtW),axis=1), 1/self.xScale ) # limits for these are in self.iXfmrLims.
+            del(KyW); del(KdW); del(KtW)
+            
         # self.Mc2i = dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
         Mc2i = dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
                                             self.WyXfmr[:,self.nPy::],self.WdXfmr[:,self.nPd::],
@@ -1464,6 +1464,7 @@ class buildLinModel:
             dx = (self.X0ctrl*k[i]/self.currentLinPoint) - self.X0ctrl
             
             vaL,iaL,vcL,icL = self.runQp(dx)[4:]
+            iaL = abs(iaL) # correct for any negatives
             # iaL = abs(icL)
             # icL = self.v2iBrYxfmr.dot(np.r_[self.V0,vcL])[self.iXfmrModelled]
             # icL = self.Mc2i(dx)
@@ -1471,8 +1472,10 @@ class buildLinModel:
             vce[i] = np.linalg.norm( (vcL - vc0)/self.vKvbase )/np.linalg.norm(vc0/self.vKvbase)
             vae[i] = np.linalg.norm( (vaL - va0)/self.vKvbase )/np.linalg.norm(va0/self.vKvbase)
             
-            ice[i] = np.linalg.norm( (icL - ic0)/self.iXfmrLims )/iRglr # this stops issues around zero
-            iae[i] = np.linalg.norm( (iaL - ia0)/self.iXfmrLims )/iRglr # this stops issues around zero
+            # ice[i] = np.linalg.norm( (icL - ic0)/self.iXfmrLims )/iRglr # this stops issues around zero
+            # iae[i] = np.linalg.norm( (iaL - ia0)/self.iXfmrLims )/iRglr # this stops issues around zero
+            ice[i] = np.linalg.norm( (icL - ic0)/self.iXfmrLims )
+            iae[i] = np.linalg.norm( (iaL - ia0)/self.iXfmrLims )
         print('nrelModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
         
         fig,[ax0,ax1] = plt.subplots(ncols=2,figsize=(8,3.5))
@@ -1488,7 +1491,7 @@ class buildLinModel:
         ax1.set_title('Current error, '+self.feeder)
         ax1.legend()
         
-        return vce,vae,k
+        return vce,vae,k,ice,iae
         
     def testGenSetting(self,k=np.arange(-10,11),dPlim=0.01,dQlim=0.01):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
@@ -1768,8 +1771,10 @@ class buildLinModel:
     def runQp(self,dx,onLoss=True):
         # Vcest = self.Mc2v.dot(dx + self.X0ctrl) + self.aV
         Vcest = np.nan
-        # Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
-        Iest = np.nan
+        if 'Kc2i' in dir(self): # can be created with self.recreateKc2i if wanted.
+            Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
+        else:
+            Iest = np.nan
         
         if 'qpHlss' not in dir(self):
             self.qpHlss = self.getHmat()

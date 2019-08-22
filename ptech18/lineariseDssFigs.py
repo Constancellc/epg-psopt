@@ -38,6 +38,7 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_plotOnly = 1
 # f_plotInvLoss = 1
 # f_batchTest = 1
+# f_currentErrors = 1
 # f_modelValidation = 1
 # f_daisy = 1
 # f_solutionError = 1
@@ -56,6 +57,8 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_thssSparsity = 1
 # f_runTsAnalysis = 1
 # f_plotTsAnalysis = 1
+# f_convCapability = 1
+# f_scaling = 1
 
 # pltSave=1
 
@@ -328,16 +331,83 @@ if 'f_caseStudyChart' in locals():
 
 
 if 'f_batchTest' in locals():
-    feederTest = [8,24,'n27',0,'n1',17]
+    feederTest = [26,24,'n27',0,'n1',17]
+    feederTest = [26]
     for feeder in feederTest:
-        self = main(feeder,'loadOnly',linPoint=0.6); self.initialiseOpenDss(); self.testQpVcpf(); plt.show()
+        self = main(feeder,'loadOnly',linPoint=0.6); self.initialiseOpenDss(); 
+        self.testQpVcpf(); plt.show()
         self.testQpScpf(); plt.show()
         self.testQpTcpf(); plt.show()
+
+if 'f_currentErrors' in locals():
+    feederTest = [26,17]
+    feederTest = [26]
+    for feeder in feederTest:
+        self = main(feeder,'loadOnly',linPoint=0.6); 
+        self.recreateKc2i = 1
+        self.initialiseOpenDss()
+        self.makeCvrQp()
+        k,ice,iae = self.testQpVcpf()[2:]; plt.close()
+        fig,ax = plt.subplots(figsize=(3.8,2.8))
+        ax.plot(k,ice,label='Complex')
+        ax.plot(k,iae,label='Linear')
+        ax.set_xlabel('Load scale factor')
+        ax.set_ylabel('Error, $|\!| (I_{\mathrm{Lin}} - I_{\mathrm{DSS}})/I_{\mathrm{Xfmr}} |\!|$')
+        ylm = ax.get_ylim()
+        ax.set_ylim((0,ylm[1]))
+        ax.legend(title='Current model')
+        plt.tight_layout()
+        if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'currentErrors_'+self.feeder),pltClose=True)
+        plt.show()
+        
+
+
+if 'f_scaling' in locals():
+    feederTest = [17,26]
+    for feeder in feederTest:
+        self = main(feeder,'loadOnly',linPoint=1.0,pCvr=0.6); self.initialiseOpenDss(); 
+        vae06,k06 = self.testQpVcpf(k=np.arange(-1.5,1.525,0.025))[1:3]; plt.close()
+        
+        self = main(feeder,'loadOnly',linPoint=1.0,pCvr=0.0); self.initialiseOpenDss(); 
+        vae00,k00 = self.testQpVcpf(k=np.arange(-1.5,1.525,0.025))[1:3]; plt.close()
+        
+        fig,ax = plt.subplots(figsize=(3.8,2.8))
+        ax.plot(k06,100*vae06,label='$\\alpha_{\mathrm{CVR}}=0.6$');
+        ax.plot(k00,100*vae00,label='$\\alpha_{\mathrm{CVR}}=0.0$');
+        ax.set_xlabel('Load scaling factor')
+        ax.set_ylabel('Error, $ |\!| V_{\mathrm{Lin}} - V_{\mathrm{DSS}} |\!| / |\!|V_{\mathrm{DSS}} |\!|$')
+        ax.legend(title='CVR factor')
+        ylm = ax.get_ylim()
+        ax.set_ylim((0,ylm[1]))
+        plt.tight_layout()
+        if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'scalingCvr_'+self.feeder),pltClose=True)
+        plt.show()
+        # self.testQpScpf(); plt.show()
+        # self.testQpTcpf(); plt.show()
+
+if 'f_convCapability' in locals():
+    sMax = 100
+    qMax = 60
+    pqXff = np.sqrt(sMax**2 - qMax**2)
+    fig,ax = plt.subplots(figsize=(3.6,3.0))
+    ax.plot(0,0,'ko')
+    ax.plot([0,0],[-qMax,qMax],'k--')
+    ax.plot([0,pqXff],[-qMax,-qMax],'k')
+    ax.plot([0,pqXff],[qMax,qMax],'k')
+    thta = np.linspace(-np.arcsin(qMax/sMax),np.arcsin(qMax/sMax),1000)
+    ax.plot(sMax*np.cos(thta),sMax*np.sin(thta),'k')
+    ax.axis('equal')
+    ax.set_xlabel('$P_{\mathrm{inv}}$, % of $S_{\mathrm{Rated}}$')
+    ax.set_ylabel('$Q_{\mathrm{inv}}$, % of $S_{\mathrm{Rated}}$')
+    ax.set_xlim((-40,140));
+    ax.set_ylim((-90,90));
+    plt.tight_layout()
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'convCapability'),pltClose=True)
+    plt.show()
 
 if 'f_modelValidation' in locals():
     feeder = 24
     self = main(feeder,'loadOnly',linPoint=1.0,pCvr=0.6); self.initialiseOpenDss(); 
-    # V0,K0 = self.testQpVcpf()[1:]; plt.show()
     TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,Sset = self.testQpScpf()
 
     ii = 0
