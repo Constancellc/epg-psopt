@@ -33,6 +33,7 @@ saveRegBandwidths = False
 pltVxtrmSave = True
 pltVxtrmSave = False # use this for plotting for the paper
 # pltCapPos = 1
+# pltLdsSet = 1
 
 SDfig = r"C:\Users\\"+getpass.getuser()+r"\Documents\DPhil\papers\psfeb19\figures\\"
 
@@ -46,6 +47,7 @@ VpMv = 1.055
 VpLv = 1.055
 VmMv = 0.95
 VmLv = 0.92
+ldsKvarAll = {}
 
 fdr_i_set = [5,6,8,9,0,14,17,18,22,19,20,21]
 fdr_i_set = [6,8,9,17,18,22,19,20,21]
@@ -277,3 +279,13 @@ for fdr_i in fdr_i_set:
             os.makedirs(SD)
         with open(SBreg,'wb') as handle:
             pickle.dump(bandWidths,handle)
+    if pltLdsSet:
+        LDS = DSSCircuit.Loads
+        i = LDS.First
+        kWlds = []; kvaLds = []
+        while i:
+            kWlds.append(LDS.kW)
+            kvaLds.append(LDS.kva)
+            i = LDS.Next
+        ldsKvarAll[feeder] = np.median(kvaLds)
+

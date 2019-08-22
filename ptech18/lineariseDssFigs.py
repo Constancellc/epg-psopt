@@ -54,6 +54,8 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_37busVal = 1
 # t_thssSizes = 1
 # f_thssSparsity = 1
+# f_runTsAnalysis = 1
+# f_plotTsAnalysis = 1
 
 # pltSave=1
 
@@ -66,6 +68,8 @@ TD = os.path.join(SD0,'tables\\')
 # feederSet = [0,17,'n1',26,24,'n27']
 # feederSet = [0,17,'n1',26,24,'n27']
 feederSet = ['n1','n10',17,18,26,24,'n27']
+feederSet = [24]
+feederSet = [8]
 # feederSet = [0,5] # fast
 
 strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','maxTap'],'hcLds':['full','phase','nomTap','minTap'] }
@@ -758,3 +762,196 @@ if 'f_thssSparsity' in locals():
         if 'pltSave' in locals():
             plotSaveFig(os.path.join(sdt('t2','f'),'thssSparsity'+fdrs[feeder]),pltClose=False)
         plt.show()
+        
+if 'f_runTsAnalysis' in locals():
+    FNlds = r'C:\Users\Matt\Documents\MATLAB\DPhil\rpc_loss_mtlb\data'
+    import pandas as pd
+    TR = pd.read_csv(os.path.join(FNlds,'extract_profiles','aggregated_n.csv'))
+    TR = np.array(TR); 
+    TR = TR.flatten()
+    TR = np.round(TR,10) #if this isn't here then EPRI K1 complains(!)
+
+    TG = pd.read_csv(os.path.join(FNlds,'pvwatts_hourly.csv'))
+    TG = TG.iloc[18:-1,10]
+    TG = np.array(TG).astype('float')
+    TGi = np.interp(np.linspace(0,len(TG)-1,len(TG)*2-1),np.arange(len(TG)),TG);
+    TGi = TGi/max(TGi)
+    TGi = np.round(TGi,10) #if this isn't here then EPRI K1 complains(!)
+
+    genKW = 3.81
+    genKVA = 4 # implies 4 kVA inverter here.
+    qLimMax = 2.4 # kVAr
+
+    dayNoA = 364-31-30-16 #15th Oct
+    dayNoB = 31+28+31+30+31+30+19 #20th July
+    genSet = [TGi[dayNoA*48:(dayNoA+1)*48],TGi[dayNoB*48:(dayNoB+1)*48]]
+    ldsSet = [TR[dayNoA*48:(dayNoA+1)*48],TR[dayNoB*48:(dayNoB+1)*48]]
+    
+    # # for faster debugging:
+    # ldsTs = np.array([3,2,3,3,4,5,6,6,5,4,6,8,9,8,9,10,9,8,7,5,4,3,2,2])/10; ldsSet = [ldsTs,ldsTs];
+    # genTs = np.array([0,0,0,0,0,0.5,1,2,3,6,8,9,10,10,10,9,8,6,3,2,1,0.5,0,0])/10; genSet = [genTs,genTs];
+    # ldsTs = np.array([0.5,1]); ldsSet = [ldsTs,ldsTs];
+    # genTs = np.array([0,1]); genSet = [genTs,genTs]; 
+
+    dayNms = ['wtr','smr']
+    nTS = len(genSet[0])
+    
+    for feeder in feederSet:
+        for genTs,ldsTs,dayType in zip(genSet,ldsSet,dayNms):
+            # THINGS TO RECORD.
+            ts0s = np.zeros((3,nTS))
+            slnMid = {'vMin':ts0s.copy(),'vMinLv':ts0s.copy(),'vMinMv':ts0s.copy(),'vMax':ts0s.copy(),'tPwr':ts0s.copy(),'tLss':ts0s.copy(),'qPhs':ts0s.copy(),'tSet':ts0s.copy()}
+
+            # initialise a few bits and pieces
+            t0 = time.time()
+            self = main(feeder,modelType='loadOnly');
+            dx0 = genKW*np.r_[np.ones(self.nPctrl),np.zeros(self.nPctrl+self.nT)]
+            cns = self.getConstraints()
+            qLimSet = 1e3*np.minimum(qLimMax*np.ones(nTS),np.sqrt(genKVA**2 - (genKW*genTs)**2))
+            qLimSet[genTs==0]=0
+
+            for lp,gen,i in zip(ldsTs,genTs,range(nTS)):
+                print('\n---------------> i = '+str(i))
+                print('t = '+str(time.time()-t0))
+                # first, linearise at the chosen point
+                self = main(feeder,modelType='buildOnly',linPoint=lp)
+                cns['plim']=1e3*genKW*gen
+                
+                # just use the solution with genTs on
+                # then, find the solutions with the different operating modes using 3x Q points
+                slnF0 = self.runQp(gen*dx0)
+                slnMid = self.tsRecordSnap(slnMid,(0,i),gen*dx0,slnF0)
+                
+                # No reactive power (approx):
+                cns['qlim']=1
+                self.setupConstraints(cns)
+                self.runCvrQp('phase','tsCst')
+                slnMid = self.tsRecordSnap(slnMid,(1,i))
+
+                # Per phase control (also record phase info)
+                cns['qlim']=qLimSet[i]
+                self.setupConstraints(cns)
+                self.runCvrQp('phase','tsCst')
+                slnMid = self.tsRecordSnap(slnMid,(2,i))
+                
+                self.getLdsPhsIdx()
+
+                slnMid['qPhs'][0,i] = self.slnX[self.nPctrl:self.nPctrl*2][self.Ph1][0]
+                slnMid['qPhs'][1,i] = self.slnX[self.nPctrl:self.nPctrl*2][self.Ph2][0]
+                slnMid['qPhs'][2,i] = self.slnX[self.nPctrl:self.nPctrl*2][self.Ph3][0]
+            print('\n === COMPLETE ===\nTime = '+str(time.time()-t0))
+            
+            slnTs = {'ldsTs':ldsTs,'genTs':genTs,'cns':cns,'genKW':genKW,'genKVA':genKVA,'qLimMax':qLimMax,'qLimSet':qLimSet,'nTS':nTS,'nPctrl':self.nPctrl,**slnMid}
+
+            SD = os.path.join( os.path.dirname(self.getSaveDirectory()),'results',self.feeder+'_ts_out')
+            SN = os.path.join(SD,self.feeder+'ts_i'+self.invLossType+'_'+dayType+'_sln.pkl')
+            if not os.path.exists(SD):
+                os.mkdir(SD)
+            
+            if 'pltSave' in locals():
+                with open(SN,'wb') as outFile:
+                    print('Results saved to '+ SN)
+                    pickle.dump(slnTs,outFile)
+
+
+if 'f_plotTsAnalysis' in locals():
+    for feeder in feederSet:
+        self = main(feeder,modelType='loadOnly');
+        SD = os.path.join( os.path.dirname(self.getSaveDirectory()),'results',self.feeder+'_ts_out')
+        tsFigSze = (4.0,2.8)
+        dayTypes = ['wtr','smr']
+        SDT5 = sdt('t3','f')
+
+        for dayType in dayTypes:
+            SN = os.path.join(SD,self.feeder+'ts_i'+self.invLossType+'_'+dayType+'_sln.pkl')
+            with open(SN,'rb') as inFile:
+                tsRslt = pickle.load(inFile)
+
+            times = np.linspace(0,24 - (24/tsRslt['nTS']),tsRslt['nTS'])
+            xlm = [0,24]
+            xtcks = [0,4,8,12,16,20,24]
+            
+            figName = 'tPwr'
+            fig,ax = plt.subplots(figsize=tsFigSze)
+            ax.plot(times,tsRslt['genTs']*tsRslt['nPctrl']*tsRslt['genKW'],'k-.',label='Generation')
+            ax.plot(times,tsRslt['tPwr'][0],'k:',label='Feeder net load')
+            ax.set_xlabel('Time, hour')
+            ax.set_ylabel('Power, kW')
+            ax.set_xlim(xlm); ax.set_xticks(xtcks)
+            plt.legend()
+            plt.tight_layout()
+            if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
+            plt.show()
+
+
+            figName = 'vMinMax'
+            fig,ax = plt.subplots(figsize=tsFigSze)
+            ax.set_prop_cycle(color=cm.matlab([0,1,2]))
+            ax.plot(times, tsRslt['vMinMv'].T,':');
+            ax.plot(times, tsRslt['vMinLv'].T);
+            ax.plot(times, tsRslt['vMax'].T);
+            ax.plot(xlm,[tsRslt['cns']['mvHi']]*2,'k--')
+            ax.plot(xlm,[tsRslt['cns']['mvLo']]*2,'k:')
+            ax.plot(xlm,[tsRslt['cns']['lvLo']]*2,'k--')
+            ax.set_xlim(xlm); ax.set_xticks(xtcks)
+            ax.set_xlabel('Time, hour')
+            ax.set_ylabel('Voltage, pu')
+            plt.tight_layout()
+            if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
+            plt.show()
+
+            figName = 'qPhs'
+            fig,ax = plt.subplots(figsize=tsFigSze)
+            ax.set_prop_cycle(linestyle=['-','--','-.'])
+            PLTS=ax.plot(times, tsRslt['nPctrl']*tsRslt['qPhs'].T,color=cm.matlab(1))
+            ax.plot(times,1e-3*tsRslt['nPctrl']*tsRslt['qLimSet'],'k--')
+            ax.plot(times,-1e-3*tsRslt['nPctrl']*tsRslt['qLimSet'],'k--')
+            ax.set_xlabel('Time, hour')
+            ax.set_ylabel('Reactive power per generator, kVAr')
+            ax.legend(PLTS,['a','b','c'])
+            ax.set_xlim(xlm); ax.set_xticks(xtcks)
+            plt.tight_layout()
+            if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
+            plt.show()
+            
+            figName = 'dPwr'
+            tPwr = tsRslt['tPwr']
+            tLss = tsRslt['tLss']
+            fig,ax = plt.subplots(figsize=tsFigSze)
+            ax.set_prop_cycle(color=cm.matlab([1,2]))
+            ax.plot(times,tPwr[0]-tPwr[1])
+            ax.plot(times,tPwr[0]-tPwr[2])
+            ax.plot(times,tLss[0]-tLss[1],'-.')
+            ax.plot(times,tLss[0]-tLss[2],'-.')
+            ax.set_xlim(xlm); ax.set_xticks(xtcks)
+            ax.set_xlabel('Time, hour')
+            ax.set_ylabel('Power, kW')
+            plt.tight_layout()
+            if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
+            plt.show()
+                    
+            figName = 'efcy'
+            oldSettings = np.seterr()
+            np.seterr(all='ignore') # we want to ignore divide by zero.
+            efcy = (1e3*(tPwr[1]-tPwr[2]))/(np.sum(np.abs( tsRslt['nPctrl']*tsRslt['qPhs'] ),axis=0))
+            np.seterr(**oldSettings)
+            fig,ax = plt.subplots(figsize=tsFigSze)
+            ax.plot(times,efcy)
+            ax.set_xlabel('Time, hour')
+            ax.set_ylabel('Efficacy, W/kVAr')
+            ax.set_xlim(xlm); ax.set_xticks(xtcks)
+            plt.tight_layout()
+            if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
+            plt.show()
+
+            figName = 'tapSet'
+            fig,ax = plt.subplots(figsize=tsFigSze)
+            ax.plot(times,tsRslt['tSet'].T)
+            ax.plot(xlm,[16,16],'k--')
+            ax.plot(xlm,[-16,-16],'k--')
+            ax.set_xlim(xlm); ax.set_xticks(xtcks)
+            ax.set_xlabel('Time, hour')
+            ax.set_ylabel('Tap position')
+            plt.tight_layout()
+            if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
+            plt.show()

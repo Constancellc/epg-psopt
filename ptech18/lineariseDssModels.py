@@ -320,7 +320,7 @@ class buildLinModel:
         DSSSolution.Tolerance=1e-10
         DSSSolution.LoadMult = lin_point
         DSSSolution.Solve()
-        print('\nNominally converged:',DSSSolution.Converged)
+        print('\nNominally converged (makeCvrQp):',DSSSolution.Converged)
         
         self.TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
         self.Cap_No0 = getCapPos(DSSCircuit)
@@ -614,7 +614,7 @@ class buildLinModel:
         self.qlossReg = qlossReg
     
     def getObjFunc(self,strategy,obj,tLss=False):
-        if obj=='opCst':
+        if obj in ['opCst','tsCst']:
             if strategy in ['full','part','phase','nomTap']:
                 H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.ploadL + self.pcurtL
@@ -673,6 +673,14 @@ class buildLinModel:
             xLimLo = np.r_[ -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,
                                                                                 -np.ones(self.nT)*self.tLim ]
             Gx = np.r_[np.eye(self.nCtrl),-np.eye(self.nCtrl)]
+            
+        if obj in ['tsCst']:
+            xLimUp = np.r_[ np.ones(self.nPctrl)*self.pLim,np.ones(self.nPctrl)*self.qLim,
+                                                                                np.ones(self.nT)*self.tLim ]
+            xLimLo = np.r_[ -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,
+                                                                                -np.ones(self.nT)*self.tLim ]
+            Gx = np.r_[np.eye(self.nCtrl),-np.eye(self.nCtrl)]
+            
             
         if obj in ['hcLds']:
             xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
@@ -739,6 +747,36 @@ class buildLinModel:
                 else:
                     oneHat = np.empty((self.nCtrl,0)) # No taps, with Q=0 fully specified.
         
+        if obj=='tsCst':
+            if strategy in ['full','loss','load']:
+                # oneHat = np.r_[ np.zeros((self.nPctrl,self.nPctrl+self.nT)),np.eye(self.nPctrl+self.nT) ]
+                oneHat = np.zeros((self.nCtrl,1+self.nPctrl+self.nT))
+                oneHat[:self.nPctrl,0] = 1
+                oneHat[self.nPctrl:self.nSctrl,1:self.nPctrl+1] = np.eye(self.nPctrl)
+                oneHat[self.nSctrl:,self.nPctrl+1:] = np.eye(self.nT)
+            elif strategy=='part':
+                oneHat = np.zeros((self.nCtrl,1+1+self.nT))
+                oneHat[:self.nPctrl,0] = 1
+                oneHat[self.nPctrl:self.nSctrl,1] = 1
+                oneHat[self.nSctrl:,2:] = np.eye(self.nT)
+            elif strategy=='phase':
+                if 'nPh1' not in dir(self):
+                    self.getLdsPhsIdx()
+                oneHat = np.zeros((self.nCtrl,1+3+self.nT))
+                oneHat[:self.nPctrl,0] = 1
+                oneHat[self.nPctrl:self.nSctrl,1][self.Ph1] = 1
+                oneHat[self.nPctrl:self.nSctrl,2][self.Ph2] = 1
+                oneHat[self.nPctrl:self.nSctrl,3][self.Ph3] = 1
+                oneHat[self.nSctrl:,4:] = np.eye(self.nT)
+            elif strategy in ['maxTap','minTap','nomTap']:
+                if self.nT>0:
+                    oneHat = np.zeros((self.nCtrl,1+self.nT))
+                    oneHat[:self.nPctrl,0] = 1
+                    oneHat[-self.nT:,1:] = np.eye(self.nT)
+                else:
+                    oneHat = np.zeros((self.nCtrl,1)) # No taps, with Q=0 fully specified.
+                    oneHat[:self.nPctrl,0] = 1
+
         if obj in ['hcGen','hcLds']:
             if strategy in ['full']:
                 oneHat = np.zeros((self.nCtrl,1 + self.nPctrl + self.nT))
@@ -830,12 +868,13 @@ class buildLinModel:
         # 1. 'opCst' for operating cost
         # 2. 'hcGen' for gen HC
         # 3. 'hcLds' for load HC
+        # 4 'tsLds' for operating cost with generation
         
         # GET RID OF APPROPRIATE VARIABLES
         self.oneHat,self.x0 = self.remControlVrlbs(strategy,obj)
         x0 = self.x0; oneHat = self.oneHat
         
-        if obj=='opCst' and strategy in ['minTap','maxTap','nomTap'] and self.nT==0:
+        if obj in ['opCst','tsCst'] and strategy in ['minTap','maxTap','nomTap'] and self.nT==0:
             self.slnX = x0.flatten(); self.slnS = np.nan
         elif obj in ['hcGen','hcLds'] and strategy in ['loss','load']:
             self.slnX = x0.flatten(); self.slnS = np.nan
@@ -1062,7 +1101,7 @@ class buildLinModel:
         self.loadQpSet(invType=invType)
         self.loadQpSln(strategy,obj)
         
-        if obj=='opCst':# op cost (kW):
+        if obj in ['opCst','tsCst']:# op cost (kW):
             if res=='norm': val = sum(self.slnF[0:4])/sum(self.slnF0[0:4])
             if res=='power': val = sum(self.slnF[0:4]) - sum(self.slnF0[0:4])
         if obj=='hcGen':# HC gen (kW):
@@ -1161,9 +1200,29 @@ class buildLinModel:
         elif err=='I':
             dssError = np.linalg.norm(  (self.slnF[7] - self.slnD[7])/self.iXfmrLims )/np.linalg.norm( self.iXfmrLims )
         elif err=='P':
-            dssError = np.linalg.norm( np.sum(self.slnF[0:4]) - np.sum(self.slnD[0:4]) )/np.linalg.norm( np.sum(self.slnD[0:4]) )
+            # dssError = np.linalg.norm( np.sum(self.slnF[0:4]) - np.sum(self.slnD[0:4]) )/np.linalg.norm( np.sum(self.slnD[0:4]) )
+            dssError = np.linalg.norm( np.sum(self.slnF[0:4]) - np.sum(self.slnD[0:4]) )/np.linalg.norm( np.sum(self.slnD0[0:4]) - np.sum(self.slnD[0:4]) )
         return dssError
+    
+    def tsRecordSnap(self,slnTs,idxs,slnX=None,slnF=None):
+        if slnX is None:
+            slnX = self.slnX
+        if slnF is None:
+            slnF = self.slnF
         
+        V = slnF[4]/self.vKvbase
+        vKvbase = self.vKvbase[V>0.5]
+        V = V[V>0.5]
+        slnTs['vMin'][idxs] = np.min(V)
+        slnTs['vMinMv'][idxs] = np.min(V[vKvbase>1000])
+        slnTs['vMinLv'][idxs] = np.min(V[vKvbase<1000])
+        slnTs['vMax'][idxs] = np.max(V)
+        slnTs['tPwr'][idxs] = sum(slnF[0:4])
+        slnTs['tLss'][idxs] = slnF[0]
+        slnTs['tSet'][idxs] = np.mean(slnX[self.nSctrl:] + np.array(self.TC_No0))
+        return slnTs
+        
+    
     def setDssSlnX(self,genNames,slnX=None,method=None):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         if slnX is None:
@@ -1738,7 +1797,7 @@ class buildLinModel:
         DSSSolution.Tolerance=1e-10
         DSSSolution.LoadMult = lin_point
         DSSSolution.Solve()
-        print('\nNominally converged:',DSSSolution.Converged)
+        print('\nNominally converged (createNrelModel):',DSSSolution.Converged)
         
         self.TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
         self.Cap_No0 = getCapPos(DSSCircuit)
@@ -1844,7 +1903,7 @@ class buildLinModel:
         DSSSolution.Tolerance=1e-10
         DSSSolution.LoadMult = linPoint
         DSSSolution.Solve()
-        print('\nNominally converged:',DSSSolution.Converged)
+        print('\nNominally converged (createCvrModel):',DSSSolution.Converged)
         
         self.TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
         
