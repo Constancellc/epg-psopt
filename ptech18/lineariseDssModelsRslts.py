@@ -15,12 +15,13 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 # f_checkError = 1
 # f_valueComparison = 1
 # f_psccAbstract = 1
+# f_costFuncStudy = 1
+
 
 SD0 = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19')
 
-def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,pltSave=False):
+def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.6,method='fpl',saveModel=False,pltSave=False):
     reload(lineariseDssModels)
-    
     SD = SD0
     blm = lineariseDssModels.buildLinModel(FD=FD,fdr_i=fdr_i,linPoints=[linPoint],pCvr=pCvr,
                                                 modelType=modelType,method=method,saveModel=saveModel,SD=SD,pltSave=pltSave)
@@ -29,6 +30,7 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 # self = main('n10',modelType='plotOnly',pltSave=False)
 feederSet = [5,6,8,26,24,0,18,17,'n4','n1','n10','n27']
 feederSet = [6,0,17,'n1',26,'n27',24,'n10',18] # results set
+feederSet = [6,'n1','n10',17,18,26,24,'n27']
 # feederSet = [26,0,17,24,18,'n1','n10','n27','n4']
 
 
@@ -294,6 +296,66 @@ if 'f_psccAbstract' in locals():
     ax2.set_xlabel('Regularization parameter')
     plt.tight_layout()
     plt.show()
+
+
+if 'f_costFuncStudy' in locals():
+    from numpy.linalg import norm, solve, lstsq
+    #things to do.
+    # 1. load linTot, qpQlss and qpQtot Find the units of them.
+    # 2. Find Q^-1 L; then, solve using the 'fast' method, and compare.
+    epsXoff = np.zeros((len(feederSet),3))
+    x1sets = {}
+    for feeder,ii in zip(feederSet,range(len(feederSet))):
+        print(feeder)
+        linPoints = linPointsDict[feeder]['all']
+        linPoint = linPoints[-1]
+        x1sets[feeder] = {}
+        self = main(feeder,modelType='loadOnly',linPoint=linPoint)
+        self.solveQpUnc()
+        qpQlss = 1e3*self.qQpUnc[self.nPctrl:self.nSctrl,self.nPctrl:self.nSctrl]
+        
+        types = ['Low','Hi']
+        sRateds = [1.0,4.0,16.0]
+        invCoeffs = [[],[]]
+        for type,i in zip(types,range(2)):
+            for sRated in sRateds:
+                kQlossC,kQlossQ = self.getInvLossCoeffs(sRated,type)
+                self.setQlossOfs(kQlossQ=kQlossQ,kQlossC=0)
+                invCoeffs[i].append(1e3*np.linalg.norm(self.qlossQdiag,ord=np.inf))
+        
+        pLoad = self.ploadL[self.nPctrl:self.nSctrl]
+        pLoss = self.qpLlss[self.nPctrl:self.nSctrl]
+        p = 1e3*(pLoad + pLoss)
+        
+        xOffValue = 1.05
+        sln0 = lstsq(qpQlss,-0.5*p,rcond=None)
+        cQ = sln0[0]
+        bQ = lstsq(-qpQlss,cQ,rcond=None)[0]
+
+        c0 = cQ.dot(cQ)*(xOffValue**2 - 1) # 0.19
+        c1 = 2*cQ.dot(bQ)
+        c2 = bQ.dot(bQ)
+        epsXoff[ii,2] = np.min(np.roots([c2,c1,c0]))
+        # x1sets[feeder] = [x1Set,cQ]
+
+        aQ = lstsq(qpQlss,bQ,rcond=None)
+
+        cQ = -0.5*p
+        bQ = -qpQlss.dot(cQ)
+        c0 = cQ.dot(cQ)*(1 - xOffValue**2)
+        c1 = 2*cQ.dot(bQ)
+        c2 = bQ.dot(bQ)
+        # epsXoff[ii,1] = np.max(1/np.roots([c2,c1,c0])) # not used as too often outside of the right point.
+        
+        sln0s = sln0[3]
+        m_eps = np.finfo(np.float64).eps
+        sln0s = sln0s[sln0s>( m_eps*len(sln0s)*sln0s[0] )]
+        
+        epsXoff[ii,0:2] = [sln0s[0],sln0s[-1]]
+
+
+    
+    
 
 # self = main(feeder,linPoint=linPoint,pCvr=pCvr,modelType='loadOnly')
 # self.setQlossOfs(kQlossQ=0.5,kQlossC=0.0)
