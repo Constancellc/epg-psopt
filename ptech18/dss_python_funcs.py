@@ -973,6 +973,9 @@ def basicTable(caption,label,heading,data,TD):
     # creates a simple table. caption, label, TD (table directory) are strings;
     # heading is a list of strings, and data is a list of lists of strings, each 
     # sublist the same length as heading.
+    if not(TD[-1]=='\\'):
+        TD = TD+'\\'
+    
     headTxt = ''
     for head in heading:
         headTxt = headTxt + head + ' & '

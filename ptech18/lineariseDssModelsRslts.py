@@ -1,7 +1,7 @@
 import lineariseDssModels, sys, os, pickle, random, time
 from importlib import reload
 import numpy as np
-from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, basicTable
+from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, basicTable, sdt
 import matplotlib.pyplot as plt
 
 FD = sys.argv[0]
@@ -15,7 +15,7 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 # f_checkError = 1
 # f_valueComparison = 1
 # f_psccAbstract = 1
-# f_costFuncStudy = 1
+# t_costFuncStudy = 1
 
 
 SD0 = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19')
@@ -298,7 +298,7 @@ if 'f_psccAbstract' in locals():
     plt.show()
 
 
-if 'f_costFuncStudy' in locals():
+if 't_costFuncStudy' in locals():
     from numpy.linalg import norm, solve, lstsq
     #things to do.
     # 1. load linTot, qpQlss and qpQtot Find the units of them.
@@ -352,7 +352,22 @@ if 'f_costFuncStudy' in locals():
         sln0s = sln0s[sln0s>( m_eps*len(sln0s)*sln0s[0] )]
         
         epsXoff[ii,0:2] = [sln0s[0],sln0s[-1]]
+        
+    epsXoffTbl = []
+    for row,feeder in zip(epsXoff,feederSet):
+        epsXoffTbl.append([])
+        epsXoffTbl[-1].append(feederIdxTidy[feeder])
+        epsXoffTbl[-1].append( '%.2e' % row[2])
+        epsXoffTbl[-1].append( '%.2e' % row[1])
+        epsXoffTbl[-1].append( '%.2e' % row[0])
 
+    TD = sdt('t3','t')
+        
+    label = 'costFuncStudy'
+    heading = ['Feeder','$\delta _{5\%}$','Min sing. value','Max sing. value']
+    caption = 'Minimum/Maximum singular values of network loss quadratic matrices, and the estimate of the 5\% solution reduction value $\delta _{5\%}$.'
+    data = epsXoffTbl
+    basicTable(caption,label,heading,data,TD)
 
     
     

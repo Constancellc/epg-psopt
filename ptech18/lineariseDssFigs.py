@@ -6,6 +6,7 @@ from dss_voltage_funcs import getCapPos
 import matplotlib.pyplot as plt
 from matplotlib import cm, rc
 plt.style.use('tidySettings')
+from lineariseDssModels import dirPrint
 
 FD = sys.argv[0]
 
@@ -61,6 +62,7 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_scaling = 1
 # f_costFuncXmpl = 1
 # f_costFuncAsym = 1
+# f_psdFigs = 1
 
 # pltSave=1
 
@@ -690,43 +692,102 @@ if 't_networkMetrics' in locals():
     print(heading); print(*data,sep='\n')
     
 if 'f_costFunc' in locals():
-    feeder = 0
-    self = main(feeder,modelType='loadOnly')
-    fig,[ax1,ax2] = plt.subplots(ncols=2)
+    feederSet = [24,'n27']
+    for feeder in feederSet:
+        self = main(feeder,modelType='loadOnly',linPoint=1.0)
+        fig,ax1 = plt.subplots(figsize=(3.3,2.8))
 
-    ldsQ = 1e3*self.ploadL[self.nPctrl:self.nSctrl]
-    lssQ = 1e3*self.qpLlss[self.nPctrl:self.nSctrl]
-    tot = lssQ + ldsQ
-    ax1.plot(tot,'k',label='$\lambda_{\mathrm{Q}}$ (tot)');
-    ax1.plot(ldsQ,'--',label='$\lambda_{\mathrm{Q}}^{\mathrm{Load}}$');
-    ax1.plot(lssQ,'--',label='$\lambda_{\mathrm{Q}}^{\mathrm{Loss}}$');
-    ax1.legend(fontsize='small')
-    ax1.set_xlabel('Bus index $i$')
-    ax1.set_ylim((-20,20))
-    ax1.set_ylabel('QP Sensitivity  $\lambda_{\mathrm{Q}}^{[i]}$, W/kVAr')
+        ldsQ = 1e3*self.ploadL[self.nPctrl:self.nSctrl]
+        lssQ = 1e3*self.qpLlss[self.nPctrl:self.nSctrl]
+        tot = lssQ + ldsQ
+        ax1.plot(tot,'k',label='$\lambda_{\mathrm{Q}}$ (tot)');
+        ax1.plot(ldsQ,'--',label='$\lambda_{\mathrm{Q}}^{\mathrm{Load}}$');
+        ax1.plot(lssQ,'--',label='$\lambda_{\mathrm{Q}}^{\mathrm{Loss}}$');
+        ax1.legend(fontsize='small')
+        ax1.set_xlabel('Bus index $i$')
+        ax1.set_ylabel('QP Sensitivity  $\lambda_{\mathrm{Q}}^{[i]}$, W/kVAr')
 
-    H = self.getHmat()
-    qpQlss = 1e3*H.dot(H.T)
-    qpQtot = qpQlss + np.diag(1e3*self.qlossQdiag)
-    # plt.plot(np.diag(qpQlss)[self.nPctrl:self.nSctrl],label='qpQtot')
-    ax2.plot(np.sum(np.abs(qpQtot),axis=1)[self.nPctrl:self.nSctrl],'k',label='$\Lambda_{\mathrm{QQ}}$ (tot)')
-    ax2.plot(np.sum(np.abs(qpQlss),axis=1)[self.nPctrl:self.nSctrl],'--',label='$\Lambda_{\mathrm{QQ}}^{\mathrm{Loss}}$')
-    ax2.plot(1e3*self.qlossQdiag[self.nPctrl:self.nSctrl],'--',label='$\Lambda_{\mathrm{QQ}}^{\mathrm{Inverter}}$')
-    ax2.set_xlabel('Bus index $i$')
-    ax2.set_ylabel('QP Hessian  $\|\| \Lambda_{\mathrm{QQ}}^{[i,:]} \|\|_{1}$, W/kVAr$^{2}$ ')
-    ax2.legend(fontsize='small',loc='upper left')
-    ax2.set_ylim((0,100))
+        # H = self.getHmat()
+        # qpQlss = 1e3*H.dot(H.T)
+        # qpQtot = qpQlss + np.diag(1e3*self.qlossQdiag)
+        # # plt.plot(np.diag(qpQlss)[self.nPctrl:self.nSctrl],label='qpQtot')
+        # ax2.plot(np.sum(np.abs(qpQtot),axis=1)[self.nPctrl:self.nSctrl],'k',label='$\Lambda_{\mathrm{QQ}}$ (tot)')
+        # ax2.plot(np.sum(np.abs(qpQlss),axis=1)[self.nPctrl:self.nSctrl],'--',label='$\Lambda_{\mathrm{QQ}}^{\mathrm{Loss}}$')
+        # ax2.plot(1e3*self.qlossQdiag[self.nPctrl:self.nSctrl],'--',label='$\Lambda_{\mathrm{QQ}}^{\mathrm{Inverter}}$')
+        # ax2.set_xlabel('Bus index $i$')
+        # ax2.set_ylabel('QP Hessian  $\|\| \Lambda_{\mathrm{QQ}}^{[i,:]} \|\|_{1}$, W/kVAr$^{2}$ ')
+        # ax2.legend(fontsize='small',loc='upper left')
+        # ax2.set_ylim((0,100))
+        
+        plt.tight_layout()
+        # if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'costFunc_'+self.feeder),pltClose=True)
+        if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'costFunc_'+self.feeder),pltClose=True)
+        plt.show()
+
+
+if 'f_psdFigs' in locals():
+    feeder = 6
+    self = main(feeder,modelType='loadOnly',linPoint=0.6)
+    self.solveQpUnc()
+    qpQlss = 1e3*self.qQpUnc[self.nPctrl:self.nSctrl,self.nPctrl:self.nSctrl]
+    
+    pLoad = self.ploadL[self.nPctrl:self.nSctrl]
+    pLoss = self.qpLlss[self.nPctrl:self.nSctrl]
+    p = 1e3*(pLoad + pLoss)
+        
+    from numpy.linalg import svd
+    [UU,ss,VVh] = svd(qpQlss)
+
+    figname = 'psdFigsSs'
+    sd = sdt('t3','f')
+    fig,ax = plt.subplots(figsize=(2.8,2.8))
+    ax.plot(ss,'x')
+    ax.set_yscale('log')
+    ax.set_xlabel('Eigenvalue number')
+    ax.set_ylabel('Eigenvalue, W/kVA$^{2}$')
     plt.tight_layout()
-    if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'costFunc'))
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname),pltClose=True)
+
     plt.show()
 
+    figname = 'psdFigsUu'
+    sd = sdt('t3','f')
+    fig,ax = plt.subplots(figsize=(2.8,2.8))
+    ax.plot(VVh[-1],'x',label='N-1')
+    ax.plot(VVh[-2],'+',label='N-2')
+    ax.set_xlabel('Control index, $i$')
+    ax.set_ylabel('Eigenvector value $v(i)$')
+    ylm = ax.get_ylim()
+    ax.plot((39.5,39.5),ylm,'k--')
+    ax.set_ylim(ylm)
+    ax.text(1,-0.38,'Wye\nloads')
+    ax.text(41,-0.38,'Delta\nloads')
+    plt.tight_layout()
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname),pltClose=True)
+
+    plt.show()
+    # print(vecSlc(self.YZ,self.pyIdx[0][20:26]))
+
+    figname = 'psdFigsUlmb'
+    sd = sdt('t3','f')
+    fig,ax = plt.subplots(figsize=(2.8,2.8))
+    ax.plot(1e3*np.abs(VVh.dot(pLoad)),'+',label='Load')
+    ax.plot(1e3*np.abs(VVh.dot(pLoss)),'x',label='Ntwk. Loss')
+    ax.set_xlabel('Eigenvalue number')
+    ax.set_ylabel('Response $U^{\intercal}\lambda_{(\cdot)}$, W/kVAr')
+    ax.legend()
+    ax.set_yscale('log')
+    plt.tight_layout()
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname),pltClose=True); plt.show()
+
+    plt.show()
 
 if 'f_costFuncXmpl' in locals():
-    from numpy.linalg import norm, solve, lstsq
+    from numpy.linalg import norm, solve, lstsq, svd
     feeder = 'n1'
     feeder = 26
     # self = main(feeder,modelType='loadOnly',linPoint=1.0)
-    self = main(feeder,modelType='loadOnly',linPoint=1.0)
+    self = main(feeder,modelType='loadOnly',linPoint=0.6)
     self.solveQpUnc()
     qpQlss = 1e3*self.qQpUnc[self.nPctrl:self.nSctrl,self.nPctrl:self.nSctrl]
     types = ['Low','Hi']
