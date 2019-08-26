@@ -1195,13 +1195,18 @@ class buildLinModel:
     def qpSolutionDssError(self,strategy,obj,err='V'):
         self.loadQpSet()
         self.loadQpSln(strategy,obj)
+        # TL,PL,TC,CL,V,I,Vc,Ic = self.slnF
         if err=='V':
-            dssError = np.linalg.norm( (self.slnF[4] - self.slnD[4])/self.vKvbase )/np.linalg.norm( self.slnF[4]/self.vKvbase )
+            # dssError = np.linalg.norm( (self.slnF[4] - self.slnD[4])/self.vKvbase )/np.linalg.norm( self.slnF[4]/self.vKvbase )
+            dssError = np.linalg.norm( np.abs(self.slnF[4] - self.slnD[4])/np.abs(self.slnD[4] - self.slnD0[4]) )/len(self.vKvbase)
         elif err=='I':
-            dssError = np.linalg.norm(  (self.slnF[7] - self.slnD[7])/self.iXfmrLims )/np.linalg.norm( self.iXfmrLims )
+            # dssError = np.linalg.norm(  (self.slnF[7] - self.slnD[7])/self.iXfmrLims )/np.linalg.norm( self.iXfmrLims )
+            dssError = np.linalg.norm(  np.abs(np.abs(self.slnF[7]) - np.abs(self.slnD[7]))/(np.abs(np.abs(self.slnD0[7]) - np.abs(self.slnD[7])) + 0.05*self.iXfmrLims) )/len( self.iXfmrLims )
         elif err=='P':
+            # dssError = np.linalg.norm( np.sum(self.slnF[0]) - np.sum(self.slnD[0]) )/np.linalg.norm( np.sum(self.slnD0[0]) - np.sum(self.slnD[0]) )
+            dssError = np.linalg.norm( np.sum(self.slnF[0:2]) - np.sum(self.slnD[0:2]) )/( np.linalg.norm( np.sum(self.slnD0[0:2]) - np.sum(self.slnD[0:2]) ) + 0.001*np.abs(sum(self.slnD0[0:2])) )
+            
             # dssError = np.linalg.norm( np.sum(self.slnF[0:4]) - np.sum(self.slnD[0:4]) )/np.linalg.norm( np.sum(self.slnD[0:4]) )
-            dssError = np.linalg.norm( np.sum(self.slnF[0:4]) - np.sum(self.slnD[0:4]) )/np.linalg.norm( np.sum(self.slnD0[0:4]) - np.sum(self.slnD[0:4]) )
         return dssError
     
     def tsRecordSnap(self,slnTs,idxs,slnX=None,slnF=None):
@@ -2804,7 +2809,7 @@ class buildLinModel:
         self.getSourceBus()
         self.regBuses = get_regIdx(DSSCircuit)[1]
         
-        if self.feeder in ['epri24','8500node','123bus','epriJ1','epriK1','epriM1']: # if there is a regulator 'on' the source bus
+        if self.feeder in ['epri24','8500node','123bus','123busCvr','epriJ1','epriK1','epriM1']: # if there is a regulator 'on' the source bus
             self.srcReg = 1
         else:
             self.srcReg = 0        
@@ -2818,7 +2823,7 @@ class buildLinModel:
         else:
             self.plotMarkerSize=50
             
-        self.sfDict3ph = {'13bus':6,'123bus':60,'epriK1cvr':40,'34bus':80,'n1':4,'eulv':2,'epri5':90,'epri7':50,'n10':3,'n4':3,'n27':4}
+        self.sfDict3ph = {'13bus':6,'123bus':60,'123busCvr':60,'epriK1cvr':40,'34bus':80,'n1':4,'eulv':2,'epri5':90,'epri7':50,'n10':3,'n4':3,'n27':4}
             
         vMap = cm.RdBu
         pMap = cm.GnBu
