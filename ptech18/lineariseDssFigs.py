@@ -42,6 +42,7 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_currentErrors = 1
 # f_modelValidation = 1
 # f_daisy = 1
+# f_123busVlts = 1
 # f_solutionError = 1
 # f_caseStudyChart = 1
 # t_sensitivities_base = 1 #not used
@@ -74,13 +75,16 @@ TD = os.path.join(SD0,'tables\\')
 
 # feederSet = [0,17,'n1',26,24,'n27']
 # feederSet = [0,17,'n1',26,24,'n27']
-feederSet = ['n1','n10',17,18,26,24,'n27']
+feederSet = [17,18,'n1','n10',26,24,'n27']
 # feederSet = [24]
 # feederSet = [8]
 # feederSet = [0,5] # fast
 
 strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','maxTap'],'hcLds':['full','phase','nomTap','minTap'] }
-objSet = ['opCst','hcGen','hcLds']
+# objSet = ['opCst','hcGen','hcLds']
+objSet = ['opCst']
+
+ssSmart = {'full':'Full','phase':'Phase','nomTap':'Nominal','load':'Load','loss':'Loss'}
 
 lpA = [0.1,0.6,1.0];        lpB = [0.1,0.3,0.6];       lpC = [1.0]
 linPointsA = {'all':lpA,'opCst':lpA,'hcGen':[lpA[0]],'hcLds':[lpA[-1]]}
@@ -228,6 +232,7 @@ if 'f_valueComparisonChart' in locals():
     colorSet = {'opCst':cm.matlab([0,1,2,3,4]),'hcGen':cm.matlab([0,1,2,5]),'hcLds':cm.matlab([0,1,2,6])}
     
     objSet = ['opCst','hcGen','hcLds']
+    objSet = ['opCst']
     for obj in objSet:
         fig,ax = plt.subplots(figsize=(5.5,3.0))
         table = tables[obj]
@@ -239,19 +244,23 @@ if 'f_valueComparisonChart' in locals():
                                                                         # width=0.08,color=cm.matlab(range(nS)) )
         
         for i in range(nS): #for the legend
-            ax.plot(0,0,label=strategySet[obj][i],color=colorSet[obj][i])
-        
-        ax.set_ylim(ylims[obj])
-        ax.set_xticks(np.arange(len(feederSet)))
-        ax.set_xticklabels(feederTidy,rotation=90)
-        # ax.legend(fontsize='small')
-        ax.legend(loc='center left', bbox_to_anchor=(1.01, 0.5),fontsize='small')
-        ax.set_ylabel(ylabels[obj])
-        ax.set_title(obj)
-        if 'pltSave' in locals():
-            plotSaveFig(os.path.join(SDfig,'valueComparisonChart_'+obj))
-        plt.tight_layout()
-        plt.show()
+            ax.plot(0,0,label=ssSmart[strategySet[obj][i]],color=colorSet[obj][i])
+
+    ax.plot((3.5,3.5),ylims[obj],'k--')
+    ax.text(3.6,ylims[obj][-1]-2.8,'With\nregs.')
+    ax.text(-0.5,ylims[obj][-1]-2.8,'No\nregs.')
+    ax.set_ylim(ylims[obj])
+    ax.set_xticks(np.arange(len(feederSet)))
+    ax.set_xticklabels(feederTidy,rotation=90)
+    ax.legend(loc='center left', bbox_to_anchor=(1.01, 0.5),fontsize='small',title='Control')
+    # ax.set_ylabel(ylabels[obj])
+    ax.set_ylabel('Power in versus reference, %')
+    # ax.set_title(obj)
+    plt.tight_layout()
+    # if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'valueComparisonChart_'+obj))
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'valueComparisonChart_'+obj))
+
+    plt.show()
 
 if 'f_caseStudyChart' in locals():
     ylabels={'opCst':'Total P in / Total P in Ref., %','hcGen':'Generation (% of nominal load)','hcLds':'Load (% of nominal load)'}
@@ -275,8 +284,8 @@ if 'f_caseStudyChart' in locals():
             j+=1
         i+=1
     
-    figFrac = 0.6
-    fig,ax = plt.subplots(figsize=(5.5*figFrac,3.0))
+    figFrac = 1.0
+    fig,ax = plt.subplots(figsize=(5.5*figFrac,2.5))
     for i in range(3):
         for j in range(nS):
             ax.bar(i-0.25+ (0.25*2*np.arange(nS)/(nS-1)),100*opCstTable[i],
@@ -284,54 +293,56 @@ if 'f_caseStudyChart' in locals():
     for i in range(nS): #for the legend
         ax.plot(0,0,label=strategySet[obj][i])
     
-    ax.set_ylim((95,107.5))
+    ax.set_ylim((95,100.5))
     ax.set_xticks(np.arange(3))
-    ax.set_xticklabels(('10% load','60% load','100% load'),rotation=90)
-    ax.legend(fontsize='small')
+    # ax.set_xticklabels(('10% load','60% load','100% load'),rotation=90)
+    ax.set_xticklabels(('10% load','60% load','100% load'))
+    ax.legend(loc='center left', bbox_to_anchor=(1.01, 0.5))
     ax.set_ylabel(ylabels[obj])
-    ax.set_title(obj)
+    # ax.set_title(obj)
     plt.tight_layout()
     if 'pltSave' in locals():
         plotSaveFig(os.path.join(SDfig,'caseStudyChartOpCst'))
+        plotSaveFig(os.path.join(sdt('t3','f'),'caseStudyChartOpCst'))
     plt.show()
 
-    obj = 'hcGen'
-    nSg = len(strategySet[obj])
-    hcGenTable = np.zeros( 0 )
-    linPoint = linPointsDict[feeder][obj][0]
-    self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
-    for strategy in strategySet[obj]:
-        hcGenTable = np.r_[(hcGenTable,self.qpVarValue(strategy,obj,'norm'))]
+    # obj = 'hcGen'
+    # nSg = len(strategySet[obj])
+    # hcGenTable = np.zeros( 0 )
+    # linPoint = linPointsDict[feeder][obj][0]
+    # self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+    # for strategy in strategySet[obj]:
+        # hcGenTable = np.r_[(hcGenTable,self.qpVarValue(strategy,obj,'norm'))]
 
-    obj = 'hcLds'
-    nSl = len(strategySet[obj])
+    # obj = 'hcLds'
+    # nSl = len(strategySet[obj])
 
-    hcLdsTable = np.zeros( 0 )
-    linPoint = linPointsDict[feeder][obj][0]
-    self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
-    for strategy in strategySet[obj]:
-        hcLdsTable = np.r_[(hcLdsTable,self.qpVarValue(strategy,obj,'norm'))]
+    # hcLdsTable = np.zeros( 0 )
+    # linPoint = linPointsDict[feeder][obj][0]
+    # self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+    # for strategy in strategySet[obj]:
+        # hcLdsTable = np.r_[(hcLdsTable,self.qpVarValue(strategy,obj,'norm'))]
 
-    fig,ax = plt.subplots(figsize=(5.5*(1-figFrac),3.0))
-    ax.bar(0-0.25+ (0.25*2*np.arange(nSg)/(nSg-1)),100*hcGenTable,
-                                            width=0.08,color=cm.matlab([0,1,2,5]) )
+    # fig,ax = plt.subplots(figsize=(5.5*(1-figFrac),3.0))
+    # ax.bar(0-0.25+ (0.25*2*np.arange(nSg)/(nSg-1)),100*hcGenTable,
+                                            # width=0.08,color=cm.matlab([0,1,2,5]) )
     
-    ax.bar(1-0.25+ (0.25*2*np.arange(nSl)/(nSl-1)),100*hcLdsTable,
-                                            width=0.08,color=cm.matlab([0,1,2,6]) )
+    # ax.bar(1-0.25+ (0.25*2*np.arange(nSl)/(nSl-1)),100*hcLdsTable,
+                                            # width=0.08,color=cm.matlab([0,1,2,6]) )
     
-    matlabClrs = [0,1,2,5,6]
-    strategySetAug = strategySet['hcGen']+[strategySet['hcLds'][-1]]
-    for i in range(len(strategySetAug)): #for the legend
-        ax.plot(0,0,label=strategySetAug[i],color=cm.matlab(matlabClrs[i]))
+    # matlabClrs = [0,1,2,5,6]
+    # strategySetAug = strategySet['hcGen']+[strategySet['hcLds'][-1]]
+    # for i in range(len(strategySetAug)): #for the legend
+        # ax.plot(0,0,label=strategySetAug[i],color=cm.matlab(matlabClrs[i]))
     
-    ax.set_xticks(np.arange(2))
-    ax.set_xticklabels(('Gen.','Load'),rotation=90)
-    ax.legend(fontsize='small')
-    ax.set_ylabel('Power (kW)')
-    plt.tight_layout()
-    if 'pltSave' in locals():
-        plotSaveFig(os.path.join(SDfig,'caseStudyChartHc'))
-    plt.show()
+    # ax.set_xticks(np.arange(2))
+    # ax.set_xticklabels(('Gen.','Load'),rotation=90)
+    # ax.legend(fontsize='small')
+    # ax.set_ylabel('Power (kW)')
+    # plt.tight_layout()
+    # if 'pltSave' in locals():
+        # plotSaveFig(os.path.join(SDfig,'caseStudyChartHc'))
+    # plt.show()
 
 
 if 'f_batchTest' in locals():
@@ -461,17 +472,71 @@ if 'f_modelValidation' in locals():
     plt.show()
     
 if 'f_daisy' in locals():
-    feeder = 8
+    # feeder = 8
+    feeder = 26
     self = main(feeder,'loadOnly',linPoint=1.0); self.loadQpSet(); self.loadQpSln('full','opCst')
     self.plotNetBuses('qSlnPh',pltShow=False)
     SN = os.path.join(SDfig,'daisy')
     if 'pltSave' in locals():
         plotSaveFig(os.path.join(SDfig,'daisy'),pltClose=True)
 
+if 'f_123busVlts' in locals():
+    feeder = 26
+    self = main(feeder,'loadOnly',linPoint=1.0); self.loadQpSet(); self.loadQpSln('full','opCst')
+    
+    figname='123busVlts'
+    sd = sdt('t3','f')
+    # nicked from showQpSln
+    TL,PL,TC,CL,V,I,Vc,Ic = self.slnF
+    TL0,PL0,TC0,CL0,V0,I0,Vc0,Ic0 = self.slnF0
+    TLd,PLd,TCd,CLd,Vd,Id,Vcd,Icd = self.slnD
+
+    fig,ax0=plt.subplots(figsize=(4.4,3.0))
+    # ax0.plot((Vd/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markeredgewidth=0.7,label='OpenDSS');
+    # ax0.plot((V/self.vKvbase)[self.vIn],'x',markeredgewidth=0.7,label='QP Sln.');
+    ax0.plot((V/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markersize=3.0,label='QP Sln.');
+    ax0.plot((V0/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markersize=3.0,label='Nom. Sln.');
+    ax0.plot((self.vHi/self.vKvbase)[self.vIn],'k_');
+    ax0.plot((self.vLo/self.vKvbase)[self.vIn],'k_');
+    ax0.set_xlabel('Bus Index')
+    ax0.set_ylabel('Voltage, pu')
+    ax0.grid(True)
+    ax0.legend()
+    # ax0.show()
+    plt.tight_layout()
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname),pltClose=True)
+    plt.show()
+    
+    self.printQpSln()
+    self.printQpSln(np.zeros(self.nCtrl),self.slnD0)
+    
+    
+    figname='123busVltsCtrl'
+    fig,ax2=plt.subplots(figsize=(4.4,3.0))
+    self.getLdsPhsIdx()
+    ax2.plot(range(0,self.nPh1),
+                        100*(self.slnX[self.nPctrl:self.nPctrl*2][self.Ph1])/self.qLim,'x-',label='Q, phs. A')
+    ax2.plot(range(self.nPh1,self.nPh1+self.nPh2),
+                        100*self.slnX[self.nPctrl:self.nPctrl*2][self.Ph2]/self.qLim,'x-',label='Q, phs. B')
+    ax2.plot(range(self.nPh1+self.nPh2,self.nPctrl),
+                        100*self.slnX[self.nPctrl:self.nPctrl*2][self.Ph3]/self.qLim,'x-',label='Q, phs. C')
+    ax2.plot(range(self.nPctrl,self.nPctrl + self.nT),100*self.slnX[self.nPctrl*2:]/self.tLim,'x-',label='Tap')
+    ax2.set_xlabel('Control Index')
+    ax2.set_ylabel('Control effort, %')
+    ax2.legend()
+    ax2.grid(True)
+    ax2.set_ylim((-110,110))
+    plt.tight_layout()
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname),pltClose=True)
+    plt.show()
+
+
+    
+
 if 't_checkErrorSummary' in locals():
     pCvr = 0.6
     strategy='full'
-    heading = ['Feeder','Voltage error, $\delta _{V}$','Current error, $\delta _{I}$','Power error, $\delta _{P}$']
+    heading = ['Feeder','Voltage error, \%','Current error, \%','Power error, \%']
     
     resultTable = [heading]
     i = 1
@@ -481,20 +546,43 @@ if 't_checkErrorSummary' in locals():
         for obj in objSet:
             linPoints = linPointsDict[feeder][obj]
             voltages = []; currents = []; powers = []
-            for linPoint in linPoints:
+            # for linPoint in linPoints:
+            for linPoint in [linPoints[-1]]:
                 self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
                 voltages.append(self.qpSolutionDssError(strategy,obj,err='V')*100)
                 currents.append(self.qpSolutionDssError(strategy,obj,err='I')*100)
                 powers.append(self.qpSolutionDssError(strategy,obj,err='P')*100)
+            # linPoint = linPoints[-1]
+            # self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+            # voltages.append(self.qpSolutionDssError(strategy,obj,err='V')*100)
+            # currents.append(self.qpSolutionDssError(strategy,obj,err='I')*100)
+            # powers.append(self.qpSolutionDssError(strategy,obj,err='P')*100)
         resultTable[i].append( "%.3f" % (np.max(voltages)))
         resultTable[i].append( "%.3f" % (np.max(currents)))
         resultTable[i].append( "%.3f" % (np.max(powers)))
         i+=1
     print(*resultTable,sep='\n')
     TD = os.path.join(SD0,'tables\\')
-    if 'pltSave' in locals(): basicTable('Maximum error, \%','checkErrorSummary',heading,resultTable[1:],TD)
+    caption = 'Maximum error across all three loading points (10\%, 60\%, 100\%)'
+    label = 'checkErrorSummary'
+    # if 'pltSave' in locals(): basicTable(caption,label,heading,resultTable[1:],TD)
+    if 'pltSave' in locals(): basicTable(caption,label,heading,resultTable[1:],sdt('t3','t'))
     
-    
+
+self = main(26,pCvr=pCvr,modelType='buildOnly',linPoint=0.1)
+self.initialiseOpenDss()
+self.setupConstraints() # this reloads the constraints in.
+kQlossC,kQlossQ = self.getInvLossCoeffs(type='Low')
+self.setQlossOfs(kQlossQ=kQlossQ,kQlossC=0) # nominally does NOT include turn on losses!
+optType = ['mosekFull']
+self.runCvrQp(strategy='full',obj='opCst',optType=optType)
+self.qpSolutionDssError(strategy,obj,err='I')*100
+
+
+# self.initialiseOpenDss()
+# self.testQpVcpf()
+# self.testCvrQp()
+
 if 't_sensitivities_base' in locals():
     # sensitivity_base: just the results of smart inverter control
     # go through and calculate the benefits of full (SI) control versus nominal control
@@ -937,21 +1025,25 @@ if 'f_costFuncAsym' in locals():
 
 
 
-
-
-
 if 'f_solutionError' in locals():
     feeder = 26
-    # self = main(feeder,'loadOnly',linPoint=1.0); self.loadQpSet(); self.loadQpSln('full','opCst'); self.plotArcy()
-    # self = main(feeder,'loadOnly',linPoint=1.0); self.loadQpSet(); self.loadQpSln('full','hcLds'); self.plotArcy()
-    # self = main(feeder,'loadOnly',linPoint=1.0); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.plotArcy()
-
     self = main(feeder,'loadOnly',linPoint=1.0); self.loadQpSet(); 
     self.loadQpSln('full','opCst')
     self.plotArcy(pltShow=False)
     if 'pltSave' in locals():
         plotSaveFig(os.path.join(SDfig,'solutionErrorOpCst'),pltClose=True)
-        
+    
+    self.printQpSln(self.slnX,self.slnF)
+    self.printQpSln(self.slnX,self.slnD)
+    
+    
+    dPa = sum(self.slnF[0:4]) - sum(self.slnD0[0:4])
+    dPb = sum(self.slnD[0:4]) - sum(self.slnD0[0:4])
+    errP = (dPa - dPb)/dPb
+    print(dPa)
+    print(dPb)
+    print(errP)
+    
     self.loadQpSln('full','hcLds'); 
     self.plotArcy(pltShow=False)
     if 'pltSave' in locals():
@@ -963,19 +1055,9 @@ if 'f_solutionError' in locals():
     if 'pltSave' in locals():
         plotSaveFig(os.path.join(SDfig,'solutionErrorHcGen'),pltClose=True)
     
-    # feeder = 18
-    # self = main(feeder,'loadOnly',linPoint=0.6); self.loadQpSet(); self.loadQpSln('full','opCst'); self.plotArcy()
-    # self = main(feeder,'loadOnly',linPoint=0.6); self.loadQpSet(); self.loadQpSln('full','hcLds'); self.plotArcy()
-    # self = main(feeder,'loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.plotArcy()
-
-# if 'f_caseStudy' in locals():
-    # self = 
-
 # self = main(8,'loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.showQpSln()
 # self = main('n1','loadOnly',linPoint=0.1); self.runCvrQp('full','hcGen')
 # self = main('n1','plotOnly')
-
-
 
 if 'f_37busVal' in locals():
     self = main(10,'linOnly')
