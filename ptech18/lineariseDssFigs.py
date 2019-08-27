@@ -356,25 +356,26 @@ if 'f_batchTest' in locals():
 
 if 'f_currentErrors' in locals():
     feederTest = [26,17]
-    feederTest = [26]
+    # feederTest = [17]
+    # feederTest = [26]
     for feeder in feederTest:
         self = main(feeder,'loadOnly',linPoint=0.6); 
         self.recreateKc2i = 1
+        self.recreateMc2v = 1
         self.initialiseOpenDss()
         self.makeCvrQp()
         k,ice,iae = self.testQpVcpf()[2:]; plt.close()
         fig,ax = plt.subplots(figsize=(3.8,2.8))
         ax.plot(k,ice,label='Complex')
-        ax.plot(k,iae,label='Linear')
+        ax.plot(k,iae,label='Real')
         ax.set_xlabel('Load scale factor')
-        ax.set_ylabel('Error, $|\!| (I_{\mathrm{Lin}} - I_{\mathrm{DSS}})/I_{\mathrm{Xfmr}} |\!|$')
+        ax.set_ylabel('Error, $\\frac{1}{\\sqrt{N}}|\!| (I_{\mathrm{Lin}} - I_{\mathrm{DSS}})/I_{\mathrm{Xfmr}} |\!|_{2}$, %')
         ylm = ax.get_ylim()
         ax.set_ylim((0,ylm[1]))
-        ax.legend(title='Current model')
+        ax.legend(title='Domain of $I$')
         plt.tight_layout()
         if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'currentErrors_'+self.feeder),pltClose=True)
         plt.show()
-        
 
 
 if 'f_scaling' in locals():
@@ -421,55 +422,77 @@ if 'f_convCapability' in locals():
     plt.show()
 
 if 'f_modelValidation' in locals():
-    feeder = 24
-    self = main(feeder,'loadOnly',linPoint=1.0,pCvr=0.6); self.initialiseOpenDss(); 
-    TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,Sset = self.testQpScpf()
+    feederSet = [18,24]
+    feederSet = [24]
+    feederSet = [18]
+    for feeder in feederSet:
+        linPoints = linPointsDict[feeder]['all']
+        self = main(feeder,'loadOnly',linPoint=linPoints[-1],pCvr=0.6); self.initialiseOpenDss(); 
+        TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,Sset = self.testQpScpf(); 
+        
+        plt.close(); plt.close()
+        
+        figSze = (4.5,5.0)
+        if feeder==18:
+            figSze = (5.5,5.0)
+        
+        ii = 0
+        # fig,[ax0,ax3,ax1,ax2] = plt.subplots(nrows=2,ncols=2,sharex=True,figsize=figSze)
+        fig,[[ax0,ax3],[ax1,ax2]] = plt.subplots(nrows=2,ncols=2,sharex=True,figsize=figSze)
+        ax0.plot(Sset[ii],100*vErrBoth[ii])
+        # ax0.set_xlabel('Rctv. power, kVAr')
+        ax0.set_ylabel('$V$ error, $\\dfrac{||V_{\mathrm{DSS}} - V_{\mathrm{Lin}}||_{2}}{||V_{\mathrm{DSS}}||_{2}}$, %')
+        ax3.plot(Sset[ii],100*iErrBoth[ii])
+        # ax3.set_xlabel('Rctv. power, kVAr')
+        ax3.set_ylabel('$I$ error, $\\dfrac{1}{\\sqrt{N_{\mathrm{I}}}}||\\dfrac{I_{\mathrm{DSS}} - I_{\mathrm{Lin}}}{I_{\mathrm{Xfmr}}}||_{2}$, %')
+        ax1.plot(Sset[ii],TLboth[ii],label='DSS.')
+        ax1.plot(Sset[ii],TLestBoth[ii],label='Apx.')
+        ax1.set_xlabel('Rctv. power, kVAr')
+        ax1.set_ylabel('Losses, kW')
+        ax1.legend(fontsize='small')
+        ax2.plot(Sset[ii],PLboth[ii]*1e-3,label='DSS.')
+        ax2.plot(Sset[ii],PLestBoth[ii]*1e-3,label='Apx.')
+        ax2.set_xlabel('Rctv. power, kVAr')
+        ax2.set_ylabel('Load, MW')
+        ax2.legend(fontsize='small')
+        plt.tight_layout(); 
+        if 'pltSave' in locals():
+            # SN = os.path.join(SDfig,'modelValidationQ')
+            # plt.savefig(SN+'.png',bbox_inches='tight',pad_inches=0.01)
+            # plt.savefig(SN+'.pdf',bbox_inches='tight',pad_inches=0.01)
+            plotSaveFig(os.path.join(sdt('t3','f'),'modelValidationQ'+self.feeder),pltClose=True)
 
-    ii = 0
-    fig,[ax0,ax1,ax2] = plt.subplots(ncols=3,figsize=(6.2,2.8))
-    ax0.plot(Sset[ii],100*vErrBoth[ii])
-    ax0.set_xlabel('Reactive power (kVAr)')
-    ax0.set_ylabel('Voltage error, $\\dfrac{||V_{\mathrm{DSS}} - V_{\mathrm{Lin}}||_{2}}{||V_{\mathrm{DSS}}||_{2}}$, %')
-    ax1.plot(Sset[ii],TLboth[ii],label='DSS.')
-    ax1.plot(Sset[ii],TLestBoth[ii],label='Apx.')
-    ax1.set_xlabel('Reactive power (kVAr)')
-    ax1.set_ylabel('Losses (kW)')
-    ax1.legend(fontsize='small')
-    ax2.plot(Sset[ii],PLboth[ii],label='DSS.')
-    ax2.plot(Sset[ii],PLestBoth[ii],label='Apx.')
-    ax2.set_xlabel('Reactive power (kVAr)')
-    ax2.set_ylabel('Load (kW)')
-    ax2.legend(fontsize='small')
-    plt.tight_layout(); 
-    if 'pltSave' in locals():
-        SN = os.path.join(SDfig,'modelValidationQ')
-        plt.savefig(SN+'.png',bbox_inches='tight',pad_inches=0.01)
-        plt.savefig(SN+'.pdf',bbox_inches='tight',pad_inches=0.01)
-
-    plt.show()
-
-    TL,TLest,PL,PLest,vErr,dxScale = self.testQpTcpf()
-    ii = 0
-    fig,[ax0,ax1,ax2] = plt.subplots(ncols=3,figsize=(6.2,2.8))
-    ax0.plot(dxScale,100*vErr,'x-')
-    ax0.set_xlabel('Tap')
-    ax0.set_ylabel('Voltage error, $\\dfrac{||V_{\mathrm{DSS}} - V_{\mathrm{Lin}}||_{2}}{||V_{\mathrm{DSS}}||_{2}}$, %')
-    ax1.plot(dxScale,TL,'x-',label='DSS.')
-    ax1.plot(dxScale,TLest,'x-',label='Apx.')
-    ax1.set_xlabel('Tap')
-    ax1.set_ylabel('Losses (kW)')
-    ax1.legend(fontsize='small')
-    # ax1.set_ylim((0,10000))
-    ax2.plot(dxScale,PL,'x-',label='DSS.')
-    ax2.plot(dxScale,PLest,'x-',label='Apx.')
-    ax2.set_xlabel('Tap')
-    ax2.set_ylabel('Load (kW)')
-    ax2.legend(fontsize='small')
-    plt.tight_layout(); 
-    
-    if 'pltSave' in locals():
-        plotSaveFig(os.path.join(SDfig,'modelValidationT'))
-    plt.show()
+        plt.show()
+        if self.nT>0:
+            TL,TLest,PL,PLest,vErr,iErr,dxScale = self.testQpTcpf()
+            plt.close(); 
+            # plt.show()
+            ii = 0
+            # fig,[ax0,ax3,ax1,ax2] = plt.subplots(ncols=4,figsize=figSze)
+            fig,[[ax0,ax3],[ax1,ax2]] = plt.subplots(nrows=2,ncols=2,sharex=True,figsize=figSze)
+            ax0.plot(dxScale,100*vErr,'x-')
+            # ax0.set_xlabel('Tap')
+            ax0.set_ylabel('$V$ error, $\\dfrac{||V_{\mathrm{DSS}} - V_{\mathrm{Lin}}||_{2}}{||V_{\mathrm{DSS}}||_{2}}$, %')
+            ax3.plot(dxScale,100*iErr)
+            # ax3.set_xlabel('Tap')
+            ax3.set_ylabel('$I$ error, $\\dfrac{1}{\\sqrt{N_{\mathrm{I}}}}||\\dfrac{I_{\mathrm{DSS}} - I_{\mathrm{Lin}}}{I_{\mathrm{Xfmr}}}||_{2}$, %')
+            ax1.plot(dxScale,TL,'x-',label='DSS.')
+            ax1.plot(dxScale,TLest,'x-',label='Apx.')
+            ax1.set_xlabel('Tap')
+            ax1.set_ylabel('Losses (kW)')
+            ax1.legend(fontsize='small')
+            # ax1.set_ylim((0,10000))
+            ax2.plot(dxScale,PL*1e-3,'x-',label='DSS.')
+            ax2.plot(dxScale,PLest*1e-3,'x-',label='Apx.')
+            ax2.set_xlabel('Tap')
+            ax2.set_ylabel('Load, MW')
+            ax2.legend(fontsize='small')
+            plt.tight_layout(); 
+            
+            if 'pltSave' in locals():
+                # plotSaveFig(os.path.join(SDfig,'modelValidationT'+self.feeder))
+                plotSaveFig(os.path.join(sdt('t3','f'),'modelValidationT'+self.feeder),pltClose=True)
+            plt.show()
     
 if 'f_daisy' in locals():
     # feeder = 8
@@ -546,17 +569,11 @@ if 't_checkErrorSummary' in locals():
         for obj in objSet:
             linPoints = linPointsDict[feeder][obj]
             voltages = []; currents = []; powers = []
-            # for linPoint in linPoints:
-            for linPoint in [linPoints[-1]]:
+            for linPoint in linPoints:
                 self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
                 voltages.append(self.qpSolutionDssError(strategy,obj,err='V')*100)
                 currents.append(self.qpSolutionDssError(strategy,obj,err='I')*100)
                 powers.append(self.qpSolutionDssError(strategy,obj,err='P')*100)
-            # linPoint = linPoints[-1]
-            # self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
-            # voltages.append(self.qpSolutionDssError(strategy,obj,err='V')*100)
-            # currents.append(self.qpSolutionDssError(strategy,obj,err='I')*100)
-            # powers.append(self.qpSolutionDssError(strategy,obj,err='P')*100)
         resultTable[i].append( "%.3f" % (np.max(voltages)))
         resultTable[i].append( "%.3f" % (np.max(currents)))
         resultTable[i].append( "%.3f" % (np.max(powers)))
@@ -567,21 +584,6 @@ if 't_checkErrorSummary' in locals():
     label = 'checkErrorSummary'
     # if 'pltSave' in locals(): basicTable(caption,label,heading,resultTable[1:],TD)
     if 'pltSave' in locals(): basicTable(caption,label,heading,resultTable[1:],sdt('t3','t'))
-    
-
-self = main(26,pCvr=pCvr,modelType='buildOnly',linPoint=0.1)
-self.initialiseOpenDss()
-self.setupConstraints() # this reloads the constraints in.
-kQlossC,kQlossQ = self.getInvLossCoeffs(type='Low')
-self.setQlossOfs(kQlossQ=kQlossQ,kQlossC=0) # nominally does NOT include turn on losses!
-optType = ['mosekFull']
-self.runCvrQp(strategy='full',obj='opCst',optType=optType)
-self.qpSolutionDssError(strategy,obj,err='I')*100
-
-
-# self.initialiseOpenDss()
-# self.testQpVcpf()
-# self.testCvrQp()
 
 if 't_sensitivities_base' in locals():
     # sensitivity_base: just the results of smart inverter control
@@ -1031,7 +1033,8 @@ if 'f_solutionError' in locals():
     self.loadQpSln('full','opCst')
     self.plotArcy(pltShow=False)
     if 'pltSave' in locals():
-        plotSaveFig(os.path.join(SDfig,'solutionErrorOpCst'),pltClose=True)
+        plotSaveFig(os.path.join(SDfig,'solutionErrorOpCst'),pltClose=False)
+        plotSaveFig(os.path.join(sdt('t3','f'),'solutionErrorOpCst'),pltClose=True)
     
     self.printQpSln(self.slnX,self.slnF)
     self.printQpSln(self.slnX,self.slnD)
@@ -1046,18 +1049,15 @@ if 'f_solutionError' in locals():
     
     self.loadQpSln('full','hcLds'); 
     self.plotArcy(pltShow=False)
-    if 'pltSave' in locals():
-        plotSaveFig(os.path.join(SDfig,'solutionErrorHcLds'),pltClose=True)
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'solutionErrorHcLds'),pltClose=True)
+    plt.show()
     
     self = main(feeder,'loadOnly',linPoint=0.1); self.loadQpSet(); 
     self.loadQpSln('full','hcGen'); 
     self.plotArcy(pltShow=False)
-    if 'pltSave' in locals():
-        plotSaveFig(os.path.join(SDfig,'solutionErrorHcGen'),pltClose=True)
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'solutionErrorHcGen'),pltClose=True)
+    # plt.show()
     
-# self = main(8,'loadOnly',linPoint=0.1); self.loadQpSet(); self.loadQpSln('full','hcGen'); self.showQpSln()
-# self = main('n1','loadOnly',linPoint=0.1); self.runCvrQp('full','hcGen')
-# self = main('n1','plotOnly')
 
 if 'f_37busVal' in locals():
     self = main(10,'linOnly')

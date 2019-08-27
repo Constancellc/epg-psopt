@@ -17,13 +17,16 @@ set defaultbasefrequency=60
 ! The ~ is just shorthad for "more" for the New or Edit commands
 
 New object=circuit.ieee123
-~ basekv=4.16 Bus1=150 pu=1.00 R1=0 X1=0.0001 R0=0 X0=0.0001
+~ basekv=4.16 Bus1=150 pu=1.00 R1=0 X1=0.000001 R0=0 X0=0.000001
+!~ basekv=4.16 Bus1=150 pu=1.00 R1=0 X1=0.0001 R0=0 X0=0.0001
+
 
 ! 3-PHASE GANGED REGULATOR AT HEAD OF FEEDER (KERSTING ASSUMES NO IMPEDANCE IN THE REGULATOR)
 ! the first line defines the 3-phase transformer to be controlled by the regulator control.
 ! The 2nd line defines the properties of the regulator control according to the test case
 
-new transformer.sub phases=3 windings=2 buses=[150 150sub] conns=[wye wye] kvs=[4.16 4.16] kvas=[5000 5000] XHL=.001 %LoadLoss=0.00001 ppm=0.0 ! added for creating the correct 'tree' using meters.
+new transformer.sub phases=3 windings=2 buses=[150 150sub] conns=[wye wye] kvs=[4.16 4.16] kvas=[5000 5000] XHL=.1 %LoadLoss=0.01 ppm=0.0 ! added for creating the correct 'tree' using meters.
+!new transformer.sub phases=3 windings=2 buses=[150 150sub] conns=[wye wye] kvs=[4.16 4.16] kvas=[5000 5000] XHL=.001 %LoadLoss=0.00001 ppm=0.0 ! added for creating the correct 'tree' using meters.
 
 new transformer.reg1a phases=3 windings=2 buses=[150sub 150r0] conns=[wye wye] kvs=[4.16 4.16] kvas=[5000 5000] XHL=.001 %LoadLoss=0.00001 ppm=0.0
 new regcontrol.reg1G transformer=reg1a winding=2 vreg=120 band=2 ptratio=20 ctprim=700 R=3 X=7.5
@@ -214,7 +217,8 @@ New Capacitor.C92c      Bus1=92.3    Phases=1     kVAR=50      kV=2.402
 ! SPOT LOADS -- REDIRECT INPUT STREAM TO LOAD DEFINITIONS FILE
 !Redirect IEEE123Loads.DSS
 Redirect IEEE123Loads_cvr.DSS
-batchedit load..* vminpu=0.33 vmaxpu=3.0
+batchedit load..* vminpu=0.01 vmaxpu=10.0
+!batchedit load..* vminpu=0.33 vmaxpu=3.0
 ! All devices in the test feeder are now defined.
 !
 ! Many of the voltages are reported in per unit, so it is important to establish the base voltages at each bus so

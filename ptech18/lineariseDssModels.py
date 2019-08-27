@@ -258,8 +258,8 @@ class buildLinModel:
         self.slnX = self.qpSolutions[key][0]
         self.slnF = self.qpSolutions[key][1]
         self.slnS = self.qpSolutions[key][2]
-        if len(self.qpSolutions[key])>3:
-            self.slnD = self.qpSolutions[key][3]
+        # if len(self.qpSolutions[key])>3:
+        self.slnD = self.qpSolutions[key][3]
             
     def getSaveDirectory(self):
         return os.path.join(self.WD,'lin_models','cvr_models',self.feeder)
@@ -503,6 +503,8 @@ class buildLinModel:
                                         self.My[:,self.nPy::],self.Md[:,self.nPd::],
                                         self.Mt),axis=1), 1/self.xScale )
         delattr(self,'My'); delattr(self,'Md'); delattr(self,'Mt')
+        if 'recreateMc2v' in dir(self):
+            self.Mc2v = Mc2v
         # M = np.block([[np.zeros((3,self.nCtrl),dtype=complex)],[self.Mc2v],[np.zeros((1,self.nCtrl),dtype=complex)]])
         M = np.block([[np.zeros((3,self.nCtrl),dtype=complex)],[Mc2v],[np.zeros((1,self.nCtrl),dtype=complex)]])
         del(Mc2v)
@@ -1192,19 +1194,22 @@ class buildLinModel:
             qLossC = 0
         return qLossQ + qLossL + qLossC
         
-    def qpSolutionDssError(self,strategy,obj,err='V'):
-        self.loadQpSet()
-        self.loadQpSln(strategy,obj)
+    def qpSolutionDssError(self,strategy,obj,err='V',load=True):
+        # WARNING!!! BY DEFAULT this will load an old solution!!!!
+        if load:
+            self.loadQpSet()
+            self.loadQpSln(strategy,obj)
+        
         # TL,PL,TC,CL,V,I,Vc,Ic = self.slnF
         if err=='V':
-            # dssError = np.linalg.norm( (self.slnF[4] - self.slnD[4])/self.vKvbase )/np.linalg.norm( self.slnF[4]/self.vKvbase )
-            dssError = np.linalg.norm( np.abs(self.slnF[4] - self.slnD[4])/np.abs(self.slnD[4] - self.slnD0[4]) )/len(self.vKvbase)
+            dssError = np.linalg.norm( np.abs(self.slnF[4] - self.slnD[4])/( np.abs(self.slnD[4] - self.slnD0[4]) + 0.005*self.vKvbase),ord=np.inf )
         elif err=='I':
-            # dssError = np.linalg.norm(  (self.slnF[7] - self.slnD[7])/self.iXfmrLims )/np.linalg.norm( self.iXfmrLims )
-            dssError = np.linalg.norm(  np.abs(np.abs(self.slnF[7]) - np.abs(self.slnD[7]))/(np.abs(np.abs(self.slnD0[7]) - np.abs(self.slnD[7])) + 0.05*self.iXfmrLims) )/len( self.iXfmrLims )
+            dIset = np.abs(self.slnF[7] - self.slnD0[7])/(self.iXfmrLims*self.iScale)
+            dIsetTrue = np.abs(self.slnD[7] - self.slnD0[7])/(self.iXfmrLims*self.iScale)
+            
+            dssError = np.linalg.norm( (dIset - dIsetTrue)/(dIsetTrue + 5e-4) )/np.sqrt(len(dIset))
         elif err=='P':
-            # dssError = np.linalg.norm( np.sum(self.slnF[0]) - np.sum(self.slnD[0]) )/np.linalg.norm( np.sum(self.slnD0[0]) - np.sum(self.slnD[0]) )
-            dssError = np.linalg.norm( np.sum(self.slnF[0:2]) - np.sum(self.slnD[0:2]) )/( np.linalg.norm( np.sum(self.slnD0[0:2]) - np.sum(self.slnD[0:2]) ) + 0.001*np.abs(sum(self.slnD0[0:2])) )
+            dssError = abs( np.sum(self.slnF[0:2]) - np.sum(self.slnD[0:2]) )/( abs( np.sum(self.slnD0[0:2]) - np.sum(self.slnD[0:2]) ) + 5e-4*np.abs(sum(self.slnD0[0:2])) )
             
             # dssError = np.linalg.norm( np.sum(self.slnF[0:4]) - np.sum(self.slnD[0:4]) )/np.linalg.norm( np.sum(self.slnD[0:4]) )
         return dssError
@@ -1479,8 +1484,8 @@ class buildLinModel:
             
             # ice[i] = np.linalg.norm( (icL - ic0)/self.iXfmrLims )/iRglr # this stops issues around zero
             # iae[i] = np.linalg.norm( (iaL - ia0)/self.iXfmrLims )/iRglr # this stops issues around zero
-            ice[i] = np.linalg.norm( (icL - ic0)/self.iXfmrLims )
-            iae[i] = np.linalg.norm( (iaL - ia0)/self.iXfmrLims )
+            ice[i] = np.linalg.norm( (icL - ic0)/self.iXfmrLims )/np.sqrt(len(self.iXfmrLims))
+            iae[i] = np.linalg.norm( (iaL - ia0)/self.iXfmrLims )/np.sqrt(len(self.iXfmrLims))
         print('nrelModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
         
         fig,[ax0,ax1] = plt.subplots(ncols=2,figsize=(8,3.5))
@@ -1490,7 +1495,7 @@ class buildLinModel:
         ax0.set_xlabel('Continuation factor k');ax0.grid(True)
         ax0.set_title('Voltage error, '+self.feeder)
         ax0.legend()
-        ax1.plot(k,ice.real,label='ice');
+        ax1.plot(k,ice,label='ice');
         ax1.plot(k,iae,label='iae');
         ax1.set_xlabel('Continuation factor k');ax1.grid(True)
         ax1.set_title('Current error, '+self.feeder)
@@ -1586,6 +1591,7 @@ class buildLinModel:
         PLestBoth = []
         vErrBoth = []
         SsetBoth = []
+        iErrBoth = []
         
         for ii in range(2):
             self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
@@ -1594,7 +1600,7 @@ class buildLinModel:
             xCtrl = np.zeros(self.nCtrl)
             
             if ii==0:
-                Sset = np.linspace(-1,1,30)*self.qLim
+                Sset = np.linspace(-1,1,31)*self.qLim
                 if self.nT>0:
                     xCtrl[self.nPctrl:-self.nT] = 1
                 else:
@@ -1619,14 +1625,14 @@ class buildLinModel:
                     setGenPq(DSSCircuit,genNames,np.ones(self.nPctrl)*Sset[i]*self.lScale/self.xSscale,np.zeros(self.nPctrl))
                 TG,TL[i],PL[i],YNodeV = runCircuit(DSSCircuit,DSSSolution)[1::]
                 absYNodeV = abs(YNodeV[3:])
-                Icalc = abs(self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
+                Icalc = (self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
                 TC[i] = -TG
                 
                 dx = xCtrl*Sset[i]
                 TLest[i],PLest[i],TCest[i],CL,Vest,Iest,Vcest,Icest = self.runQp(dx)
                 
                 vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
-                iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
+                iErr[i] = np.linalg.norm((Icalc - Icest)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
             
             
             if ii==0:
@@ -1656,10 +1662,11 @@ class buildLinModel:
             PLboth.append(PL)
             PLestBoth.append(PLest)
             vErrBoth.append(vErr)
+            iErrBoth.append(iErr)
             SsetBoth.append(Sset)
-        plt.show()
+        # plt.show()
         
-        return TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,SsetBoth
+        return TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,SsetBoth
     
     
     def testQpTcpf(self):
@@ -1693,14 +1700,15 @@ class buildLinModel:
             
             TG,TL[i],PL[i],YNodeV = runCircuit(DSSCircuit,DSSSolution)[1::]
             absYNodeV = abs(YNodeV[3:])
-            Icalc = abs(self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
+            # Icalc = abs(self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
+            Icalc = (self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
             TC[i] = -TG
             
             dx = xCtrl*dxScale[i]
             TLest[i],PLest[i],TCest[i],CL,Vest,Iest,Vcest,Icest = self.runQp(dx)
             
             vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
-            iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
+            iErr[i] = np.linalg.norm((Icalc - Icest)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
             
             # VcplxEst = self.Mc2v.dot(self.X0ctrl + dx) + self.aV
             # YNodeVaug = np.concatenate((YNodeV[:3],VcplxEst,np.array([0])))
@@ -1726,7 +1734,7 @@ class buildLinModel:
         plt.tight_layout()
         # plt.show()
         
-        return TL,TLest,PL,PLest,vErr,dxScale
+        return TL,TLest,PL,PLest,vErr,iErr,dxScale
 
     
     def addYDgens(self,DSSObj):
@@ -1774,8 +1782,12 @@ class buildLinModel:
     
     
     def runQp(self,dx,onLoss=True):
-        # Vcest = self.Mc2v.dot(dx + self.X0ctrl) + self.aV
-        Vcest = np.nan
+        
+        if 'Mc2v' in dir(self):
+            Vcest = self.Mc2v.dot(dx + self.X0ctrl) + self.aV
+        else:
+            Vcest = np.nan
+        
         if 'Kc2i' in dir(self): # can be created with self.recreateKc2i if wanted.
             Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
         else:
