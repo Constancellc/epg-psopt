@@ -64,6 +64,7 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_costFuncXmpl = 1
 # f_costFuncAsym = 1
 # f_psdFigs = 1
+# t_loadModelVecs = 1
 
 # pltSave=1
 
@@ -161,6 +162,32 @@ if 'f_plotInvLoss' in locals():
     
     plt.show()
     
+    fig,ax0 = plt.subplots(ncols=1,figsize=(2.8,2.6))
+    for i in range(len(lossFracSmaxs)):
+        lossFracSmax = lossFracSmaxs[i]
+        lossFracS0 = lossFracS0s[i]
+        Plss = 0.01*sRated*( lossFracS0 + lossFracSmax*(x**2) )
+        
+        ax0.plot(100*x/sRated,100*Plss/sRated);
+        ax0.set_ylabel('Inverter Losses, % of $S_{rated}$')
+        ax0.set_ylim((0.0,15.0)); ax0.set_xlim((0.0,100))
+        ax0.set_xlabel('Apparent Power $S_{\mathrm{Inv}}$, % of $S_{rated}$')
+    ax0.legend(('Low loss','High loss'))
+    plt.tight_layout()
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'invLossLss'),pltClose=True)
+    
+    fig,ax1 = plt.subplots(ncols=1,figsize=(2.8,2.6))
+    for i in range(len(lossFracSmaxs)):
+        lossFracSmax = lossFracSmaxs[i]
+        lossFracS0 = lossFracS0s[i]
+        Plss = 0.01*sRated*( lossFracS0 + lossFracSmax*(x**2) )
+    
+        ax1.plot(100*x/sRated, 100*x/(Plss + x)); 
+        ax1.set_ylim((86,100));   ax1.set_xlim((0.0,100))
+        ax1.set_xlabel('Apparent Power $S_{\mathrm{Inv}}$, % of $S_{rated}$')
+        ax1.set_ylabel('Throughput, %')
+    plt.tight_layout()
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'invLossThr'),pltClose=True)
 
     for i in range(len(lossFracSmaxs)):
         lossFracSmax = lossFracSmaxs[i]
@@ -604,12 +631,16 @@ if 't_sensitivities_base' in locals():
     benefits = -100*(opCst[0:2] - opCst[2])
     benefitsRatio = benefits[1]/benefits[0]
     benefits = np2lsStr(benefits,3)
-    data = [ ['Full']+benefits[0],['Phase']+benefits[1] ]
-    caption='Smart inverter benefits, \% of load'
+    benefitsRatio = np2lsStr(benefitsRatio*100,3)
+    # data = [ ['Full']+benefits[0],['Phase']+benefits[1] ]
+    # data = [ ['Full, \%:']+benefits[0],['Phase, \%:']+benefits[1],['Ratio (\%):']+benefitsRatio ]
+    data = [ ['Full, \%:']+benefits[0],['Phase, \%:']+benefits[1]]
+    caption='Smart inverter benefits, as a \% of load, compared to the control case which only has tap controls. The minimum ratio of phase to full load is 73 \%.'
     label='sensitivities_base'
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
+    if 'pltSave' in locals(): basicTable(caption,label,heading,data,sdt('t3','t'))
     print(heading); print(*data,sep='\n')
-    print('Benefits ratio:\n',100*benefitsRatio)
+    print('Benefits ratio:\n',benefitsRatio)
     
 if 'f_sensitivities_all' in locals():
     # sensitivities_invLoss, sensitivities_efficacy: the results considering smaller and larger losses
@@ -658,6 +689,7 @@ if 'f_sensitivities_all' in locals():
     caption='Smart inverter load benefit (\%) and efficacy ($P/||Q||_{1}$, W/kVAr)'
     label='sensitivities_all'
     if 'pltSave' in locals(): basicTable(caption,label,newData[0],newData[1:],TD)
+    if 'pltSave' in locals(): basicTable(caption,label,newData[0],newData[1:],sdt('t3','t'))
     
 
 if 'f_sensitivities_aCvr' in locals():
@@ -710,6 +742,7 @@ if 'f_sensitivities_aCvr' in locals():
     caption='Smart inverter load benefit (\%) and efficacy ($P/||Q||_{1}$, W/kVAr) against $\\alpha_{\mathrm{CVR}}$'
     label='sensitivities_aCvr'
     if 'pltSave' in locals(): basicTable(caption,label,newData[0],newData[1:],TD)
+    if 'pltSave' in locals(): basicTable(caption,label,newData[0],newData[1:],sdt('t3','t'))
     
     
 if 'f_sensitivities_loadPoint' in locals():
@@ -1146,7 +1179,7 @@ if 'f_runTsAnalysis' in locals():
     TR = np.round(TR,10) #if this isn't here then EPRI K1 complains(!)
 
     TG = pd.read_csv(os.path.join(FNlds,'pvwatts_hourly.csv'))
-    TG = TG.iloc[18:-1,10]
+    TG = TG.iloc[17:-1,10] # 1/2 bugs - also, DST needs accounting for
     TG = np.array(TG).astype('float')
     TGi = np.interp(np.linspace(0,len(TG)-1,len(TG)*2-1),np.arange(len(TG)),TG);
     TGi = TGi/max(TGi)
@@ -1158,8 +1191,9 @@ if 'f_runTsAnalysis' in locals():
 
     dayNoA = 364-31-30-16 #15th Oct
     dayNoB = 31+28+31+30+31+30+19 #20th July
-    genSet = [TGi[dayNoA*48:(dayNoA+1)*48],TGi[dayNoB*48:(dayNoB+1)*48]]
-    ldsSet = [TR[dayNoA*48:(dayNoA+1)*48],TR[dayNoB*48:(dayNoB+1)*48]]
+    dsto = 2 # dstOffset
+    genSet = [TGi[dayNoA*48 - dsto:(dayNoA+1)*48 - dsto],TGi[dayNoB*48 - dsto:(dayNoB+1)*48 - dsto]]
+    ldsSet = [TR[dayNoA*48 - dsto:(dayNoA+1)*48 - dsto],TR[dayNoB*48 - dsto:(dayNoB+1)*48 - dsto]]
     
     # # for faster debugging:
     # ldsTs = np.array([3,2,3,3,4,5,6,6,5,4,6,8,9,8,9,10,9,8,7,5,4,3,2,2])/10; ldsSet = [ldsTs,ldsTs];
@@ -1229,13 +1263,20 @@ if 'f_runTsAnalysis' in locals():
 
 
 if 'f_plotTsAnalysis' in locals():
+    # feederSet=[24]
+    feederSet=[17]
+    figNameSet = ['tPwr','vMinMax','qPhs','dPwr','efcy','tapSet']
+    # figNameSet = ['efcy']
+    dayTypes = ['wtr','smr']
+    # dayTypes = ['wtr']
+    # pltSave=1
     for feeder in feederSet:
         self = main(feeder,modelType='loadOnly');
+        self.getLdsPhsIdx()
         SD = os.path.join( os.path.dirname(self.getSaveDirectory()),'results',self.feeder+'_ts_out')
-        tsFigSze = (4.0,2.8)
-        dayTypes = ['wtr','smr']
+        tsFigSze = (4.0,2.5)
         SDT5 = sdt('t3','f')
-
+        
         for dayType in dayTypes:
             SN = os.path.join(SD,self.feeder+'ts_i'+self.invLossType+'_'+dayType+'_sln.pkl')
             with open(SN,'rb') as inFile:
@@ -1246,86 +1287,139 @@ if 'f_plotTsAnalysis' in locals():
             xtcks = [0,4,8,12,16,20,24]
             
             figName = 'tPwr'
-            fig,ax = plt.subplots(figsize=tsFigSze)
-            ax.plot(times,tsRslt['genTs']*tsRslt['nPctrl']*tsRslt['genKW'],'k-.',label='Generation')
-            ax.plot(times,tsRslt['tPwr'][0],'k:',label='Feeder net load')
-            ax.set_xlabel('Time, hour')
-            ax.set_ylabel('Power, kW')
-            ax.set_xlim(xlm); ax.set_xticks(xtcks)
-            plt.legend()
-            plt.tight_layout()
-            if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
-            plt.show()
+            if figName in figNameSet:
+                fig,ax = plt.subplots(figsize=tsFigSze)
+                ax.plot(times,tsRslt['genTs']*tsRslt['nPctrl']*tsRslt['genKW'],'k-.',label='Generation')
+                ax.plot(times,tsRslt['tPwr'][0],'k:',label='Feeder net load')
+                ax.set_xlabel('Time, hour')
+                ax.set_ylabel('Power, kW')
+                ax.set_xlim(xlm); ax.set_xticks(xtcks)
+                plt.legend()
+                plt.tight_layout()
+                if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
+                plt.show()
 
 
             figName = 'vMinMax'
-            fig,ax = plt.subplots(figsize=tsFigSze)
-            ax.set_prop_cycle(color=cm.matlab([0,1,2]))
-            ax.plot(times, tsRslt['vMinMv'].T,':');
-            ax.plot(times, tsRslt['vMinLv'].T);
-            ax.plot(times, tsRslt['vMax'].T);
-            ax.plot(xlm,[tsRslt['cns']['mvHi']]*2,'k--')
-            ax.plot(xlm,[tsRslt['cns']['mvLo']]*2,'k:')
-            ax.plot(xlm,[tsRslt['cns']['lvLo']]*2,'k--')
-            ax.set_xlim(xlm); ax.set_xticks(xtcks)
-            ax.set_xlabel('Time, hour')
-            ax.set_ylabel('Voltage, pu')
-            plt.tight_layout()
-            if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
-            plt.show()
+            if figName in figNameSet:
+                fig,ax = plt.subplots(figsize=tsFigSze)
+                # ax.set_prop_cycle(color=cm.matlab([0,1,2]))
+                ax.set_prop_cycle(color=cm.matlab([0,1]))
+                # ax.plot(times, tsRslt['vMinMv'].T,':');
+                # ax.plot(times, tsRslt['vMinLv'].T);
+                # ax.plot(times, tsRslt['vMax'].T);
+                # ax.plot(times, tsRslt['vMinMv'][0:3:2].T,':');
+                # ax.plot(times, tsRslt['vMinLv'][0:3:2].T);
+                # ax.plot(times, tsRslt['vMax'][0:3:2].T);
+                ax.plot(times, tsRslt['vMinMv'][1:3].T,':');
+                ax.plot(times, tsRslt['vMinLv'][1:3].T);
+                ax.plot(times, tsRslt['vMax'][1:3].T);
+                ax.plot(xlm,[tsRslt['cns']['mvHi']]*2,'k--')
+                ax.plot(xlm,[tsRslt['cns']['mvLo']]*2,'k:')
+                ax.plot(xlm,[tsRslt['cns']['lvLo']]*2,'k--')
+                ax.set_xlim(xlm); ax.set_xticks(xtcks)
+                ax.set_xlabel('Time, hour')
+                ax.set_ylabel('Voltage, pu')
+                plt.tight_layout()
+                if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
+                plt.show()
 
             figName = 'qPhs'
-            fig,ax = plt.subplots(figsize=tsFigSze)
-            ax.set_prop_cycle(linestyle=['-','--','-.'])
-            PLTS=ax.plot(times, tsRslt['nPctrl']*tsRslt['qPhs'].T,color=cm.matlab(1))
-            ax.plot(times,1e-3*tsRslt['nPctrl']*tsRslt['qLimSet'],'k--')
-            ax.plot(times,-1e-3*tsRslt['nPctrl']*tsRslt['qLimSet'],'k--')
-            ax.set_xlabel('Time, hour')
-            ax.set_ylabel('Reactive power per generator, kVAr')
-            ax.legend(PLTS,['a','b','c'])
-            ax.set_xlim(xlm); ax.set_xticks(xtcks)
-            plt.tight_layout()
-            if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
-            plt.show()
+            if figName in figNameSet:
+                fig,ax = plt.subplots(figsize=tsFigSze)
+                ax.set_prop_cycle(linestyle=['-','--','-.'])
+                # plts=ax.plot(times, tsRslt['nPctrl']*tsRslt['qPhs'].T,color=cm.matlab(1))
+                # ax.plot(times,1e-3*tsRslt['nPctrl']*tsRslt['qLimSet'],'k--')
+                # ax.plot(times,-1e-3*tsRslt['nPctrl']*tsRslt['qLimSet'],'k--')
+                plts=ax.plot(times, tsRslt['qPhs'].T,color=cm.matlab(1))
+                ax.plot(times,1e-3*tsRslt['qLimSet'],'k--')
+                ax.plot(times,-1e-3*tsRslt['qLimSet'],'k--')
+                ax.set_xlabel('Time, hour')
+                ax.set_ylabel('Reactive power\n per generator, kVAr')
+                ax.legend(plts,['a','b','c'])
+                ax.set_xlim(xlm); ax.set_xticks(xtcks)
+                plt.tight_layout()
+                if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
+                plt.show()
             
-            figName = 'dPwr'
             tPwr = tsRslt['tPwr']
             tLss = tsRslt['tLss']
-            fig,ax = plt.subplots(figsize=tsFigSze)
-            ax.set_prop_cycle(color=cm.matlab([1,2]))
-            ax.plot(times,tPwr[0]-tPwr[1])
-            ax.plot(times,tPwr[0]-tPwr[2])
-            ax.plot(times,tLss[0]-tLss[1],'-.')
-            ax.plot(times,tLss[0]-tLss[2],'-.')
-            ax.set_xlim(xlm); ax.set_xticks(xtcks)
-            ax.set_xlabel('Time, hour')
-            ax.set_ylabel('Power, kW')
-            plt.tight_layout()
-            if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
-            plt.show()
+            figName = 'dPwr'
+            if figName in figNameSet:
+                fig,ax = plt.subplots(figsize=tsFigSze)
+                # ax.set_prop_cycle(color=cm.matlab([1,2]))
+                ax.set_prop_cycle(color=cm.matlab([1]))
+                # ax.plot(times,tPwr[0]-tPwr[1])
+                # ax.plot(times,tPwr[0]-tPwr[2],label='Tot. power')
+                ax.plot(times,tPwr[1]-tPwr[2],label='Tot. power')
+                # ax.plot(times,tLss[0]-tLss[1],'-.')
+                # ax.plot(times,tLss[0]-tLss[2],'-.',label='Losses')
+                ax.plot(times,tLss[1]-tLss[2],'-.',label='Losses')
+                ax.set_xlim(xlm); ax.set_xticks(xtcks)
+                ax.set_xlabel('Time, hour')
+                ax.set_ylabel('Power, kW')
+                ax.legend()
+                plt.tight_layout()
+                if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
+                plt.show()
                     
             figName = 'efcy'
-            oldSettings = np.seterr()
-            np.seterr(all='ignore') # we want to ignore divide by zero.
-            efcy = (1e3*(tPwr[1]-tPwr[2]))/(np.sum(np.abs( tsRslt['nPctrl']*tsRslt['qPhs'] ),axis=0))
-            np.seterr(**oldSettings)
-            fig,ax = plt.subplots(figsize=tsFigSze)
-            ax.plot(times,efcy)
-            ax.set_xlabel('Time, hour')
-            ax.set_ylabel('Efficacy, W/kVAr')
-            ax.set_xlim(xlm); ax.set_xticks(xtcks)
-            plt.tight_layout()
-            if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
-            plt.show()
+            if figName in figNameSet:
+                oldSettings = np.seterr()
+                np.seterr(all='ignore') # we want to ignore divide by zero.
+                phsVec = np.array([self.nPh1,self.nPh2,self.nPh3])
+                efcy = (1e3*(tPwr[1]-tPwr[2]))/(phsVec.dot(np.abs(tsRslt['qPhs'])))
+                np.seterr(**oldSettings)
+                efcy[np.isinf(efcy)] = 0
+                
+                fig,ax = plt.subplots(figsize=tsFigSze)
+                ax.plot(times,efcy,color=cm.matlab(1))
+                ax.set_xlabel('Time, hour')
+                ax.set_ylabel('Efficacy, W/kVAr')
+                ax.set_xlim(xlm); ax.set_xticks(xtcks)
+                plt.tight_layout()
+                if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
+                plt.show()
 
             figName = 'tapSet'
-            fig,ax = plt.subplots(figsize=tsFigSze)
-            ax.plot(times,tsRslt['tSet'].T)
-            ax.plot(xlm,[16,16],'k--')
-            ax.plot(xlm,[-16,-16],'k--')
-            ax.set_xlim(xlm); ax.set_xticks(xtcks)
-            ax.set_xlabel('Time, hour')
-            ax.set_ylabel('Tap position')
-            plt.tight_layout()
-            if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
-            plt.show()
+            if figName in figNameSet:
+                fig,ax = plt.subplots(figsize=tsFigSze)
+                ax.plot(times,tsRslt['tSet'][1:3].T)
+                ax.plot(xlm,[16,16],'k--')
+                ax.plot(xlm,[-16,-16],'k--')
+                ax.set_xlim(xlm); ax.set_xticks(xtcks)
+                ax.set_xlabel('Time, hour')
+                ax.set_ylabel('Tap position')
+                plt.tight_layout()
+                if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
+                plt.show()
+
+if 't_loadModelVecs' in locals():
+    from numpy.linalg import norm
+    tableSet = []
+    # feederSet = [26]
+    for feeder in feederSet:
+        tableSet.append([])
+        linPoints = linPointsDict[feeder]['all']
+        self = main(feeder,modelType='loadOnly',linPoint=linPoints[-1])
+        
+        pLoad = 1e3*self.ploadL[self.nPctrl:self.nSctrl]
+        pLoss = 1e3*self.qpLlss[self.nPctrl:self.nSctrl]
+        p = (pLoad + pLoss)
+        
+        tableSet[-1].append(feederIdxTidy[feeder])
+        tableSet[-1].append( '%.2f' % (norm(pLoad)/np.sqrt(len(pLoad))))
+        tableSet[-1].append( '%.2f' % (norm(pLoss)/np.sqrt(len(pLoad))))
+        tableSet[-1].append( '%.2f' % (norm(p)/np.sqrt(len(pLoad))))
+        tableSet[-1].append( '%.1f' % (np.arccos( (pLoad.dot(pLoss))/(norm(pLoad)*norm(pLoss)) )*180/np.pi))
+        
+    head0 = ['Feeder','Plds','Plss','P','Theta']
+    heading = ['Feeder','$\\dfrac{\\| \\lambda_{\mathrm{Q, lds}}\\|}{\\sqrt{N_{\mathrm{Q}}}}$, W/kVAr',
+                        '$\\dfrac{\\| \\lambda_{\mathrm{Q, lss}}\\|}{\\sqrt{N_{\mathrm{Q}}}}$, W/kVAr',
+                        '$\\dfrac{\\| \\lambda_{\mathrm{Q}} \\|}{\\sqrt{N_{\mathrm{Q}}}}$, W/kVAr',
+                        '$ \\theta_{\\lambda},\,^{\\circ}$']
+    caption = 'Summary of sensitivities to reactive power injections in load, loss, and the total for both of these combined. The angle $\\theta_{\\lambda}$ is calculated between the load and loss sensitivity vectors, and $N_{\mathrm{Q}}$ is the number of elements in the sensitivity vector $\\lambda_{\mathrm{Q}}$.'
+    print(head0)
+    print(*tableSet,sep='\n')
+    label = 'loadModelVecs'
+    basicTable( caption, label, heading, tableSet, sdt('t3','t') )
