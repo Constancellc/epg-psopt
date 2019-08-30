@@ -41,6 +41,7 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_batchTest = 1
 # f_currentErrors = 1
 # f_modelValidation = 1
+# f_modelValidationSet = 1
 # f_daisy = 1
 # f_123busVlts = 1
 # f_solutionError = 1
@@ -520,7 +521,91 @@ if 'f_modelValidation' in locals():
                 # plotSaveFig(os.path.join(SDfig,'modelValidationT'+self.feeder))
                 plotSaveFig(os.path.join(sdt('t3','f'),'modelValidationT'+self.feeder),pltClose=True)
             plt.show()
-    
+
+if 'f_modelValidationSet':
+    feederSet = [18,24]
+    feederSet = [24]
+    feederSet = [18]
+    # feederSet = [26]
+    pltSet = ['lds','lss']
+    pltSet = ['lss']
+    for feeder in feederSet:
+        linPoints = linPointsDict[feeder]['all']
+        self = main(feeder,'loadOnly',linPoint=linPoints[-1],pCvr=0.6); self.initialiseOpenDss(); print('Solve 1...')
+        TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,Sset = self.testQpScpf(); 
+        if self.nT>0:
+            print('Solve 2...')
+            TL,TLest,PL,PLest,vErr,iErr,dxScale = self.testQpTcpf()
+        
+        plt.close('all')
+        ii=0
+        
+        figSze = (2.4,2.8)
+        
+        if 'lds' in pltSet:
+            figname='modelValidationSetLoad'
+            sd = sdt('t3','f')
+            fig,ax=plt.subplots(figsize=figSze)
+            ax.plot(Sset[ii],PLboth[ii]*1e-3,label='DSS.')
+            ax.plot(Sset[ii],PLestBoth[ii]*1e-3,label='Lin.')
+            ax.set_xlabel('Rctv. power, kVAr')
+            ax.set_ylabel('Load, MW')
+            plt.tight_layout()
+            if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
+            plt.show()
+            if self.nT>0:
+                figname='modelValidationSetLoadTaps'
+                fig,ax=plt.subplots(figsize=figSze)
+                ax.plot(dxScale,PL*1e-3,'x-',label='DSS.')
+                ax.plot(dxScale,PLest*1e-3,'x-',label='Lin.')
+                ax.set_xlabel('Tap')
+                ax.set_ylabel('Load, MW')
+                ax.legend()
+                plt.tight_layout()
+                if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
+                plt.show()
+        
+        if 'lss' in pltSet:
+            figname='modelValidationSetLss'
+            sd = sdt('t3','f')
+            fig,ax=plt.subplots(figsize=figSze)
+            ax.plot(Sset[ii],TLboth[ii],label='DSS.')
+            ax.plot(Sset[ii],TLestBoth[ii],label='Lin.')
+            ax.set_xlabel('Rctv. power, kVAr')
+            ax.set_ylabel('Losses, kW')
+            plt.tight_layout()
+            if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
+            plt.show()
+            if self.nT>0:
+                figname='modelValidationSetLssTaps'
+                fig,ax=plt.subplots(figsize=figSze)
+                ax.plot(dxScale,TL,'x-',label='DSS.')
+                ax.plot(dxScale,TLest,'x-',label='Lin.')
+                ax.set_xlabel('Tap')
+                ax.set_ylabel('Losses, kW')
+                ax.legend()
+                plt.tight_layout()
+                if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
+                plt.show()
+        
+        # ax0.plot(Sset[ii],100*vErrBoth[ii])
+        # # ax0.set_xlabel('Rctv. power, kVAr')
+        # ax0.set_ylabel('$V$ error, $\\dfrac{||V_{\mathrm{DSS}} - V_{\mathrm{Lin}}||_{2}}{||V_{\mathrm{DSS}}||_{2}}$, %')
+        # ax3.plot(Sset[ii],100*iErrBoth[ii])
+        # # ax3.set_xlabel('Rctv. power, kVAr')
+        # ax3.set_ylabel('$I$ error, $\\dfrac{1}{\\sqrt{N_{\mathrm{I}}}}||\\dfrac{I_{\mathrm{DSS}} - I_{\mathrm{Lin}}}{I_{\mathrm{Xfmr}}}||_{2}$, %')
+
+        # if self.nT>0:
+            # TL,TLest,PL,PLest,vErr,iErr,dxScale = self.testQpTcpf()
+            # ax0.plot(dxScale,100*vErr,'x-')
+            # # ax0.set_xlabel('Tap')
+            # ax0.set_ylabel('$V$ error, $\\dfrac{||V_{\mathrm{DSS}} - V_{\mathrm{Lin}}||_{2}}{||V_{\mathrm{DSS}}||_{2}}$, %')
+            # ax3.plot(dxScale,100*iErr)
+            # # ax3.set_xlabel('Tap')
+            # ax3.set_ylabel('$I$ error, $\\dfrac{1}{\\sqrt{N_{\mathrm{I}}}}||\\dfrac{I_{\mathrm{DSS}} - I_{\mathrm{Lin}}}{I_{\mathrm{Xfmr}}}||_{2}$, %')
+
+
+
 if 'f_daisy' in locals():
     # feeder = 8
     feeder = 26
@@ -1305,12 +1390,6 @@ if 'f_plotTsAnalysis' in locals():
                 fig,ax = plt.subplots(figsize=tsFigSze)
                 # ax.set_prop_cycle(color=cm.matlab([0,1,2]))
                 ax.set_prop_cycle(color=cm.matlab([0,1]))
-                # ax.plot(times, tsRslt['vMinMv'].T,':');
-                # ax.plot(times, tsRslt['vMinLv'].T);
-                # ax.plot(times, tsRslt['vMax'].T);
-                # ax.plot(times, tsRslt['vMinMv'][0:3:2].T,':');
-                # ax.plot(times, tsRslt['vMinLv'][0:3:2].T);
-                # ax.plot(times, tsRslt['vMax'][0:3:2].T);
                 ax.plot(times, tsRslt['vMinMv'][1:3].T,':');
                 ax.plot(times, tsRslt['vMinLv'][1:3].T);
                 ax.plot(times, tsRslt['vMax'][1:3].T);
@@ -1408,9 +1487,9 @@ if 't_loadModelVecs' in locals():
         p = (pLoad + pLoss)
         
         tableSet[-1].append(feederIdxTidy[feeder])
-        tableSet[-1].append( '%.2f' % (norm(pLoad)/np.sqrt(len(pLoad))))
-        tableSet[-1].append( '%.2f' % (norm(pLoss)/np.sqrt(len(pLoad))))
-        tableSet[-1].append( '%.2f' % (norm(p)/np.sqrt(len(pLoad))))
+        tableSet[-1].append( '%.2f' % (norm(pLoad,ord=1)/len(pLoad)))
+        tableSet[-1].append( '%.2f' % (norm(pLoss,ord=1)/len(pLoad)))
+        tableSet[-1].append( '%.2f' % (norm(p,ord=1)/len(pLoad)))
         tableSet[-1].append( '%.1f' % (np.arccos( (pLoad.dot(pLoss))/(norm(pLoad)*norm(pLoss)) )*180/np.pi))
         
     head0 = ['Feeder','Plds','Plss','P','Theta']
@@ -1418,8 +1497,9 @@ if 't_loadModelVecs' in locals():
                         '$\\dfrac{\\| \\lambda_{\mathrm{Q, lss}}\\|}{\\sqrt{N_{\mathrm{Q}}}}$, W/kVAr',
                         '$\\dfrac{\\| \\lambda_{\mathrm{Q}} \\|}{\\sqrt{N_{\mathrm{Q}}}}$, W/kVAr',
                         '$ \\theta_{\\lambda},\,^{\\circ}$']
-    caption = 'Summary of sensitivities to reactive power injections in load, loss, and the total for both of these combined. The angle $\\theta_{\\lambda}$ is calculated between the load and loss sensitivity vectors, and $N_{\mathrm{Q}}$ is the number of elements in the sensitivity vector $\\lambda_{\mathrm{Q}}$.'
+    caption = 'Summary of sensitivities to reactive power injections in load, loss, and the total for both of these combined. The angle $\\theta_{\\lambda}$ is calculated between the load and loss sensitivity vectors; $N_{\mathrm{Q}}$ is the number of elements in the sensitivity vector $\\lambda_{\mathrm{Q}}$.'
     print(head0)
     print(*tableSet,sep='\n')
     label = 'loadModelVecs'
-    basicTable( caption, label, heading, tableSet, sdt('t3','t') )
+    
+    if 'pltSave' in locals(): basicTable( caption, label, heading, tableSet, sdt('t3','t') )
