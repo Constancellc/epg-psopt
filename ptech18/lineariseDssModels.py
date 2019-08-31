@@ -337,6 +337,7 @@ class buildLinModel:
         self.xY, self.xD, self.pyIdx, self.pdIdx  = ldValsOnly( DSSCircuit ) # NB these do not change with the circuit!
         
         self.qyIdx = [self.pyIdx[0]+DSSCircuit.NumNodes-3] # NB: note that this is wrt M, not YNodeOrder.
+        self.syIdx = np.concatenate((self.pyIdx[0],self.qyIdx[0]))
         self.nPy = len(self.pyIdx[0])
         self.nPd = len(self.pdIdx[0])
 
@@ -358,6 +359,7 @@ class buildLinModel:
         self.kDcvr0 = np.concatenate((VhDpu**self.pCvr,VhDpu**self.qCvr))
         
         xYcvr = lin_point*self.xY*self.kYcvr0
+        xYcvr0 = xYcvr[self.syIdx]
         xDcvr = lin_point*self.xD*self.kDcvr0
         
         self.YZ = DSSCircuit.YNodeOrder[3:]
@@ -372,29 +374,31 @@ class buildLinModel:
         VnoLoad = VoffLoad[3:]
         dVnoLoad = H.dot(VoffLoad)
         
+        self.nV = len(Vh)
+        self.createTapModel(lin_point,cvrModel=True) # this seems to be ok. creates Kt and Mt matrices.
+        self.nT = self.Mt.shape[1]
         print('Create linear models:\n',time.process_time()); t = time.time()
         
         if self.method=='fot':
             My,Md,a,dMy,dMd,da = firstOrderTaylor( Ybus,Vh,V0,xYcvr,xDcvr,H[:,3:] ); \
                             print('===== Using the FOT method =====')
+            My = My[:,self.syIdx]
+            dMy = dMy[:,self.syIdx]
         elif self.method=='fpl':
             My,Md,a,dMy,dMd,da = cvrLinearization( Ybus,Vh,V0,H,0,0,self.vKvbase,self.vKvbaseD ); \
                             print('Using the FLP method')
+            My = My[:,self.syIdx]
+            dMy = dMy[:,self.syIdx]
         
-        
-        self.nV = len(a)
-        self.createTapModel(lin_point,cvrModel=True) # this seems to be ok. creates Kt and Mt matrices.
-        self.nT = self.Mt.shape[1]
-        Ky,Kd,b = nrelLinK( My,Md,Vh,xYcvr,xDcvr )
-        # dKy,dKd,db = nrelLinK( dMy,dMd,dVh,xYcvr,xDcvr )
-        dKy,dKd,self.dKt,db = lineariseMfull( dMy,dMd,H[:,3:].dot(self.Mt),dVh,xYcvr,xDcvr,np.zeros(self.nT) )
+        Ky,Kd,b = nrelLinK( My,Md,Vh,xYcvr0,xDcvr )
+        dKy,dKd,self.dKt,db = lineariseMfull( dMy,dMd,H[:,3:].dot(self.Mt),dVh,xYcvr0,xDcvr,np.zeros(self.nT) )
         
         print('Linear models created.:',time.time()-t)
         
-        Vh0 = (My.dot(xYcvr) + Md.dot(xDcvr)) + a # for validation
-        Va0 = (Ky.dot(xYcvr) + Kd.dot(xDcvr)) + b # for validation
-        dVh0 = (dMy.dot(xYcvr) + dMd.dot(xDcvr)) + da # for validation
-        dVa0 = (dKy.dot(xYcvr) + dKd.dot(xDcvr)) + db # for validation
+        Vh0 = (My.dot(xYcvr0) + Md.dot(xDcvr)) + a # for validation
+        Va0 = (Ky.dot(xYcvr0) + Kd.dot(xDcvr)) + b # for validation
+        dVh0 = (dMy.dot(xYcvr0) + dMd.dot(xDcvr)) + da # for validation
+        dVa0 = (dKy.dot(xYcvr0) + dKd.dot(xDcvr)) + db # for validation
         
         self.log.info('\nVoltage clx error (lin point), Volts:'+str(np.linalg.norm(Vh0-Vh)/np.linalg.norm(Vh)))
         self.log.info('Voltage clx error (no load point), Volts:'+str(np.linalg.norm(a-VnoLoad)/np.linalg.norm(VnoLoad)))
@@ -406,9 +410,9 @@ class buildLinModel:
             self.log.info('\nDelta voltage abs error (lin point), Volts:'+str(np.linalg.norm(dVa0-abs(dVh))/np.linalg.norm(abs(dVh))))
             self.log.info('Delta voltage abs error (no load point), Volts:'+str(np.linalg.norm(abs(db)-abs(dVnoLoad))/np.linalg.norm(abs(dVnoLoad))))
             
-        self.syIdx = np.concatenate((self.pyIdx[0],self.qyIdx[0]))
-        self.My = My[:,self.syIdx]
-        self.Ky = Ky[:,self.syIdx]
+
+        self.My = My
+        self.Ky = Ky
         self.aV = a
         self.bV = b
         self.H = H
@@ -421,7 +425,7 @@ class buildLinModel:
         self.Kd = Kd
         self.currentLinPoint = lin_point
         
-        del(My); del(Md)
+        del(My); del(Md); del(dMy); del(dMd)
         self.createWmodel(lin_point) # this seems to be ok
         
         f0 = self.v2iBrYxfmr.dot(YNodeV)[self.iXfmrModelled] # voltages to currents through xfmrs
@@ -433,7 +437,7 @@ class buildLinModel:
             fNoload = fNoload + df*np.ones(len(fNoload))
         
         
-        f0cpx = self.WyXfmr.dot(xYcvr[self.syIdx]) + self.WdXfmr.dot(xDcvr) + self.WtXfmr.dot(np.zeros(self.WtXfmr.shape[1])) + self.aIxfmr
+        f0cpx = self.WyXfmr.dot(xYcvr0) + self.WdXfmr.dot(xDcvr) + self.WtXfmr.dot(np.zeros(self.WtXfmr.shape[1])) + self.aIxfmr
         self.log.info('\nCurrent cpx error (lin point):'+str(np.linalg.norm(f0cpx-f0)/np.linalg.norm(f0)))
         self.log.info('Current cpx error (no load point):'+str(np.linalg.norm(self.aIxfmr-fNoload)/np.linalg.norm(fNoload)))
         
@@ -448,17 +452,17 @@ class buildLinModel:
         self.xTscale = 160*1e0
         self.xScale = np.r_[self.xSscale*np.ones(self.nSctrl),self.xTscale*np.ones(self.nT)] # change the scale factor of matrices here
         
-        self.X0ctrl = self.xScale*np.concatenate( (xYcvr[self.pyIdx[0]],xDcvr[:self.nPd],xYcvr[self.qyIdx[0]],xDcvr[self.nPd::],np.zeros(self.nT)) )
+        self.X0ctrl = self.xScale*np.concatenate( (xYcvr0[:self.nPy],xDcvr[:self.nPd],xYcvr0[self.nPy:],xDcvr[self.nPd::],np.zeros(self.nT)) )
         
-        self.Kc2v = dsf.mvM( np.concatenate( (Ky[:,self.pyIdx[0]],Kd[:,:self.nPd],
-                                            Ky[:,self.qyIdx[0]],Kd[:,self.nPd::],
+        self.Kc2v = dsf.mvM( np.concatenate( (Ky[:,:self.nPy],Kd[:,:self.nPd],
+                                            Ky[:,self.nPy::],Kd[:,self.nPd::],
                                             self.Kt),axis=1), 1/self.xScale )
         del(Ky); del(Kd)
         delattr(self,'Ky'); delattr(self,'Kd'); delattr(self,'Kt')
         
         if 'recreateKc2i' in dir(self):
-            KyW, KdW, KtW, self.bW = lineariseMfull(self.WyXfmr,self.WdXfmr,self.WtXfmr,f0,xYcvr[self.syIdx],xDcvr,np.zeros(self.WtXfmr.shape[1]))
-            f0lin = KyW.dot(xYcvr[self.syIdx]) + KdW.dot(xDcvr) + KtW.dot(np.zeros(self.WtXfmr.shape[1])) + self.bW
+            KyW, KdW, KtW, self.bW = lineariseMfull(self.WyXfmr,self.WdXfmr,self.WtXfmr,f0,xYcvr0,xDcvr,np.zeros(self.WtXfmr.shape[1]))
+            f0lin = KyW.dot(xYcvr0) + KdW.dot(xDcvr) + KtW.dot(np.zeros(self.WtXfmr.shape[1])) + self.bW
             self.log.info('\nCurrent abs error (lin point):'+str(np.linalg.norm(f0lin-abs(f0))/np.linalg.norm(abs(f0))))
             self.log.info('Current abs error (no load point):'+str(np.linalg.norm(self.bW-abs(fNoload))/np.linalg.norm(abs(fNoload)))+'( note that this is usually not accurate, it seems.)')
             self.Kc2i = dsf.mvM( np.concatenate( (KyW[:,:self.nPy],KdW[:,:self.nPd],
@@ -480,8 +484,8 @@ class buildLinModel:
         del(Mc2i); del(mc2iSmall); del(mc2iNorm); del(mc2iSel)
         delattr(self,'WyXfmr'); delattr(self,'WdXfmr'); delattr(self,'WtXfmr')
         
-        Kc2d = dsf.mvM( np.concatenate( (dKy[:,self.pyIdx[0]],dKd[:,:self.nPd],
-                                dKy[:,self.qyIdx[0]],dKd[:,self.nPd::],
+        Kc2d = dsf.mvM( np.concatenate( (dKy[:,:self.nPy],dKd[:,:self.nPd],
+                                dKy[:,self.nPy:],dKd[:,self.nPd::],
                                 self.dKt),axis=1), 1/self.xScale )
         del(dKy); del(dKd); 
         delattr(self,'dKt')
@@ -491,7 +495,7 @@ class buildLinModel:
                                                  dsf.vmM( 1/VhDpu, dsf.vmM( 1/self.vKvbaseD, Kc2d[:self.nPd] ) ) ), axis=0), 1/self.xScale )
         
         # Kc2pC = self.xScale[:self.nPctrl]*np.concatenate((xYcvr[self.pyIdx[0]],xDcvr[:self.nPd]))
-        Kc2pC = np.concatenate((xYcvr[self.pyIdx[0]],xDcvr[:self.nPd]))
+        Kc2pC = np.concatenate((xYcvr0[:self.nPy],xDcvr[:self.nPd]))
         Kc2p =  dsf.vmM(Kc2pC*self.pCvr,Kc2vloadpu)
         
         self.ploadL = -self.lScale*self.xScale*np.sum(Kc2p,axis=0)
