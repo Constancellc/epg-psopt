@@ -374,16 +374,61 @@ class buildLinModel:
         VnoLoad = VoffLoad[3:]
         dVnoLoad = H.dot(VoffLoad)
         
+        # control (c) variables (in order): Pgen(Y then D) (kW),Qgen(Y then D) (kvar),t (no.).
+        # notation as 'departure2arrival'
+        self.nPctrl = self.nPy+self.nPd
+        self.nSctrl = self.nPctrl*2
+        self.nCtrl = self.nSctrl + self.nT
+        
+        self.lScale = 1e-3 # to convert to kW
+        self.xSscale = 1e-3 # these values seem about correct, it seems.
+        self.xTscale = 160*1e0
+        self.xScale = np.r_[self.xSscale*np.ones(self.nSctrl),self.xTscale*np.ones(self.nT)] # change the scale factor of matrices here
+        
+        self.X0ctrl = self.xScale*np.concatenate( (xYcvr0[:self.nPy],xDcvr[:self.nPd],xYcvr0[self.nPy:],xDcvr[self.nPd::],np.zeros(self.nT)) )
+        
         self.nV = len(Vh)
         self.createTapModel(lin_point,cvrModel=True) # this seems to be ok. creates Kt and Mt matrices.
         self.nT = self.Mt.shape[1]
         print('Create linear models:\n',time.process_time()); t = time.time()
         
         if self.method=='fot':
-            My,Md,a,dMy,dMd,da = firstOrderTaylor( Ybus,Vh,V0,xYcvr,xDcvr,H[:,3:] ); \
+            # My,Md,a,dMy,dMd,da = firstOrderTaylor( Ybus,Vh,V0,xYcvr,xDcvr,H[:,3:] ); \
+                            # print('===== Using the FOT method =====')
+            My,Md,a,dMy,dMd,da = firstOrderTaylorQuick( Ybus,Vh,V0,xYcvr,xDcvr,H[:,3:] ); \
                             print('===== Using the FOT method =====')
             My = My[:,self.syIdx]
             dMy = dMy[:,self.syIdx]
+            
+            if 'fixFot' in dir(self):
+                # FIRST recreate the equations:
+                Ky,Kd,b = nrelLinK( My,Md,Vh,xYcvr0,xDcvr )
+                dKy,dKd,self.dKt,db = lineariseMfull( dMy,dMd,H[:,3:].dot(self.Mt),dVh,xYcvr0,xDcvr,np.zeros(self.nT) )
+                Kc2d = dsf.mvM( np.concatenate( (dKy[:,:self.nPy],dKd[:,:self.nPd],
+                            dKy[:,self.nPy:],dKd[:,self.nPd::],
+                            self.dKt),axis=1), 1/self.xScale )
+                self.Kc2v = dsf.mvM( np.concatenate( (Ky[:,:self.nPy],Kd[:,:self.nPd],
+                                        Ky[:,self.nPy::],Kd[:,self.nPd::],
+                                        self.Kt),axis=1), 1/self.xScale )
+                Kc2vloadpu = dsf.mvM( np.concatenate( (  dsf.vmM( 1/VhYpu[self.pyIdx[0]], dsf.vmM( 1/self.vKvbaseY,self.Kc2v[self.pyIdx[0]] ) ), 
+                                             dsf.vmM( 1/VhDpu, dsf.vmM( 1/self.vKvbaseD, Kc2d[:self.nPd] ) ) ), axis=0), 1/self.xScale )
+                Kc2pC = np.concatenate((xYcvr0[:self.nPy],xDcvr[:self.nPd]))
+                Kc2p =  dsf.vmM(Kc2pC*self.pCvr,Kc2vloadpu)
+                self.ploadL = -self.lScale*self.xScale*np.sum(Kc2p,axis=0)
+                self.ploadC = -self.lScale*sum(Kc2pC)
+                
+                self.Kc2p = self.lScale*self.xScale*Kc2p
+                
+                # THEN MODIFY MY MD MT AS APPROPRIATE.
+                Mc2v = dsf.mvM( np.concatenate((My[:,:self.nPy],Md[:,:self.nPd],
+                            My[:,self.nPy::],Md[:,self.nPd::],
+                            self.Mt),axis=1), 1/self.xScale )
+                
+                a = a - Mc2v.dot(np.r_[ self.Kc2p.dot(self.X0ctrl), np.zeros(self.nPctrl+self.nT)] )
+                Mc2v = dsf.mvM( Mc2v.dot( np.eye(self.nCtrl) + np.r_[self.Kc2p,np.zeros((self.nPctrl+self.nT,self.nCtrl))] ) , self.xScale )
+                
+                My = np.c_[ Mc2v[:,:self.nPy],Mc2v[:,self.nPctrl:self.nPctrl+self.nPy] ]
+                Md = np.c_[ Mc2v[:,self.nPy:self.nPctrl],Mc2v[:,self.nPctrl+self.nPy:self.nSctrl] ]
         elif self.method=='fpl':
             My,Md,a,dMy,dMd,da = cvrLinearization( Ybus,Vh,V0,H,0,0,self.vKvbase,self.vKvbaseD ); \
                             print('Using the FLP method')
@@ -412,17 +457,39 @@ class buildLinModel:
             
 
         self.My = My
-        self.Ky = Ky
+        self.Md = Md
         self.aV = a
         self.bV = b
         self.H = H
         self.V0 = V0
         
+        
+        Kc2d = dsf.mvM( np.concatenate( (dKy[:,:self.nPy],dKd[:,:self.nPd],
+                                dKy[:,self.nPy:],dKd[:,self.nPd::],
+                                self.dKt),axis=1), 1/self.xScale )
+        del(dKy); del(dKd); delattr(self,'dKt')
+        self.Kc2v = dsf.mvM( np.concatenate( (Ky[:,:self.nPy],Kd[:,:self.nPd],
+                                            Ky[:,self.nPy::],Kd[:,self.nPd::],
+                                            self.Kt),axis=1), 1/self.xScale )
+        del(Ky); del(Kd); delattr(self,'Kt')# kT comes from createTapModel it seems
+        
+        # # see e.g. WB 14/5/19
+        # NB NB NB! PYIDX IS CORRECT as we are drawing out the voltages at the loads from the voltage index!
+        Kc2vloadpu = dsf.mvM( np.concatenate( (  dsf.vmM( 1/VhYpu[self.pyIdx[0]], dsf.vmM( 1/self.vKvbaseY,self.Kc2v[self.pyIdx[0]] ) ), 
+                                                 dsf.vmM( 1/VhDpu, dsf.vmM( 1/self.vKvbaseD, Kc2d[:self.nPd] ) ) ), axis=0), 1/self.xScale )
+        
+        Kc2pC = np.concatenate((xYcvr0[:self.nPy],xDcvr[:self.nPd]))
+        Kc2p =  dsf.vmM(Kc2pC*self.pCvr,Kc2vloadpu)
+        
+        self.ploadL = -self.lScale*self.xScale*np.sum(Kc2p,axis=0)
+        self.ploadC = -self.lScale*sum(Kc2pC)
+        del(Kc2pC); del(Kc2p); del(Kc2vloadpu); del(Kc2d)
+        
+        
+        
         self.vYNodeOrder = YNodeOrder[3:]
         self.SyYNodeOrder = vecSlc(self.vYNodeOrder,self.pyIdx)
         self.SdYNodeOrder = vecSlc(self.vYNodeOrder,self.pdIdx)
-        self.Md = Md
-        self.Kd = Kd
         self.currentLinPoint = lin_point
         
         del(My); del(Md); del(dMy); del(dMd)
@@ -441,24 +508,7 @@ class buildLinModel:
         self.log.info('\nCurrent cpx error (lin point):'+str(np.linalg.norm(f0cpx-f0)/np.linalg.norm(f0)))
         self.log.info('Current cpx error (no load point):'+str(np.linalg.norm(self.aIxfmr-fNoload)/np.linalg.norm(fNoload)))
         
-        # control (c) variables (in order): Pgen(Y then D) (kW),Qgen(Y then D) (kvar),t (no.).
-        # notation as 'departure2arrival'
-        self.nPctrl = self.nPy+self.nPd
-        self.nSctrl = self.nPctrl*2
-        self.nCtrl = self.nSctrl + self.nT
         
-        self.lScale = 1e-3 # to convert to kW
-        self.xSscale = 1e-3 # these values seem about correct, it seems.
-        self.xTscale = 160*1e0
-        self.xScale = np.r_[self.xSscale*np.ones(self.nSctrl),self.xTscale*np.ones(self.nT)] # change the scale factor of matrices here
-        
-        self.X0ctrl = self.xScale*np.concatenate( (xYcvr0[:self.nPy],xDcvr[:self.nPd],xYcvr0[self.nPy:],xDcvr[self.nPd::],np.zeros(self.nT)) )
-        
-        self.Kc2v = dsf.mvM( np.concatenate( (Ky[:,:self.nPy],Kd[:,:self.nPd],
-                                            Ky[:,self.nPy::],Kd[:,self.nPd::],
-                                            self.Kt),axis=1), 1/self.xScale )
-        del(Ky); del(Kd)
-        delattr(self,'Ky'); delattr(self,'Kd'); delattr(self,'Kt')
         
         if 'recreateKc2i' in dir(self):
             KyW, KdW, KtW, self.bW = lineariseMfull(self.WyXfmr,self.WdXfmr,self.WtXfmr,f0,xYcvr0,xDcvr,np.zeros(self.WtXfmr.shape[1]))
@@ -484,23 +534,7 @@ class buildLinModel:
         del(Mc2i); del(mc2iSmall); del(mc2iNorm); del(mc2iSel)
         delattr(self,'WyXfmr'); delattr(self,'WdXfmr'); delattr(self,'WtXfmr')
         
-        Kc2d = dsf.mvM( np.concatenate( (dKy[:,:self.nPy],dKd[:,:self.nPd],
-                                dKy[:,self.nPy:],dKd[:,self.nPd::],
-                                self.dKt),axis=1), 1/self.xScale )
-        del(dKy); del(dKd); 
-        delattr(self,'dKt')
         
-        # see e.g. WB 14/5/19
-        Kc2vloadpu = dsf.mvM( np.concatenate( (  dsf.vmM( 1/VhYpu[self.pyIdx[0]], dsf.vmM( 1/self.vKvbaseY,self.Kc2v[self.pyIdx[0]] ) ), 
-                                                 dsf.vmM( 1/VhDpu, dsf.vmM( 1/self.vKvbaseD, Kc2d[:self.nPd] ) ) ), axis=0), 1/self.xScale )
-        
-        # Kc2pC = self.xScale[:self.nPctrl]*np.concatenate((xYcvr[self.pyIdx[0]],xDcvr[:self.nPd]))
-        Kc2pC = np.concatenate((xYcvr0[:self.nPy],xDcvr[:self.nPd]))
-        Kc2p =  dsf.vmM(Kc2pC*self.pCvr,Kc2vloadpu)
-        
-        self.ploadL = -self.lScale*self.xScale*np.sum(Kc2p,axis=0)
-        self.ploadC = -self.lScale*sum(Kc2pC)
-        del(Kc2pC); del(Kc2p); del(Kc2vloadpu); del(Kc2d)
         
         # self.Mc2v = dsf.mvM( np.concatenate((self.My[:,:self.nPy],self.Md[:,:self.nPd],
         Mc2v = dsf.mvM( np.concatenate((self.My[:,:self.nPy],self.Md[:,:self.nPd],

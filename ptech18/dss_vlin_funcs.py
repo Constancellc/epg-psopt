@@ -5,6 +5,7 @@ from cvxopt import matrix
 import scipy.sparse.linalg as spla
 from dss_python_funcs import *
 import matplotlib.pyplot as plt
+from dss_stats_funcs import vmM,mvM
 
 def nrel_linearization(Ybus,Vh,V0,H):
     Yll = Ybus[3:,3:].tocsc()
@@ -216,6 +217,92 @@ def firstOrderTaylor(Ybus,V,V0,xhy,xhd,H):
     
     My = derivWye
     Md = derivVDelta
+    a = V - My.dot(xhy) - Md.dot(xhd)
+    
+    dMy = H.dot(My)
+    dMd = H.dot(Md)
+    da = H.dot(a)
+    
+    return My,Md,a,dMy,dMd,da
+
+def sparseToBand(sprs):
+    # NB! This has not been tested thoroughly and may not work...!
+    # based on https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.solve_banded.html
+    sprs = sprs.tocoo()
+    n0 = sprs.shape[0] # assume square!
+    bands = sprs.col - sprs.row
+    l = -min(bands)
+    u = max(bands)
+    bMtx  = np.zeros((1+u+l,n0))
+    for i,j,d in zip(sprs.row,sprs.col,sprs.data):
+        band = j - i
+        colIdx = u - band
+        rowIdx = i + band
+        bMtx[colIdx,rowIdx] = d
+    
+    return bMtx,l,u
+
+def firstOrderTaylorQuick(Ybus,V,V0,xhy,xhd,H):
+    # based on the m-file firstOrderTaylor.
+    # V is YNodeV[3:]
+    
+    YLL = Ybus[3:,3:] # NB: this is usually sparse already, hence some odd matrix multiplication orders
+    YL0 = Ybus[3:,:3]
+    
+    shy = xhy[0:len(xhy)//2] + 1j*xhy[len(xhy)//2:]
+    shd = xhd[0:len(xhd)//2] + 1j*xhd[len(xhd)//2:]
+    
+    # IdeltaConj = np.diag(1/H.dot(V)).dot(shd)
+    IdeltaConj = shd/H.dot(V)
+    sizeV = len(V)
+    sizeD = len(xhd)//2
+    
+    M1 = np.diag( (H.T).dot(IdeltaConj) );
+    M2 = vmM(V,H.T);
+    M3 = (( YLL.dot( np.diag(V.conj()) )).T).conj();
+    M4 = np.diag( (YL0.conj()).dot(V0.conj()) + (YLL.conj()).dot(V.conj()) );
+    
+    M5 = np.diag(H.dot(V));
+    M6 = vmM(IdeltaConj,H);
+    
+    A1 = np.concatenate( ( (M1-M3-M4).real, (-M1-M3+M4).imag, M2.real, M2.imag ), axis=1  )
+    A2 = np.concatenate( ( (M1 - M3 - M4).imag, (M1 + M3 - M4).real, M2.imag, -M2.real ), axis=1  )
+    A3 = np.concatenate( ( M6.real, -M6.imag, M5.real, M5.imag ), axis=1 )
+    A4 = np.concatenate( ( M6.imag, M6.real, M5.imag, -M5.real ),axis=1 )
+    
+    A = np.concatenate( (A1,A2,A3,A4), axis=0 )
+    del(A1); del(A2); del(A3); del(A4); 
+    del(M1); del(M2); del(M3); del(M4); del(M5); del(M6); 
+    
+    Bwye = np.concatenate( (-np.eye(2*sizeV), np.zeros((2*sizeD,2*sizeV)) ),axis=0 )
+    Bdelta = np.concatenate( (np.zeros((2*sizeV,2*sizeD)),np.eye(2*sizeD) ),axis=0 )
+    
+    Bwye = sparse.csc_matrix(Bwye)
+    Bdelta = sparse.csc_matrix(Bdelta)
+    A = sparse.csc_matrix(A)
+    
+    from scipy import linalg
+    
+    # Tried a whole bunch of things, including sparse solves over all of these,
+    # solving banded (with scipy.solve_banded using RCM algorithm), bcg methods.
+    # None seem to be faster than just calculating the inverse and then multiplying
+    # through, at this stage, so sticking with this code.
+    t0 = time.time()
+    Ainv = linalg.inv(A.A)
+    print('Inverse Time:',time.time() - t0)
+    
+    derivVP = ((Bwye[:,:sizeV].T.dot(Ainv.T)).T[:2*sizeV]) # Ainv is not sparse hence this is required
+    derivVQ = ((Bwye[:,sizeV:].T.dot(Ainv.T)).T[:2*sizeV])
+    My = np.c_[ derivVP[:sizeV] + 1j*derivVP[sizeV::],derivVQ[:sizeV] + 1j*derivVQ[sizeV::] ]
+    print('Inverse 1 done.',time.time() - t0)
+    del(derivVP); del(derivVQ)
+    
+    derivVP = ((Bdelta[:,:sizeV].T.dot(Ainv.T)).T[:2*sizeV])
+    derivVQ = ((Bdelta[:,sizeV:].T.dot(Ainv.T)).T[:2*sizeV])
+    
+    Md = np.c_[ derivVP[:sizeV] + 1j*derivVP[sizeV::],derivVQ[:sizeV] + 1j*derivVQ[sizeV::] ]
+    print('Inversions complete',time.time() - t0)
+    
     a = V - My.dot(xhy) - Md.dot(xhd)
     
     dMy = H.dot(My)
