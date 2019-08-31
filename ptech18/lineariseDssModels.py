@@ -1592,6 +1592,9 @@ class buildLinModel:
         vErrBoth = []
         SsetBoth = []
         iErrBoth = []
+        iBoth = []
+        icBoth = []
+        iaBoth = []
         
         for ii in range(2):
             self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
@@ -1617,6 +1620,9 @@ class buildLinModel:
             TCest = np.zeros(len(Sset))
             vErr = np.zeros(len(Sset))
             iErr = np.zeros(len(Sset))
+            iCalcNorm = np.zeros(len(Sset))
+            icCalcNorm = np.zeros(len(Sset))
+            iaCalcNorm = np.zeros(len(Sset))
             
             for i in range(len(Sset)):
                 if ii==0:
@@ -1633,6 +1639,10 @@ class buildLinModel:
                 
                 vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
                 iErr[i] = np.linalg.norm((Icalc - Icest)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
+                
+                iCalcNorm[i] = np.linalg.norm(np.abs(Icalc)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
+                icCalcNorm[i] = np.linalg.norm(np.abs(Icest)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
+                iaCalcNorm[i] = np.linalg.norm(Iest/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
             
             
             if ii==0:
@@ -1664,9 +1674,12 @@ class buildLinModel:
             vErrBoth.append(vErr)
             iErrBoth.append(iErr)
             SsetBoth.append(Sset)
+            iBoth.append(iCalcNorm)
+            icBoth.append(icCalcNorm)
+            iaBoth.append(iaCalcNorm)
         # plt.show()
         
-        return TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,SsetBoth
+        return TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,SsetBoth,iBoth,icBoth,iaBoth
     
     
     def testQpTcpf(self):
@@ -1683,6 +1696,9 @@ class buildLinModel:
         TCest = np.zeros(5)
         vErr = np.zeros(5)
         iErr = np.zeros(5)
+        iCalcNorm = np.zeros(5)
+        icCalcNorm = np.zeros(5)
+        iaCalcNorm = np.zeros(5)
         DSSText.Command='Set controlmode=off'
         
         xCtrl = np.zeros(self.nCtrl)
@@ -1710,6 +1726,10 @@ class buildLinModel:
             vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
             iErr[i] = np.linalg.norm((Icalc - Icest)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
             
+            iCalcNorm[i] = np.linalg.norm(np.abs(Icalc)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
+            icCalcNorm[i] = np.linalg.norm(np.abs(Icest)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
+            iaCalcNorm[i] = np.linalg.norm(Iest/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
+            
             # VcplxEst = self.Mc2v.dot(self.X0ctrl + dx) + self.aV
             # YNodeVaug = np.concatenate((YNodeV[:3],VcplxEst,np.array([0])))
             # iOut = self.v2iBrY.dot(YNodeVaug[:-1])
@@ -1734,7 +1754,7 @@ class buildLinModel:
         plt.tight_layout()
         # plt.show()
         
-        return TL,TLest,PL,PLest,vErr,iErr,dxScale
+        return TL,TLest,PL,PLest,vErr,iErr,dxScale,iCalcNorm,icCalcNorm,iaCalcNorm
 
     
     def addYDgens(self,DSSObj):

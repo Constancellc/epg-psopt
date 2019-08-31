@@ -1,7 +1,7 @@
 import lineariseDssModels, sys, os, pickle, random, time
 from importlib import reload
 import numpy as np
-from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, plotSaveFig, basicTable, np2lsStr, sdt, createYbus,find_tap_pos
+from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, plotSaveFig, basicTable, np2lsStr, sdt, createYbus,find_tap_pos, getBranchNames, makeYprim, getBranchYprims
 from dss_voltage_funcs import getCapPos
 import matplotlib.pyplot as plt
 from matplotlib import cm, rc
@@ -522,20 +522,28 @@ if 'f_modelValidation' in locals():
                 plotSaveFig(os.path.join(sdt('t3','f'),'modelValidationT'+self.feeder),pltClose=True)
             plt.show()
 
-if 'f_modelValidationSet':
+if 'f_modelValidationSet' in locals():
     feederSet = [18,24]
-    feederSet = [24]
-    feederSet = [18]
-    # feederSet = [26]
-    pltSet = ['lds','lss']
-    pltSet = ['lss']
+    # feederSet = [24]
+    # feederSet = [18]
+    feederSet = [26]
+    pltSet = ['lds','lss','curr']
+    pltSet = ['curr']
     for feeder in feederSet:
         linPoints = linPointsDict[feeder]['all']
-        self = main(feeder,'loadOnly',linPoint=linPoints[-1],pCvr=0.6); self.initialiseOpenDss(); print('Solve 1...')
-        TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,Sset = self.testQpScpf(); 
+        # self = main(feeder,'loadOnly',linPoint=linPoints[-1],pCvr=0.6); self.initialiseOpenDss()
+        self = main(feeder,'loadOnly',linPoint=linPoints[-2],pCvr=0.6); self.initialiseOpenDss()
+        if 'curr' in pltSet:
+            self.recreateKc2i = 1
+            self.recreateMc2v = 1
+            self.initialiseOpenDss()
+            self.makeCvrQp()
+        
+        print('Solve 1...')
+        TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,Sset,iN,icN,iaN = self.testQpScpf(); 
         if self.nT>0:
             print('Solve 2...')
-            TL,TLest,PL,PLest,vErr,iErr,dxScale = self.testQpTcpf()
+            TL,TLest,PL,PLest,vErr,iErr,dxScale,iNt,icNt,iaNt = self.testQpTcpf()
         
         plt.close('all')
         ii=0
@@ -584,6 +592,32 @@ if 'f_modelValidationSet':
                 ax.set_xlabel('Tap')
                 ax.set_ylabel('Losses, kW')
                 ax.legend()
+                plt.tight_layout()
+                if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
+                plt.show()
+                
+        if 'curr' in pltSet:
+            figname='modelValidationSetI'
+            sd = sdt('t3','f')
+            fig,ax=plt.subplots(figsize=figSze)
+            ax.plot(Sset[ii],100*iN[ii],label='DSS.')
+            ax.plot(Sset[ii],100*icN[ii],label='Lin. clx.')
+            ax.plot(Sset[ii],100*iaN[ii],'--',label='Lin. mag.',color=cm.matlab(1))
+            ax.set_xlabel('Rctv. power, kVAr')
+            ax.set_ylabel('Current, % of $I_{\mathrm{Xfmr}}$')
+            ax.legend(fontsize='small')
+            plt.tight_layout()
+            if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
+            plt.show()
+            if self.nT>0:
+                figname='modelValidationSetITaps'
+                fig,ax=plt.subplots(figsize=figSze)
+                ax.plot(dxScale,100*iNt,'x-',label='DSS.')
+                ax.plot(dxScale,100*icNt,'x-',label='Lin. clx.')
+                ax.plot(dxScale,100*iaNt,'x--',label='Lin. mag.',color=cm.matlab(1))
+                ax.set_xlabel('Tap')
+                ax.set_ylabel('Current, %')
+                ax.legend(fontsize='small')
                 plt.tight_layout()
                 if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
                 plt.show()
