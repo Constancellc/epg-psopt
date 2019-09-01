@@ -29,10 +29,12 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.6,method='fpl',saveModel=Fal
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
 feederSet = [5,6,8,26,24,0,18,17,'n4','n1','n10','n27']
-feederSet = [6,0,17,'n1',26,'n27',24,'n10',18] # results set
-feederSet = [6,'n1','n10',17,18,26,24,'n27']
+feederSet = [6,17,'n1',26,'n27',24,'n10',18] # results set
+# feederSet = [6,26,24,17,18,'n1'] # introductory set
+feederSet = [26]
 # feederSet = [26,0,17,24,18,'n1','n10','n27','n4']
 
+methodChosen = 'fot'
 
 feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20:'Ckt. K1',21:'Ckt. M1',17:'Ckt. 5',18:'Ckt. 7',22:'Ckt. 24',26:'123 Bus',24:'Ckt. K1','n1':'EULVa','n27':'EULVa-r',0:'EULV','n4':'Nwk. 4','n10':'Nwk. 10'}
 
@@ -43,14 +45,15 @@ linPointsB = {'all':lpB,'opCst':lpB,'hcGen':[lpB[0]],'hcLds':[lpB[-1]]}
 linPointsC = {'all':lpC,'opCst':lpC,'hcGen':lpC,'hcLds':lpC}
 
 objSet = ['opCst','hcGen','hcLds']
+objSet = ['opCst']
 strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','maxTap'],'hcLds':['full','phase','nomTap','minTap'] }
 
 # NB remember to update n10!
 linPointsDict = {5:linPointsA,6:linPointsB,26:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
                                 'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA,25:linPointsC}
 pCvrSet = [0.0,0.3,0.6,0.9]
-# pCvrSet = [0.0,0.9]
-# pCvrSet = [0.6]
+pCvrSet = [0.0,0.3,0.9]
+pCvrSet = [0.6]
 
 # STEP 1: building and saving the models. =========================
 tBuild = []
@@ -58,10 +61,11 @@ if 'f_bulkBuildModels' in locals():
     for feeder in feederSet:
         t0 = time.time()
         linPoints = linPointsDict[feeder]['all']
+        linPoints = [linPointsDict[feeder]['all'][-1]]
         print('============================================= Feeder:',feeder)
         for linPoint in linPoints:
             for pCvr in pCvrSet:
-                self = main(feeder,pCvr=pCvr,modelType='buildSave',linPoint=linPoint)
+                self = main(feeder,pCvr=pCvr,modelType='buildSave',linPoint=linPoint,method=methodChosen)
         tBuild.append(time.time()-t0)
 
 # STEP 2: Running the models, obtaining the optimization results.
@@ -70,10 +74,11 @@ if 'f_bulkRunModels' in locals():
     for feeder in feederSet:
         t0 = time.time()
         linPoints = linPointsDict[feeder]['all']
+        linPoints = [linPointsDict[feeder]['all'][-1]]
         print('============================================= Feeder:',feeder)
         for linPoint in linPoints:  
             for pCvr in pCvrSet:
-                self = main(feeder,pCvr=pCvr,modelType='loadAndRun',linPoint=linPoint) # see "runQpSet"
+                self = main(feeder,pCvr=pCvr,modelType='loadAndRun',linPoint=linPoint,method=methodChosen) # see "runQpSet"
         tSet.append(time.time()-t0)
 
 # STEP 3: check the feasibility of all solutions
@@ -82,7 +87,7 @@ if 'f_checkFeasibility' in locals():
         linPoints = linPointsDict[feeder]['all']
         for linPoint in linPoints:
             for pCvr in pCvrSet:
-                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint,method=methodChosen)
                 self.loadQpSet()
                 for key in self.qpSolutions:
                     print(self.feeder + '; sln type ' + key+', linPoint,' +str(linPoint)+' : ',self.qpSolutions[key][2])
@@ -107,8 +112,9 @@ if 'f_checkError' in locals():
         successTable.append([feederTidy])
         for obj in objSet:
             linPoints = linPointsDict[feeder][obj]
+            linPoints = [linPointsDict[feeder]['all'][-1]]
             for linPoint in linPoints:
-                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint,method=methodChosen)
                 resultTableV[i].append( "%.6f" % (self.qpSolutionDssError(strategy,obj,err='V')*100))
                 resultTableI[i].append( "%.6f" % (self.qpSolutionDssError(strategy,obj,err='I')*100))
                 resultTableP[i].append( "%.6f" % (self.qpSolutionDssError(strategy,obj,err='P')*100))
@@ -305,12 +311,13 @@ if 't_costFuncStudy' in locals():
     # 2. Find Q^-1 L; then, solve using the 'fast' method, and compare.
     epsXoff = np.zeros((len(feederSet),3))
     x1sets = {}
-    for feeder,ii in zip(feederSet,range(len(feederSet))):
+    feederSetOrdered = [17,18,'n1','n10',26,24,'n27'] # ordered results set
+    for feeder,ii in zip(feederSetOrdered,range(len(feederSetOrdered))):
         print(feeder)
         linPoints = linPointsDict[feeder]['all']
         linPoint = linPoints[-1]
         x1sets[feeder] = {}
-        self = main(feeder,modelType='loadOnly',linPoint=linPoint)
+        self = main(feeder,modelType='loadOnly',linPoint=linPoint,method=methodChosen)
         self.solveQpUnc()
         qpQlss = 1e3*self.qQpUnc[self.nPctrl:self.nSctrl,self.nPctrl:self.nSctrl]
         

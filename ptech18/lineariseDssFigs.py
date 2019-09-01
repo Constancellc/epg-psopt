@@ -46,7 +46,7 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_123busVlts = 1
 # f_solutionError = 1
 # f_caseStudyChart = 1
-# t_sensitivities_base = 1 #not used
+# t_sensitivities_base = 1
 # f_sensitivities_all = 1
 # f_sensitivities_aCvr = 1
 # f_sensitivities_loadPoint = 1
@@ -307,7 +307,7 @@ if 'f_caseStudyChart' in locals():
         linPoints = linPointsDict[feeder][obj]
         j=0
         for linPoint in linPoints:
-            self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+            self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint,method='fot')
             opCstTable[j,i] = self.qpVarValue(strategy,obj,'norm')
             j+=1
         i+=1
@@ -319,13 +319,12 @@ if 'f_caseStudyChart' in locals():
             ax.bar(i-0.25+ (0.25*2*np.arange(nS)/(nS-1)),100*opCstTable[i],
                                                                     width=0.08,color=cm.matlab(range(nS)) )
     for i in range(nS): #for the legend
-        ax.plot(0,0,label=strategySet[obj][i])
+        ax.plot(0,0,label=ssSmart[strategySet[obj][i]])
     
     ax.set_ylim((95,100.5))
     ax.set_xticks(np.arange(3))
-    # ax.set_xticklabels(('10% load','60% load','100% load'),rotation=90)
     ax.set_xticklabels(('10% load','60% load','100% load'))
-    ax.legend(loc='center left', bbox_to_anchor=(1.01, 0.5))
+    ax.legend(loc='center left', bbox_to_anchor=(1.01, 0.5),title='Control')
     ax.set_ylabel(ylabels[obj])
     # ax.set_title(obj)
     plt.tight_layout()
@@ -524,21 +523,18 @@ if 'f_modelValidation' in locals():
 
 if 'f_modelValidationSet' in locals():
     feederSet = [18,24]
-    # feederSet = [24]
-    # feederSet = [18]
-    feederSet = [26]
+    # feederSet = [26]
     pltSet = ['lds','lss','curr']
-    pltSet = ['curr']
+    # pltSet = ['lss']
     for feeder in feederSet:
         linPoints = linPointsDict[feeder]['all']
-        # self = main(feeder,'loadOnly',linPoint=linPoints[-1],pCvr=0.6); self.initialiseOpenDss()
-        self = main(feeder,'loadOnly',linPoint=linPoints[-2],pCvr=0.6); self.initialiseOpenDss()
+        self = main(feeder,'loadOnly',linPoint=linPoints[-1],pCvr=0.6,method='fot'); self.initialiseOpenDss()
         if 'curr' in pltSet:
             self.recreateKc2i = 1
             self.recreateMc2v = 1
             self.initialiseOpenDss()
             self.makeCvrQp()
-        
+    
         print('Solve 1...')
         TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,Sset,iN,icN,iaN = self.testQpScpf(); 
         if self.nT>0:
@@ -643,15 +639,15 @@ if 'f_modelValidationSet' in locals():
 if 'f_daisy' in locals():
     # feeder = 8
     feeder = 26
-    self = main(feeder,'loadOnly',linPoint=1.0); self.loadQpSet(); self.loadQpSln('full','opCst')
+    self = main(feeder,'loadOnly',linPoint=1.0,method='fot'); self.loadQpSet(); self.loadQpSln('full','opCst')
     self.plotNetBuses('qSlnPh',pltShow=False)
     SN = os.path.join(SDfig,'daisy')
-    if 'pltSave' in locals():
-        plotSaveFig(os.path.join(SDfig,'daisy'),pltClose=True)
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'daisy'),pltClose=True)
+    plt.show()
 
 if 'f_123busVlts' in locals():
     feeder = 26
-    self = main(feeder,'loadOnly',linPoint=1.0); self.loadQpSet(); self.loadQpSln('full','opCst')
+    self = main(feeder,'loadOnly',linPoint=1.0,method='fot'); self.loadQpSet(); self.loadQpSln('full','opCst')
     
     figname='123busVlts'
     sd = sdt('t3','f')
@@ -661,15 +657,16 @@ if 'f_123busVlts' in locals():
     TLd,PLd,TCd,CLd,Vd,Id,Vcd,Icd = self.slnD
 
     fig,ax0=plt.subplots(figsize=(4.4,3.0))
-    # ax0.plot((Vd/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markeredgewidth=0.7,label='OpenDSS');
     # ax0.plot((V/self.vKvbase)[self.vIn],'x',markeredgewidth=0.7,label='QP Sln.');
     ax0.plot((V/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markersize=3.0,label='QP Sln.');
     ax0.plot((V0/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markersize=3.0,label='Nom. Sln.');
+    ax0.plot((Vd/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markersize=2.0,markeredgewidth=0.7,label='DSS. Sln.');
     ax0.plot((self.vHi/self.vKvbase)[self.vIn],'k_');
     ax0.plot((self.vLo/self.vKvbase)[self.vIn],'k_');
     ax0.set_xlabel('Bus Index')
     ax0.set_ylabel('Voltage, pu')
     ax0.grid(True)
+    ax0.set_ylim((0.89,1.06))
     ax0.legend()
     # ax0.show()
     plt.tight_layout()
@@ -743,7 +740,7 @@ if 't_sensitivities_base' in locals():
         heading.append(feederIdxTidy[feeder])
         j=0
         for strategy in strategies:
-            self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][obj][-1])
+            self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][obj][-1],method='fot')
             opCst[j,i] = self.qpVarValue(strategy,obj,'norm',invType='Low')
             j+=1
         i+=1
@@ -776,7 +773,7 @@ if 'f_sensitivities_all' in locals():
         j=0
         for strategy in strategies:
             k=0
-            self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][obj][-1])
+            self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][obj][-1],method='fot')
             for invType in invTypes:
                 opCst[j,i,k] = self.qpVarValue(strategy,obj,'norm',invType=invType)
                 wCst[j,i,k] = self.qpVarValue(strategy,obj,'power',invType=invType)
@@ -936,7 +933,7 @@ if 't_networkMetrics' in locals():
 if 'f_costFunc' in locals():
     feederSet = [24,'n27']
     for feeder in feederSet:
-        self = main(feeder,modelType='loadOnly',linPoint=1.0)
+        self = main(feeder,modelType='loadOnly',linPoint=1.0,method='fot')
         fig,ax1 = plt.subplots(figsize=(3.3,2.8))
 
         ldsQ = 1e3*self.ploadL[self.nPctrl:self.nSctrl]
@@ -969,7 +966,7 @@ if 'f_costFunc' in locals():
 
 if 'f_psdFigs' in locals():
     feeder = 6
-    self = main(feeder,modelType='loadOnly',linPoint=0.6)
+    self = main(feeder,modelType='loadOnly',linPoint=0.6,method='fot')
     self.solveQpUnc()
     qpQlss = 1e3*self.qQpUnc[self.nPctrl:self.nSctrl,self.nPctrl:self.nSctrl]
     
@@ -1000,10 +997,11 @@ if 'f_psdFigs' in locals():
     ax.set_xlabel('Control index, $i$')
     ax.set_ylabel('Eigenvector value $v(i)$')
     ylm = ax.get_ylim()
+    ylm = (-0.48,0.38)
     ax.plot((39.5,39.5),ylm,'k--')
     ax.set_ylim(ylm)
-    ax.text(1,-0.38,'Wye\nloads')
-    ax.text(41,-0.38,'Delta\nloads')
+    ax.text(1,-0.45,'Wye\nloads')
+    ax.text(41,-0.45,'Delta\nloads')
     plt.tight_layout()
     if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname),pltClose=True)
 
@@ -1026,62 +1024,62 @@ if 'f_psdFigs' in locals():
 
 if 'f_costFuncXmpl' in locals():
     from numpy.linalg import norm, solve, lstsq, svd
-    feeder = 'n1'
-    feeder = 26
-    # self = main(feeder,modelType='loadOnly',linPoint=1.0)
-    self = main(feeder,modelType='loadOnly',linPoint=0.6)
-    self.solveQpUnc()
-    qpQlss = 1e3*self.qQpUnc[self.nPctrl:self.nSctrl,self.nPctrl:self.nSctrl]
-    types = ['Low','Hi']
-    sRateds = [1.0,4.0,16.0]
-    invCoeffs = [[],[]]
-    for type,i in zip(types,range(2)):
-        for sRated in sRateds:
-            kQlossC,kQlossQ = self.getInvLossCoeffs(sRated,type)
-            self.setQlossOfs(kQlossQ=kQlossQ,kQlossC=0)
-            invCoeffs[i].append(1e3*np.linalg.norm(self.qlossQdiag,ord=np.inf))
+    feederSet = ['n1',26]
+    # feederSet = ['n1']
+    for feeder in feederSet:
+        self = main(feeder,modelType='loadOnly',linPoint=1.0,method='fot')
+        self.solveQpUnc()
+        qpQlss = 1e3*self.qQpUnc[self.nPctrl:self.nSctrl,self.nPctrl:self.nSctrl]
+        types = ['Low','Hi']
+        sRateds = [1.0,4.0,16.0]
+        invCoeffs = [[],[]]
+        for type,i in zip(types,range(2)):
+            for sRated in sRateds:
+                kQlossC,kQlossQ = self.getInvLossCoeffs(sRated,type)
+                self.setQlossOfs(kQlossQ=kQlossQ,kQlossC=0)
+                invCoeffs[i].append(1e3*np.linalg.norm(self.qlossQdiag,ord=np.inf))
 
-    pLoad = self.ploadL[self.nPctrl:self.nSctrl]
-    pLoss = self.qpLlss[self.nPctrl:self.nSctrl]
-    p = 1e3*(pLoad + pLoss)
-    
-    # based on solveQpUnc 
-    xIvt = np.logspace(-2.0,3.0,20) # W/kVAr^2
-    x1Set = []
-    for xivt in xIvt:
-        qpQivt = xivt*np.eye(len(qpQlss))
-        np.linalg.norm(qpQlss,ord=2)
-        Q = qpQivt + qpQlss
-        xStar = np.r_[np.zeros(self.nPctrl),lstsq(Q,-0.5*p,rcond=None)[0],np.zeros(self.nT)]
-        fStar = self.runQp(xStar)
-        # x1Set.append(norm(xStar))
-        x1Set.append(norm(xStar,ord=1))
-        c0star = -(1/xivt)*0.5*p
-    # ylm = (-5,105)
-    # ylm = (-0.0,2.5)
-    ylm = (0.0,5)
-    sln0x = lstsq(qpQlss,-0.5*p,rcond=None)[0]
-    fig,ax = plt.subplots(figsize=(3.6,2.6))
-    # ax.plot(xIvt,100*np.array(x1Set)/norm(sln0x))
-    ax.plot(xIvt,np.array(x1Set)/len(sln0x))
-    ax.set_xscale('log'); 
-    ax.set_xlabel('Inverter loss coefficient $c_{R}$, W/kVAr$^{2}$')
-    ax.set_ylabel('$Q$ per gen., $\\frac{||x_{\mathrm{Q,\,Unc}}^{*}||_{1}}{N_{\mathrm{lds}}}$, kVAr')
-    ax.plot([invCoeffs[0][0]]*2,ylm,'--',color=cm.matlab(1))
-    ax.plot([invCoeffs[1][0]]*2,ylm,'--',color=cm.matlab(1))
-    ax.text(invCoeffs[0][0]*1.6,0.75*ylm[1],'1 kVA inverter',color=cm.matlab(1),rotation=90)
-    ax.plot([invCoeffs[0][1]]*2,ylm,':',color=cm.matlab(2))
-    ax.plot([invCoeffs[1][1]]*2,ylm,':',color=cm.matlab(2))
-    ax.text(invCoeffs[0][1]*1.6,0.75*ylm[1],'4 kVA inverter',color=cm.matlab(2),rotation=90)
-    ax.plot([invCoeffs[0][2]]*2,ylm,'-.',color=cm.matlab(3))
-    ax.plot([invCoeffs[1][2]]*2,ylm,'-.',color=cm.matlab(3))
-    ax.text(invCoeffs[0][2]/1.6,0.75*ylm[1],'16 kVA inverter',color=cm.matlab(3),rotation=90)
-    ax.set_ylim(ylm)
-    ax.set_xlim((xIvt[0],xIvt[-1]))
-    plt.tight_layout()
-    if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'costFuncXmpl_'+self.feeder),pltClose=True)
-    plt.show()
-    
+        pLoad = self.ploadL[self.nPctrl:self.nSctrl]
+        pLoss = self.qpLlss[self.nPctrl:self.nSctrl]
+        p = 1e3*(pLoad + pLoss)
+        
+        # based on solveQpUnc 
+        xIvt = np.logspace(-2.0,3.0,20) # W/kVAr^2
+        x1Set = []
+        for xivt in xIvt:
+            qpQivt = xivt*np.eye(len(qpQlss))
+            np.linalg.norm(qpQlss,ord=2)
+            Q = qpQivt + qpQlss
+            xStar = np.r_[np.zeros(self.nPctrl),lstsq(Q,-0.5*p,rcond=None)[0],np.zeros(self.nT)]
+            fStar = self.runQp(xStar)
+            # x1Set.append(norm(xStar))
+            x1Set.append(norm(xStar,ord=1))
+            c0star = -(1/xivt)*0.5*p
+        # ylm = (-5,105)
+        # ylm = (-0.0,2.5)
+        ylm = (0.0,5)
+        sln0x = lstsq(qpQlss,-0.5*p,rcond=None)[0]
+        fig,ax = plt.subplots(figsize=(3.6,2.6))
+        # ax.plot(xIvt,100*np.array(x1Set)/norm(sln0x))
+        ax.plot(xIvt,np.array(x1Set)/len(sln0x))
+        ax.set_xscale('log'); 
+        ax.set_xlabel('Inverter loss coefficient $c_{R}$, W/kVAr$^{2}$')
+        ax.set_ylabel('$Q$ per gen., $\\frac{||x_{\mathrm{Q,\,Unc}}^{*}||_{1}}{N_{\mathrm{lds}}}$, kVAr')
+        ax.plot([invCoeffs[0][0]]*2,ylm,'--',color=cm.matlab(1))
+        ax.plot([invCoeffs[1][0]]*2,ylm,'--',color=cm.matlab(1))
+        ax.text(invCoeffs[0][0]*1.6,0.75*ylm[1],'1 kVA inverter',color=cm.matlab(1),rotation=90)
+        ax.plot([invCoeffs[0][1]]*2,ylm,':',color=cm.matlab(2))
+        ax.plot([invCoeffs[1][1]]*2,ylm,':',color=cm.matlab(2))
+        ax.text(invCoeffs[0][1]*1.6,0.75*ylm[1],'4 kVA inverter',color=cm.matlab(2),rotation=90)
+        ax.plot([invCoeffs[0][2]]*2,ylm,'-.',color=cm.matlab(3))
+        ax.plot([invCoeffs[1][2]]*2,ylm,'-.',color=cm.matlab(3))
+        ax.text(invCoeffs[0][2]/1.6,0.75*ylm[1],'16 kVA inverter',color=cm.matlab(3),rotation=90)
+        ax.set_ylim(ylm)
+        ax.set_xlim((xIvt[0],xIvt[-1]))
+        plt.tight_layout()
+        if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'costFuncXmpl_'+self.feeder),pltClose=True)
+        plt.show()
+        
 if 'f_costFuncAsym' in locals():
     from numpy.linalg import norm, solve, lstsq
     feeder = 'n1'
@@ -1089,7 +1087,7 @@ if 'f_costFuncAsym' in locals():
     # xIvt = np.logspace(-2.0,3.0,20) # W/kVAr^2
     xIvt = np.logspace(-2.0,3.0,60) # W/kVAr^2
     # self = main(feeder,modelType='loadOnly',linPoint=1.0)
-    self = main(feeder,modelType='loadOnly',linPoint=0.6)
+    self = main(feeder,modelType='loadOnly',linPoint=1.0,method='fot')
     self.solveQpUnc()
     qpQlss = 1e3*self.qQpUnc[self.nPctrl:self.nSctrl,self.nPctrl:self.nSctrl]
     types = ['Low','Hi']
@@ -1181,7 +1179,7 @@ if 'f_costFuncAsym' in locals():
 
 if 'f_solutionError' in locals():
     feeder = 26
-    self = main(feeder,'loadOnly',linPoint=1.0); self.loadQpSet(); 
+    self = main(feeder,'loadOnly',linPoint=1.0,method='fot'); self.loadQpSet(); 
     self.loadQpSln('full','opCst')
     self.plotArcy(pltShow=False)
     if 'pltSave' in locals():
@@ -1199,16 +1197,16 @@ if 'f_solutionError' in locals():
     print(dPb)
     print(errP)
     
-    self.loadQpSln('full','hcLds'); 
-    self.plotArcy(pltShow=False)
-    if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'solutionErrorHcLds'),pltClose=True)
-    plt.show()
-    
-    self = main(feeder,'loadOnly',linPoint=0.1); self.loadQpSet(); 
-    self.loadQpSln('full','hcGen'); 
-    self.plotArcy(pltShow=False)
-    if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'solutionErrorHcGen'),pltClose=True)
+    # self.loadQpSln('full','hcLds'); 
+    # self.plotArcy(pltShow=False)
+    # if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'solutionErrorHcLds'),pltClose=True)
     # plt.show()
+    
+    # self = main(feeder,'loadOnly',linPoint=0.1); self.loadQpSet(); 
+    # self.loadQpSln('full','hcGen'); 
+    # self.plotArcy(pltShow=False)
+    # if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'solutionErrorHcGen'),pltClose=True)
+    plt.show()
     
 
 if 'f_37busVal' in locals():
@@ -1514,7 +1512,7 @@ if 't_loadModelVecs' in locals():
     for feeder in feederSet:
         tableSet.append([])
         linPoints = linPointsDict[feeder]['all']
-        self = main(feeder,modelType='loadOnly',linPoint=linPoints[-1])
+        self = main(feeder,modelType='loadOnly',linPoint=linPoints[-1],method='fot')
         
         pLoad = 1e3*self.ploadL[self.nPctrl:self.nSctrl]
         pLoss = 1e3*self.qpLlss[self.nPctrl:self.nSctrl]

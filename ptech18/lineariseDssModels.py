@@ -105,6 +105,7 @@ class buildLinModel:
         self.qCvr = 0.0
         self.linPoint = linPoints[0]
         self.method=method
+        self.fixFot = 1 # nominally have the FOT change according to the load voltage sensitivity if req.
         
         # BUILD MODELS
         if modelType in ['buildSave','buildOnly']:
@@ -267,6 +268,8 @@ class buildLinModel:
     def getFilename(self):
         power = str(np.round(self.linPoint*100).astype(int)).zfill(3)
         aCvr = str(np.round(self.pCvr*100).astype(int)).zfill(3)
+        if self.method=='fot':
+            aCvr = aCvr+self.method
         return self.feeder+'P'+power+'A'+aCvr
     
     def saveLinModel(self):
@@ -374,6 +377,10 @@ class buildLinModel:
         VnoLoad = VoffLoad[3:]
         dVnoLoad = H.dot(VoffLoad)
         
+        self.nV = len(Vh)
+        self.createTapModel(lin_point,cvrModel=True) # this seems to be ok. creates Kt and Mt matrices.
+        self.nT = self.Mt.shape[1]
+        
         # control (c) variables (in order): Pgen(Y then D) (kW),Qgen(Y then D) (kvar),t (no.).
         # notation as 'departure2arrival'
         self.nPctrl = self.nPy+self.nPd
@@ -387,9 +394,6 @@ class buildLinModel:
         
         self.X0ctrl = self.xScale*np.concatenate( (xYcvr0[:self.nPy],xDcvr[:self.nPd],xYcvr0[self.nPy:],xDcvr[self.nPd::],np.zeros(self.nT)) )
         
-        self.nV = len(Vh)
-        self.createTapModel(lin_point,cvrModel=True) # this seems to be ok. creates Kt and Mt matrices.
-        self.nT = self.Mt.shape[1]
         print('Create linear models:\n',time.process_time()); t = time.time()
         
         if self.method=='fot':
@@ -521,6 +525,9 @@ class buildLinModel:
             del(KyW); del(KdW); del(KtW)
             
         # self.Mc2i = dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
+        # self.Mc2i = sparse.csc_matrix( dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
+                                            # self.WyXfmr[:,self.nPy::],self.WdXfmr[:,self.nPd::],
+                                            # self.WtXfmr),axis=1), 1/self.xScale ) ) # limits for these are in self.iXfmrLims.
         Mc2i = dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
                                             self.WyXfmr[:,self.nPy::],self.WdXfmr[:,self.nPd::],
                                             self.WtXfmr),axis=1), 1/self.xScale ) # limits for these are in self.iXfmrLims.
@@ -1240,16 +1247,27 @@ class buildLinModel:
         
         # TL,PL,TC,CL,V,I,Vc,Ic = self.slnF
         if err=='V':
-            dssError = np.linalg.norm( np.abs(self.slnF[4] - self.slnD[4])/( np.abs(self.slnD[4] - self.slnD0[4]) + 0.005*self.vKvbase),ord=np.inf )
+            gmaV = 1e-5
+            # gmaV = 0
+            
+            dVset = np.abs(self.slnF[4] - self.slnF0[4])
+            dVsetTrue = np.abs(self.slnD[4] - self.slnD0[4])
+            dssError = np.linalg.norm( (dVset - dVsetTrue)/( dVsetTrue + gmaV*self.vKvbase) )/np.sqrt(len(dVset))
         elif err=='I':
-            dIset = np.abs(self.slnF[7] - self.slnD0[7])/(self.iXfmrLims*self.iScale)
+            gmaI = 1e-3
+            # gmaI = 0
+        
+            dIset = np.abs(self.slnF[7] - self.slnF0[7])/(self.iXfmrLims*self.iScale)
             dIsetTrue = np.abs(self.slnD[7] - self.slnD0[7])/(self.iXfmrLims*self.iScale)
             
-            dssError = np.linalg.norm( (dIset - dIsetTrue)/(dIsetTrue + 5e-4) )/np.sqrt(len(dIset))
+            dssError = np.linalg.norm( (dIset - dIsetTrue)/(dIsetTrue + gmaI) )/np.sqrt(len(dIset))
         elif err=='P':
-            dssError = abs( np.sum(self.slnF[0:2]) - np.sum(self.slnD[0:2]) )/( abs( np.sum(self.slnD0[0:2]) - np.sum(self.slnD[0:2]) ) + 5e-4*np.abs(sum(self.slnD0[0:2])) )
+            gmaP = 1e-4
+            # gmaP = 0
+            dPset = abs( np.sum(self.slnF[0:4]) -  np.sum(self.slnF0[0:4]) )
+            dPsetTrue = abs( np.sum(self.slnD[0:4]) -  np.sum(self.slnD0[0:4]) )
             
-            # dssError = np.linalg.norm( np.sum(self.slnF[0:4]) - np.sum(self.slnD[0:4]) )/np.linalg.norm( np.sum(self.slnD[0:4]) )
+            dssError = abs( (dPset - dPsetTrue )/( dPsetTrue + gmaP ) )
         return dssError
     
     def tsRecordSnap(self,slnTs,idxs,slnX=None,slnF=None):
@@ -1434,27 +1452,20 @@ class buildLinModel:
         
         nSortV = np.argsort(Vpu)
         ax0.plot(Vdpu[nSortV],label='$\Delta V_{\mathrm{DSS.}}$')
-        ax0.plot(Vpu[nSortV],label='$\Delta V_{\mathrm{Apx.}}$')
+        ax0.plot(Vpu[nSortV],label='$\Delta V_{\mathrm{QP}}$')
         ax0.legend()
         ax0.set_xlabel('Bus Index')
         ax0.set_ylabel('Bus Voltage change, pu')
         ax0.grid(True)
         
         # plot currents versus current limits
-        ax1.plot(100*iDrn*Id/(self.iScale*self.iXfmrLims),'o',label='DSS.',markerfacecolor='None')
-        ax1.plot(100*iDrn*abs(Ic/(self.iScale*self.iXfmrLims)),'x',label='Apx.')
-        # ax1.plot(100*Id/(self.iScale*self.iXfmrLims),'o',label='DSS.',markerfacecolor='None')
-        # ax1.plot(100*abs(Ic/(self.iScale*self.iXfmrLims)),'x',label='Apx.')
-        ax1.plot(100*abs(Ic0)/(self.iScale*self.iXfmrLims),'o',label='Nom.',markerfacecolor='None',markersize=3.0)
-        ax1.plot(100*np.ones(len(self.iXfmrLims)),'k_')
-        ax1.plot(-100*np.ones(len(self.iXfmrLims)),'k_')
+        ax1.plot(100*abs(abs(Id) - abs(Ic0))/(self.iScale*self.iXfmrLims),'o',label='$\Delta \\,I_{\mathrm{DSS.}}$',markerfacecolor='None')
+        ax1.plot(100*abs(abs(Ic) - abs(Ic0))/(self.iScale*self.iXfmrLims),'o',label='$\Delta \\,I_{\mathrm{QP}}$',markerfacecolor='None',markersize=3.0)
+        
         ax1.set_xlabel('Branch Index')
-        ax1.set_ylabel('Current, % of $I_{\mathrm{max}}$')
-        # ax1.set_title('Currents')
-        ax1.legend(fontsize='small')
-        ax1.set_ylim( (-110,110) )
+        ax1.set_ylabel('Branch Current \nchange, % of $I_{\mathrm{max}}$')
+        ax1.legend()
         ax1.grid()
-        # ax1.set_ylim( (-10,110) )
         
         plt.tight_layout()
         if pltShow: plt.show()
@@ -1723,33 +1734,34 @@ class buildLinModel:
     def testQpTcpf(self):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
-        tapChng = [-2,1,1,1,1]
-        dxScale = np.array([-2,-1,0,1,2])*self.tLim/16
-        TL = np.zeros(5)
-        TLest = np.zeros(5)
-        TLcalc = np.zeros(5)
-        PL = np.zeros(5)
-        PLest = np.zeros(5)
-        TC = np.zeros(5)
-        TCest = np.zeros(5)
-        vErr = np.zeros(5)
-        iErr = np.zeros(5)
-        iCalcNorm = np.zeros(5)
-        icCalcNorm = np.zeros(5)
-        iaCalcNorm = np.zeros(5)
+        nStt = 6
+        tapChng = np.array([-nStt]+(nStt*2*[1])+(nStt*2*[-1]))
+        dxScale = np.cumsum(tapChng)*self.tLim/16
+        TL = np.zeros(len(tapChng))
+        TLest = np.zeros(len(tapChng))
+        TLcalc = np.zeros(len(tapChng))
+        PL = np.zeros(len(tapChng))
+        PLest = np.zeros(len(tapChng))
+        TC = np.zeros(len(tapChng))
+        TCest = np.zeros(len(tapChng))
+        vErr = np.zeros(len(tapChng))
+        iErr = np.zeros(len(tapChng))
+        iCalcNorm = np.zeros(len(tapChng))
+        icCalcNorm = np.zeros(len(tapChng))
+        iaCalcNorm = np.zeros(len(tapChng))
         DSSText.Command='Set controlmode=off'
         
         xCtrl = np.zeros(self.nCtrl)
         xCtrl[-self.nT::] = 1
         
-        for i in range(5):
+        for i in range(len(tapChng)):
             # set all of the taps at one above
             j = DSSCircuit.RegControls.First
             while j:
                 tapNo = DSSCircuit.RegControls.TapNumber
                 if abs(tapNo)==16:
                     print('Sodding taps are saturated!')
-                DSSCircuit.RegControls.TapNumber = tapChng[i]+tapNo
+                DSSCircuit.RegControls.TapNumber = tapChng[i].item()+tapNo
                 j = DSSCircuit.RegControls.Next
             
             TG,TL[i],PL[i],YNodeV = runCircuit(DSSCircuit,DSSSolution)[1::]
