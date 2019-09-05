@@ -217,9 +217,14 @@ class buildLinModel:
         
     def runQpSet(self,saveQpSln=True,objs=None,strategySet=None,invLossTypes=None):
         
-        if objs is None: objs = ['opCst','hcGen','hcLds']
+        # if objs is None: objs = ['opCst','hcGen','hcLds']
+        if objs is None: objs = ['opCst']
         if strategySet is None: strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','maxTap'],'hcLds':['full','phase','nomTap','minTap'] }
-        if invLossTypes is None: invLossTypes = ['None','Low','Hi']
+        if invLossTypes is None: 
+            if self.pCvr==0.6:
+                invLossTypes = ['None','Low','Hi']
+            else:
+                invLossTypes = ['Low']
         
         for invType in invLossTypes:
             kQlossC,kQlossQ = self.getInvLossCoeffs(type=invType)
@@ -1097,6 +1102,8 @@ class buildLinModel:
             
             print("MIP rel gap = %.2f (%f)" % (M.getSolverDoubleInfo(
                         "mioObjRelGap"), M.getSolverDoubleInfo("mioObjAbsGap")))
+            print(100*M.getSolverDoubleInfo("mioObjRelGap"))
+            print(M.getSolverDoubleInfo("mioObjAbsGap"))
         return xOut
     
     def cxpaLtK( self,c,a,k ):
@@ -1247,7 +1254,7 @@ class buildLinModel:
         
         # TL,PL,TC,CL,V,I,Vc,Ic = self.slnF
         if err=='V':
-            gmaV = 1e-5
+            gmaV = 1e-4
             # gmaV = 0
             
             dVset = np.abs(self.slnF[4] - self.slnF0[4])
@@ -1365,7 +1372,7 @@ class buildLinModel:
         pOut = slnX[:self.nPctrl]
         qOut = slnX[self.nPctrl:self.nPctrl*2]
         tOut = slnX[self.nPctrl*2:]
-        
+
         TL,PL,TC,CL,V,I,Vc,Ic = slnF
         TL0,PL0,TC0,CL0,V0,I0,Vc0,Ic0 = self.slnF0
         if 'slnD' not in dir(self):
@@ -1451,11 +1458,11 @@ class buildLinModel:
         Vpu =  ((V0 - V)/self.vKvbase)[self.vIn]
         
         nSortV = np.argsort(Vpu)
-        ax0.plot(Vdpu[nSortV],label='$\Delta V_{\mathrm{DSS.}}$')
-        ax0.plot(Vpu[nSortV],label='$\Delta V_{\mathrm{QP}}$')
+        ax0.plot(100*Vdpu[nSortV],label='$\Delta V_{\mathrm{DSS.}}$')
+        ax0.plot(100*Vpu[nSortV],label='$\Delta V_{\mathrm{QP}}$')
         ax0.legend()
         ax0.set_xlabel('Bus Index')
-        ax0.set_ylabel('Bus Voltage change, pu')
+        ax0.set_ylabel('Bus Voltage change, %')
         ax0.grid(True)
         
         # plot currents versus current limits
@@ -1638,6 +1645,7 @@ class buildLinModel:
         TLestBoth = []
         PLboth = []
         PLestBoth = []
+        vcErrBoth = []
         vErrBoth = []
         SsetBoth = []
         iErrBoth = []
@@ -1668,6 +1676,7 @@ class buildLinModel:
             TC = np.zeros(len(Sset))
             TCest = np.zeros(len(Sset))
             vErr = np.zeros(len(Sset))
+            vcErr = np.zeros(len(Sset))
             iErr = np.zeros(len(Sset))
             iCalcNorm = np.zeros(len(Sset))
             icCalcNorm = np.zeros(len(Sset))
@@ -1687,6 +1696,7 @@ class buildLinModel:
                 TLest[i],PLest[i],TCest[i],CL,Vest,Iest,Vcest,Icest = self.runQp(dx)
                 
                 vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
+                vcErr[i] = np.linalg.norm(Vcest - YNodeV[3:])/np.linalg.norm(YNodeV[3:])
                 iErr[i] = np.linalg.norm((Icalc - Icest)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
                 
                 iCalcNorm[i] = np.linalg.norm(np.abs(Icalc)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
@@ -1721,6 +1731,7 @@ class buildLinModel:
             PLboth.append(PL)
             PLestBoth.append(PLest)
             vErrBoth.append(vErr)
+            vcErrBoth.append(vcErr)
             iErrBoth.append(iErr)
             SsetBoth.append(Sset)
             iBoth.append(iCalcNorm)
@@ -1728,7 +1739,7 @@ class buildLinModel:
             iaBoth.append(iaCalcNorm)
         # plt.show()
         
-        return TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,SsetBoth,iBoth,icBoth,iaBoth
+        return TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,SsetBoth,iBoth,icBoth,iaBoth,vcErrBoth
     
     
     def testQpTcpf(self):
@@ -3260,7 +3271,7 @@ class buildLinModel:
             scoresFull = list(scores['1'].values()) + list(scores['2'].values()) + list(scores['3'].values())
             minMaxAbs = np.max(np.abs( np.array([np.nanmax(scoresFull),np.nanmin(scoresFull)]) ) )
             minMax0 = [-minMaxAbs,minMaxAbs]
-            ttl = '$Q^{*}$, kVAr' # Positive implies capacitive
+            ttl = '$Q^{\\dagger}$, kVAr' # Positive implies capacitive
         
         if cmap is None: cmap = self.colormaps[type]
         

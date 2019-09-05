@@ -59,13 +59,16 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # t_thssSizes = 1
 # f_thssSparsity = 1
 # f_runTsAnalysis = 1
-# f_plotTsAnalysis = 1
+f_plotTsAnalysis = 1
+# f_convCapability = 1
 # f_convCapability = 1
 # f_scaling = 1
 # f_costFuncXmpl = 1
 # f_costFuncAsym = 1
 # f_psdFigs = 1
 # t_loadModelVecs = 1
+# f_uncSolution = 1
+# t_uncBoundViolations = 1
 
 # pltSave=1
 
@@ -148,11 +151,11 @@ if 'f_plotInvLoss' in locals():
         ax0.plot(100*x/sRated,100*Plss/sRated);
         ax0.set_ylabel('Inverter Losses, % of $S_{rated}$')
         ax0.set_ylim((0.0,15.0)); ax0.set_xlim((0.0,100))
-        ax0.set_xlabel('Apparent Power $S_{\mathrm{Inv}}$, % of $S_{rated}$')
+        ax0.set_xlabel('Apparent Power $S_{\mathrm{invr}}$, % of $S_{rated}$')
         
         ax1.plot(100*x/sRated, 100*x/(Plss + x)); 
         ax1.set_ylim((86,100));   ax1.set_xlim((0.0,100))
-        ax1.set_xlabel('Apparent Power $S_{\mathrm{Inv}}$, % of $S_{rated}$')
+        ax1.set_xlabel('Apparent Power $S_{\mathrm{invr}}$, % of $S_{rated}$')
         ax1.set_ylabel('Efficiency, %')
     ax0.legend(('Low loss','High loss'))
     plt.tight_layout()
@@ -172,7 +175,7 @@ if 'f_plotInvLoss' in locals():
         ax0.plot(100*x/sRated,100*Plss/sRated);
         ax0.set_ylabel('Inverter Losses, % of $S_{rated}$')
         ax0.set_ylim((0.0,15.0)); ax0.set_xlim((0.0,100))
-        ax0.set_xlabel('Apparent Power $S_{\mathrm{Inv}}$, % of $S_{rated}$')
+        ax0.set_xlabel('Apparent Power $S_{\mathrm{invr}}$, % of $S_{rated}$')
     ax0.legend(('Low loss','High loss'))
     plt.tight_layout()
     if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'invLossLss'),pltClose=True)
@@ -185,7 +188,7 @@ if 'f_plotInvLoss' in locals():
     
         ax1.plot(100*x/sRated, 100*x/(Plss + x)); 
         ax1.set_ylim((86,100));   ax1.set_xlim((0.0,100))
-        ax1.set_xlabel('Apparent Power $S_{\mathrm{Inv}}$, % of $S_{rated}$')
+        ax1.set_xlabel('Apparent Power $S_{\mathrm{invr}}$, % of $S_{rated}$')
         ax1.set_ylabel('Throughput, %')
     plt.tight_layout()
     if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'invLossThr'),pltClose=True)
@@ -227,9 +230,10 @@ if 'f_valueComparisonChart' in locals():
         for obj in objSet:
             for strategy in strategySet[obj]:
                 linPoints = linPointsDict[feeder][obj]
+                # linPoints = [linPointsDict[feeder][obj][-1]]
                 j=0
                 for linPoint in linPoints:
-                    self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+                    self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint,method='fot')
                     val = self.qpVarValue(strategy,obj,'norm')
                     
                     if obj=='opCst' and j==0: opCstTableA[i].append( val )
@@ -240,26 +244,26 @@ if 'f_valueComparisonChart' in locals():
                     j+=1
         i+=1
     
-    # w = [0.3333,0.3333,0.3334]
-    w = [0.0,1.0,0.0]
     w = [0.0,0.0,1.0]
     opCstTable_ = (w[0]*np.array(opCstTableA[2:]) + w[1]*np.array(opCstTableB[2:]) + w[2]*np.array(opCstTableC[2:])).tolist()
+    # opCstTable_ = (np.array(opCstTableA[2:])).tolist()
     
     for i in range(2,len(feederSet)+2):
         for j in range(len(strategySet['opCst'])):
             opCstTable[i].append( "%.6f" % opCstTable_[i-2][j] )
         
     print(*opCstTable,sep='\n')
-    print(*hcGenTable,sep='\n')
-    print(*hcLdsTable,sep='\n')
+    # print(*hcGenTable,sep='\n')
+    # print(*hcLdsTable,sep='\n')
     
-    tables={'opCst':opCstTable,'hcGen':hcGenTable,'hcLds':hcLdsTable}
-    ylabels={'opCst':'Total P in / Total P in Ref., %','hcGen':'Generation (% of nominal load)','hcLds':'Load (% of nominal load)'}
+    # tables={'opCst':opCstTable,'hcGen':hcGenTable,'hcLds':hcLdsTable}
+    # ylabels={'opCst':'Total P in / Total P in Ref., %','hcGen':'Generation (% of nominal load)','hcLds':'Load (% of nominal load)'}
     ylims={'opCst':(92.0,106.0),'hcGen':(-0,220),'hcLds':(-0,100)}
     
+    tables={'opCst':opCstTable}
     colorSet = {'opCst':cm.matlab([0,1,2,3,4]),'hcGen':cm.matlab([0,1,2,5]),'hcLds':cm.matlab([0,1,2,6])}
     
-    objSet = ['opCst','hcGen','hcLds']
+    # objSet = ['opCst','hcGen','hcLds']
     objSet = ['opCst']
     for obj in objSet:
         fig,ax = plt.subplots(figsize=(5.5,3.0))
@@ -282,16 +286,16 @@ if 'f_valueComparisonChart' in locals():
     ax.set_xticklabels(feederTidy,rotation=90)
     ax.legend(loc='center left', bbox_to_anchor=(1.01, 0.5),fontsize='small',title='Control')
     # ax.set_ylabel(ylabels[obj])
-    ax.set_ylabel('Power in versus reference, %')
+    ax.set_ylabel('Power ratio $\dfrac{P_{\mathrm{feeder}}( x^{\\dagger} )}{ P_{\mathrm{feeder}}(0)}$, %')
     # ax.set_title(obj)
     plt.tight_layout()
     # if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'valueComparisonChart_'+obj))
-    if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'valueComparisonChart_'+obj))
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'valueComparisonChart_'+obj),pltClose=True)
 
     plt.show()
 
 if 'f_caseStudyChart' in locals():
-    ylabels={'opCst':'Total P in / Total P in Ref., %','hcGen':'Generation (% of nominal load)','hcLds':'Load (% of nominal load)'}
+    ylabels={'opCst':'Power ratio $\dfrac{P_{\mathrm{feeder}}( x^{\\dagger} )}{ P_{\mathrm{feeder}}(0)}$, %','hcGen':'Generation (% of nominal load)','hcLds':'Load (% of nominal load)'}
     ylims={'opCst':(82.5,117.5),'hcGen':(-10,220),'hcLds':(-10,100)}
     
     pCvr = 0.6
@@ -406,19 +410,22 @@ if 'f_currentErrors' in locals():
 
 
 if 'f_scaling' in locals():
-    feederTest = [17,26]
+    # feederTest = [18,26]
+    # feederTest = [26]
+    feederTest = [18]
     for feeder in feederTest:
-        self = main(feeder,'loadOnly',linPoint=1.0,pCvr=0.6); self.initialiseOpenDss(); 
-        vae06,k06 = self.testQpVcpf(k=np.arange(-1.5,1.525,0.025))[1:3]; plt.close()
+        linPoint = linPointsDict[feeder]['all'][-1]
+        self = main(feeder,'loadOnly',linPoint=linPoint,pCvr=0.6,method='fot'); self.initialiseOpenDss(); 
+        vae06,k06 = self.testQpVcpf(k=np.arange(0.6,1.425,0.025)*linPoint)[1:3]; plt.close()
         
-        self = main(feeder,'loadOnly',linPoint=1.0,pCvr=0.0); self.initialiseOpenDss(); 
-        vae00,k00 = self.testQpVcpf(k=np.arange(-1.5,1.525,0.025))[1:3]; plt.close()
+        self = main(feeder,'loadOnly',linPoint=linPoint,pCvr=0.0,method='fot'); self.initialiseOpenDss(); 
+        vae00,k00 = self.testQpVcpf(k=np.arange(0.6,1.425,0.025)*linPoint)[1:3]; plt.close()
         
         fig,ax = plt.subplots(figsize=(3.8,2.8))
-        ax.plot(k06,100*vae06,label='$\\alpha_{\mathrm{CVR}}=0.6$');
-        ax.plot(k00,100*vae00,label='$\\alpha_{\mathrm{CVR}}=0.0$');
+        ax.plot(k06/linPoint,100*vae06,label='$\\alpha_{\mathrm{CVR}}=0.6$');
+        ax.plot(k00/linPoint,100*vae00,label='$\\alpha_{\mathrm{CVR}}=0.0$');
         ax.set_xlabel('Load scaling factor')
-        ax.set_ylabel('Error, $ |\!| V_{\mathrm{Lin}} - V_{\mathrm{DSS}} |\!| / |\!|V_{\mathrm{DSS}} |\!|$')
+        ax.set_ylabel('Error, $ |\!| V_{\mathrm{Lin}} - V_{\mathrm{DSS}} |\!| / |\!|V_{\mathrm{DSS}} |\!|$, %')
         ax.legend(title='CVR factor')
         ylm = ax.get_ylim()
         ax.set_ylim((0,ylm[1]))
@@ -440,8 +447,8 @@ if 'f_convCapability' in locals():
     thta = np.linspace(-np.arcsin(qMax/sMax),np.arcsin(qMax/sMax),1000)
     ax.plot(sMax*np.cos(thta),sMax*np.sin(thta),'k')
     ax.axis('equal')
-    ax.set_xlabel('$P_{\mathrm{inv}}$, % of $S_{\mathrm{Rated}}$')
-    ax.set_ylabel('$Q_{\mathrm{inv}}$, % of $S_{\mathrm{Rated}}$')
+    ax.set_xlabel('$P_{\mathrm{invr}}$, % of $S_{\mathrm{Rated}}$')
+    ax.set_ylabel('$Q_{\mathrm{invr}}$, % of $S_{\mathrm{Rated}}$')
     ax.set_xlim((-40,140));
     ax.set_ylim((-90,90));
     plt.tight_layout()
@@ -523,20 +530,20 @@ if 'f_modelValidation' in locals():
 
 if 'f_modelValidationSet' in locals():
     feederSet = [18,24]
-    # feederSet = [26]
-    pltSet = ['lds','lss','curr']
-    # pltSet = ['lss']
+    feederSet = [26]
+    pltSet = ['lds','lss','curr','vlt']
+    pltSet = ['vlt']
     for feeder in feederSet:
         linPoints = linPointsDict[feeder]['all']
         self = main(feeder,'loadOnly',linPoint=linPoints[-1],pCvr=0.6,method='fot'); self.initialiseOpenDss()
-        if 'curr' in pltSet:
+        if 'curr' in pltSet or 'vlt' in pltSet:
             self.recreateKc2i = 1
             self.recreateMc2v = 1
             self.initialiseOpenDss()
             self.makeCvrQp()
     
         print('Solve 1...')
-        TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,Sset,iN,icN,iaN = self.testQpScpf(); 
+        TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,Sset,iN,icN,iaN,vcErrBoth = self.testQpScpf(); 
         if self.nT>0:
             print('Solve 2...')
             TL,TLest,PL,PLest,vErr,iErr,dxScale,iNt,icNt,iaNt = self.testQpTcpf()
@@ -617,6 +624,18 @@ if 'f_modelValidationSet' in locals():
                 plt.tight_layout()
                 if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
                 plt.show()
+        if 'vlt' in pltSet:
+            figname='modelValidationSetV'
+            sd = sdt('t3','f')
+            fig,ax=plt.subplots(figsize=figSze)
+            ax.plot(Sset[ii],100*vcErrBoth[ii],label='DSS.')
+            ax.plot(Sset[ii+1],100*vcErrBoth[ii+1],label='DSS.')
+            ax.set_xlabel('Rctv. power, kVAr')
+            ax.set_ylabel('Votlage error, %')
+            ax.legend(fontsize='small')
+            plt.tight_layout()
+            # if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
+            # plt.show()
         
         # ax0.plot(Sset[ii],100*vErrBoth[ii])
         # # ax0.set_xlabel('Rctv. power, kVAr')
@@ -642,7 +661,8 @@ if 'f_daisy' in locals():
     self = main(feeder,'loadOnly',linPoint=1.0,method='fot'); self.loadQpSet(); self.loadQpSln('full','opCst')
     self.plotNetBuses('qSlnPh',pltShow=False)
     SN = os.path.join(SDfig,'daisy')
-    if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'daisy'),pltClose=True)
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'daisy'),pltClose=False)
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'daisy'),pltClose=True)
     plt.show()
 
 if 'f_123busVlts' in locals():
@@ -713,7 +733,7 @@ if 't_checkErrorSummary' in locals():
             linPoints = linPointsDict[feeder][obj]
             voltages = []; currents = []; powers = []
             for linPoint in linPoints:
-                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint,method='fot')
                 voltages.append(self.qpSolutionDssError(strategy,obj,err='V')*100)
                 currents.append(self.qpSolutionDssError(strategy,obj,err='I')*100)
                 powers.append(self.qpSolutionDssError(strategy,obj,err='P')*100)
@@ -751,7 +771,7 @@ if 't_sensitivities_base' in locals():
     # data = [ ['Full']+benefits[0],['Phase']+benefits[1] ]
     # data = [ ['Full, \%:']+benefits[0],['Phase, \%:']+benefits[1],['Ratio (\%):']+benefitsRatio ]
     data = [ ['Full, \%:']+benefits[0],['Phase, \%:']+benefits[1]]
-    caption='Smart inverter benefits, as a \% of load, compared to the control case which only has tap controls. The minimum ratio of phase to full load is 73 \%.'
+    caption='Smart inverter benefits, as a \% of load, compared to the Nominal control case (which only has tap controls activated, if there are any). The minimum ratio of phase to full load is 73 \%.'
     label='sensitivities_base'
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,sdt('t3','t'))
@@ -826,7 +846,7 @@ if 'f_sensitivities_aCvr' in locals():
         for strategy in strategies:
             k=0
             for pCvr in pCvrSet:
-                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][obj][-1])
+                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][obj][-1],method='fot')
                 opCst[j,i,k] = self.qpVarValue(strategy,obj,'norm')
                 wCst[j,i,k] = self.qpVarValue(strategy,obj,'power')
                 qCst[j,i,k] = np.linalg.norm(self.slnX[self.nPctrl:self.nSctrl],ord=1)                
@@ -939,12 +959,12 @@ if 'f_costFunc' in locals():
         ldsQ = 1e3*self.ploadL[self.nPctrl:self.nSctrl]
         lssQ = 1e3*self.qpLlss[self.nPctrl:self.nSctrl]
         tot = lssQ + ldsQ
-        ax1.plot(tot,'k',label='$\lambda_{\mathrm{Q}}$ (tot)');
-        ax1.plot(ldsQ,'--',label='$\lambda_{\mathrm{Q}}^{\mathrm{Load}}$');
-        ax1.plot(lssQ,'--',label='$\lambda_{\mathrm{Q}}^{\mathrm{Loss}}$');
+        ax1.plot(tot,'k',label='$\\psi_{\mathrm{Q}}$ (tot)');
+        ax1.plot(ldsQ,'--',label='$\\psi_{\mathrm{Q,\,lds}}$');
+        ax1.plot(lssQ,'--',label='$\\psi_{\mathrm{Q,\,lss}}$');
         ax1.legend(fontsize='small')
         ax1.set_xlabel('Bus index $i$')
-        ax1.set_ylabel('QP Sensitivity  $\lambda_{\mathrm{Q}}^{[i]}$, W/kVAr')
+        ax1.set_ylabel('QP Sensitivity  $\\psi_{\mathrm{Q}}^{[i]}$, W/kVAr')
 
         # H = self.getHmat()
         # qpQlss = 1e3*H.dot(H.T)
@@ -982,8 +1002,8 @@ if 'f_psdFigs' in locals():
     fig,ax = plt.subplots(figsize=(2.8,2.8))
     ax.plot(ss,'x')
     ax.set_yscale('log')
-    ax.set_xlabel('Eigenvalue number')
-    ax.set_ylabel('Eigenvalue, W/kVA$^{2}$')
+    ax.set_xlabel('Singular value no.')
+    ax.set_ylabel('Singular value, W/kVA$^{2}$')
     plt.tight_layout()
     if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname),pltClose=True)
 
@@ -995,7 +1015,7 @@ if 'f_psdFigs' in locals():
     ax.plot(VVh[-1],'x',label='N-1')
     ax.plot(VVh[-2],'+',label='N-2')
     ax.set_xlabel('Control index, $i$')
-    ax.set_ylabel('Eigenvector value $v(i)$')
+    ax.set_ylabel('Basis vector value $U^{[j,i]}$')
     ylm = ax.get_ylim()
     ylm = (-0.48,0.38)
     ax.plot((39.5,39.5),ylm,'k--')
@@ -1013,8 +1033,8 @@ if 'f_psdFigs' in locals():
     fig,ax = plt.subplots(figsize=(2.8,2.8))
     ax.plot(1e3*np.abs(VVh.dot(pLoad)),'+',label='Load')
     ax.plot(1e3*np.abs(VVh.dot(pLoss)),'x',label='Ntwk. Loss')
-    ax.set_xlabel('Eigenvalue number')
-    ax.set_ylabel('Response $U^{\intercal}\lambda_{(\cdot)}$, W/kVAr')
+    ax.set_xlabel('Singular value no.')
+    ax.set_ylabel('Response $U^{\intercal}\\psi_{(\cdot)}$, W/kVAr')
     ax.legend()
     ax.set_yscale('log')
     plt.tight_layout()
@@ -1064,7 +1084,7 @@ if 'f_costFuncXmpl' in locals():
         ax.plot(xIvt,np.array(x1Set)/len(sln0x))
         ax.set_xscale('log'); 
         ax.set_xlabel('Inverter loss coefficient $c_{R}$, W/kVAr$^{2}$')
-        ax.set_ylabel('$Q$ per gen., $\\frac{||x_{\mathrm{Q,\,Unc}}^{*}||_{1}}{N_{\mathrm{lds}}}$, kVAr')
+        ax.set_ylabel('$Q$ per gen., $\\dfrac{||x_{\mathrm{Q,\,Unc}}^{\\dagger}||_{1}}{N_{\mathrm{lds}}}$, kVAr')
         ax.plot([invCoeffs[0][0]]*2,ylm,'--',color=cm.matlab(1))
         ax.plot([invCoeffs[1][0]]*2,ylm,'--',color=cm.matlab(1))
         ax.text(invCoeffs[0][0]*1.6,0.75*ylm[1],'1 kVA inverter',color=cm.matlab(1),rotation=90)
@@ -1157,7 +1177,7 @@ if 'f_costFuncAsym' in locals():
     ax.plot(xIvt,100*np.array(xLinSet)/norm(sln0x),'--',color=cm.matlab(0))
     ax.set_xscale('log'); 
     ax.set_xlabel('Inverter loss coefficient $c_{R}$, W/kVAr$^{2}$')
-    ax.set_ylabel('Solution fraction $\\frac{||x^{*}(c_{R})||_{2}}{||x^{*}(0)||_{2}}$, %')
+    ax.set_ylabel('Solution fraction $\\dfrac{||x^{\\dagger}(c_{R})||_{2}}{||x^{\\dagger}(0)||_{2}}$, %')
     ax.plot([epsXoff[2]]*2,ylm,'k-.')
     ax.plot([epsXoff[3]]*2,ylm,'k-.')
     # ax.text(epsXoff[2]/1.6,75,'$\sigma_{\mathrm{min}}$',color='k',rotation=90)
@@ -1380,10 +1400,12 @@ if 'f_runTsAnalysis' in locals():
 
 
 if 'f_plotTsAnalysis' in locals():
+    feederSet=[17,24]
     # feederSet=[24]
-    feederSet=[17]
+    # feederSet=[17]
     figNameSet = ['tPwr','vMinMax','qPhs','dPwr','efcy','tapSet']
-    # figNameSet = ['efcy']
+    # figNameSet = ['vMinMax']
+    figNameSet = []
     dayTypes = ['wtr','smr']
     # dayTypes = ['wtr']
     # pltSave=1
@@ -1428,6 +1450,14 @@ if 'f_plotTsAnalysis' in locals():
                 ax.plot(xlm,[tsRslt['cns']['mvHi']]*2,'k--')
                 ax.plot(xlm,[tsRslt['cns']['mvLo']]*2,'k:')
                 ax.plot(xlm,[tsRslt['cns']['lvLo']]*2,'k--')
+                if dayType=='wtr' and feeder==17:
+                    ax.text(0.3,tsRslt['cns']['mvLo']+0.005,'$V_{-,\,\\mathrm{MV}}$')
+                    ax.text(0.3,tsRslt['cns']['lvLo']+0.006,'$V_{-,\,\\mathrm{LV}}$')
+                if dayType=='wtr' and feeder==24:
+                    ax.text(0.3,tsRslt['cns']['mvLo']+0.007,'$V_{-,\,\\mathrm{MV}}$')
+                    ax.text(0.3,tsRslt['cns']['lvLo']+0.006,'$V_{-,\,\\mathrm{LV}}$')
+                
+                
                 ax.set_xlim(xlm); ax.set_xticks(xtcks)
                 ax.set_xlabel('Time, hour')
                 ax.set_ylabel('Voltage, pu')
@@ -1444,11 +1474,16 @@ if 'f_plotTsAnalysis' in locals():
                 # ax.plot(times,-1e-3*tsRslt['nPctrl']*tsRslt['qLimSet'],'k--')
                 plts=ax.plot(times, tsRslt['qPhs'].T,color=cm.matlab(1))
                 ax.plot(times,1e-3*tsRslt['qLimSet'],'k--')
+                # ax.step(times,1e-3*tsRslt['qLimSet'],'k',linestyle='--')
                 ax.plot(times,-1e-3*tsRslt['qLimSet'],'k--')
+                # ax.step(times,-1e-3*tsRslt['qLimSet'],'k',linestyle='--')
                 ax.set_xlabel('Time, hour')
                 ax.set_ylabel('Reactive power\n per generator, kVAr')
                 ax.legend(plts,['a','b','c'])
                 ax.set_xlim(xlm); ax.set_xticks(xtcks)
+                if dayType=='wtr':
+                    ax.text(6.8,2.04,'$Q_{+,\,\mathrm{invr}}$')
+                    ax.text(6.8,-2.2,'$Q_{-,\,\mathrm{invr}}$')
                 plt.tight_layout()
                 if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
                 plt.show()
@@ -1473,6 +1508,12 @@ if 'f_plotTsAnalysis' in locals():
                 plt.tight_layout()
                 if 'pltSave' in locals(): plotSaveFig(os.path.join(SDT5,figName+self.feeder+dayType+self.invLossType),pltClose=True)
                 plt.show()
+            
+            print('Power saved:',sum(tPwr[1]-tPwr[2])*0.5,'kWh over the day')
+            print('Power saved:',sum(tPwr[1]-tPwr[2])*0.5/tsRslt['nPctrl'],'kWh over the day per customer')
+            print('Power saved:',sum(tPwr[1]-tPwr[2])*0.5*365/tsRslt['nPctrl'],'kWh over the year per customer')
+            # print('Power saved:',sum(tPwr[1]-tPwr[2])*0.5/24,'average kW')
+            # print('Power saved:',sum(tPwr[1]-tPwr[2])*0.5/(24*tsRslt['nPctrl']),'average kW per customer')
                     
             figName = 'efcy'
             if figName in figNameSet:
@@ -1525,13 +1566,101 @@ if 't_loadModelVecs' in locals():
         tableSet[-1].append( '%.1f' % (np.arccos( (pLoad.dot(pLoss))/(norm(pLoad)*norm(pLoss)) )*180/np.pi))
         
     head0 = ['Feeder','Plds','Plss','P','Theta']
-    heading = ['Feeder','$\\dfrac{\\| \\lambda_{\mathrm{Q, lds}}\\|}{\\sqrt{N_{\mathrm{Q}}}}$, W/kVAr',
-                        '$\\dfrac{\\| \\lambda_{\mathrm{Q, lss}}\\|}{\\sqrt{N_{\mathrm{Q}}}}$, W/kVAr',
-                        '$\\dfrac{\\| \\lambda_{\mathrm{Q}} \\|}{\\sqrt{N_{\mathrm{Q}}}}$, W/kVAr',
-                        '$ \\theta_{\\lambda},\,^{\\circ}$']
-    caption = 'Summary of sensitivities to reactive power injections in load, loss, and the total for both of these combined. The angle $\\theta_{\\lambda}$ is calculated between the load and loss sensitivity vectors; $N_{\mathrm{Q}}$ is the number of elements in the sensitivity vector $\\lambda_{\mathrm{Q}}$.'
+    heading = ['Feeder','$\\dfrac{\\| \\psi_{\mathrm{Q, lds}}\\|}{\\sqrt{N_{\mathrm{Q}}}}$, W/kVAr',
+                        '$\\dfrac{\\| \\psi_{\mathrm{Q, lss}}\\|}{\\sqrt{N_{\mathrm{Q}}}}$, W/kVAr',
+                        '$\\dfrac{\\| \\psi_{\mathrm{Q}} \\|}{\\sqrt{N_{\mathrm{Q}}}}$, W/kVAr',
+                        '$ \\theta_{\\psi},\,^{\\circ}$']
+    caption = 'Summary of sensitivities to reactive power injections in load, loss, and the total for both of these combined. The angle $\\theta_{\\psi}$ is calculated between the load and loss sensitivity vectors; $N_{\mathrm{Q}}$ is the number of elements in the sensitivity vector $\\psi_{\mathrm{Q}}$.'
     print(head0)
     print(*tableSet,sep='\n')
     label = 'loadModelVecs'
     
     if 'pltSave' in locals(): basicTable( caption, label, heading, tableSet, sdt('t3','t') )
+    
+    
+    
+if 'f_uncSolution' in locals():
+    feeder = 17
+    linPoints = linPointsDict[feeder]['all']
+    self = main(feeder,modelType='loadOnly',linPoint=linPoints[-1],method='fot')
+    slnX,slnF = self.solveQpUnc()[:2]
+    # self.showQpSln(xStar,fStar)
+    pOut = slnX[:self.nPctrl]
+    qOut = slnX[self.nPctrl:self.nPctrl*2]
+    tOut = slnX[self.nPctrl*2:]
+
+    TL,PL,TC,CL,V,I,Vc,Ic = slnF
+    TL0,PL0,TC0,CL0,V0,I0,Vc0,Ic0 = self.slnF0
+    iDrn = (-1)**( np.abs(np.angle(Ic/Ic0))>np.pi/2 )
+
+    figName='uncSolutionI_'
+    fig,ax1 = plt.subplots(figsize=(4.4,3.0))
+    ax1.plot(100*iDrn*abs(Ic/(self.iScale*self.iXfmrLims)),'o',markerfacecolor='None',markersize=1.4,markeredgewidth=0.6,label='Unc. QP Sln')
+    ax1.plot(100*abs(Ic0)/(self.iScale*self.iXfmrLims),'o',markerfacecolor='None',markersize=1.4,markeredgewidth=0.6,label='Nom. Sln')
+    ax1.plot(100*np.ones(len(self.iXfmrLims)),'k_',markeredgewidth=0.5)
+    ax1.set_xlabel('Xfmr Index')
+    ax1.set_ylabel('Current, % of $I_{\\mathrm{xfmr}}$')
+    ax1.legend(fontsize='small')
+    ax1.set_ylim( (-70,130) )
+    ax1.set_xlim((-3,len(Ic0)+3))
+    ax1.grid(True)
+    plt.tight_layout()
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),figName+self.feeder),pltClose=True)
+
+    plt.show()
+
+    figName='uncSolutionV_'
+    fig,ax0 = plt.subplots(figsize=(4.4,3.0))
+    # plot voltages versus voltage limits
+    ax0.plot((V/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markersize=0.8,markeredgewidth=0.6);
+    ax0.plot((V0/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markersize=0.8,markeredgewidth=0.6);
+    ax0.plot([0,0],[0,0],'o',markerfacecolor='None',markersize=1.2,markeredgewidth=1.0,label='Unc. QP Sln',color=cm.matlab(0))
+    ax0.plot([0,0],[0,0],'o',markerfacecolor='None',markersize=1.2,markeredgewidth=1.0,label='Nom. Sln',color=cm.matlab(1))
+    ax0.plot((self.vHi/self.vKvbase)[self.vIn],'k_',markeredgewidth=0.5);
+    ax0.plot((self.vLo/self.vKvbase)[self.vIn],'k_',markeredgewidth=0.5);
+    ax0.set_xlabel('Bus Index')
+    ax0.set_ylabel('Voltage, pu')
+    ax0.grid(True)
+    ax0.legend(fontsize='small')
+    ax0.set_ylim((0.89,1.06))
+    plt.tight_layout()
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),figName+self.feeder),pltClose=True)
+    
+    print(max(abs(slnX[self.nPctrl:self.nPctrl*2])))
+    plt.show()
+
+
+if 't_uncBoundViolations' in locals():
+    feederSet = [17,18,'n1','n10',26,24,'n27']
+    # feederSet = [17,26]
+    resultTable = []
+    for feeder in feederSet:
+        resultTable.append([])
+        linPoints = linPointsDict[feeder]['all']
+        self = main(feeder,modelType='loadOnly',linPoint=linPoints[-1],method='fot')
+        slnX,slnF = self.solveQpUnc()[:2]
+        TL,PL,TC,CL,V,I,Vc,Ic = slnF
+        vMaxOut = max(abs(V/self.vKvbase)[self.vIn])
+        vMinOut = min(abs(V/self.vKvbase)[self.vIn])
+        iMaxOut = max(100*abs(Ic)/(self.iScale*self.iXfmrLims))
+        qMax = max(abs(slnX[self.nPctrl:self.nPctrl*2]))
+        
+        resultTable[-1].append(feederAllTidy[self.feeder])
+        resultTable[-1].append( "%.3f" % (vMaxOut))
+        resultTable[-1].append( "%.3f" % (vMinOut))
+        resultTable[-1].append( "%.1f" % (iMaxOut))
+        resultTable[-1].append( "%.2f" % (qMax))
+        
+    caption = 'Constraint extrema at the unconstrained optimization point $x_{\\mathrm{Q,\,Unc}}^{\dagger}$ (i.e. solved in  reactive power only).'
+    heading = ['Feeder','max$(V)$, pu','min$(V)$, pu','max$(I_{\\mathrm{branch}})$, \\%','max$(Q_{\\mathrm{invr}})$, kVAr']
+    label = 't_uncBoundViolations'
+    if 'pltSave' in locals(): basicTable(caption,label,heading,resultTable,sdt('t3','t'))
+
+
+
+
+# self = main('n27',modelType='loadOnly',linPoint=1.0)
+# self = main(26,modelType='loadOnly',linPoint=1.0)
+# self = main(24,modelType='loadOnly',linPoint=1.0)
+# self.runQpSet()
+

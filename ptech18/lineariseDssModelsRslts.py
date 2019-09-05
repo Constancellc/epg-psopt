@@ -29,9 +29,10 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.6,method='fpl',saveModel=Fal
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
 feederSet = [5,6,8,26,24,0,18,17,'n4','n1','n10','n27']
-feederSet = [6,17,'n1',26,'n27',24,'n10',18] # results set
+feederSet = [17,'n1',26,'n27',24,'n10',18] # results set
 # feederSet = [6,26,24,17,18,'n1'] # introductory set
-feederSet = [26]
+# feederSet = [26]
+# feederSet = [6]
 # feederSet = [26,0,17,24,18,'n1','n10','n27','n4']
 
 methodChosen = 'fot'
@@ -52,8 +53,8 @@ strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full',
 linPointsDict = {5:linPointsA,6:linPointsB,26:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
                                 'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA,25:linPointsC}
 pCvrSet = [0.0,0.3,0.6,0.9]
-pCvrSet = [0.0,0.3,0.9]
-pCvrSet = [0.6]
+# pCvrSet = [0.0,0.3,0.9]
+# pCvrSet = [0.6]
 
 # STEP 1: building and saving the models. =========================
 tBuild = []
@@ -61,11 +62,11 @@ if 'f_bulkBuildModels' in locals():
     for feeder in feederSet:
         t0 = time.time()
         linPoints = linPointsDict[feeder]['all']
-        linPoints = [linPointsDict[feeder]['all'][-1]]
         print('============================================= Feeder:',feeder)
-        for linPoint in linPoints:
+        for linPoint,lpI in zip(linPoints,range(len(linPoints))):
             for pCvr in pCvrSet:
-                self = main(feeder,pCvr=pCvr,modelType='buildSave',linPoint=linPoint,method=methodChosen)
+                if pCvr==0.6 or lpI==2:
+                    self = main(feeder,pCvr=pCvr,modelType='buildSave',linPoint=linPoint,method=methodChosen)
         tBuild.append(time.time()-t0)
 
 # STEP 2: Running the models, obtaining the optimization results.
@@ -74,11 +75,14 @@ if 'f_bulkRunModels' in locals():
     for feeder in feederSet:
         t0 = time.time()
         linPoints = linPointsDict[feeder]['all']
-        linPoints = [linPointsDict[feeder]['all'][-1]]
+        # linPoints = [linPointsDict[feeder]['all'][-1]]
         print('============================================= Feeder:',feeder)
-        for linPoint in linPoints:  
+        # for linPoint in linPoints:  
+        for linPoint,lpI in zip(linPoints,range(len(linPoints))):
             for pCvr in pCvrSet:
-                self = main(feeder,pCvr=pCvr,modelType='loadAndRun',linPoint=linPoint,method=methodChosen) # see "runQpSet"
+                if pCvr==0.6 or lpI==2:
+                    print(lpI,pCvr)
+                    self = main(feeder,pCvr=pCvr,modelType='loadAndRun',linPoint=linPoint,method=methodChosen) # see "runQpSet"
         tSet.append(time.time()-t0)
 
 # STEP 3: check the feasibility of all solutions
@@ -309,9 +313,9 @@ if 't_costFuncStudy' in locals():
     #things to do.
     # 1. load linTot, qpQlss and qpQtot Find the units of them.
     # 2. Find Q^-1 L; then, solve using the 'fast' method, and compare.
-    epsXoff = np.zeros((len(feederSet),3))
     x1sets = {}
     feederSetOrdered = [17,18,'n1','n10',26,24,'n27'] # ordered results set
+    epsXoff = np.zeros((len(feederSetOrdered),3))
     for feeder,ii in zip(feederSetOrdered,range(len(feederSetOrdered))):
         print(feeder)
         linPoints = linPointsDict[feeder]['all']
@@ -361,18 +365,23 @@ if 't_costFuncStudy' in locals():
         epsXoff[ii,0:2] = [sln0s[0],sln0s[-1]]
         
     epsXoffTbl = []
-    for row,feeder in zip(epsXoff,feederSet):
+    iOrder = [2,1,0]
+    for row,feeder in zip(epsXoff,feederSetOrdered):
         epsXoffTbl.append([])
         epsXoffTbl[-1].append(feederIdxTidy[feeder])
-        epsXoffTbl[-1].append( '%.2e' % row[2])
-        epsXoffTbl[-1].append( '%.2e' % row[1])
-        epsXoffTbl[-1].append( '%.2e' % row[0])
+        for i in iOrder:
+            if i==0:
+                epsXoffTbl[-1].append( ('%.2f' % row[i]) )
+            else:
+                if row[i]>1e-2:
+                    epsXoffTbl[-1].append( ('%.3f' % row[i])[:5] )
+                else:
+                    epsXoffTbl[-1].append( '%.2e' % row[i])
 
     TD = sdt('t3','t')
-        
     label = 'costFuncStudy'
-    heading = ['Feeder','$\delta _{5\%}$','Min sing. value','Max sing. value']
-    caption = 'Minimum/Maximum singular values of network loss quadratic matrices, and the estimate of the 5\% solution reduction value $\delta _{5\%}$.'
+    heading = ['Feeder','$\kappa _{5\%}$','Min sing. value','Max sing. value']
+    caption = 'Minimum/Maximum singular values of network loss quadratic matrices, and the estimate of the 5\% solution reduction value $\kappa _{5\%}$.'
     data = epsXoffTbl
     basicTable(caption,label,heading,data,TD)
 
