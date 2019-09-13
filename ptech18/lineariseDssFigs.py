@@ -440,12 +440,12 @@ if 'f_convCapability' in locals():
     qMax = 60
     pqXff = np.sqrt(sMax**2 - qMax**2)
     fig,ax = plt.subplots(figsize=(3.6,3.0))
-    ax.plot(0,0,'ko')
-    ax.plot([0,0],[-qMax,qMax],'k--')
-    ax.plot([0,pqXff],[-qMax,-qMax],'k')
-    ax.plot([0,pqXff],[qMax,qMax],'k')
+    ax.plot(0,0,'.',color=cm.matlab(0))
+    ax.plot([0,0],[-qMax,qMax],'--')
+    ax.plot([0,pqXff],[-qMax,-qMax],color=cm.matlab(0))
+    ax.plot([0,pqXff],[qMax,qMax],color=cm.matlab(0))
     thta = np.linspace(-np.arcsin(qMax/sMax),np.arcsin(qMax/sMax),1000)
-    ax.plot(sMax*np.cos(thta),sMax*np.sin(thta),'k')
+    ax.plot(sMax*np.cos(thta),sMax*np.sin(thta),color=cm.matlab(0))
     ax.axis('equal')
     ax.set_xlabel('$P_{\mathrm{invr}}$, % of $S_{\mathrm{Rated}}$')
     ax.set_ylabel('$Q_{\mathrm{invr}}$, % of $S_{\mathrm{Rated}}$')
@@ -875,7 +875,7 @@ if 'f_sensitivities_aCvr' in locals():
     
     heading[0]='Network'
     newData = list(map(list, zip(*(  [heading]+data+eData  ))))
-    caption='Smart inverter load benefit (\%) and efficacy ($P/||Q||_{1}$, W/kVAr) against $\\alpha_{\mathrm{CVR}}$'
+    caption='Smart inverter load benefit (\%) and efficacy ($P/||Q||_{1}$, W/kVAr) against $\\alpha_{\mathrm{CVR}}$.'
     label='sensitivities_aCvr'
     if 'pltSave' in locals(): basicTable(caption,label,newData[0],newData[1:],TD)
     if 'pltSave' in locals(): basicTable(caption,label,newData[0],newData[1:],sdt('t3','t'))

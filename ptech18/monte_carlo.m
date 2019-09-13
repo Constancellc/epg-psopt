@@ -197,9 +197,10 @@ for ii = 1:numel(model_is)
 
     if exist('thesisPlot','var')
         close
-        PositionSet = [100 150 650 350];
+        SD = ['C:\Users\',getenv('username'),'\Documents\DPhil\thesis\c4tech2\c4figures\'];
+        FL = [SD,'monte_carlo_',model];
+        PositionSet = [100 150 325 350];
         fig = figure('Position',PositionSet);
-        subplot(121);
         boxplot(kX,'Positions',xx,'Whisker',10,'colors',colorOrder(1,:),'Whisker',1000); hold on;
         xticklabels(xtl);
         xlabel(['Fraction of loads with PV, \%']); 
@@ -216,8 +217,15 @@ for ii = 1:numel(model_is)
         pp = plot(xx,Pout*1e-3.*Nl,'x','color',colorOrder(2,:));
         lgnd = legend([pp],'Total power, $P^{\mathrm{5\%}}_{\mathrm{PV}}$');
         set(lgnd,'Interpreter','Latex','FontSize',12);
-
-        subplot(122);
+        
+        
+        if exist('plotExport','var')
+            export_fig(gcf,[FL,'tot']);
+            export_fig(gcf,[FL,'tot.pdf'],'-pdf','-transparent'); close;
+        end
+        
+        
+        fig = figure('Position',PositionSet);
         boxplot(X*1e-3,'Positions',xx,'Whisker',10,'colors',colorOrder(1,:),'Whisker',1000); hold on;
 
         xticklabels(xtl)
@@ -235,11 +243,10 @@ for ii = 1:numel(model_is)
         lgnd = legend([pp],'Power per gen., $P^{\mathrm{5\%}}_{\mathrm{Gen}}$');
         set(lgnd,'Interpreter','Latex','FontSize',12);
 
-        SD = ['C:\Users\',getenv('username'),'\Documents\DPhil\thesis\c4tech2\c4figures\'];
-        FL = [SD,'monte_carlo_',model];
+
         if exist('plotExport','var')
-            export_fig(gcf,FL);
-            export_fig(gcf,[FL,'.pdf'],'-pdf','-transparent'); close;
+            export_fig(gcf,[FL,'gen']);
+            export_fig(gcf,[FL,'gen.pdf'],'-pdf','-transparent'); close;
         end
     end
 
@@ -313,7 +320,7 @@ if exist('thesisCasesTable','var')
 %                               '$P_{\mathrm{Gen}\,25\%}^{5\%}$','$P_{\mathrm{Gen}\,25\%}^{10\%}$',...
 %                               '$P_{\mathrm{Gen}\,50:100\%}^{5\%}$','$P_{\mathrm{Gen}\,50\%}^{5\%}$',...
 %                               '$f_{\mathrm{Pwr}}(P_{\mathrm{Gen}\,100\%})$, \%'};
-    caption = 'DG Policy Decisions, based on stochastic hosting capacity results. All powers are in kW.';
+    caption = 'DG Policy Decisions, based on stochastic hosting capacity results. All powers are in kW per generator.';
     formatCol = {'$%.2f$','$%.2f$','$%.2f$','$%.2f$','$%.2f$','$%.2f$'};
     Tnm = 'thesisCasesTable';
     TF = ['C:\Users\',getenv('username'),'\Documents\DPhil\thesis\c4tech2\c4tables\',Tnm];

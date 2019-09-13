@@ -21,7 +21,7 @@ pltShow = 1
 # f_nStdAfter = 1
 # f_nStdVreg = 1
 # f_nStdVregVal = 1
-f_corVars = 1
+# f_corVars = 1
 # f_hcParamSlctnCaseStudy = 1
 # f_limitSensitivityV = 1
 # f_limitSensitivity = 1
@@ -139,13 +139,13 @@ if 'f_corVars' in locals():
     # LM.corrPlot()
 
     vars = LM.varKtotU.copy()
-    varSortN = vars.argsort()[::-1]
+    varSortN_new = vars.argsort()[::-1]
     corrLogAbs = np.log10(abs((1-LM.KtotUcorr)) + np.diag(np.ones(len(LM.KtotPu))) +1e-14 )
 
     # vars = LM.varKfullU.copy()
-    # varSortN = vars.argsort()[::-1]
+    # varSortN_new = vars.argsort()[::-1]
     # corrLogAbs = np.log10(abs((1-LM.KfullUcorr)) + np.diag(np.ones(len(LM.KfullUcorr))) +1e-14 )
-    corrLogAbs = corrLogAbs[varSortN][:,varSortN]
+    corrLogAbs = corrLogAbs[varSortN_new][:,varSortN_new]
 
     # fig,(ax1,ax0) = plt.subplots(figsize=(5.9,3.8),nrows=1,ncols=2, gridspec_kw = {'width_ratios':[1,1.8]})
     # ax0.spy(corrLogAbs<-2.0,color=cm.Blues(0.9),markersize=1,marker='.',zorder=4,label='99%') # 99%
@@ -161,7 +161,7 @@ if 'f_corVars' in locals():
     # ax0.set_xlabel('Bus Index $i$')
     # ax0.set_ylabel('Bus Index $j$')
 
-    # ax1.plot(vars[varSortN]/vars[varSortN][0])
+    # ax1.plot(vars[varSortN_new]/vars[varSortN_new][0])
     # ax1.set_xlim((-50,len(corrLogAbs+50)))
     # ax1.set_xlabel('Bus Index $i$')
     # ax1.set_ylabel('Var(Bus $i$), normalised')
@@ -202,7 +202,7 @@ if 'f_corVars' in locals():
         plt.show()
         
     fig,ax1 = plt.subplots(figsize=(2.1,3.8))
-    ax1.plot(vars[varSortN]/vars[varSortN][0])
+    ax1.plot(vars[varSortN_new]/vars[varSortN_new][0])
     ax1.set_xlim((-50,len(corrLogAbs+50)))
     ax1.set_xlabel('Bus Index $i$')
     ax1.set_ylabel('Var(Bus $i$), normalised')
@@ -794,10 +794,11 @@ if 'f_limitSensitivityIdv' in locals():
 
 if 'f_varCheck' in locals():
     fdrs_is = [6,8,9,19,20,21,17,18,22]
-    fdrs_is = [6,20,18]
-    # fdrs_is = [22] # for exploring other ideas
-    muIdxs = [-1,-1,-1]
-    mSzes = {6:1,8:1,17:0.5,18:0.5,20:0.8,22:0.8}
+    fdrs_is = [6,20,21,17,18]
+    # fdrs_is = [6] # for exploring other ideas
+    muIdxs = [-1]*len(fdrs_is)
+    # for 9, correlation is 0.3 (!)
+    mSzes = {6:1,8:1,9:0.4,17:0.4,18:0.4,19:0.5,20:0.8,21:0.4,22:0.8}
     pdfName = 'gammaFrac'
     for [fdr_i,idx] in zip(fdrs_is,muIdxs):
         LM = linModel(fdr_i,WD)
@@ -819,50 +820,46 @@ if 'f_varCheck' in locals():
         LM.getCovMat(getFixCov=False,getTotCov=False,getFullCov=True)
         vars = LM.varKfullU.copy()
         
-        
         allLims = np.r_[LM.svdLim,LM.svdLimDv]
-        
         nStd = np.sign(allLims)/np.sqrt(vars)
         
-        plt.plot(nStd0)
-        plt.plot(nStd); plt.ylim((-5,5)); plt.show()
+        varSortN_new = nStd.argsort()
+        varSortN_old = nStd[varSortN0].argsort()
         
-        # # Exploring alternative methods of removing rows
-        # nStdMin = min(nStd)
-        # nStdMin0 = min(nStd0)
-        # plt.plot(nStdMin - nStd[nStd<4]); plt.show()
-        # plt.plot(nStdMin0 - nStd0[nStd<4]); plt.show()
-        # np.sum(nStd[nStd<4])
+        xX = varSortN_old
+        yY = np.arange(len(varSortN_new))
+        positiveNew = nStd[varSortN_new]>0
         
-        
-        # varsMax = max(vars)
-        # vars[allLims<0] = varsMax
-        # varSortN = vars.argsort()[::-1]
-        # varSortN_update = vars[varSortN0].argsort()[::-1]
-        # varsMaxCount = sum(vars==varsMax)
-        
-        varSortN = nStd.argsort()
-        varSortN_update = nStd[varSortN0].argsort()
+        print(pearsonr(xX,yY))
 
         fig,ax = plt.subplots(figsize=(2.4,2.4))    
-        # ax.plot(vars0[varSortN0]/vars0[varSortN0[0]])
-        # ax.plot(vars[varSortN0]/vars[varSortN[0]])
-        # ax.plot(vars[varSortN0][varSortN_update]/vars[varSortN[0]])
-        # ax.set_yscale('log')
-        # ax.set_ylim((1e-6,1e1))
-        Nupdate = varSortN0[varSortN_update]
-        plt.plot( np.arange(len(Nupdate))[nStd[varSortN]>0],varSortN_update[nStd[varSortN]>0],'.',markersize=mSzes[fdr_i] ); 
-        plt.plot( np.arange(len(Nupdate))[nStd[varSortN]<0],varSortN_update[nStd[varSortN]<0],'.',markersize=mSzes[fdr_i] ); 
-        # plt.plot( np.arange(len(Nupdate)),varSortN,'.',markersize=1 ); 
+        plt.plot( xX[positiveNew],yY[positiveNew],'.',markersize=mSzes[fdr_i] ); 
+        plt.plot( xX[positiveNew==0],yY[positiveNew==0],'.',markersize=mSzes[fdr_i] ); 
+        # plt.plot( np.arange(len(varSortN_new)),varSortN_new,'.',markersize=1 ); 
         plt.axis('equal')
         plt.grid()
-        plt.xlabel('Original Index')
-        plt.ylabel('Shifted Index')
+        plt.xlabel('Sorted Idx., 0% pen.')
+        plt.ylabel('Sorted Idx., 100% pen.')
+        
+        if fdr_i==20:
+            ax.annotate('Strongest\nnodes',
+                xy=(1850,1950), xycoords='data',
+                xytext=(100,1650), textcoords='data',
+                arrowprops=dict(arrowstyle="->",
+                                connectionstyle="arc3"),
+                )
+            ax.annotate('Weakest\nnodes',
+                xy=(200,40), xycoords='data',
+                xytext=(1000,30), textcoords='data',
+                arrowprops=dict(arrowstyle="->",
+                                connectionstyle="arc3"),
+                )
+        
         plt.tight_layout()
         if 'pltSave' in locals():
-            plotSaveFig(sdt('c4','f')+'\\varCheck_'+fdrs[fdr_i])
+            plotSaveFig(sdt('c4','f')+'\\varCheck_'+fdrs[fdr_i],True,True)
         plt.show()
-
+        
 
 if 'f_corVarScanCalc' in locals():
     fdrs_is = [6,8,9,19,20,21,17,18,22]
@@ -924,7 +921,10 @@ if 'f_corVarScan' in locals() or 'f_corVarCTs' in locals():
     CovCalcTimes = rsltsDictOut['CovCalcTimes']
     
     if 'f_corVarScan' in locals():
-        fig,[ax0,ax1,ax2] = plt.subplots(figsize=(8,3.2),ncols=3)
+        # fig,[ax0,ax1,ax2] = plt.subplots(figsize=(8,3.2),ncols=3)
+        fig,ax0 = plt.subplots(figsize=(2.65,3.2))
+        fig,ax1 = plt.subplots(figsize=(2.65,3.2))
+        fig,ax2 = plt.subplots(figsize=(2.65,3.2))
         for i in range(len(CorLim)):
             # ax0.plot(100*stdLim,np.max(Errors[:,:,i],axis=0),'x-',label=( '%.0f' % (100*CorLim[i]) ) + ' %')
             ax0.plot(100*stdLim,np.mean(Sizes[:,:,i],axis=0),'x-',label='$\eta _{\mathrm{Cor}}=$'+( '%.0f' % (100*CorLim[i]) ))
@@ -938,13 +938,27 @@ if 'f_corVarScan' in locals() or 'f_corVarCTs' in locals():
 
         ax1.set_ylim((-0.1,10))
 
-        ax0.set_ylabel('Average size, %')
-        ax1.set_ylabel('Max Error, %')
-        ax2.set_ylabel('Max Time, s')
-        # ax1.set_title('Average Sizes, %')
+        ax0.set_ylabel('Average size (9 ntwks.), %')
+        plt.sca(ax0)
         plt.tight_layout()
         if 'pltSave' in locals():
-            plotSaveFig(sdt('c4','f')+'\\corVarScan')
+            plotSaveFig(sdt('c4','f')+'\\corVarScanSze')
+        
+        ax1.set_ylabel('Max Error (9 ntwks.), %')
+        plt.sca(ax1)
+        plt.tight_layout()
+        if 'pltSave' in locals():
+            plotSaveFig(sdt('c4','f')+'\\corVarScanErr')
+        
+        ax2.set_ylabel('Max Time to Solve (9 ntwks.), s')
+        plt.sca(ax2)
+        plt.tight_layout()
+        if 'pltSave' in locals():
+            plotSaveFig(sdt('c4','f')+'\\corVarScanTms')
+        
+        # ax1.set_title('Average Sizes, %')
+        # if 'pltSave' in locals():
+            # plotSaveFig(sdt('c4','f')+'\\corVarScan')
         plt.show()
     
     if 'f_corVarCTs' in locals():

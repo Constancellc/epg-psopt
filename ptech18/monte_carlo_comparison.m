@@ -251,10 +251,10 @@ if exist('paperTable','var')
 end
 %%
 if exist('montecarlo_comparison_thesis','var')
-    mat = [mc_time(:,1),PoutGen(:,1),mc_time(:,2),PoutGen(:,2),counts,mc_time(:,2)./mc_time(:,1)];
-    headerRow = {'Feeder','Time, s','$P_{\mathrm{Gen}}^{5\%}$, kW','Time, s','$P_{\mathrm{Gen}}^{5\%}$, kW','Iterations','Time ratio'};
+    mat = [mc_time(:,2),PoutGen(:,2),counts,mc_time(:,1),PoutGen(:,1),mc_time(:,2)./mc_time(:,1)];
+    headerRow = {'Feeder','Time, s','$P_{\mathrm{Gen}}^{5\%}$, kW','Iterations','Time, s','$P_{\mathrm{Gen}}^{5\%}$, kW','Time ratio'};
     caption = 'Comparison of timings and estimated hosting capacities for the fixed power and fixed voltage methods';
-    formatCol = {'$%.2f$','$%.3f$','$%.2f$','$%.3f$','$%d$','$%.1f$'};
+    formatCol = {'$%.2f$','$%.3f$','$%d$','$%.2f$','$%.3f$','$%.1f$'};
     
     headerCol = {};
     for ii = 1:numel(model_is)

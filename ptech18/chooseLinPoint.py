@@ -23,7 +23,7 @@ DSSSolution=DSSCircuit.Solution
 pltVxtrm = True
 pltVxtrm = False
 savePts = True
-# savePts = False
+savePts = False
 saveBusCoords = True
 saveBusCoords = False
 saveBrchBuses = True
@@ -203,8 +203,8 @@ for fdr_i in fdr_i_set:
         
         xlm = ax.get_xlim()
         ylm = ax.get_ylim()
-        ax.plot(xlm,[VpMv,VpMv],'k:')
-        ax.plot(xlm,[VmMv,VmMv],'k:')
+        # ax.plot(xlm,[VpMv,VpMv],'k:')
+        # ax.plot(xlm,[VmMv,VmMv],'k:')
         
         ax.plot(xlm,[VpLv,VpLv],'k--')
         ax.plot(xlm,[VmLv,VmLv],'k--')
@@ -219,11 +219,15 @@ for fdr_i in fdr_i_set:
         ax.legend(loc='upper right')
 
         if pltVxtrmSave:
-            ax.annotate('Lin. point',(kOut-0.11,ylm[1] - 0.14),rotation=90)
+            # ax.annotate('Lin. point',(kOut-0.11,ylm[1] - 0.14),rotation=90)
+            ax.annotate('Lin. point',(kOut-0.11,ylm[1] - 0.127),rotation=90)
             plt.tight_layout()
-            plt.savefig(SDfig+'pltVxtrm_'+feeder)
-            plt.savefig(SDfig+'pltVxtrm_'+feeder+'.pdf')
+            # plt.savefig(SDfig+'pltVxtrm_'+feeder)
+            # plt.savefig(SDfig+'pltVxtrm_'+feeder+'.pdf')
+            plt.xlabel('Load scaling factor')
+            plotSaveFig(os.path.join(sdt('t2','f'),'pltVxtrm_'+feeder),True,True)
             plt.show()
+            
         else:
             ax.grid(True)
             ax.plot([load1,load1],[yLow,ylm[1]],'k:')
@@ -279,7 +283,7 @@ for fdr_i in fdr_i_set:
             os.makedirs(SD)
         with open(SBreg,'wb') as handle:
             pickle.dump(bandWidths,handle)
-    if pltLdsSet:
+    if 'pltLdsSet' in locals():
         LDS = DSSCircuit.Loads
         i = LDS.First
         kWlds = []; kvaLds = []
