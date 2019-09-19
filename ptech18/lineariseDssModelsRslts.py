@@ -315,7 +315,8 @@ if 't_costFuncStudy' in locals():
     # 2. Find Q^-1 L; then, solve using the 'fast' method, and compare.
     x1sets = {}
     feederSetOrdered = [17,18,'n1','n10',26,24,'n27'] # ordered results set
-    epsXoff = np.zeros((len(feederSetOrdered),3))
+    # epsXoff = np.zeros((len(feederSetOrdered),3))
+    epsXoff = np.zeros((len(feederSetOrdered),4))
     for feeder,ii in zip(feederSetOrdered,range(len(feederSetOrdered))):
         print(feeder)
         linPoints = linPointsDict[feeder]['all']
@@ -349,14 +350,15 @@ if 't_costFuncStudy' in locals():
         epsXoff[ii,2] = np.min(np.roots([c2,c1,c0]))
         # x1sets[feeder] = [x1Set,cQ]
 
-        aQ = lstsq(qpQlss,bQ,rcond=None)
-
+        xOffValue = 0.95
+        # NB the reason this is 'correct' is with respect to 1/cR, NOT the 'true' solution curve.
         cQ = -0.5*p
         bQ = -qpQlss.dot(cQ)
         c0 = cQ.dot(cQ)*(1 - xOffValue**2)
         c1 = 2*cQ.dot(bQ)
         c2 = bQ.dot(bQ)
-        # epsXoff[ii,1] = np.max(1/np.roots([c2,c1,c0])) # not used as too often outside of the right point.
+        epsXoff[ii,3] = np.max(1/np.roots([c2,c1,c0])) # not used as too often outside of the right point.
+        # print(1/np.roots([c2,c1,c0]))
         
         sln0s = sln0[3]
         m_eps = np.finfo(np.float64).eps
@@ -365,7 +367,8 @@ if 't_costFuncStudy' in locals():
         epsXoff[ii,0:2] = [sln0s[0],sln0s[-1]]
         
     epsXoffTbl = []
-    iOrder = [2,1,0]
+    # iOrder = [2,1,0]
+    iOrder = [2,1,0,3]
     for row,feeder in zip(epsXoff,feederSetOrdered):
         epsXoffTbl.append([])
         epsXoffTbl[-1].append(feederIdxTidy[feeder])
@@ -380,10 +383,13 @@ if 't_costFuncStudy' in locals():
 
     TD = sdt('t3','t')
     label = 'costFuncStudy'
-    heading = ['Feeder','$\kappa _{5\%}$','Min sing. value','Max sing. value']
+    # heading = ['Feeder','$\kappa _{5\%}$','Min sing. value','Max sing. value']
+    heading = ['Feeder','$\kappa _{5\%}^{\mathrm{Hi\,}C_{R}}$','Min sing. value','Max sing. value','$\kappa_{5\%}^{\mathrm{Hi\,}C_{R}}$']
     caption = 'Minimum/Maximum singular values of network loss quadratic matrices, and the estimate of the 5\% solution reduction value $\kappa _{5\%}$.'
     data = epsXoffTbl
-    basicTable(caption,label,heading,data,TD)
+
+    # UNCOMMENT HERE!!!!
+    asd = basicTable(caption,label,heading,data,TD)
 
     
     

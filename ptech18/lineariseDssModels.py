@@ -1470,7 +1470,7 @@ class buildLinModel:
         ax1.plot(100*abs(abs(Ic) - abs(Ic0))/(self.iScale*self.iXfmrLims),'o',label='$\Delta \\,I_{\mathrm{QP}}$',markerfacecolor='None',markersize=3.0)
         
         ax1.set_xlabel('Branch Index')
-        ax1.set_ylabel('Branch Current \nchange, % of $I_{\mathrm{max}}$')
+        ax1.set_ylabel('Branch Current \nchange, % of $I_{\mathrm{rated}}$')
         ax1.legend()
         ax1.grid()
         
@@ -2167,6 +2167,8 @@ class buildLinModel:
         DSSSolution.Solve()
     
     def loadCvrDssModel(self,pCvr,qCvr,loadMult=1.0):
+        # warning!!! the tolerance on this is now different as it was found that it needs to be
+        # to get repeatable results in losses, interestingly.
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         DSSText.Command='Compile ('+self.fn+')'
         DSSText.Command='Batchedit load..* vminpu=0.02 vmaxpu=50 model=4 status=variable cvrwatts='+str(pCvr)+' cvrvars='+str(qCvr)
@@ -2174,6 +2176,7 @@ class buildLinModel:
         # fix_cap_pos(DSSCircuit, self.capPosLin)
         fix_cap_pos(DSSCircuit, self.Cap_No0)
         DSSText.Command='Set controlmode=off'
+        DSSText.Command='Set tol=1e-10'
         DSSSolution.LoadMult = loadMult
         DSSSolution.Solve()
         

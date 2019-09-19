@@ -61,7 +61,6 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_runTsAnalysis = 1
 f_plotTsAnalysis = 1
 # f_convCapability = 1
-# f_convCapability = 1
 # f_scaling = 1
 # f_costFuncXmpl = 1
 # f_costFuncAsym = 1
@@ -481,12 +480,12 @@ if 'f_modelValidation' in locals():
         ax3.set_ylabel('$I$ error, $\\dfrac{1}{\\sqrt{N_{\mathrm{I}}}}||\\dfrac{I_{\mathrm{DSS}} - I_{\mathrm{Lin}}}{I_{\mathrm{Xfmr}}}||_{2}$, %')
         ax1.plot(Sset[ii],TLboth[ii],label='DSS.')
         ax1.plot(Sset[ii],TLestBoth[ii],label='Apx.')
-        ax1.set_xlabel('Rctv. power, kVAr')
+        ax1.set_xlabel('$Q_{\mathrm{\,invt}}$ (per gen.), kVAr')
         ax1.set_ylabel('Losses, kW')
         ax1.legend(fontsize='small')
         ax2.plot(Sset[ii],PLboth[ii]*1e-3,label='DSS.')
         ax2.plot(Sset[ii],PLestBoth[ii]*1e-3,label='Apx.')
-        ax2.set_xlabel('Rctv. power, kVAr')
+        ax2.set_xlabel('$Q_{\mathrm{\,invt}}$ (per gen.), kVAr')
         ax2.set_ylabel('Load, MW')
         ax2.legend(fontsize='small')
         plt.tight_layout(); 
@@ -559,7 +558,7 @@ if 'f_modelValidationSet' in locals():
             fig,ax=plt.subplots(figsize=figSze)
             ax.plot(Sset[ii],PLboth[ii]*1e-3,label='DSS.')
             ax.plot(Sset[ii],PLestBoth[ii]*1e-3,label='Lin.')
-            ax.set_xlabel('Rctv. power, kVAr')
+            ax.set_xlabel('$Q_{\mathrm{\,invt}}$ (per gen.), kVAr')
             ax.set_ylabel('Load, MW')
             plt.tight_layout()
             if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
@@ -582,7 +581,7 @@ if 'f_modelValidationSet' in locals():
             fig,ax=plt.subplots(figsize=figSze)
             ax.plot(Sset[ii],TLboth[ii],label='DSS.')
             ax.plot(Sset[ii],TLestBoth[ii],label='Lin.')
-            ax.set_xlabel('Rctv. power, kVAr')
+            ax.set_xlabel('$Q_{\mathrm{\,invt}}$ (per gen.), kVAr')
             ax.set_ylabel('Losses, kW')
             plt.tight_layout()
             if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
@@ -606,8 +605,8 @@ if 'f_modelValidationSet' in locals():
             ax.plot(Sset[ii],100*iN[ii],label='DSS.')
             ax.plot(Sset[ii],100*icN[ii],label='Lin. clx.')
             ax.plot(Sset[ii],100*iaN[ii],'--',label='Lin. mag.',color=cm.matlab(1))
-            ax.set_xlabel('Rctv. power, kVAr')
-            ax.set_ylabel('Current, % of $I_{\mathrm{Xfmr}}$')
+            ax.set_xlabel('$Q_{\mathrm{\,invt}}$ (per gen.), kVAr')
+            ax.set_ylabel('Current, % of $I_{\mathrm{rated}}$')
             ax.legend(fontsize='small')
             plt.tight_layout()
             if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
@@ -619,7 +618,7 @@ if 'f_modelValidationSet' in locals():
                 ax.plot(dxScale,100*icNt,'x-',label='Lin. clx.')
                 ax.plot(dxScale,100*iaNt,'x--',label='Lin. mag.',color=cm.matlab(1))
                 ax.set_xlabel('Tap')
-                ax.set_ylabel('Current, %')
+                ax.set_ylabel('Current, % of $I_{\mathrm{rated}}$')
                 ax.legend(fontsize='small')
                 plt.tight_layout()
                 if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname+self.feeder),pltClose=True)
@@ -630,7 +629,7 @@ if 'f_modelValidationSet' in locals():
             fig,ax=plt.subplots(figsize=figSze)
             ax.plot(Sset[ii],100*vcErrBoth[ii],label='DSS.')
             ax.plot(Sset[ii+1],100*vcErrBoth[ii+1],label='DSS.')
-            ax.set_xlabel('Rctv. power, kVAr')
+            ax.set_xlabel('$Q_{\mathrm{\,invt}}$ (per gen.), kVAr')
             ax.set_ylabel('Votlage error, %')
             ax.legend(fontsize='small')
             plt.tight_layout()
@@ -638,10 +637,10 @@ if 'f_modelValidationSet' in locals():
             # plt.show()
         
         # ax0.plot(Sset[ii],100*vErrBoth[ii])
-        # # ax0.set_xlabel('Rctv. power, kVAr')
+        # # ax0.set_xlabel('$Q_{\mathrm{\,invt}}$ (per gen.), kVAr')
         # ax0.set_ylabel('$V$ error, $\\dfrac{||V_{\mathrm{DSS}} - V_{\mathrm{Lin}}||_{2}}{||V_{\mathrm{DSS}}||_{2}}$, %')
         # ax3.plot(Sset[ii],100*iErrBoth[ii])
-        # # ax3.set_xlabel('Rctv. power, kVAr')
+        # # ax3.set_xlabel('$Q_{\mathrm{\,invt}}$ (per gen.), kVAr')
         # ax3.set_ylabel('$I$ error, $\\dfrac{1}{\\sqrt{N_{\mathrm{I}}}}||\\dfrac{I_{\mathrm{DSS}} - I_{\mathrm{Lin}}}{I_{\mathrm{Xfmr}}}||_{2}$, %')
 
         # if self.nT>0:
@@ -743,7 +742,7 @@ if 't_checkErrorSummary' in locals():
         i+=1
     print(*resultTable,sep='\n')
     TD = os.path.join(SD0,'tables\\')
-    caption = 'Maximum error across all three loading points (10\%, 60\%, 100\%)'
+    caption = 'Maximum error across all three loading points (10\%, 60\%, 100\%), when the optimal solution $x^{\dagger}$ is applied to both OpenDSS and the MI-QCQP model. Voltage, current and power errors are as calculated in \\eqref{e:vltErr}, \\eqref{e:crrErr} and \\eqref{e:pwrErr}.'
     label = 'checkErrorSummary'
     # if 'pltSave' in locals(): basicTable(caption,label,heading,resultTable[1:],TD)
     if 'pltSave' in locals(): basicTable(caption,label,heading,resultTable[1:],sdt('t3','t'))
@@ -1081,10 +1080,12 @@ if 'f_costFuncXmpl' in locals():
         sln0x = lstsq(qpQlss,-0.5*p,rcond=None)[0]
         fig,ax = plt.subplots(figsize=(3.6,2.6))
         # ax.plot(xIvt,100*np.array(x1Set)/norm(sln0x))
-        ax.plot(xIvt,np.array(x1Set)/len(sln0x))
+        # ax.plot(xIvt,np.array(x1Set)/len(sln0x))
+        ax.plot(xIvt,np.array(x1Set)/len(sln0x),label='$\\dfrac{||x_{\mathrm{Q,\,Unc}}^{\\dagger}||_{1}}{N_{\mathrm{lds}}}$')
         ax.set_xscale('log'); 
         ax.set_xlabel('Inverter loss coefficient $c_{R}$, W/kVAr$^{2}$')
-        ax.set_ylabel('$Q$ per gen., $\\dfrac{||x_{\mathrm{Q,\,Unc}}^{\\dagger}||_{1}}{N_{\mathrm{lds}}}$, kVAr')
+        # ax.set_ylabel('$Q$ per gen., $\\dfrac{||x_{\mathrm{Q,\,Unc}}^{\\dagger}||_{1}}{N_{\mathrm{lds}}}$, kVAr')
+        ax.set_ylabel('Mean $Q$ per invt., kVAr')
         ax.plot([invCoeffs[0][0]]*2,ylm,'--',color=cm.matlab(1))
         ax.plot([invCoeffs[1][0]]*2,ylm,'--',color=cm.matlab(1))
         ax.text(invCoeffs[0][0]*1.6,0.75*ylm[1],'1 kVA inverter',color=cm.matlab(1),rotation=90)
@@ -1096,6 +1097,7 @@ if 'f_costFuncXmpl' in locals():
         ax.text(invCoeffs[0][2]/1.6,0.75*ylm[1],'16 kVA inverter',color=cm.matlab(3),rotation=90)
         ax.set_ylim(ylm)
         ax.set_xlim((xIvt[0],xIvt[-1]))
+        ax.legend(fontsize='small')
         plt.tight_layout()
         if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'costFuncXmpl_'+self.feeder),pltClose=True)
         plt.show()
@@ -1104,7 +1106,7 @@ if 'f_costFuncAsym' in locals():
     from numpy.linalg import norm, solve, lstsq
     feeder = 'n1'
     feeder = 17
-    # xIvt = np.logspace(-2.0,3.0,20) # W/kVAr^2
+    # xIvt = np.logspace(-2.0,3.0,10) # W/kVAr^2
     xIvt = np.logspace(-2.0,3.0,60) # W/kVAr^2
     # self = main(feeder,modelType='loadOnly',linPoint=1.0)
     self = main(feeder,modelType='loadOnly',linPoint=1.0,method='fot')
@@ -1158,6 +1160,7 @@ if 'f_costFuncAsym' in locals():
 
     aQ = lstsq(qpQlss,bQ,rcond=None)
 
+    xOffValue = 0.95
     cQ = -0.5*p
     bQ = -qpQlss.dot(cQ)
     c0 = cQ.dot(cQ)*(1 - xOffValue**2)
@@ -1170,29 +1173,29 @@ if 'f_costFuncAsym' in locals():
     xRcpSet = 0.5*norm(p)/xIvt
 
     ylm = (-5,105)
-    fig,ax = plt.subplots(figsize=(4.4,2.6))
-    ax.plot(xIvt,100*np.array(x1Set)/norm(sln0x))
-    # ax.plot(xIvt,100*np.array(xRcpSet)/norm(sln0x),'--',color=cm.matlab(0))
-    ax.plot(xIvt,100*np.array(xInvSet)/norm(sln0x),'--',color=cm.matlab(0))
-    ax.plot(xIvt,100*np.array(xLinSet)/norm(sln0x),'--',color=cm.matlab(0))
+
+    fig,ax = plt.subplots(figsize=(5.7,2.6))
+    ax.plot(xIvt,100*np.array(x1Set)/norm(sln0x),label='True')
+    ax.plot(xIvt,100*np.array(xInvSet)/norm(sln0x),'--',color=cm.matlab(1),label='Asym. apx,\nhigh $c_{R}$')
+    ax.plot(xIvt,100*np.array(xLinSet)/norm(sln0x),'-.',color=cm.matlab(3),label='Asym. apx,\nlow $c_{R}$')
     ax.set_xscale('log'); 
     ax.set_xlabel('Inverter loss coefficient $c_{R}$, W/kVAr$^{2}$')
     ax.set_ylabel('Solution fraction $\\dfrac{||x^{\\dagger}(c_{R})||_{2}}{||x^{\\dagger}(0)||_{2}}$, %')
     ax.plot([epsXoff[2]]*2,ylm,'k-.')
     ax.plot([epsXoff[3]]*2,ylm,'k-.')
-    # ax.text(epsXoff[2]/1.6,75,'$\sigma_{\mathrm{min}}$',color='k',rotation=90)
-    # ax.text(epsXoff[3]/1.6,75,'$\sigma_{\mathrm{max}}$',color='k',rotation=90)
     ax.text(epsXoff[2]/1.6,60,'Min sing. val.',color='k',rotation=90)
     ax.text(epsXoff[3]*1.5,95,'Max sing. val.',color='k',rotation=90)
     ax.plot([epsXoff[0]]*2,ylm,'k-.')
-    ax.text(epsXoff[0]/1.6,65,'95% cutoff',color='k',rotation=90)
-    # ax.plot([epsXoff[1]]*2,ylm,'k-.')
-    # ax.text(epsXoff[1]/1.6,75,'$\epsilon_{5\,\%}$',color='k',rotation=90)
+    # ax.text(epsXoff[0]/1.6,65,'95% cutoff',color='k',rotation=90)
+    ax.text(epsXoff[0]/1.7,70,'95% cutoff, lo. $c_{R}$',color='k',rotation=90)
+    ax.plot([epsXoff[1]]*2,ylm,'k-.')
+    ax.text(epsXoff[1]/1.7,80,'95% cutoff, hi. $c_{R}$',color='k',rotation=90)
     ax.set_ylim(ylm)
     ax.set_xlim((xIvt[0],xIvt[-1]))
+    ax.legend(loc='center left', bbox_to_anchor=(1.01, 0.5),fontsize='small',title='Solution',labelspacing=0.8)
     plt.tight_layout()
+    # plt.show()
     if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'costFuncAsym_'+self.feeder),pltClose=True)
-
     plt.show()
 
 
@@ -1402,13 +1405,11 @@ if 'f_runTsAnalysis' in locals():
 if 'f_plotTsAnalysis' in locals():
     feederSet=[17,24]
     # feederSet=[24]
-    # feederSet=[17]
     figNameSet = ['tPwr','vMinMax','qPhs','dPwr','efcy','tapSet']
-    # figNameSet = ['vMinMax']
-    figNameSet = []
+    figNameSet = ['vMinMax']
     dayTypes = ['wtr','smr']
-    # dayTypes = ['wtr']
-    # pltSave=1
+    # dayTypes = ['smr']
+    pltSave=1
     for feeder in feederSet:
         self = main(feeder,modelType='loadOnly');
         self.getLdsPhsIdx()
@@ -1444,9 +1445,16 @@ if 'f_plotTsAnalysis' in locals():
                 fig,ax = plt.subplots(figsize=tsFigSze)
                 # ax.set_prop_cycle(color=cm.matlab([0,1,2]))
                 ax.set_prop_cycle(color=cm.matlab([0,1]))
-                ax.plot(times, tsRslt['vMinMv'][1:3].T,':');
-                ax.plot(times, tsRslt['vMinLv'][1:3].T);
-                ax.plot(times, tsRslt['vMax'][1:3].T);
+                # ax.plot(times, tsRslt['vMinMv'][1:3].T,':',labe);
+                # ax.plot(times, tsRslt['vMinLv'][1:3].T);
+                # ax.plot(times, tsRslt['vMax'][1:3].T);
+                ax.plot(times, tsRslt['vMinMv'][1].T,':',label='$V_{\mathrm{MV,\,min}}^{\mathrm{Nom.}}$',color=cm.matlab(0));
+                ax.plot(times, tsRslt['vMinLv'][1].T,label='$V_{\mathrm{MV,\,min}}^{\mathrm{Nom.}}$',color=cm.matlab(0));
+                ax.plot(times, tsRslt['vMax'][1].T,'-.',label='$V_{\mathrm{max}}^{\mathrm{Nom.}}$',color=cm.matlab(0));
+                ax.plot(times, tsRslt['vMinMv'][2].T,':',label='$V_{\mathrm{MV,\,min}}^{\mathrm{Phase}}$',color=cm.matlab(1));
+                ax.plot(times, tsRslt['vMinLv'][2].T,label='$V_{\mathrm{MV,\,min}}^{\mathrm{Phase.}}$',color=cm.matlab(1));
+                ax.plot(times, tsRslt['vMax'][2].T,'-.',label='$V_{\mathrm{max}}^{\mathrm{Phase.}}$',color=cm.matlab(1));
+                
                 ax.plot(xlm,[tsRslt['cns']['mvHi']]*2,'k--')
                 ax.plot(xlm,[tsRslt['cns']['mvLo']]*2,'k:')
                 ax.plot(xlm,[tsRslt['cns']['lvLo']]*2,'k--')
@@ -1457,6 +1465,11 @@ if 'f_plotTsAnalysis' in locals():
                     ax.text(0.3,tsRslt['cns']['mvLo']+0.007,'$V_{-,\,\\mathrm{MV}}$')
                     ax.text(0.3,tsRslt['cns']['lvLo']+0.006,'$V_{-,\,\\mathrm{LV}}$')
                 
+                if dayType=='smr' and feeder==17:
+                    ax.legend(fontsize='small',loc='lower left',ncol=2)
+                    # ax.legend(loc='lower left',labelspacing=0.1,ncol=2)
+                if dayType=='smr' and feeder==24:
+                    ax.legend(fontsize='small',loc='center right',ncol=2)
                 
                 ax.set_xlim(xlm); ax.set_xticks(xtcks)
                 ax.set_xlabel('Time, hour')
@@ -1510,6 +1523,7 @@ if 'f_plotTsAnalysis' in locals():
                 plt.show()
             
             print('Power saved:',sum(tPwr[1]-tPwr[2])*0.5,'kWh over the day')
+            print('Power saved:',sum(tPwr[0])*0.5,'kWh over the day (load)')
             print('Power saved:',sum(tPwr[1]-tPwr[2])*0.5/tsRslt['nPctrl'],'kWh over the day per customer')
             print('Power saved:',sum(tPwr[1]-tPwr[2])*0.5*365/tsRslt['nPctrl'],'kWh over the year per customer')
             # print('Power saved:',sum(tPwr[1]-tPwr[2])*0.5/24,'average kW')
@@ -1599,7 +1613,7 @@ if 'f_uncSolution' in locals():
     ax1.plot(100*abs(Ic0)/(self.iScale*self.iXfmrLims),'o',markerfacecolor='None',markersize=1.4,markeredgewidth=0.6,label='Nom. Sln')
     ax1.plot(100*np.ones(len(self.iXfmrLims)),'k_',markeredgewidth=0.5)
     ax1.set_xlabel('Xfmr Index')
-    ax1.set_ylabel('Current, % of $I_{\\mathrm{xfmr}}$')
+    ax1.set_ylabel('Current, % of $I_{\\mathrm{rated}}$')
     ax1.legend(fontsize='small')
     ax1.set_ylim( (-70,130) )
     ax1.set_xlim((-3,len(Ic0)+3))
@@ -1608,7 +1622,14 @@ if 'f_uncSolution' in locals():
     if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),figName+self.feeder),pltClose=True)
 
     plt.show()
-
+    
+    
+    vltgs = (V/self.vKvbase)[self.vIn]
+    vltgsHi = vltgs>((self.vHi/self.vKvbase)[self.vIn])
+    vltgsLo = vltgs<((self.vLo/self.vKvbase)[self.vIn])
+    sum(vltgsHi)
+    sum(vltgsLo)/len(vltgs) # used to calculate the number of loads out of bounds.
+    
     figName='uncSolutionV_'
     fig,ax0 = plt.subplots(figsize=(4.4,3.0))
     # plot voltages versus voltage limits
@@ -1651,8 +1672,8 @@ if 't_uncBoundViolations' in locals():
         resultTable[-1].append( "%.1f" % (iMaxOut))
         resultTable[-1].append( "%.2f" % (qMax))
         
-    caption = 'Constraint extrema at the unconstrained optimization point $x_{\\mathrm{Q,\,Unc}}^{\dagger}$ (i.e. solved in  reactive power only).'
-    heading = ['Feeder','max$(V)$, pu','min$(V)$, pu','max$(I_{\\mathrm{branch}})$, \\%','max$(Q_{\\mathrm{invr}})$, kVAr']
+    caption = 'Constraint extrema at the unconstrained optimization point $x_{\\mathrm{Q,\,Unc}}^{\dagger}$ (i.e. solved in reactive power only).'
+    heading = ['Feeder','max$(V)$, pu','min$(V)$, pu','max$(I_{\\mathrm{xfmr}})$, \\%','max$(Q_{\\mathrm{invr}})$, kVAr']
     label = 't_uncBoundViolations'
     if 'pltSave' in locals(): basicTable(caption,label,heading,resultTable,sdt('t3','t'))
 
