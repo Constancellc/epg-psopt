@@ -586,7 +586,7 @@ plt.tight_layout()
 plt.savefig('../../../Dropbox/thesis/chapter7/img/av_violations2.eps', format='eps', dpi=300,
             bbox_inches='tight', pad_inches=0)
 
-plt.show()
+#plt.show()
 rl = [res,res2,res3,res4]
 for r in range(4):
     with open('res'+str(r+1)+'.csv','w') as csvfile:
@@ -674,7 +674,8 @@ for pn in range(1,5):
     carry[pn] = [X,Y,Z2]
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(im, cax=cax)
+    cbar = plt.colorbar(im, cax=cax,ticks=[0,10,20,30,40,50])
+    cbar.ax.set_yticklabels(['0%','10%','20%','30%','40%','>50%'])
     
 plt.tight_layout()
 plt.savefig('../../../Dropbox/papers/Nature/img/v_zscore.eps', format='eps', dpi=300,
@@ -700,7 +701,8 @@ for pn in range(1,5):
     im = m.pcolor(X,Y,Z,vmin=0,vmax=50,cmap=green2)
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(im, cax=cax)
+    cbar = plt.colorbar(im, cax=cax,ticks=[0,10,20,30,40,50])
+    cbar.ax.set_yticklabels(['0%','10%','20%','30%','40%','>50%'])
     
 plt.tight_layout()
 plt.savefig('../../../Dropbox/papers/Nature/img/p_zscore.eps', format='eps', dpi=300,
