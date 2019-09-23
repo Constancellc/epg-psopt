@@ -39,8 +39,14 @@ New Load.S42a  Bus1=42.1   Phases=1 Conn=Wye   Model=1 kV=2.40178   kW=20.0  kva
 New Load.S43b  Bus1=43.2   Phases=1 Conn=Wye   Model=2 kV=2.40178   kW=40.0  kvar=20.0  
 New Load.S45a  Bus1=45.1   Phases=1 Conn=Wye   Model=5 kV=2.40178   kW=20.0  kvar=10.0  
 New Load.S46a  Bus1=46.1   Phases=1 Conn=Wye   Model=1 kV=2.40178   kW=20.0  kvar=10.0  
-New Load.S47   Bus1=47     Phases=3 Conn=Wye   Model=5 kV=4.160 kW=105.0 kvar=75.0  
-New Load.S48   Bus1=48     Phases=3 Conn=Wye   Model=2 kV=4.160 kW=210.0 kVAR=150.0 
+New Load.S47a   Bus1=47.1     Phases=1 Conn=Wye   Model=5 kV=2.40178 kW=35.0 kvar=25.0  
+New Load.S47b   Bus1=47.2     Phases=1 Conn=Wye   Model=5 kV=2.40178 kW=35.0 kvar=25.0 
+New Load.S47c   Bus1=47.3     Phases=1 Conn=Wye   Model=5 kV=2.40178 kW=35.0 kvar=25.0  
+New Load.S48a   Bus1=48.1     Phases=1 Conn=Wye   Model=2 kV=2.40178 kW=70.0 kVAR=50.0 
+New Load.S48b   Bus1=48.2     Phases=1 Conn=Wye   Model=2 kV=2.40178 kW=70.0 kVAR=50.0 
+New Load.S48c   Bus1=48.3     Phases=1 Conn=Wye   Model=2 kV=2.40178 kW=70.0 kVAR=50.0 
+!New Load.S47   Bus1=47     Phases=3 Conn=Wye   Model=5 kV=4.160 kW=105.0 kvar=75.0  
+!New Load.S48   Bus1=48     Phases=3 Conn=Wye   Model=2 kV=4.160 kW=210.0 kVAR=150.0 
 New Load.S49a  Bus1=49.1   Phases=1 Conn=Wye   Model=1 kV=2.40178   kW=35.0  kvar=25.0  
 New Load.S49b  Bus1=49.2   Phases=1 Conn=Wye   Model=1 kV=2.40178   kW=70.0  kvar=50.0  
 New Load.S49c  Bus1=49.3   Phases=1 Conn=Wye   Model=1 kV=2.40178   kW=35.0  kvar=20.0  ! used to be 25 in on-line document

@@ -1,7 +1,7 @@
 import lineariseDssModels, sys, os, pickle, random, time
 from importlib import reload
 import numpy as np
-from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, basicTable
+from dss_python_funcs import vecSlc, getBusCoords, getBusCoordsAug, tp_2_ar, basicTable, sdt
 import matplotlib.pyplot as plt
 
 FD = sys.argv[0]
@@ -15,12 +15,13 @@ fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','850
 # f_checkError = 1
 # f_valueComparison = 1
 # f_psccAbstract = 1
+# t_costFuncStudy = 1
+
 
 SD0 = os.path.join(os.path.join(os.path.expanduser('~')), 'Documents','DPhil','papers','psjul19')
 
-def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=False,pltSave=False):
+def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.6,method='fpl',saveModel=False,pltSave=False):
     reload(lineariseDssModels)
-    
     SD = SD0
     blm = lineariseDssModels.buildLinModel(FD=FD,fdr_i=fdr_i,linPoints=[linPoint],pCvr=pCvr,
                                                 modelType=modelType,method=method,saveModel=saveModel,SD=SD,pltSave=pltSave)
@@ -28,9 +29,13 @@ def main(fdr_i=5,modelType=None,linPoint=1.0,pCvr=0.8,method='fpl',saveModel=Fal
 
 # self = main('n10',modelType='plotOnly',pltSave=False)
 feederSet = [5,6,8,26,24,0,18,17,'n4','n1','n10','n27']
-feederSet = [6,0,17,'n1',26,'n27',24,'n10',18] # results set
+feederSet = [17,'n1',26,'n27',24,'n10',18] # results set
+# feederSet = [6,26,24,17,18,'n1'] # introductory set
+# feederSet = [26]
+# feederSet = [6]
 # feederSet = [26,0,17,24,18,'n1','n10','n27','n4']
 
+methodChosen = 'fot'
 
 feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20:'Ckt. K1',21:'Ckt. M1',17:'Ckt. 5',18:'Ckt. 7',22:'Ckt. 24',26:'123 Bus',24:'Ckt. K1','n1':'EULVa','n27':'EULVa-r',0:'EULV','n4':'Nwk. 4','n10':'Nwk. 10'}
 
@@ -41,13 +46,14 @@ linPointsB = {'all':lpB,'opCst':lpB,'hcGen':[lpB[0]],'hcLds':[lpB[-1]]}
 linPointsC = {'all':lpC,'opCst':lpC,'hcGen':lpC,'hcLds':lpC}
 
 objSet = ['opCst','hcGen','hcLds']
+objSet = ['opCst']
 strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','maxTap'],'hcLds':['full','phase','nomTap','minTap'] }
 
 # NB remember to update n10!
 linPointsDict = {5:linPointsA,6:linPointsB,26:linPointsA,24:linPointsA,18:linPointsB,'n4':linPointsA,
                                 'n1':linPointsA,'n10':linPointsA,'n27':linPointsA,17:linPointsA,0:linPointsA,25:linPointsC}
 pCvrSet = [0.0,0.3,0.6,0.9]
-# pCvrSet = [0.0,0.9]
+# pCvrSet = [0.0,0.3,0.9]
 # pCvrSet = [0.6]
 
 # STEP 1: building and saving the models. =========================
@@ -57,9 +63,10 @@ if 'f_bulkBuildModels' in locals():
         t0 = time.time()
         linPoints = linPointsDict[feeder]['all']
         print('============================================= Feeder:',feeder)
-        for linPoint in linPoints:
+        for linPoint,lpI in zip(linPoints,range(len(linPoints))):
             for pCvr in pCvrSet:
-                self = main(feeder,pCvr=pCvr,modelType='buildSave',linPoint=linPoint)
+                if pCvr==0.6 or lpI==2:
+                    self = main(feeder,pCvr=pCvr,modelType='buildSave',linPoint=linPoint,method=methodChosen)
         tBuild.append(time.time()-t0)
 
 # STEP 2: Running the models, obtaining the optimization results.
@@ -68,10 +75,14 @@ if 'f_bulkRunModels' in locals():
     for feeder in feederSet:
         t0 = time.time()
         linPoints = linPointsDict[feeder]['all']
+        # linPoints = [linPointsDict[feeder]['all'][-1]]
         print('============================================= Feeder:',feeder)
-        for linPoint in linPoints:  
+        # for linPoint in linPoints:  
+        for linPoint,lpI in zip(linPoints,range(len(linPoints))):
             for pCvr in pCvrSet:
-                self = main(feeder,pCvr=pCvr,modelType='loadAndRun',linPoint=linPoint) # see "runQpSet"
+                if pCvr==0.6 or lpI==2:
+                    print(lpI,pCvr)
+                    self = main(feeder,pCvr=pCvr,modelType='loadAndRun',linPoint=linPoint,method=methodChosen) # see "runQpSet"
         tSet.append(time.time()-t0)
 
 # STEP 3: check the feasibility of all solutions
@@ -80,7 +91,7 @@ if 'f_checkFeasibility' in locals():
         linPoints = linPointsDict[feeder]['all']
         for linPoint in linPoints:
             for pCvr in pCvrSet:
-                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint,method=methodChosen)
                 self.loadQpSet()
                 for key in self.qpSolutions:
                     print(self.feeder + '; sln type ' + key+', linPoint,' +str(linPoint)+' : ',self.qpSolutions[key][2])
@@ -105,8 +116,9 @@ if 'f_checkError' in locals():
         successTable.append([feederTidy])
         for obj in objSet:
             linPoints = linPointsDict[feeder][obj]
+            linPoints = [linPointsDict[feeder]['all'][-1]]
             for linPoint in linPoints:
-                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint)
+                self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPoint,method=methodChosen)
                 resultTableV[i].append( "%.6f" % (self.qpSolutionDssError(strategy,obj,err='V')*100))
                 resultTableI[i].append( "%.6f" % (self.qpSolutionDssError(strategy,obj,err='I')*100))
                 resultTableP[i].append( "%.6f" % (self.qpSolutionDssError(strategy,obj,err='P')*100))
@@ -294,6 +306,93 @@ if 'f_psccAbstract' in locals():
     ax2.set_xlabel('Regularization parameter')
     plt.tight_layout()
     plt.show()
+
+
+if 't_costFuncStudy' in locals():
+    from numpy.linalg import norm, solve, lstsq
+    #things to do.
+    # 1. load linTot, qpQlss and qpQtot Find the units of them.
+    # 2. Find Q^-1 L; then, solve using the 'fast' method, and compare.
+    x1sets = {}
+    feederSetOrdered = [17,18,'n1','n10',26,24,'n27'] # ordered results set
+    # epsXoff = np.zeros((len(feederSetOrdered),3))
+    epsXoff = np.zeros((len(feederSetOrdered),4))
+    for feeder,ii in zip(feederSetOrdered,range(len(feederSetOrdered))):
+        print(feeder)
+        linPoints = linPointsDict[feeder]['all']
+        linPoint = linPoints[-1]
+        x1sets[feeder] = {}
+        self = main(feeder,modelType='loadOnly',linPoint=linPoint,method=methodChosen)
+        self.solveQpUnc()
+        qpQlss = 1e3*self.qQpUnc[self.nPctrl:self.nSctrl,self.nPctrl:self.nSctrl]
+        
+        types = ['Low','Hi']
+        sRateds = [1.0,4.0,16.0]
+        invCoeffs = [[],[]]
+        for type,i in zip(types,range(2)):
+            for sRated in sRateds:
+                kQlossC,kQlossQ = self.getInvLossCoeffs(sRated,type)
+                self.setQlossOfs(kQlossQ=kQlossQ,kQlossC=0)
+                invCoeffs[i].append(1e3*np.linalg.norm(self.qlossQdiag,ord=np.inf))
+        
+        pLoad = self.ploadL[self.nPctrl:self.nSctrl]
+        pLoss = self.qpLlss[self.nPctrl:self.nSctrl]
+        p = 1e3*(pLoad + pLoss)
+        
+        xOffValue = 1.05
+        sln0 = lstsq(qpQlss,-0.5*p,rcond=None)
+        cQ = sln0[0]
+        bQ = lstsq(-qpQlss,cQ,rcond=None)[0]
+
+        c0 = cQ.dot(cQ)*(xOffValue**2 - 1) # 0.19
+        c1 = 2*cQ.dot(bQ)
+        c2 = bQ.dot(bQ)
+        epsXoff[ii,2] = np.min(np.roots([c2,c1,c0]))
+        # x1sets[feeder] = [x1Set,cQ]
+
+        xOffValue = 0.95
+        # NB the reason this is 'correct' is with respect to 1/cR, NOT the 'true' solution curve.
+        cQ = -0.5*p
+        bQ = -qpQlss.dot(cQ)
+        c0 = cQ.dot(cQ)*(1 - xOffValue**2)
+        c1 = 2*cQ.dot(bQ)
+        c2 = bQ.dot(bQ)
+        epsXoff[ii,3] = np.max(1/np.roots([c2,c1,c0])) # not used as too often outside of the right point.
+        # print(1/np.roots([c2,c1,c0]))
+        
+        sln0s = sln0[3]
+        m_eps = np.finfo(np.float64).eps
+        sln0s = sln0s[sln0s>( m_eps*len(sln0s)*sln0s[0] )]
+        
+        epsXoff[ii,0:2] = [sln0s[0],sln0s[-1]]
+        
+    epsXoffTbl = []
+    # iOrder = [2,1,0]
+    iOrder = [2,1,0,3]
+    for row,feeder in zip(epsXoff,feederSetOrdered):
+        epsXoffTbl.append([])
+        epsXoffTbl[-1].append(feederIdxTidy[feeder])
+        for i in iOrder:
+            if i==0:
+                epsXoffTbl[-1].append( ('%.2f' % row[i]) )
+            else:
+                if row[i]>1e-2:
+                    epsXoffTbl[-1].append( ('%.3f' % row[i])[:5] )
+                else:
+                    epsXoffTbl[-1].append( '%.2e' % row[i])
+
+    TD = sdt('t3','t')
+    label = 'costFuncStudy'
+    # heading = ['Feeder','$\kappa _{5\%}$','Min sing. value','Max sing. value']
+    heading = ['Feeder','$\kappa _{5\%}^{\mathrm{Hi\,}C_{R}}$','Min sing. value','Max sing. value','$\kappa_{5\%}^{\mathrm{Hi\,}C_{R}}$']
+    caption = 'Minimum/Maximum singular values of network loss quadratic matrices, and the estimate of the 5\% solution reduction value $\kappa _{5\%}$.'
+    data = epsXoffTbl
+
+    # UNCOMMENT HERE!!!!
+    asd = basicTable(caption,label,heading,data,TD)
+
+    
+    
 
 # self = main(feeder,linPoint=linPoint,pCvr=pCvr,modelType='loadOnly')
 # self.setQlossOfs(kQlossQ=0.5,kQlossC=0.0)

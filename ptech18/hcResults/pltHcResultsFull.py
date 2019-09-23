@@ -8,7 +8,7 @@ plt.style.use('tidySettings')
 WD = os.path.dirname(sys.argv[0])
 sys.path.append(os.path.dirname(WD))
 
-from dss_python_funcs import basicTable, vecSlc, set_ax_size
+from dss_python_funcs import basicTable, vecSlc, set_ax_size, plotSaveFig, sdt
 from linSvdCalcs import plotBoxWhisk, getKcdf, plotCns
 from matplotlib.patches import Ellipse
 
@@ -43,8 +43,8 @@ feeders_lp = feeders_dcp
 
 consFactor = 1.10 # for f_dssVlinWghtConservative
 
-pltSave=True
-pltShow=True
+# pltSave=True
+# pltShow=True
 
 figSze0 = (5.2,3.4)
 figSze1 = (5.2,2.5)
@@ -643,8 +643,13 @@ if 'f_errorCorr' in locals():
     if 'pltSave' in locals():
         plt.savefig(FD+'errorCorr.png',pad_inches=0.02,bbox_inches='tight')
         plt.savefig(FD+'errorCorr.pdf',pad_inches=0.02,bbox_inches='tight')
+    if 'pltSave' in locals():
+        plt.xlabel('Hosting capacity sensitivity, $f_{\mathrm{Pen,\,S}}$')
+        plt.ylabel('RLF\u2013DSS MAE, %') # unicode en-dash
+        plotSaveFig(os.path.join(sdt('t2','f'),'errorCorr'),True,True)
     if 'pltShow' in locals():    
         plt.show()
+    
 
 # # 1. seeing how the tap positions change for the feeder
 # for feeder in feeders:

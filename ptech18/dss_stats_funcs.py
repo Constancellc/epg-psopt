@@ -149,26 +149,29 @@ def getHcV2(V,Cdf,v0):
     return pHc
 
 def vmM(vec,Mat): # Rowwise multiplication, i.e. np.diag(vec).dot(Mat)]
-    if vec.shape[0]!=Mat.shape[0]:
-        print('Warning! vector length is not the same length as the matrix row no.')
-    MatOut = Mat*vec[:,None] # see https://stackoverflow.com/questions/18522216/multiplying-across-in-a-numpy-array
-    # MatOut = np.zeros(np.shape(Mat),dtype=Mat.dtype); i = 0
-    # for mati in Mat:
-        # MatOut[i] = mati*vec[i]; i+=1
+    if type(Mat) is np.ndarray:
+        if vec.shape[0]!=Mat.shape[0]:
+            print('Warning! vector length is not the same length as the matrix row no.')
+        MatOut = Mat*vec[:,None] # see https://stackoverflow.com/questions/18522216/multiplying-across-in-a-numpy-array
+    else:
+        print('Matrix is not a numpy array!!!')
     return MatOut
 
 def mvM(Mat,vec): # Columnwise multiplication, i.e. Mat.dot(np.diag(vec))
-    if len(vec)!=Mat.shape[1]:
-        print('Warning! vector length is not the same length as the matrix col no.')
-    MatOut = Mat*vec # see https://stackoverflow.com/questions/18522216/multiplying-across-in-a-numpy-array
-    # MatOut = np.zeros(np.shape(Mat),dtype=Mat.dtype); i = 0
-    # for i in range(Mat.shape[1]):
-        # MatOut[:,i] = Mat[:,i]*vec[i]; i+=1
+    if type(Mat) is np.ndarray:
+        if len(vec)!=Mat.shape[1]:
+            print('Warning! vector length is not the same length as the matrix col no.')
+        MatOut = Mat*vec # see https://stackoverflow.com/questions/18522216/multiplying-across-in-a-numpy-array
+    else:
+        print('Matrix is not a numpy array!!!')
     return MatOut
 
 def vmvM(vec0,Mat,vec1):
-    mat0 = mvM(Mat,vec1)
-    MatOut = vmM(vec0,mat0)
+    if type(Mat) is np.ndarray:
+        mat0 = mvM(Mat,vec1)
+        MatOut = vmM(vec0,mat0)
+    else:
+        print('Matrix is not a numpy array!!!')
     return MatOut
 
 # BUS SENSITIVITIES for the normal assumption analysis.

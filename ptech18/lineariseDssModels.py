@@ -105,6 +105,7 @@ class buildLinModel:
         self.qCvr = 0.0
         self.linPoint = linPoints[0]
         self.method=method
+        self.fixFot = 1 # nominally have the FOT change according to the load voltage sensitivity if req.
         
         # BUILD MODELS
         if modelType in ['buildSave','buildOnly']:
@@ -216,9 +217,14 @@ class buildLinModel:
         
     def runQpSet(self,saveQpSln=True,objs=None,strategySet=None,invLossTypes=None):
         
-        if objs is None: objs = ['opCst','hcGen','hcLds']
+        # if objs is None: objs = ['opCst','hcGen','hcLds']
+        if objs is None: objs = ['opCst']
         if strategySet is None: strategySet = { 'opCst':['full','phase','nomTap','load','loss'],'hcGen':['full','phase','nomTap','maxTap'],'hcLds':['full','phase','nomTap','minTap'] }
-        if invLossTypes is None: invLossTypes = ['None','Low','Hi']
+        if invLossTypes is None: 
+            if self.pCvr==0.6:
+                invLossTypes = ['None','Low','Hi']
+            else:
+                invLossTypes = ['Low']
         
         for invType in invLossTypes:
             kQlossC,kQlossQ = self.getInvLossCoeffs(type=invType)
@@ -258,8 +264,8 @@ class buildLinModel:
         self.slnX = self.qpSolutions[key][0]
         self.slnF = self.qpSolutions[key][1]
         self.slnS = self.qpSolutions[key][2]
-        if len(self.qpSolutions[key])>3:
-            self.slnD = self.qpSolutions[key][3]
+        # if len(self.qpSolutions[key])>3:
+        self.slnD = self.qpSolutions[key][3]
             
     def getSaveDirectory(self):
         return os.path.join(self.WD,'lin_models','cvr_models',self.feeder)
@@ -267,6 +273,8 @@ class buildLinModel:
     def getFilename(self):
         power = str(np.round(self.linPoint*100).astype(int)).zfill(3)
         aCvr = str(np.round(self.pCvr*100).astype(int)).zfill(3)
+        if self.method=='fot':
+            aCvr = aCvr+self.method
         return self.feeder+'P'+power+'A'+aCvr
     
     def saveLinModel(self):
@@ -320,7 +328,7 @@ class buildLinModel:
         DSSSolution.Tolerance=1e-10
         DSSSolution.LoadMult = lin_point
         DSSSolution.Solve()
-        print('\nNominally converged:',DSSSolution.Converged)
+        print('\nNominally converged (makeCvrQp):',DSSSolution.Converged)
         
         self.TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
         self.Cap_No0 = getCapPos(DSSCircuit)
@@ -337,6 +345,7 @@ class buildLinModel:
         self.xY, self.xD, self.pyIdx, self.pdIdx  = ldValsOnly( DSSCircuit ) # NB these do not change with the circuit!
         
         self.qyIdx = [self.pyIdx[0]+DSSCircuit.NumNodes-3] # NB: note that this is wrt M, not YNodeOrder.
+        self.syIdx = np.concatenate((self.pyIdx[0],self.qyIdx[0]))
         self.nPy = len(self.pyIdx[0])
         self.nPd = len(self.pdIdx[0])
 
@@ -358,6 +367,7 @@ class buildLinModel:
         self.kDcvr0 = np.concatenate((VhDpu**self.pCvr,VhDpu**self.qCvr))
         
         xYcvr = lin_point*self.xY*self.kYcvr0
+        xYcvr0 = xYcvr[self.syIdx]
         xDcvr = lin_point*self.xD*self.kDcvr0
         
         self.YZ = DSSCircuit.YNodeOrder[3:]
@@ -372,75 +382,9 @@ class buildLinModel:
         VnoLoad = VoffLoad[3:]
         dVnoLoad = H.dot(VoffLoad)
         
-        print('Create linear models:\n',time.process_time()); t = time.time()
-        
-        if self.method=='fot':
-            My,Md,a,dMy,dMd,da = firstOrderTaylor( Ybus,Vh,V0,xYcvr,xDcvr,H[:,3:] ); \
-                            print('===== Using the FOT method =====')
-        elif self.method=='fpl':
-            My,Md,a,dMy,dMd,da = cvrLinearization( Ybus,Vh,V0,H,0,0,self.vKvbase,self.vKvbaseD ); \
-                            print('Using the FLP method')
-        
-        
-        self.nV = len(a)
+        self.nV = len(Vh)
         self.createTapModel(lin_point,cvrModel=True) # this seems to be ok. creates Kt and Mt matrices.
         self.nT = self.Mt.shape[1]
-        Ky,Kd,b = nrelLinK( My,Md,Vh,xYcvr,xDcvr )
-        # dKy,dKd,db = nrelLinK( dMy,dMd,dVh,xYcvr,xDcvr )
-        dKy,dKd,self.dKt,db = lineariseMfull( dMy,dMd,H[:,3:].dot(self.Mt),dVh,xYcvr,xDcvr,np.zeros(self.nT) )
-        
-        print('Linear models created.:',time.time()-t)
-        
-        Vh0 = (My.dot(xYcvr) + Md.dot(xDcvr)) + a # for validation
-        Va0 = (Ky.dot(xYcvr) + Kd.dot(xDcvr)) + b # for validation
-        dVh0 = (dMy.dot(xYcvr) + dMd.dot(xDcvr)) + da # for validation
-        dVa0 = (dKy.dot(xYcvr) + dKd.dot(xDcvr)) + db # for validation
-        
-        self.log.info('\nVoltage clx error (lin point), Volts:'+str(np.linalg.norm(Vh0-Vh)/np.linalg.norm(Vh)))
-        self.log.info('Voltage clx error (no load point), Volts:'+str(np.linalg.norm(a-VnoLoad)/np.linalg.norm(VnoLoad)))
-        self.log.info('\nVoltage abs error (lin point), Volts:'+str(np.linalg.norm(Va0-abs(Vh))/np.linalg.norm(abs(Vh))))
-        self.log.info('Voltage abs error (no load point), Volts:'+str(np.linalg.norm(abs(b)-abs(VnoLoad))/np.linalg.norm(abs(VnoLoad))))
-        if len(dVh)>0:
-            self.log.info('\n Delta voltage clx error (lin point), Volts:'+str(np.linalg.norm(dVh0-dVh)/np.linalg.norm(dVh)))
-            self.log.info('Delta voltage clx error (no load point), Volts:'+str(np.linalg.norm(da-dVnoLoad)/np.linalg.norm(dVnoLoad)))
-            self.log.info('\nDelta voltage abs error (lin point), Volts:'+str(np.linalg.norm(dVa0-abs(dVh))/np.linalg.norm(abs(dVh))))
-            self.log.info('Delta voltage abs error (no load point), Volts:'+str(np.linalg.norm(abs(db)-abs(dVnoLoad))/np.linalg.norm(abs(dVnoLoad))))
-            
-        self.syIdx = np.concatenate((self.pyIdx[0],self.qyIdx[0]))
-        self.My = My[:,self.syIdx]
-        self.Ky = Ky[:,self.syIdx]
-        self.aV = a
-        self.bV = b
-        self.H = H
-        self.V0 = V0
-        
-        self.vYNodeOrder = YNodeOrder[3:]
-        self.SyYNodeOrder = vecSlc(self.vYNodeOrder,self.pyIdx)
-        self.SdYNodeOrder = vecSlc(self.vYNodeOrder,self.pdIdx)
-        self.Md = Md
-        self.Kd = Kd
-        self.currentLinPoint = lin_point
-        
-        del(My); del(Md)
-        self.createWmodel(lin_point) # this seems to be ok
-        
-        f0 = self.v2iBrYxfmr.dot(YNodeV)[self.iXfmrModelled] # voltages to currents through xfmrs
-        fNoload = self.v2iBrYxfmr.dot(VoffLoad)[self.iXfmrModelled] # voltages to currents through xfmrs - NB this should be the same as 'self.aIxfmr'.
-        
-        if np.any(f0==0): # occurs sometimes, e.g. Ckt 7, which have floating transformers with no loads on the other side.
-            df = min( np.min(f0[f0!=0]),np.min(fNoload[fNoload!=0]) )*1e-10 # maybe this is doing us in?
-            f0 = f0 + df*np.ones(len(f0))
-            fNoload = fNoload + df*np.ones(len(fNoload))
-        
-        # KyW, KdW, KtW, self.bW = lineariseMfull(self.WyXfmr,self.WdXfmr,self.WtXfmr,f0,xYcvr[self.syIdx],xDcvr,np.zeros(self.WtXfmr.shape[1]))
-        
-        f0cpx = self.WyXfmr.dot(xYcvr[self.syIdx]) + self.WdXfmr.dot(xDcvr) + self.WtXfmr.dot(np.zeros(self.WtXfmr.shape[1])) + self.aIxfmr
-        # f0lin = KyW.dot(xYcvr[self.syIdx]) + KdW.dot(xDcvr) + KtW.dot(np.zeros(self.WtXfmr.shape[1])) + self.bW
-        
-        self.log.info('\nCurrent cpx error (lin point):'+str(np.linalg.norm(f0cpx-f0)/np.linalg.norm(f0)))
-        self.log.info('Current cpx error (no load point):'+str(np.linalg.norm(self.aIxfmr-fNoload)/np.linalg.norm(fNoload)))
-        # self.log.info('\nCurrent abs error (lin point):'+str(np.linalg.norm(f0lin-abs(f0))/np.linalg.norm(abs(f0))))
-        # self.log.info('Current abs error (no load point):'+str(np.linalg.norm(self.bW-abs(fNoload))/np.linalg.norm(abs(fNoload)))+'( note that this is usually not accurate, it seems.)')
         
         # control (c) variables (in order): Pgen(Y then D) (kW),Qgen(Y then D) (kvar),t (no.).
         # notation as 'departure2arrival'
@@ -453,20 +397,142 @@ class buildLinModel:
         self.xTscale = 160*1e0
         self.xScale = np.r_[self.xSscale*np.ones(self.nSctrl),self.xTscale*np.ones(self.nT)] # change the scale factor of matrices here
         
-        self.X0ctrl = self.xScale*np.concatenate( (xYcvr[self.pyIdx[0]],xDcvr[:self.nPd],xYcvr[self.qyIdx[0]],xDcvr[self.nPd::],np.zeros(self.nT)) )
+        self.X0ctrl = self.xScale*np.concatenate( (xYcvr0[:self.nPy],xDcvr[:self.nPd],xYcvr0[self.nPy:],xDcvr[self.nPd::],np.zeros(self.nT)) )
         
-        self.Kc2v = dsf.mvM( np.concatenate( (Ky[:,self.pyIdx[0]],Kd[:,:self.nPd],
-                                            Ky[:,self.qyIdx[0]],Kd[:,self.nPd::],
+        print('Create linear models:\n',time.process_time()); t = time.time()
+        
+        if self.method=='fot':
+            # My,Md,a,dMy,dMd,da = firstOrderTaylor( Ybus,Vh,V0,xYcvr,xDcvr,H[:,3:] ); \
+                            # print('===== Using the FOT method =====')
+            My,Md,a,dMy,dMd,da = firstOrderTaylorQuick( Ybus,Vh,V0,xYcvr,xDcvr,H[:,3:] ); \
+                            print('===== Using the FOT method =====')
+            My = My[:,self.syIdx]
+            dMy = dMy[:,self.syIdx]
+            
+            if 'fixFot' in dir(self):
+                # FIRST recreate the equations:
+                Ky,Kd,b = nrelLinK( My,Md,Vh,xYcvr0,xDcvr )
+                dKy,dKd,self.dKt,db = lineariseMfull( dMy,dMd,H[:,3:].dot(self.Mt),dVh,xYcvr0,xDcvr,np.zeros(self.nT) )
+                Kc2d = dsf.mvM( np.concatenate( (dKy[:,:self.nPy],dKd[:,:self.nPd],
+                            dKy[:,self.nPy:],dKd[:,self.nPd::],
+                            self.dKt),axis=1), 1/self.xScale )
+                self.Kc2v = dsf.mvM( np.concatenate( (Ky[:,:self.nPy],Kd[:,:self.nPd],
+                                        Ky[:,self.nPy::],Kd[:,self.nPd::],
+                                        self.Kt),axis=1), 1/self.xScale )
+                Kc2vloadpu = dsf.mvM( np.concatenate( (  dsf.vmM( 1/VhYpu[self.pyIdx[0]], dsf.vmM( 1/self.vKvbaseY,self.Kc2v[self.pyIdx[0]] ) ), 
+                                             dsf.vmM( 1/VhDpu, dsf.vmM( 1/self.vKvbaseD, Kc2d[:self.nPd] ) ) ), axis=0), 1/self.xScale )
+                Kc2pC = np.concatenate((xYcvr0[:self.nPy],xDcvr[:self.nPd]))
+                Kc2p =  dsf.vmM(Kc2pC*self.pCvr,Kc2vloadpu)
+                self.ploadL = -self.lScale*self.xScale*np.sum(Kc2p,axis=0)
+                self.ploadC = -self.lScale*sum(Kc2pC)
+                
+                self.Kc2p = self.lScale*self.xScale*Kc2p
+                
+                # THEN MODIFY MY MD MT AS APPROPRIATE.
+                Mc2v = dsf.mvM( np.concatenate((My[:,:self.nPy],Md[:,:self.nPd],
+                            My[:,self.nPy::],Md[:,self.nPd::],
+                            self.Mt),axis=1), 1/self.xScale )
+                
+                a = a - Mc2v.dot(np.r_[ self.Kc2p.dot(self.X0ctrl), np.zeros(self.nPctrl+self.nT)] )
+                Mc2v = dsf.mvM( Mc2v.dot( np.eye(self.nCtrl) + np.r_[self.Kc2p,np.zeros((self.nPctrl+self.nT,self.nCtrl))] ) , self.xScale )
+                
+                My = np.c_[ Mc2v[:,:self.nPy],Mc2v[:,self.nPctrl:self.nPctrl+self.nPy] ]
+                Md = np.c_[ Mc2v[:,self.nPy:self.nPctrl],Mc2v[:,self.nPctrl+self.nPy:self.nSctrl] ]
+        elif self.method=='fpl':
+            My,Md,a,dMy,dMd,da = cvrLinearization( Ybus,Vh,V0,H,0,0,self.vKvbase,self.vKvbaseD ); \
+                            print('Using the FLP method')
+            My = My[:,self.syIdx]
+            dMy = dMy[:,self.syIdx]
+        
+        Ky,Kd,b = nrelLinK( My,Md,Vh,xYcvr0,xDcvr )
+        dKy,dKd,self.dKt,db = lineariseMfull( dMy,dMd,H[:,3:].dot(self.Mt),dVh,xYcvr0,xDcvr,np.zeros(self.nT) )
+        
+        print('Linear models created.:',time.time()-t)
+        
+        Vh0 = (My.dot(xYcvr0) + Md.dot(xDcvr)) + a # for validation
+        Va0 = (Ky.dot(xYcvr0) + Kd.dot(xDcvr)) + b # for validation
+        dVh0 = (dMy.dot(xYcvr0) + dMd.dot(xDcvr)) + da # for validation
+        dVa0 = (dKy.dot(xYcvr0) + dKd.dot(xDcvr)) + db # for validation
+        
+        self.log.info('\nVoltage clx error (lin point), Volts:'+str(np.linalg.norm(Vh0-Vh)/np.linalg.norm(Vh)))
+        self.log.info('Voltage clx error (no load point), Volts:'+str(np.linalg.norm(a-VnoLoad)/np.linalg.norm(VnoLoad)))
+        self.log.info('\nVoltage abs error (lin point), Volts:'+str(np.linalg.norm(Va0-abs(Vh))/np.linalg.norm(abs(Vh))))
+        self.log.info('Voltage abs error (no load point), Volts:'+str(np.linalg.norm(abs(b)-abs(VnoLoad))/np.linalg.norm(abs(VnoLoad))))
+        if len(dVh)>0:
+            self.log.info('\n Delta voltage clx error (lin point), Volts:'+str(np.linalg.norm(dVh0-dVh)/np.linalg.norm(dVh)))
+            self.log.info('Delta voltage clx error (no load point), Volts:'+str(np.linalg.norm(da-dVnoLoad)/np.linalg.norm(dVnoLoad)))
+            self.log.info('\nDelta voltage abs error (lin point), Volts:'+str(np.linalg.norm(dVa0-abs(dVh))/np.linalg.norm(abs(dVh))))
+            self.log.info('Delta voltage abs error (no load point), Volts:'+str(np.linalg.norm(abs(db)-abs(dVnoLoad))/np.linalg.norm(abs(dVnoLoad))))
+            
+
+        self.My = My
+        self.Md = Md
+        self.aV = a
+        self.bV = b
+        self.H = H
+        self.V0 = V0
+        
+        
+        Kc2d = dsf.mvM( np.concatenate( (dKy[:,:self.nPy],dKd[:,:self.nPd],
+                                dKy[:,self.nPy:],dKd[:,self.nPd::],
+                                self.dKt),axis=1), 1/self.xScale )
+        del(dKy); del(dKd); delattr(self,'dKt')
+        self.Kc2v = dsf.mvM( np.concatenate( (Ky[:,:self.nPy],Kd[:,:self.nPd],
+                                            Ky[:,self.nPy::],Kd[:,self.nPd::],
                                             self.Kt),axis=1), 1/self.xScale )
-        del(Ky); del(Kd)
-        delattr(self,'Ky'); delattr(self,'Kd'); delattr(self,'Kt')
+        del(Ky); del(Kd); delattr(self,'Kt')# kT comes from createTapModel it seems
         
-        # self.Kc2i = dsf.mvM( np.concatenate( (KyW[:,:self.nPy],KdW[:,:self.nPd],
-                                            # KyW[:,self.nPy::],KdW[:,self.nPd::],
-                                            # KtW),axis=1), 1/self.xScale ) # limits for these are in self.iXfmrLims.
-        # del(KyW); del(KdW); del(KtW)
+        # # see e.g. WB 14/5/19
+        # NB NB NB! PYIDX IS CORRECT as we are drawing out the voltages at the loads from the voltage index!
+        Kc2vloadpu = dsf.mvM( np.concatenate( (  dsf.vmM( 1/VhYpu[self.pyIdx[0]], dsf.vmM( 1/self.vKvbaseY,self.Kc2v[self.pyIdx[0]] ) ), 
+                                                 dsf.vmM( 1/VhDpu, dsf.vmM( 1/self.vKvbaseD, Kc2d[:self.nPd] ) ) ), axis=0), 1/self.xScale )
         
+        Kc2pC = np.concatenate((xYcvr0[:self.nPy],xDcvr[:self.nPd]))
+        Kc2p =  dsf.vmM(Kc2pC*self.pCvr,Kc2vloadpu)
+        
+        self.ploadL = -self.lScale*self.xScale*np.sum(Kc2p,axis=0)
+        self.ploadC = -self.lScale*sum(Kc2pC)
+        del(Kc2pC); del(Kc2p); del(Kc2vloadpu); del(Kc2d)
+        
+        
+        
+        self.vYNodeOrder = YNodeOrder[3:]
+        self.SyYNodeOrder = vecSlc(self.vYNodeOrder,self.pyIdx)
+        self.SdYNodeOrder = vecSlc(self.vYNodeOrder,self.pdIdx)
+        self.currentLinPoint = lin_point
+        
+        del(My); del(Md); del(dMy); del(dMd)
+        self.createWmodel(lin_point) # this seems to be ok
+        
+        f0 = self.v2iBrYxfmr.dot(YNodeV)[self.iXfmrModelled] # voltages to currents through xfmrs
+        fNoload = self.v2iBrYxfmr.dot(VoffLoad)[self.iXfmrModelled] # voltages to currents through xfmrs - NB this should be the same as 'self.aIxfmr'.
+        
+        if np.any(f0==0): # occurs sometimes, e.g. Ckt 7, which have floating transformers with no loads on the other side.
+            df = min( np.min(f0[f0!=0]),np.min(fNoload[fNoload!=0]) )*1e-10 # maybe this is doing us in?
+            f0 = f0 + df*np.ones(len(f0))
+            fNoload = fNoload + df*np.ones(len(fNoload))
+        
+        
+        f0cpx = self.WyXfmr.dot(xYcvr0) + self.WdXfmr.dot(xDcvr) + self.WtXfmr.dot(np.zeros(self.WtXfmr.shape[1])) + self.aIxfmr
+        self.log.info('\nCurrent cpx error (lin point):'+str(np.linalg.norm(f0cpx-f0)/np.linalg.norm(f0)))
+        self.log.info('Current cpx error (no load point):'+str(np.linalg.norm(self.aIxfmr-fNoload)/np.linalg.norm(fNoload)))
+        
+        
+        
+        if 'recreateKc2i' in dir(self):
+            KyW, KdW, KtW, self.bW = lineariseMfull(self.WyXfmr,self.WdXfmr,self.WtXfmr,f0,xYcvr0,xDcvr,np.zeros(self.WtXfmr.shape[1]))
+            f0lin = KyW.dot(xYcvr0) + KdW.dot(xDcvr) + KtW.dot(np.zeros(self.WtXfmr.shape[1])) + self.bW
+            self.log.info('\nCurrent abs error (lin point):'+str(np.linalg.norm(f0lin-abs(f0))/np.linalg.norm(abs(f0))))
+            self.log.info('Current abs error (no load point):'+str(np.linalg.norm(self.bW-abs(fNoload))/np.linalg.norm(abs(fNoload)))+'( note that this is usually not accurate, it seems.)')
+            self.Kc2i = dsf.mvM( np.concatenate( (KyW[:,:self.nPy],KdW[:,:self.nPd],
+                                                KyW[:,self.nPy::],KdW[:,self.nPd::],
+                                                KtW),axis=1), 1/self.xScale ) # limits for these are in self.iXfmrLims.
+            del(KyW); del(KdW); del(KtW)
+            
         # self.Mc2i = dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
+        # self.Mc2i = sparse.csc_matrix( dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
+                                            # self.WyXfmr[:,self.nPy::],self.WdXfmr[:,self.nPd::],
+                                            # self.WtXfmr),axis=1), 1/self.xScale ) ) # limits for these are in self.iXfmrLims.
         Mc2i = dsf.mvM( np.concatenate( (self.WyXfmr[:,:self.nPy],self.WdXfmr[:,:self.nPd],
                                             self.WyXfmr[:,self.nPy::],self.WdXfmr[:,self.nPd::],
                                             self.WtXfmr),axis=1), 1/self.xScale ) # limits for these are in self.iXfmrLims.
@@ -480,29 +546,15 @@ class buildLinModel:
         del(Mc2i); del(mc2iSmall); del(mc2iNorm); del(mc2iSel)
         delattr(self,'WyXfmr'); delattr(self,'WdXfmr'); delattr(self,'WtXfmr')
         
-        Kc2d = dsf.mvM( np.concatenate( (dKy[:,self.pyIdx[0]],dKd[:,:self.nPd],
-                                dKy[:,self.qyIdx[0]],dKd[:,self.nPd::],
-                                self.dKt),axis=1), 1/self.xScale )
-        del(dKy); del(dKd); 
-        delattr(self,'dKt')
         
-        # see e.g. WB 14/5/19
-        Kc2vloadpu = dsf.mvM( np.concatenate( (  dsf.vmM( 1/VhYpu[self.pyIdx[0]], dsf.vmM( 1/self.vKvbaseY,self.Kc2v[self.pyIdx[0]] ) ), 
-                                                 dsf.vmM( 1/VhDpu, dsf.vmM( 1/self.vKvbaseD, Kc2d[:self.nPd] ) ) ), axis=0), 1/self.xScale )
-        
-        # Kc2pC = self.xScale[:self.nPctrl]*np.concatenate((xYcvr[self.pyIdx[0]],xDcvr[:self.nPd]))
-        Kc2pC = np.concatenate((xYcvr[self.pyIdx[0]],xDcvr[:self.nPd]))
-        Kc2p =  dsf.vmM(Kc2pC*self.pCvr,Kc2vloadpu)
-        
-        self.ploadL = -self.lScale*self.xScale*np.sum(Kc2p,axis=0)
-        self.ploadC = -self.lScale*sum(Kc2pC)
-        del(Kc2pC); del(Kc2p); del(Kc2vloadpu); del(Kc2d)
         
         # self.Mc2v = dsf.mvM( np.concatenate((self.My[:,:self.nPy],self.Md[:,:self.nPd],
         Mc2v = dsf.mvM( np.concatenate((self.My[:,:self.nPy],self.Md[:,:self.nPd],
                                         self.My[:,self.nPy::],self.Md[:,self.nPd::],
                                         self.Mt),axis=1), 1/self.xScale )
         delattr(self,'My'); delattr(self,'Md'); delattr(self,'Mt')
+        if 'recreateMc2v' in dir(self):
+            self.Mc2v = Mc2v
         # M = np.block([[np.zeros((3,self.nCtrl),dtype=complex)],[self.Mc2v],[np.zeros((1,self.nCtrl),dtype=complex)]])
         M = np.block([[np.zeros((3,self.nCtrl),dtype=complex)],[Mc2v],[np.zeros((1,self.nCtrl),dtype=complex)]])
         del(Mc2v)
@@ -614,7 +666,7 @@ class buildLinModel:
         self.qlossReg = qlossReg
     
     def getObjFunc(self,strategy,obj,tLss=False):
-        if obj=='opCst':
+        if obj in ['opCst','tsCst']:
             if strategy in ['full','part','phase','nomTap']:
                 H = np.sqrt(2)*self.getHmat()
                 p = self.qpLlss + self.ploadL + self.pcurtL
@@ -673,6 +725,14 @@ class buildLinModel:
             xLimLo = np.r_[ -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,
                                                                                 -np.ones(self.nT)*self.tLim ]
             Gx = np.r_[np.eye(self.nCtrl),-np.eye(self.nCtrl)]
+            
+        if obj in ['tsCst']:
+            xLimUp = np.r_[ np.ones(self.nPctrl)*self.pLim,np.ones(self.nPctrl)*self.qLim,
+                                                                                np.ones(self.nT)*self.tLim ]
+            xLimLo = np.r_[ -np.ones(self.nPctrl)*self.pLim,-np.ones(self.nPctrl)*self.qLim,
+                                                                                -np.ones(self.nT)*self.tLim ]
+            Gx = np.r_[np.eye(self.nCtrl),-np.eye(self.nCtrl)]
+            
             
         if obj in ['hcLds']:
             xLimUp = np.r_[ np.zeros(self.nPctrl),np.ones(self.nPctrl)*self.qLim,
@@ -739,6 +799,36 @@ class buildLinModel:
                 else:
                     oneHat = np.empty((self.nCtrl,0)) # No taps, with Q=0 fully specified.
         
+        if obj=='tsCst':
+            if strategy in ['full','loss','load']:
+                # oneHat = np.r_[ np.zeros((self.nPctrl,self.nPctrl+self.nT)),np.eye(self.nPctrl+self.nT) ]
+                oneHat = np.zeros((self.nCtrl,1+self.nPctrl+self.nT))
+                oneHat[:self.nPctrl,0] = 1
+                oneHat[self.nPctrl:self.nSctrl,1:self.nPctrl+1] = np.eye(self.nPctrl)
+                oneHat[self.nSctrl:,self.nPctrl+1:] = np.eye(self.nT)
+            elif strategy=='part':
+                oneHat = np.zeros((self.nCtrl,1+1+self.nT))
+                oneHat[:self.nPctrl,0] = 1
+                oneHat[self.nPctrl:self.nSctrl,1] = 1
+                oneHat[self.nSctrl:,2:] = np.eye(self.nT)
+            elif strategy=='phase':
+                if 'nPh1' not in dir(self):
+                    self.getLdsPhsIdx()
+                oneHat = np.zeros((self.nCtrl,1+3+self.nT))
+                oneHat[:self.nPctrl,0] = 1
+                oneHat[self.nPctrl:self.nSctrl,1][self.Ph1] = 1
+                oneHat[self.nPctrl:self.nSctrl,2][self.Ph2] = 1
+                oneHat[self.nPctrl:self.nSctrl,3][self.Ph3] = 1
+                oneHat[self.nSctrl:,4:] = np.eye(self.nT)
+            elif strategy in ['maxTap','minTap','nomTap']:
+                if self.nT>0:
+                    oneHat = np.zeros((self.nCtrl,1+self.nT))
+                    oneHat[:self.nPctrl,0] = 1
+                    oneHat[-self.nT:,1:] = np.eye(self.nT)
+                else:
+                    oneHat = np.zeros((self.nCtrl,1)) # No taps, with Q=0 fully specified.
+                    oneHat[:self.nPctrl,0] = 1
+
         if obj in ['hcGen','hcLds']:
             if strategy in ['full']:
                 oneHat = np.zeros((self.nCtrl,1 + self.nPctrl + self.nT))
@@ -830,12 +920,13 @@ class buildLinModel:
         # 1. 'opCst' for operating cost
         # 2. 'hcGen' for gen HC
         # 3. 'hcLds' for load HC
+        # 4 'tsLds' for operating cost with generation
         
         # GET RID OF APPROPRIATE VARIABLES
         self.oneHat,self.x0 = self.remControlVrlbs(strategy,obj)
         x0 = self.x0; oneHat = self.oneHat
         
-        if obj=='opCst' and strategy in ['minTap','maxTap','nomTap'] and self.nT==0:
+        if obj in ['opCst','tsCst'] and strategy in ['minTap','maxTap','nomTap'] and self.nT==0:
             self.slnX = x0.flatten(); self.slnS = np.nan
         elif obj in ['hcGen','hcLds'] and strategy in ['loss','load']:
             self.slnX = x0.flatten(); self.slnS = np.nan
@@ -1011,6 +1102,8 @@ class buildLinModel:
             
             print("MIP rel gap = %.2f (%f)" % (M.getSolverDoubleInfo(
                         "mioObjRelGap"), M.getSolverDoubleInfo("mioObjAbsGap")))
+            print(100*M.getSolverDoubleInfo("mioObjRelGap"))
+            print(M.getSolverDoubleInfo("mioObjAbsGap"))
         return xOut
     
     def cxpaLtK( self,c,a,k ):
@@ -1062,7 +1155,7 @@ class buildLinModel:
         self.loadQpSet(invType=invType)
         self.loadQpSln(strategy,obj)
         
-        if obj=='opCst':# op cost (kW):
+        if obj in ['opCst','tsCst']:# op cost (kW):
             if res=='norm': val = sum(self.slnF[0:4])/sum(self.slnF0[0:4])
             if res=='power': val = sum(self.slnF[0:4]) - sum(self.slnF0[0:4])
         if obj=='hcGen':# HC gen (kW):
@@ -1153,17 +1246,56 @@ class buildLinModel:
             qLossC = 0
         return qLossQ + qLossL + qLossC
         
-    def qpSolutionDssError(self,strategy,obj,err='V'):
-        self.loadQpSet()
-        self.loadQpSln(strategy,obj)
-        if err=='V':
-            dssError = np.linalg.norm( (self.slnF[4] - self.slnD[4])/self.vKvbase )/np.linalg.norm( self.slnF[4]/self.vKvbase )
-        elif err=='I':
-            dssError = np.linalg.norm(  (self.slnF[7] - self.slnD[7])/self.iXfmrLims )/np.linalg.norm( self.iXfmrLims )
-        elif err=='P':
-            dssError = np.linalg.norm( np.sum(self.slnF[0:4]) - np.sum(self.slnD[0:4]) )/np.linalg.norm( np.sum(self.slnD[0:4]) )
-        return dssError
+    def qpSolutionDssError(self,strategy,obj,err='V',load=True):
+        # WARNING!!! BY DEFAULT this will load an old solution!!!!
+        if load:
+            self.loadQpSet()
+            self.loadQpSln(strategy,obj)
         
+        # TL,PL,TC,CL,V,I,Vc,Ic = self.slnF
+        if err=='V':
+            gmaV = 1e-4
+            # gmaV = 0
+            
+            dVset = np.abs(self.slnF[4] - self.slnF0[4])
+            dVsetTrue = np.abs(self.slnD[4] - self.slnD0[4])
+            dssError = np.linalg.norm( (dVset - dVsetTrue)/( dVsetTrue + gmaV*self.vKvbase) )/np.sqrt(len(dVset))
+        elif err=='I':
+            gmaI = 1e-3
+            # gmaI = 0
+        
+            dIset = np.abs(self.slnF[7] - self.slnF0[7])/(self.iXfmrLims*self.iScale)
+            dIsetTrue = np.abs(self.slnD[7] - self.slnD0[7])/(self.iXfmrLims*self.iScale)
+            
+            dssError = np.linalg.norm( (dIset - dIsetTrue)/(dIsetTrue + gmaI) )/np.sqrt(len(dIset))
+        elif err=='P':
+            gmaP = 1e-4
+            # gmaP = 0
+            dPset = abs( np.sum(self.slnF[0:4]) -  np.sum(self.slnF0[0:4]) )
+            dPsetTrue = abs( np.sum(self.slnD[0:4]) -  np.sum(self.slnD0[0:4]) )
+            
+            dssError = abs( (dPset - dPsetTrue )/( dPsetTrue + gmaP ) )
+        return dssError
+    
+    def tsRecordSnap(self,slnTs,idxs,slnX=None,slnF=None):
+        if slnX is None:
+            slnX = self.slnX
+        if slnF is None:
+            slnF = self.slnF
+        
+        V = slnF[4]/self.vKvbase
+        vKvbase = self.vKvbase[V>0.5]
+        V = V[V>0.5]
+        slnTs['vMin'][idxs] = np.min(V)
+        slnTs['vMinMv'][idxs] = np.min(V[vKvbase>1000])
+        slnTs['vMinLv'][idxs] = np.min(V[vKvbase<1000])
+        slnTs['vMax'][idxs] = np.max(V)
+        slnTs['tPwr'][idxs] = sum(slnF[0:4])
+        slnTs['tLss'][idxs] = slnF[0]
+        slnTs['tSet'][idxs] = np.mean(slnX[self.nSctrl:] + np.array(self.TC_No0))
+        return slnTs
+        
+    
     def setDssSlnX(self,genNames,slnX=None,method=None):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         if slnX is None:
@@ -1240,7 +1372,7 @@ class buildLinModel:
         pOut = slnX[:self.nPctrl]
         qOut = slnX[self.nPctrl:self.nPctrl*2]
         tOut = slnX[self.nPctrl*2:]
-        
+
         TL,PL,TC,CL,V,I,Vc,Ic = slnF
         TL0,PL0,TC0,CL0,V0,I0,Vc0,Ic0 = self.slnF0
         if 'slnD' not in dir(self):
@@ -1326,28 +1458,21 @@ class buildLinModel:
         Vpu =  ((V0 - V)/self.vKvbase)[self.vIn]
         
         nSortV = np.argsort(Vpu)
-        ax0.plot(Vdpu[nSortV],label='$\Delta V_{\mathrm{DSS.}}$')
-        ax0.plot(Vpu[nSortV],label='$\Delta V_{\mathrm{Apx.}}$')
+        ax0.plot(100*Vdpu[nSortV],label='$\Delta V_{\mathrm{DSS.}}$')
+        ax0.plot(100*Vpu[nSortV],label='$\Delta V_{\mathrm{QP}}$')
         ax0.legend()
         ax0.set_xlabel('Bus Index')
-        ax0.set_ylabel('Bus Voltage change, pu')
+        ax0.set_ylabel('Bus Voltage change, %')
         ax0.grid(True)
         
         # plot currents versus current limits
-        ax1.plot(100*iDrn*Id/(self.iScale*self.iXfmrLims),'o',label='DSS.',markerfacecolor='None')
-        ax1.plot(100*iDrn*abs(Ic/(self.iScale*self.iXfmrLims)),'x',label='Apx.')
-        # ax1.plot(100*Id/(self.iScale*self.iXfmrLims),'o',label='DSS.',markerfacecolor='None')
-        # ax1.plot(100*abs(Ic/(self.iScale*self.iXfmrLims)),'x',label='Apx.')
-        ax1.plot(100*abs(Ic0)/(self.iScale*self.iXfmrLims),'o',label='Nom.',markerfacecolor='None',markersize=3.0)
-        ax1.plot(100*np.ones(len(self.iXfmrLims)),'k_')
-        ax1.plot(-100*np.ones(len(self.iXfmrLims)),'k_')
+        ax1.plot(100*abs(abs(Id) - abs(Ic0))/(self.iScale*self.iXfmrLims),'o',label='$\Delta \\,I_{\mathrm{DSS.}}$',markerfacecolor='None')
+        ax1.plot(100*abs(abs(Ic) - abs(Ic0))/(self.iScale*self.iXfmrLims),'o',label='$\Delta \\,I_{\mathrm{QP}}$',markerfacecolor='None',markersize=3.0)
+        
         ax1.set_xlabel('Branch Index')
-        ax1.set_ylabel('Current, % of $I_{\mathrm{max}}$')
-        # ax1.set_title('Currents')
-        ax1.legend(fontsize='small')
-        ax1.set_ylim( (-110,110) )
+        ax1.set_ylabel('Branch Current \nchange, % of $I_{\mathrm{rated}}$')
+        ax1.legend()
         ax1.grid()
-        # ax1.set_ylim( (-10,110) )
         
         plt.tight_layout()
         if pltShow: plt.show()
@@ -1405,6 +1530,7 @@ class buildLinModel:
             dx = (self.X0ctrl*k[i]/self.currentLinPoint) - self.X0ctrl
             
             vaL,iaL,vcL,icL = self.runQp(dx)[4:]
+            iaL = abs(iaL) # correct for any negatives
             # iaL = abs(icL)
             # icL = self.v2iBrYxfmr.dot(np.r_[self.V0,vcL])[self.iXfmrModelled]
             # icL = self.Mc2i(dx)
@@ -1412,8 +1538,10 @@ class buildLinModel:
             vce[i] = np.linalg.norm( (vcL - vc0)/self.vKvbase )/np.linalg.norm(vc0/self.vKvbase)
             vae[i] = np.linalg.norm( (vaL - va0)/self.vKvbase )/np.linalg.norm(va0/self.vKvbase)
             
-            ice[i] = np.linalg.norm( (icL - ic0)/self.iXfmrLims )/iRglr # this stops issues around zero
-            iae[i] = np.linalg.norm( (iaL - ia0)/self.iXfmrLims )/iRglr # this stops issues around zero
+            # ice[i] = np.linalg.norm( (icL - ic0)/self.iXfmrLims )/iRglr # this stops issues around zero
+            # iae[i] = np.linalg.norm( (iaL - ia0)/self.iXfmrLims )/iRglr # this stops issues around zero
+            ice[i] = np.linalg.norm( (icL - ic0)/self.iXfmrLims )/np.sqrt(len(self.iXfmrLims))
+            iae[i] = np.linalg.norm( (iaL - ia0)/self.iXfmrLims )/np.sqrt(len(self.iXfmrLims))
         print('nrelModelTest, converged:',100*sum(Convrg)/len(Convrg),'%')
         
         fig,[ax0,ax1] = plt.subplots(ncols=2,figsize=(8,3.5))
@@ -1423,13 +1551,13 @@ class buildLinModel:
         ax0.set_xlabel('Continuation factor k');ax0.grid(True)
         ax0.set_title('Voltage error, '+self.feeder)
         ax0.legend()
-        ax1.plot(k,ice.real,label='ice');
+        ax1.plot(k,ice,label='ice');
         ax1.plot(k,iae,label='iae');
         ax1.set_xlabel('Continuation factor k');ax1.grid(True)
         ax1.set_title('Current error, '+self.feeder)
         ax1.legend()
         
-        return vce,vae,k
+        return vce,vae,k,ice,iae
         
     def testGenSetting(self,k=np.arange(-10,11),dPlim=0.01,dQlim=0.01):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
@@ -1517,8 +1645,13 @@ class buildLinModel:
         TLestBoth = []
         PLboth = []
         PLestBoth = []
+        vcErrBoth = []
         vErrBoth = []
         SsetBoth = []
+        iErrBoth = []
+        iBoth = []
+        icBoth = []
+        iaBoth = []
         
         for ii in range(2):
             self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
@@ -1527,7 +1660,7 @@ class buildLinModel:
             xCtrl = np.zeros(self.nCtrl)
             
             if ii==0:
-                Sset = np.linspace(-1,1,30)*self.qLim
+                Sset = np.linspace(-1,1,31)*self.qLim
                 if self.nT>0:
                     xCtrl[self.nPctrl:-self.nT] = 1
                 else:
@@ -1543,7 +1676,11 @@ class buildLinModel:
             TC = np.zeros(len(Sset))
             TCest = np.zeros(len(Sset))
             vErr = np.zeros(len(Sset))
+            vcErr = np.zeros(len(Sset))
             iErr = np.zeros(len(Sset))
+            iCalcNorm = np.zeros(len(Sset))
+            icCalcNorm = np.zeros(len(Sset))
+            iaCalcNorm = np.zeros(len(Sset))
             
             for i in range(len(Sset)):
                 if ii==0:
@@ -1552,14 +1689,19 @@ class buildLinModel:
                     setGenPq(DSSCircuit,genNames,np.ones(self.nPctrl)*Sset[i]*self.lScale/self.xSscale,np.zeros(self.nPctrl))
                 TG,TL[i],PL[i],YNodeV = runCircuit(DSSCircuit,DSSSolution)[1::]
                 absYNodeV = abs(YNodeV[3:])
-                Icalc = abs(self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
+                Icalc = (self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
                 TC[i] = -TG
                 
                 dx = xCtrl*Sset[i]
                 TLest[i],PLest[i],TCest[i],CL,Vest,Iest,Vcest,Icest = self.runQp(dx)
                 
                 vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
-                iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
+                vcErr[i] = np.linalg.norm(Vcest - YNodeV[3:])/np.linalg.norm(YNodeV[3:])
+                iErr[i] = np.linalg.norm((Icalc - Icest)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
+                
+                iCalcNorm[i] = np.linalg.norm(np.abs(Icalc)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
+                icCalcNorm[i] = np.linalg.norm(np.abs(Icest)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
+                iaCalcNorm[i] = np.linalg.norm(Iest/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
             
             
             if ii==0:
@@ -1589,51 +1731,65 @@ class buildLinModel:
             PLboth.append(PL)
             PLestBoth.append(PLest)
             vErrBoth.append(vErr)
+            vcErrBoth.append(vcErr)
+            iErrBoth.append(iErr)
             SsetBoth.append(Sset)
-        plt.show()
+            iBoth.append(iCalcNorm)
+            icBoth.append(icCalcNorm)
+            iaBoth.append(iaCalcNorm)
+        # plt.show()
         
-        return TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,SsetBoth
+        return TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,SsetBoth,iBoth,icBoth,iaBoth,vcErrBoth
     
     
     def testQpTcpf(self):
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         self.loadCvrDssModel(loadMult=self.currentLinPoint,pCvr=self.pCvr,qCvr=self.qCvr)
-        tapChng = [-2,1,1,1,1]
-        dxScale = np.array([-2,-1,0,1,2])*self.tLim/16
-        TL = np.zeros(5)
-        TLest = np.zeros(5)
-        TLcalc = np.zeros(5)
-        PL = np.zeros(5)
-        PLest = np.zeros(5)
-        TC = np.zeros(5)
-        TCest = np.zeros(5)
-        vErr = np.zeros(5)
-        iErr = np.zeros(5)
+        nStt = 6
+        tapChng = np.array([-nStt]+(nStt*2*[1])+(nStt*2*[-1]))
+        dxScale = np.cumsum(tapChng)*self.tLim/16
+        TL = np.zeros(len(tapChng))
+        TLest = np.zeros(len(tapChng))
+        TLcalc = np.zeros(len(tapChng))
+        PL = np.zeros(len(tapChng))
+        PLest = np.zeros(len(tapChng))
+        TC = np.zeros(len(tapChng))
+        TCest = np.zeros(len(tapChng))
+        vErr = np.zeros(len(tapChng))
+        iErr = np.zeros(len(tapChng))
+        iCalcNorm = np.zeros(len(tapChng))
+        icCalcNorm = np.zeros(len(tapChng))
+        iaCalcNorm = np.zeros(len(tapChng))
         DSSText.Command='Set controlmode=off'
         
         xCtrl = np.zeros(self.nCtrl)
         xCtrl[-self.nT::] = 1
         
-        for i in range(5):
+        for i in range(len(tapChng)):
             # set all of the taps at one above
             j = DSSCircuit.RegControls.First
             while j:
                 tapNo = DSSCircuit.RegControls.TapNumber
                 if abs(tapNo)==16:
                     print('Sodding taps are saturated!')
-                DSSCircuit.RegControls.TapNumber = tapChng[i]+tapNo
+                DSSCircuit.RegControls.TapNumber = tapChng[i].item()+tapNo
                 j = DSSCircuit.RegControls.Next
             
             TG,TL[i],PL[i],YNodeV = runCircuit(DSSCircuit,DSSSolution)[1::]
             absYNodeV = abs(YNodeV[3:])
-            Icalc = abs(self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
+            # Icalc = abs(self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
+            Icalc = (self.v2iBrYxfmr.dot(YNodeV))[self.iXfmrModelled]
             TC[i] = -TG
             
             dx = xCtrl*dxScale[i]
             TLest[i],PLest[i],TCest[i],CL,Vest,Iest,Vcest,Icest = self.runQp(dx)
             
             vErr[i] = np.linalg.norm(absYNodeV - Vest)/np.linalg.norm(absYNodeV)
-            iErr[i] = np.linalg.norm(Icalc - Iest)/np.linalg.norm(Icalc)
+            iErr[i] = np.linalg.norm((Icalc - Icest)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
+            
+            iCalcNorm[i] = np.linalg.norm(np.abs(Icalc)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
+            icCalcNorm[i] = np.linalg.norm(np.abs(Icest)/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
+            iaCalcNorm[i] = np.linalg.norm(Iest/(self.iXfmrLims*self.iScale))/np.sqrt(len(Icalc))
             
             # VcplxEst = self.Mc2v.dot(self.X0ctrl + dx) + self.aV
             # YNodeVaug = np.concatenate((YNodeV[:3],VcplxEst,np.array([0])))
@@ -1659,7 +1815,7 @@ class buildLinModel:
         plt.tight_layout()
         # plt.show()
         
-        return TL,TLest,PL,PLest,vErr,dxScale
+        return TL,TLest,PL,PLest,vErr,iErr,dxScale,iCalcNorm,icCalcNorm,iaCalcNorm
 
     
     def addYDgens(self,DSSObj):
@@ -1707,10 +1863,16 @@ class buildLinModel:
     
     
     def runQp(self,dx,onLoss=True):
-        # Vcest = self.Mc2v.dot(dx + self.X0ctrl) + self.aV
-        Vcest = np.nan
-        # Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
-        Iest = np.nan
+        
+        if 'Mc2v' in dir(self):
+            Vcest = self.Mc2v.dot(dx + self.X0ctrl) + self.aV
+        else:
+            Vcest = np.nan
+        
+        if 'Kc2i' in dir(self): # can be created with self.recreateKc2i if wanted.
+            Iest = self.Kc2i.dot(dx + self.X0ctrl) + self.bW
+        else:
+            Iest = np.nan
         
         if 'qpHlss' not in dir(self):
             self.qpHlss = self.getHmat()
@@ -1738,7 +1900,7 @@ class buildLinModel:
         DSSSolution.Tolerance=1e-10
         DSSSolution.LoadMult = lin_point
         DSSSolution.Solve()
-        print('\nNominally converged:',DSSSolution.Converged)
+        print('\nNominally converged (createNrelModel):',DSSSolution.Converged)
         
         self.TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
         self.Cap_No0 = getCapPos(DSSCircuit)
@@ -1844,7 +2006,7 @@ class buildLinModel:
         DSSSolution.Tolerance=1e-10
         DSSSolution.LoadMult = linPoint
         DSSSolution.Solve()
-        print('\nNominally converged:',DSSSolution.Converged)
+        print('\nNominally converged (createCvrModel):',DSSSolution.Converged)
         
         self.TC_No0 = find_tap_pos(DSSCircuit) # NB TC_bus is nominally fixed
         
@@ -2005,6 +2167,8 @@ class buildLinModel:
         DSSSolution.Solve()
     
     def loadCvrDssModel(self,pCvr,qCvr,loadMult=1.0):
+        # warning!!! the tolerance on this is now different as it was found that it needs to be
+        # to get repeatable results in losses, interestingly.
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         DSSText.Command='Compile ('+self.fn+')'
         DSSText.Command='Batchedit load..* vminpu=0.02 vmaxpu=50 model=4 status=variable cvrwatts='+str(pCvr)+' cvrvars='+str(qCvr)
@@ -2012,6 +2176,7 @@ class buildLinModel:
         # fix_cap_pos(DSSCircuit, self.capPosLin)
         fix_cap_pos(DSSCircuit, self.Cap_No0)
         DSSText.Command='Set controlmode=off'
+        DSSText.Command='Set tol=1e-10'
         DSSSolution.LoadMult = loadMult
         DSSSolution.Solve()
         
@@ -2740,7 +2905,7 @@ class buildLinModel:
         self.getSourceBus()
         self.regBuses = get_regIdx(DSSCircuit)[1]
         
-        if self.feeder in ['epri24','8500node','123bus','epriJ1','epriK1','epriM1']: # if there is a regulator 'on' the source bus
+        if self.feeder in ['epri24','8500node','123bus','123busCvr','epriJ1','epriK1','epriM1']: # if there is a regulator 'on' the source bus
             self.srcReg = 1
         else:
             self.srcReg = 0        
@@ -2754,7 +2919,7 @@ class buildLinModel:
         else:
             self.plotMarkerSize=50
             
-        self.sfDict3ph = {'13bus':6,'123bus':60,'epriK1cvr':40,'34bus':80,'n1':4,'eulv':2,'epri5':90,'epri7':50,'n10':3,'n4':3,'n27':4}
+        self.sfDict3ph = {'13bus':6,'123bus':60,'123busCvr':60,'epriK1cvr':40,'34bus':80,'n1':4,'eulv':2,'epri5':90,'epri7':50,'n10':3,'n4':3,'n27':4}
             
         vMap = cm.RdBu
         pMap = cm.GnBu
@@ -3109,7 +3274,7 @@ class buildLinModel:
             scoresFull = list(scores['1'].values()) + list(scores['2'].values()) + list(scores['3'].values())
             minMaxAbs = np.max(np.abs( np.array([np.nanmax(scoresFull),np.nanmin(scoresFull)]) ) )
             minMax0 = [-minMaxAbs,minMaxAbs]
-            ttl = '$Q^{*}$, kVAr' # Positive implies capacitive
+            ttl = '$Q^{\\dagger}$, kVAr' # Positive implies capacitive
         
         if cmap is None: cmap = self.colormaps[type]
         

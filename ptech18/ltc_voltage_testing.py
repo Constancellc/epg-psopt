@@ -45,9 +45,9 @@ save_model = False
 ltcVoltageTestingFig = True
 ltcVoltageTestingFig = False
 
-# tssModelBus = 1
-# tssLdcTesting = 1
-# tssSatTesting = 1
+# tssModelBus = 1; fdr_i_set = [8]
+# tssLdcTesting = 1; fdr_i_set = [8]
+# tssSatTesting = 1; fdr_i_set = [6]
 figSze0 = (5.2,2.8)
 
 pltSave = 1
@@ -56,10 +56,9 @@ SD = r"C:\Users\\"+getpass.getuser()+r"\\Documents\DPhil\papers\psfeb19\figures\
 
 setCapsModel='linPoint'
 
-fdr_i_set = [5,6,8]
-fdr_i_set = [6,8]
-fdr_i_set = [6]
-# fdr_i_set = [8]
+# fdr_i_set = [5,6,8]
+# fdr_i_set = [6,8]
+
 for fdr_i in fdr_i_set:
     fdrs = ['eulv','n1f1','n1f2','n1f3','n1f4','13bus','34bus','37bus','123bus','8500node','37busMod','13busRegMod3rg','13busRegModRx','13busModSng','usLv','123busMod','13busMod','epri5','epri7','epriJ1','epriK1','epriM1','epri24','4busYy','epriK1cvr','epri24cvr','123busCvr']
     feeder=fdrs[fdr_i]
@@ -381,9 +380,11 @@ for fdr_i in fdr_i_set:
         plt.tight_layout()
         if 'pltSave' in locals():
             plt.savefig(sdt('c4','f')+'\\tssLdcTesting_'+feeder+'.png')
-            plt.savefig(sdt('c4','f')+'\\tssLdcTesting_'+feeder+'.pdf')
+            plt.savefig(sdt('c4','f')+'\\tssLdcTesting_'+feeder+'.pdf')#
+            plt.xlabel('Load scaling factor')
+            plotSaveFig(os.path.join(sdt('t2','f'),'tssLdcTesting_'+feeder),True,False)
+
         plt.show()
-        
         
     if 'tssSatTesting' in locals():
         fig = plt.figure(figsize=figSze0)
@@ -401,9 +402,10 @@ for fdr_i in fdr_i_set:
         if 'pltSave' in locals():
             plt.savefig(sdt('c4','f')+'\\tssSatTesting_'+feeder+'.png')
             plt.savefig(sdt('c4','f')+'\\tssSatTesting_'+feeder+'.pdf')
+            plt.xlabel('Load scaling factor')
+            plotSaveFig(os.path.join(sdt('t2','f'),'tssSatTesting_'+feeder),True,False)
         plt.show()
     
-
     if test_model_bus:
         krnd = np.around(k,5) # this breaks at 0.000 for the error!
         idxs = np.concatenate( ( (krnd==-1.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.5).nonzero()[0] ) )
@@ -431,10 +433,10 @@ for fdr_i in fdr_i_set:
             idxs = np.concatenate( ( (krnd==-1.5).nonzero()[0],(krnd==0.0).nonzero()[0],(krnd==lin_point).nonzero()[0],(krnd==1.5).nonzero()[0] ) )
         
         mrksze = 3
-        plt.figure(figsize=(8,3.2))
+        plt.figure(figsize=(8,2.3))
         for i in range(len(idxs)):
             plt.subplot(1,len(idxs),i+1)
-            plt.title('Load scaling $\kappa$ = '+str(krnd[idxs[i]]))
+            plt.title('Load scaling factor: '+str(krnd[idxs[i]]))
             plt.plot(vv_0R[idxs[i]]/Yvbase_new,'o',markersize=mrksze,markerfacecolor='None',label='OpenDSS')
             plt.plot(vv_lL[idxs[i]]/Yvbase_new,'.',markersize=mrksze,label='Linear (with LDC)')
             plt.xlabel('Node index'); plt.grid(True)
@@ -442,6 +444,7 @@ for fdr_i in fdr_i_set:
             if i==0:
                 plt.ylabel('Voltage Magnitude (pu)')
                 plt.legend(fontsize='small')
+        plt.tight_layout()
         if 'pltSave' in locals():
             plt.savefig(sdt('c4','f')+'\\tssModelBus_'+feeder+'.png')
             plt.savefig(sdt('c4','f')+'\\tssModelBus_'+feeder+'.pdf')

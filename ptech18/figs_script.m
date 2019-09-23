@@ -7,8 +7,9 @@ colorOrder = get(0, 'DefaultAxesColorOrder');
 
 pltFull = 0;
 pltMethods = 1;
-pltPoster = 0;
-pltThesis = 1;
+pltPoster = 1;
+pltPres = 1; % also requires pltPoster.
+pltThesis = 0;
 exportFig = 1;
 
 Vp = 1.10;
@@ -161,13 +162,24 @@ end
 
 if exportFig && pltPoster
     export_fig(fig,[FN,'.pdf'],'-dpdf','-transparent');
-    close
+    if pltPres==0
+        a = 10
+        close
+   end
+
 end
 
 if exportFig && pltThesis
    export_fig(fig,[FN,'.pdf'],'-dpdf','-transparent');
-   close
-end 
+    close   
+end
 
+if pltPoster && pltPres
+   FN = 'C:\Users\Matt\Documents\DPhil\papers\pesgm19\pesgm19_presentation\figures\methodsPrs';
+   export_fig(fig,FN);
+   export_fig(fig,[FN,'.pdf'],'-dpdf','-transparent');
+   saveas(fig,FN,'meta')
+   close
+end
 
 
