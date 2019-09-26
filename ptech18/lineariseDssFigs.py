@@ -59,7 +59,7 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # t_thssSizes = 1
 # f_thssSparsity = 1
 # f_runTsAnalysis = 1
-f_plotTsAnalysis = 1
+# f_plotTsAnalysis = 1
 # f_convCapability = 1
 # f_scaling = 1
 # f_costFuncXmpl = 1
@@ -746,6 +746,23 @@ if 't_checkErrorSummary' in locals():
     label = 'checkErrorSummary'
     # if 'pltSave' in locals(): basicTable(caption,label,heading,resultTable[1:],TD)
     if 'pltSave' in locals(): basicTable(caption,label,heading,resultTable[1:],sdt('t3','t'))
+
+# feeder = 'n1'
+# strategy='full'; obj='opCst'; optType = ['mosekFull']
+# self = main(feeder,pCvr=0.6,modelType='loadOnly',linPoint=1.0,method='fot')
+# # self.initialiseOpenDss()
+
+# # self = main(feeder,pCvr=0.6,modelType='buildOnly',linPoint=1.0,method='fot')
+# self.setupConstraints() # this reloads the constraints in.
+# self.runCvrQp(strategy=strategy,obj=obj,optType=optType)
+
+# dVset = np.abs(self.slnF[4][self.vIn] - self.slnF0[4][self.vIn])/self.vKvbase[self.vIn]
+# dVsetTrue = np.abs(self.slnD[4][self.vIn] - self.slnD0[4][self.vIn])/self.vKvbase[self.vIn]
+
+# # plt.plot(np.log10(abs(dVset))); plt.plot(np.log10(abs(dVsetTrue))); plt.show()
+# # plt.plot(np.log10(abs((dVset - dVsetTrue)))); plt.show()
+# # plt.plot(np.log10(abs((dVset - dVsetTrue)/dVsetTrue ))); plt.show()
+
 
 if 't_sensitivities_base' in locals():
     # sensitivity_base: just the results of smart inverter control

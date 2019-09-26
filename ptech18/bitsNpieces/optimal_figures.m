@@ -9,7 +9,7 @@ set(0,'defaultaxesfontsize',12);
 % fig_nompos = [100 100 550 320];
 fig_nompos = [100 100 400 320];
 
-exportOn = 1;
+% exportOn = 1;
 
 %%
 % Vg = 1.1;
@@ -48,7 +48,7 @@ Qgpr = lx.*Pgt + lr.*Qgt;
 PF0pr = abs(P0pr)./sqrt(P0pr.^2 + Q0pr.^2).*(P0pr>=0);
 PFgpr = abs(Pgpr)./sqrt(Pgpr.^2 + Qgpr.^2).*(P0pr>=0);
 PF0pr = abs(P0pr)./sqrt(P0pr.^2 + Q0pr.^2).*(P0pr>=0);
-PFgpr = abs(Pgpr)./sqrt(Pgpr.^2 + Qgpr.^2).*(P0pr>=0);
+PFgpr = sign(Qgpr).*abs(Pgpr)./sqrt(Pgpr.^2 + Qgpr.^2).*(P0pr>=0);
 
 
 % stability values:
@@ -88,7 +88,7 @@ grid on; xticks([0.01,0.1,1,10,100])
 
 
 % export_fig(gcf,fig_name);
-if exportOn
+if exist('exportOn','var')
     export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
 end
 %%
@@ -106,7 +106,7 @@ lgnd = legend('$P_{\mathrm{Rcv,\,MPT}}$');
 set(lgnd,'FontSize',12,'Interpreter','Latex');
 grid on; xticks([0.01,0.1,1,10,100])
 
-if exportOn
+if exist('exportOn','var')
     export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
 end
 % export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf');
@@ -116,6 +116,18 @@ figure('Color','White','Position',fig_nompos);
 fig_name = strcat(fig_loc,'\mgtt_eta_tss');
 [c_con,~] = contour(lz,V0,eta,(0:0.1:1)); hold on;
 [~,~] = contour(lz,V0,P0pr,[-1,1]*1e-6,'k','linewidth',1.5);
+
+
+xoffRegion = 1./sqrt((4*(V0.^-2)) - 1);
+% [~,~] = contour(lz,V0,lz - xoffRegion,[-1,1]*1e-6,'k','linewidth',1.5);
+yPlt = v0_lin;
+xPlt = (yPlt.^-1)./sqrt((4 - (yPlt.^-2)));
+plot(xPlt,yPlt,'k');
+% plot(1./xPlt,yPlt,'k');
+% [~,~] = contour(lz,V0,lz - (1./xoffRegion),[-1,1]*1e-6,'k','linewidth',1.5);
+
+% [~,~] = contour(lz,V0,PFgpr,[-1,1]*1e-6,'k','linewidth',1.5);
+% [~,~] = contour(1./lz,V0,PFgpr,[-1,1]*1e-6,'k','linewidth',1.5);
 
 clabel(c_con,[0 0.2 0.4 0.6 0.8 0.9]); grid on; xticks([0.01,0.1,1,10,100])
 
@@ -129,17 +141,23 @@ lgnd = legend('$\frac{P_{\mathrm{Rcv,\,MPT}}}{P_{\mathrm{Snd,\,MPT}}}$ ','Locati
 set(lgnd,'FontSize',18,'Interpreter','Latex');
 
 % export_fig(gcf,fig_name);
-if exportOn
+if exist('exportOn')
     export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
 end
 %% mgtt_pf_g
+QgAnl = lx.*(1 - 2*(lr.*V0));
+
+
 figure('Color','White','Position',fig_nompos);
 fig_name = strcat(fig_loc,'\mgtt_pf_g_tss');
 [c_con,~] = contour(lz,V0,PFgpr); hold on;
-[~,~] = contour(lz,V0,P0pr,[-1,1]*1e-6,'k','linewidth',1.5);
+plot(xPlt,yPlt,'k');
+% [~,~] = contour(lz,V0,P0pr,[-1,1]*1e-6,'k','linewidth',1.5);
+% [~,~] = contour(lz,V0,PFgpr,[-1,1]*1e-6,'k','linewidth',1.5);
 
 set(gca,'xscale','log');
-clabel(c_con,[0.1 0.3 0.5 0.7 0.8 0.9]); grid on; xticks([0.01,0.1,1,10,100])
+% clabel(c_con,[0.1 0.3 0.5 0.7 0.8 0.9]); grid on; xticks([0.01,0.1,1,10,100])
+clabel(c_con); grid on; xticks([0.01,0.1,1,10,100])
 
 xlabel('$R/X$ ratio, $\lambda$ '); ylabel('Source voltage, $V_{\mathrm{Rcv}}$, pu');
 %lgnd = legend('$/$');
@@ -148,7 +166,7 @@ set(lgnd,'FontSize',18,'Interpreter','Latex','Location','NorthWest');
 %title('Generator power factor at maximum power transfer ($|V_{g}| = 1.1$)'); 
 
 % export_fig(gcf,fig_name);
-if exportOn
+if exist('exportOn','var')
     export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
 end
 %% mgtt_pf_0
@@ -167,7 +185,7 @@ set(lgnd,'FontSize',18,'Interpreter','Latex','Location','NorthWest');
 %title('Generator power factor at maximum power transfer ($|V_{g}| = 1.1$)'); 
 
 % export_fig(gcf,fig_name);
-if exportOn
+if exist('exportOn','var')
     export_fig(gcf,strcat(fig_name,'.pdf'),'-dpdf'); close;
 end
 

@@ -5,7 +5,7 @@ New Transformer.T2 phases=3 windings=2 buses=(Trans_equiv.1.2.3, K_LSB_r0.1.2.3.
 ~ xhl=7.904196143 wdg=1 %r=0.250041667 wdg=2 %r=0.250041667 mintap=0.9 maxtap=1.1
 */
 ! cvr version
-New Transformer.T2 phases=3 windings=2 buses=(Trans_equiv.1.2.3, K_LSB_r00.1.2.3.4) conns=(delta,wye) kvs=(66, 13.8) kvas=(12000, 12000)
+New Transformer.T2 phases=3 windings=2 buses=(Trans_equiv.1.2.3, K_LSB_r00.1.2.3.4) conns=(delta,wye) kvs=(66, 13.8) kvas=(12000, 12000) ppm=100
 ~ xhl=7.904196143 wdg=1 %r=0.250041667 wdg=2 %r=0.250041667 tap=0.95625
 New Transformer.T2reg phases=3 windings=2 buses=(K_LSB_r00.1.2.3.4, K_LSB_r0.1.2.3.4) conns=(wye,wye) kvs=(13.8, 13.8) kvas=(12000, 12000)
 ~ xhl=0.000007904196143 wdg=1 %r=0.0000250041667 wdg=2 %r=0.0000250041667 mintap=0.9 maxtap=1.1

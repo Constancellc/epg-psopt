@@ -25,8 +25,9 @@ Ps = Ps.*(Ps>0);
 %%
 Pgp = 1.08;
 Pgh = 1.0;
-Pgd = 0.75;
-Pgb = 0.45;
+Pgd = 0.78;
+% Pgb = 0.45;
+Pgb = 0.55;
 
 eps = 3e-3;
 
@@ -66,8 +67,8 @@ pp(5) = plot(xs(1:2),Pgb*[1 1],'k:');
 
 % text(-2.5,Pgb,'$P_{\mathrm{gen}}^{\mathrm{base}}$','Interpreter','Latex','FontSize',14);
 % text(-2.5,Pgd,'$P_{\mathrm{gen}}^{\mathrm{chng}}$','Interpreter','Latex','FontSize',14);
-text(0.15,Pgb+0.08,'$\hat{P}_{\mathrm{gen}}^{\mathrm{base}}$','Interpreter','Latex','FontSize',14);
-text(0.15,Pgd+0.08,'$\hat{P}_{\mathrm{gen}}^{\mathrm{chng}}$','Interpreter','Latex','FontSize',14);
+text(0.15,Pgb+0.08,'$\dot{P}_{\mathrm{gen}}^{\mathrm{base}}$','Interpreter','Latex','FontSize',14);
+text(0.15,Pgd+0.08,'$\dot{P}_{\mathrm{gen}}^{\mathrm{chng}}$','Interpreter','Latex','FontSize',14);
 
 xlabel('Time, $\tau $ (hour)');
 ylbl=ylabel('Power, $P_{(\cdot)}$, pu');
@@ -78,11 +79,11 @@ set(lgnd,'Interpreter','Latex','FontSize',14);
 axis([0 24 0 1.3]);
 
 xticks([0 6 12 18 24]);
-yticks([0 1]);
+yticks([0 0.5 1]);
 grid off;
 
 % set(ylbl,'Position',ylbl.Position.*[1.15 1.2 1.0])
-
+grid on;
 x = [0.18 0.18];
 y = [0.44,0.61];
 
@@ -90,9 +91,7 @@ y = [0.44,0.61];
 % annotation('textarrow',x,circshift(y,1));
 % text(2,0.59,'$\Delta P_{\mathrm{g}}^{\mathrm{Lim}}$','Interpreter','Latex','Fontsize',16);
 
-export_fig(fig,fig_name,'-r400'); close;
-% export_fig(fig,[fig_name,'.pdf'],'-dpdf');
-% export_fig(fig,[fig_name,'.eps'],'-deps');
+% export_fig(fig,fig_name,'-r400'); close;
 
 
 

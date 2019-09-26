@@ -195,8 +195,9 @@ New Line.Sw8    phases=1  Bus1=54.1   Bus2=94_OPEN.1  r1=1e-3 r0=1e-3  x1=0.000 
 ! LOAD TRANSFORMER AT 61s/610
 ! This is a 150 kVA Delta-Delta stepdown from 4160V to 480V.
 
+
 !New Transformer.XFM1  Phases=3   Windings=2 Xhl=2.72 
-New Transformer.XFM1  Phases=3   Windings=2 Xhl=2.72  ppm=100 !ppm increased to avoid floating volta!ge problems.
+New Transformer.XFM1  Phases=3   Windings=2 Xhl=2.72  ppm=300 !ppm increased to avoid floating volta!ge problems.
 ~ wdg=1 bus=61s       conn=Delta kv=4.16    kva=150    %r=0.635
 ~ wdg=2 bus=610       conn=Delta kv=0.48    kva=150    %r=0.635
 

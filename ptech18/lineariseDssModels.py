@@ -299,6 +299,8 @@ class buildLinModel:
         self.dssStuff = [DSSObj,DSSObj.Text,DSSObj.ActiveCircuit,DSSObj.ActiveCircuit.Solution]
         [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
         DSSText.Command='Compile '+self.fn
+        DSSText.Command='Set tol=1e-10'
+        DSSSolution.Solve()
         
     def makeCvrQp(self):
         # things to make.
@@ -2293,6 +2295,42 @@ class buildLinModel:
         
         self.WbrchXfmrSet = vecSlc(WbrchSet,np.where(modelled)[0])
         self.WunqXfmrIdent = vecSlc(WunqIdent,np.where(modelled)[0])
+        
+        self.WunqXfmrDd = vecSlc(WunqIdent,np.where(modelled)[0])
+        
+    def findDdConxns(self):
+        [DSSObj,DSSText,DSSCircuit,DSSSolution] = self.dssStuff
+        
+        ddInvrt = np.linalg.pinv(np.array([[1,0,-1],[-1,1,0],[0,-1,1],[1,1,1]]))
+        ddInvrt = ddInvrt[:,:3]
+        
+        # ddInvrt = np.linalg.inv(np.array([[1,0,-1],[-1,1,0],[1,1,1]]))
+        # ddInvrt[:,2] = np.zeros(3)
+        # ddInvrt = np.eye(3)
+
+        ACE = DSSCircuit.ActiveElement
+        TRN = DSSCircuit.Transformers
+        nI = len(self.WunqXfmrIdent)
+        ddNodeSet = []; ddIdxSet = {}
+        for brch,node,idx in zip(self.WbrchXfmrSet,self.WunqXfmrIdent,range(nI)):
+            TRN.Name = brch.split('.')[1]
+            TRN.Wdg = 1
+            dlta1 = TRN.IsDelta
+            TRN.Wdg = 2
+            dlta2 = TRN.IsDelta
+            DSSCircuit.SetActiveElement(brch)
+            nPh = ACE.NumPhases
+            bus = node[:-2]
+            phs = node[-1]
+            # if dlta1==True and dlta2==True:
+            if dlta1==True and dlta2==True and nPh==3:
+                print(bus)
+                if bus not in ddNodeSet:
+                    ddNodeSet.append(bus)
+                    ddIdxSet[bus] = np.zeros(3,dtype=int)
+                
+                ddIdxSet[bus][int(phs)-1] = idx
+        return ddNodeSet,ddIdxSet, ddInvrt
     
     def createTapModel(self,linPoint=None,cvrModel=False):
         if cvrModel:

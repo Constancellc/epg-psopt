@@ -63,7 +63,7 @@ for fdr_i,i in zip(fdr_i_set,range(len(fdr_i_set))):
     RXratiosQN.append(np.quantile(RXratiosN,[0,0.05,0.25,0.5,0.75,0.95,1]))
     ddx = 0.25
     # ax = plotBoxWhisk(ax,X[i],ddx,RXratiosQ1[i][1:-1],clrA,bds=RXratiosQ1[i][[0,-1]]+np.array([1,-1]),transpose=True)
-    ax = plotBoxWhisk(ax,X[i],ddx,RXratiosQ1[i][1:-1],clrA,bds=(ax,X[i],ddx,RXratiosQ1[i][1:-1],clrA,bds=(RXratiosQ1[i][[0,-1]]*np.array([0.88,1.12]))+np.array([1,-1]),transpose=True,lineWidth=0.7)
+    ax = plotBoxWhisk(ax,X[i],ddx,RXratiosQ1[i][1:-1],clrA,bds=(RXratiosQ1[i][[0,-1]]*np.array([0.88,1.12]))+np.array([1,-1]),transpose=True,lineWidth=0.4)
     # ax = plotBoxWhisk(ax,X[i]-0.15,ddx,RXratiosQN[i][1:-1],clrB,bds=RXratiosQN[i][[0,-1]]+np.array([1,-1]),transpose=True)
     feederTidySet.append(feedersTidy[feeder])
 
