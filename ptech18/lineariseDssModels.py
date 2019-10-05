@@ -1436,7 +1436,7 @@ class buildLinModel:
         plt.tight_layout()
         plt.show()
         
-    def plotArcy(self,slnX=None,slnF=None,ctrlPerPhase=True,pltShow=True):
+    def plotArcy(self,slnX=None,slnF=None,ctrlPerPhase=True,pltShow=True,psccVrs=False):
         if slnX is None:
             slnX = self.slnX
         if slnF is None:
@@ -1463,18 +1463,21 @@ class buildLinModel:
         ax0.plot(100*Vdpu[nSortV],label='$\Delta V_{\mathrm{DSS.}}$')
         ax0.plot(100*Vpu[nSortV],label='$\Delta V_{\mathrm{QP}}$')
         ax0.legend()
-        ax0.set_xlabel('Bus Index')
-        ax0.set_ylabel('Bus Voltage change, %')
+        ax0.set_xlabel('Node Index')
+        ax0.set_ylabel('Node Voltage change, %')
         ax0.grid(True)
         
         # plot currents versus current limits
         ax1.plot(100*abs(abs(Id) - abs(Ic0))/(self.iScale*self.iXfmrLims),'o',label='$\Delta \\,I_{\mathrm{DSS.}}$',markerfacecolor='None')
         ax1.plot(100*abs(abs(Ic) - abs(Ic0))/(self.iScale*self.iXfmrLims),'o',label='$\Delta \\,I_{\mathrm{QP}}$',markerfacecolor='None',markersize=3.0)
         
-        ax1.set_xlabel('Branch Index')
-        ax1.set_ylabel('Branch Current \nchange, % of $I_{\mathrm{rated}}$')
+        ax1.set_xlabel('Xfmr. Index')
+        if psccVrs:
+            ax1.set_ylabel('Xfmr. Current \nchange, % of $I_{+}$')
+        else:
+            ax1.set_ylabel('Xfmr. Current \nchange, % of $I_{\mathrm{rated}}$')
         ax1.legend()
-        ax1.grid()
+        # ax1.grid()
         
         plt.tight_layout()
         if pltShow: plt.show()

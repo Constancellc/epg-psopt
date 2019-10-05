@@ -42,16 +42,21 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # f_currentErrors = 1
 # f_modelValidation = 1
 # f_modelValidationSet = 1
+# f_modelValidationSetPscc = 1
 # f_daisy = 1
 # f_123busVlts = 1
+# f_123busVltsPscc = 1
 # f_solutionError = 1
+# f_solutionErrorPscc = 1
 # f_caseStudyChart = 1
+# t_sensitivities_base_pscc = 1
 # t_sensitivities_base = 1
 # f_sensitivities_all = 1
 # f_sensitivities_aCvr = 1
 # f_sensitivities_loadPoint = 1
 # t_checkErrorSummary = 1
 # t_networkSummary = 1
+# t_networkSummaryPscc = 1
 # t_networkMetrics = 1
 # f_epriK1detail = 1
 # f_costFunc = 1
@@ -214,6 +219,8 @@ if 'f_plotInvLoss' in locals():
 
 
 if 'f_valueComparisonChart' in locals():
+    # psccVersion = 1 # TOGGLE ME HERE to change what the annotation says
+    
     pCvr = 0.6
     # pCvr = 0.0
     opCstTable = [['Operating cost (kW)'],['Feeder',*strategySet['opCst']]]
@@ -278,8 +285,12 @@ if 'f_valueComparisonChart' in locals():
             ax.plot(0,0,label=ssSmart[strategySet[obj][i]],color=colorSet[obj][i])
 
     ax.plot((3.5,3.5),ylims[obj],'k--')
-    ax.text(3.6,ylims[obj][-1]-2.8,'With\nregs.')
-    ax.text(-0.5,ylims[obj][-1]-2.8,'No\nregs.')
+    if 'psccVersion' in locals():
+        ax.text(3.6,ylims[obj][-1]-2.8,'With tap\ncontrol')
+        ax.text(-0.5,ylims[obj][-1]-2.8,'Without\ntap control')    
+    else:
+        ax.text(3.6,ylims[obj][-1]-2.8,'With\nregs.')
+        ax.text(-0.5,ylims[obj][-1]-2.8,'No\nregs.')
     ax.set_ylim(ylims[obj])
     ax.set_xticks(np.arange(len(feederSet)))
     ax.set_xticklabels(feederTidy,rotation=90)
@@ -289,9 +300,18 @@ if 'f_valueComparisonChart' in locals():
     # ax.set_title(obj)
     plt.tight_layout()
     # if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'valueComparisonChart_'+obj))
-    if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'valueComparisonChart_'+obj),pltClose=True)
-
+    if 'psccVersion' in locals():
+        FD = r'C:\Users\Matt\Documents\DPhil\papers\pscc20\full\figures'
+        if 'pltSave' in locals(): plotSaveFig(os.path.join(FD,'valueComparisonChart_'+obj),pltClose=True)
+    else:
+        if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t3','f'),'valueComparisonChart_'+obj),pltClose=True)
+    
+    
+    asdasd = np.array(opCstTable_)
+            
     plt.show()
+
+
 
 if 'f_caseStudyChart' in locals():
     ylabels={'opCst':'Power ratio $\dfrac{P_{\mathrm{feeder}}( x^{\\dagger} )}{ P_{\mathrm{feeder}}(0)}$, %','hcGen':'Generation (% of nominal load)','hcLds':'Load (% of nominal load)'}
@@ -527,6 +547,56 @@ if 'f_modelValidation' in locals():
                 plotSaveFig(os.path.join(sdt('t3','f'),'modelValidationT'+self.feeder),pltClose=True)
             plt.show()
 
+if 'f_modelValidationSetPscc' in locals():
+    feederSet = [18,24]
+    feederSet = [26,17,18,24]
+    # feederSet = [26]
+    for feeder in feederSet:
+        linPoints = linPointsDict[feeder]['all']
+        self = main(feeder,'loadOnly',linPoint=linPoints[-1],pCvr=0.6,method='fot'); self.initialiseOpenDss()
+        self.recreateKc2i = 1
+        self.recreateMc2v = 1
+        self.initialiseOpenDss()
+        self.makeCvrQp()
+        
+        self.qLim = 4 # increase slightly
+        
+        print('Solve 1...')
+        TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,Sset,iN,icN,iaN,vcErrBoth = self.testQpScpf(); 
+        # if self.nT>0:
+            # print('Solve 2...')
+            # TL,TLest,PL,PLest,vErr,iErr,dxScale,iNt,icNt,iaNt = self.testQpTcpf()
+        
+        self = main(feeder,'loadOnly',linPoint=linPoints[-1],pCvr=0.0,method='fot'); self.initialiseOpenDss()
+        self.recreateKc2i = 1
+        self.recreateMc2v = 1
+        self.initialiseOpenDss()
+        self.makeCvrQp()
+        
+        self.qLim = 4 # increase slightly
+        print('Solve 1...')
+        TLboth,TLestBoth,PLboth,PLestBoth,vErrBoth,iErrBoth,Sset2,iN,icN,iaN,vcErrBoth2 = self.testQpScpf(); 
+        plt.close('all')
+        ii=0
+        
+        figSze = (2.4,2.8)
+        
+        figname='modelValidationSetVpscc'
+        sd = sdt('t3','f')
+        fig,ax=plt.subplots(figsize=figSze)
+        ax.plot(Sset[ii],100*vcErrBoth[ii],label='$\\alpha_{\mathrm{CVR}} = 0.6$')
+        ax.plot(Sset2[ii],100*vcErrBoth2[ii],label='$\\alpha_{\mathrm{CVR}} = 0.0$')
+        # ax.plot(Sset[ii+1],100*vcErrBoth[ii+1],label='P')
+        ax.set_xlabel('$Q_{\mathrm{\,invr}}$ (per invr.), kVAr')
+        ax.set_ylabel('Voltage error, $\dfrac{|\!|V_{\mathrm{Lin}} - V_{\mathrm{DSS}}|\!|}{|\!|V_{\mathrm{DSS}}|\!|}$ %')
+        # ax.set_ylabel('Voltage error, $|\!|V_{\mathrm{Lin}} - V_{\mathrm{DSS}}|\!|/|\!|V_{\mathrm{DSS}}|\!| %')
+        ax.legend(fontsize='small',title='CVR factor')
+        plt.tight_layout()
+        psccFD = r'C:\Users\Matt\Documents\DPhil\papers\pscc20\full\figures'
+        if 'pltSave' in locals(): plotSaveFig(os.path.join(psccFD,figname+self.feeder),pltClose=True)
+        plt.show()
+
+
 if 'f_modelValidationSet' in locals():
     feederSet = [18,24]
     feederSet = [26]
@@ -715,6 +785,58 @@ if 'f_123busVlts' in locals():
     if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname),pltClose=True)
     plt.show()
 
+if 'f_123busVltsPscc' in locals():
+    feeder = 26
+    self = main(feeder,'loadOnly',linPoint=1.0,method='fot'); self.loadQpSet(); self.loadQpSln('full','opCst')
+    
+    figname='123busVlts'
+    # sd = sdt('t3','f')
+    sd = r'C:\Users\Matt\Documents\DPhil\papers\pscc20\full\figures'
+    # nicked from showQpSln
+    TL,PL,TC,CL,V,I,Vc,Ic = self.slnF
+    TL0,PL0,TC0,CL0,V0,I0,Vc0,Ic0 = self.slnF0
+    TLd,PLd,TCd,CLd,Vd,Id,Vcd,Icd = self.slnD
+
+    fig,ax0=plt.subplots(figsize=(4.4,3.0))
+    # ax0.plot((V/self.vKvbase)[self.vIn],'x',markeredgewidth=0.7,label='QP Sln.');
+    ax0.plot((V0/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markersize=3.0,label='Base Sln.',color=cm.matlab(2));
+    ax0.plot((V/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markersize=3.0,label='QP Sln.',color=cm.matlab(0));
+    ax0.plot((Vd/self.vKvbase)[self.vIn],'o',markerfacecolor='None',markersize=2.0,markeredgewidth=0.7,label='DSS. Sln.',color=cm.matlab(1));
+    ax0.plot((self.vHi/self.vKvbase)[self.vIn],'k_');
+    ax0.plot((self.vLo/self.vKvbase)[self.vIn],'k_');
+    ax0.set_xlabel('Bus Index')
+    ax0.set_ylabel('Voltage, pu')
+    ax0.grid(True)
+    ax0.set_ylim((0.89,1.06))
+    ax0.legend()
+    # ax0.show()
+    plt.tight_layout()
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname),pltClose=True)
+    plt.show()
+    
+    self.printQpSln()
+    self.printQpSln(np.zeros(self.nCtrl),self.slnD0)
+    
+    
+    figname='123busVltsCtrl'
+    fig,ax2=plt.subplots(figsize=(4.4,3.0))
+    self.getLdsPhsIdx()
+    ax2.plot(range(0,self.nPh1),
+                        100*(self.slnX[self.nPctrl:self.nPctrl*2][self.Ph1])/self.qLim,'x-',label='Q, phs. A')
+    ax2.plot(range(self.nPh1,self.nPh1+self.nPh2),
+                        100*self.slnX[self.nPctrl:self.nPctrl*2][self.Ph2]/self.qLim,'x-',label='Q, phs. B')
+    ax2.plot(range(self.nPh1+self.nPh2,self.nPctrl),
+                        100*self.slnX[self.nPctrl:self.nPctrl*2][self.Ph3]/self.qLim,'x-',label='Q, phs. C')
+    ax2.plot(range(self.nPctrl,self.nPctrl + self.nT),100*self.slnX[self.nPctrl*2:]/self.tLim,'x-',label='Tap')
+    ax2.set_xlabel('Control Index')
+    ax2.set_ylabel('Control effort, %')
+    ax2.legend()
+    ax2.grid(True)
+    ax2.set_ylim((-110,110))
+    plt.tight_layout()
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(sd,figname),pltClose=True)
+    plt.show()
+
 
     
 
@@ -793,6 +915,48 @@ if 't_sensitivities_base' in locals():
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,sdt('t3','t'))
     print(heading); print(*data,sep='\n')
     print('Benefits ratio:\n',benefitsRatio)
+    
+if 't_sensitivities_base_pscc' in locals():
+    # sensitivity_base: just the results of smart inverter control
+    # go through and calculate the benefits of full (SI) control versus nominal control
+    strategies = ['full','phase','nomTap']
+    opCst = np.zeros((3,len(feederSet)))
+    pCvr = 0.6;     obj='opCst'
+    i = 0
+    heading = ['Control']
+    for feeder in feederSet:
+        heading.append(feederIdxTidy[feeder])
+        j=0
+        for strategy in strategies:
+            self = main(feeder,pCvr=pCvr,modelType='loadOnly',linPoint=linPointsDict[feeder][obj][-1],method='fot')
+            opCst[j,i] = self.qpVarValue(strategy,obj,'norm',invType='Low')
+            j+=1
+        i+=1
+    benefits = -100*(opCst[0:2] - opCst[2])
+    benefitsNos = -100*(opCst[0:2] - opCst[2])
+    benefitsRatio = benefits[1]/benefits[0]
+    benefits = np2lsStr(benefits,3)
+    benefitsRatio = np2lsStr(benefitsRatio*100,3)
+    # data = [ ['Full']+benefits[0],['Phase']+benefits[1] ]
+    # data = [ ['Full, \%:']+benefits[0],['Phase, \%:']+benefits[1],['Ratio (\%):']+benefitsRatio ]
+    
+    TD = r'C:\Users\Matt\Documents\DPhil\papers\pscc20\full\tables\\'
+    
+    data = [ ['Full, \%:']+benefits[0],['Phase, \%:']+benefits[1] ,['Ratio, \%:']+benefitsRatio ]
+    data = list(map(list, zip(*data)))
+    # hdng = data[0]
+    # dta = data[1:]
+    newList = []
+    for hdg,dta in zip(heading,data):
+        newList.append([hdg]+dta)
+    
+    heading = newList[0]
+    data = newList[1:]
+    caption='Smart inverter benefits, as a \% of load, compared to the Nominal control case (which only has tap controls activated, if there are any).'
+    label='sensitivities_base_pscc'
+    
+    if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
+    print(*newList,sep='\n')
     
 if 'f_sensitivities_all' in locals():
     # sensitivities_invLoss, sensitivities_efficacy: the results considering smaller and larger losses
@@ -944,7 +1108,33 @@ if 't_networkSummary' in locals():
     caption='Summary of Network'
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
     print(heading); print(*data,sep='\n')
+
+feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20:'Ckt. K1',21:'Ckt. M1',17:'Ckt. 5',18:'Ckt. 7',22:'Ckt. 24',26:'123 Bus',24:'Ckt. K1','n1':'EULVa','n27':'EULVa-r',0:'EULV','n4':'Nwk. 4','n10':'Nwk. 10'}
+
+
+if 't_networkSummaryPscc' in locals():
+    heading = ['Network','No. Buses', 'No. Lds.', 'No. Taps']
+    data = []; i=0
+    feederSet = [17,18,'n1','n10',26,24,'n27']
+    for feeder in feederSet:
+        self = main(feeder,'loadOnly',linPoint=linPointsDict[feeder]['opCst'][-1])
+        data.append([feederIdxTidy[feeder]])
+        data[i].append(str(self.Kc2v.shape[0] + 3))
+        data[i].append(str(self.nPctrl))
+        data[i].append(str(self.nCtrl - self.nSctrl))
+        i+=1
     
+    TD = r'C:\Users\Matt\Documents\DPhil\papers\pscc20\full\tables\\'
+    label='t_networkSummaryNew'
+    caption='Summary of Network'
+    # if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
+    basicTable(caption,label,heading,data,TD)
+    print(heading); print(*data,sep='\n')
+
+
+
+
+
 if 't_networkMetrics' in locals():
     heading = ['Network','Average sense $\hat{\lambda}_{\mathrm{Ave}}$, kVAr','Average cost saving, $\hat{f}_{\mathrm{Ave}}$, W','Unc. cost $f_{\mathrm{Q\,Unc}}^{*}$, \%','Control efficacy, $f_{\mathrm{Q\,Unc}}^{*}/\|x_{\mathrm{Q\,Unc}}^{*}\|$, W/kVAr']
     data = []; i=0
@@ -1237,6 +1427,39 @@ if 'f_solutionError' in locals():
     print(dPb)
     print(errP)
     
+    # self.loadQpSln('full','hcLds'); 
+    # self.plotArcy(pltShow=False)
+    # if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'solutionErrorHcLds'),pltClose=True)
+    # plt.show()
+    
+    # self = main(feeder,'loadOnly',linPoint=0.1); self.loadQpSet(); 
+    # self.loadQpSln('full','hcGen'); 
+    # self.plotArcy(pltShow=False)
+    # if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'solutionErrorHcGen'),pltClose=True)
+    plt.show()
+    
+if 'f_solutionErrorPscc' in locals():
+    feeder = 26
+    self = main(feeder,'loadOnly',linPoint=1.0,method='fot'); self.loadQpSet(); 
+    self.loadQpSln('full','opCst')
+    self.plotArcy(pltShow=False,psccVrs=True)
+    # if 'pltSave' in locals():
+        # plotSaveFig(os.path.join(SDfig,'solutionErrorOpCst'),pltClose=False)
+        # plotSaveFig(os.path.join(sdt('t3','f'),'solutionErrorOpCst'),pltClose=True)
+    
+    self.printQpSln(self.slnX,self.slnF)
+    self.printQpSln(self.slnX,self.slnD)
+    
+    
+    dPa = sum(self.slnF[0:4]) - sum(self.slnD0[0:4])
+    dPb = sum(self.slnD[0:4]) - sum(self.slnD0[0:4])
+    errP = (dPa - dPb)/dPb
+    print(dPa)
+    print(dPb)
+    print(errP)
+    
+    FD = r'C:\Users\Matt\Documents\DPhil\papers\pscc20\full\figures'
+    if 'pltSave' in locals(): plotSaveFig(os.path.join(FD,'solutionErrorOpCstPscc'),pltClose=True)
     # self.loadQpSln('full','hcLds'); 
     # self.plotArcy(pltShow=False)
     # if 'pltSave' in locals(): plotSaveFig(os.path.join(SDfig,'solutionErrorHcLds'),pltClose=True)

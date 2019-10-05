@@ -189,13 +189,18 @@ if 'f_psccAbstract' in locals():
     feeder = 24
     # feeder = 'n27'
     # feeder = 5
+    feeder = 26
+    feeder = 'n1'
+    feeder = 18
+    feeder = 17
     linPoint = 1.0
-    # linPoint = 0.6
+    linPoint = 0.6
     pCvr=0.6
     
     strategy='full'; obj='opCst'
     
-    sRated = 2 #kVA
+    # sRated = 2 #kVA
+    sRated = 4 #kVA
     lossFracS0s = 1e-2*np.array([1.45,0.72,0.88])*(sRated**1) # from paper by Notton et al
     lossFracSmaxs = 1e-2*np.array([4.37,3.45,11.49])*(sRated**-1) # from paper by Notton et al
     
@@ -241,6 +246,8 @@ if 'f_psccAbstract' in locals():
     heading = slnSet[0]
     data = slnSet[1:]
     TD = r"C:\Users\Matt\Documents\DPhil\papers\pscc20\tables\\"
+    TD = r"C:\Users\Matt\Documents\DPhil\papers\pscc20\full\tables\\"
+    
     label='results'
     basicTable(caption,label,heading,data,TD)
     print(*slnSet,sep='\n')
@@ -249,6 +256,10 @@ if 'f_psccAbstract' in locals():
     if feeder==5: qlossRegs = np.linspace(0,0.14,15)
     if feeder==24: qlossRegs = np.linspace(0.0,0.6,30)
     if feeder=='n27': qlossRegs = np.linspace(0.00,0.14,15)
+    if feeder==26: qlossRegs = np.linspace(0.00,0.14,15)
+    if feeder=='n1': qlossRegs = np.linspace(0.00,0.1,10)
+    if feeder==18: qlossRegs = np.linspace(0.00,0.1,10)
+    if feeder==17: qlossRegs = np.linspace(0.00,0.1,8)
     # qlossRegs = np.linspace(0,0.45,45) # 123bus (?)
     # qlossRegs = np.linspace(0,1.0,4)
     

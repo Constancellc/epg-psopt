@@ -144,7 +144,7 @@ if exist('montecarlo_validation_thesis','var')
     Tnm = 'montecarlo_validation_thesis';
     mat = [PoutGen,PoutGen_frac];
 
-    headerRow = {'Feeder','$P_{\mathrm{Gen}}^{5\%}$ (i), kW','$P_{\mathrm{Gen}}^{5\%}$ (ii), kW','Rel. error, \%'};
+    headerRow = {'Feeder','$P_{\mathrm{gen}}^{5\%}$ (i), kW','$P_{\mathrm{gen}}^{5\%}$ (ii), kW','Rel. error, \%'};
     headerCol = {};
     for ii = 1:numel(model_is)
         model = models(model_is(ii));

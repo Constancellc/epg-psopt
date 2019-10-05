@@ -67,8 +67,8 @@ pp(5) = plot(xs(1:2),Pgb*[1 1],'k:');
 
 % text(-2.5,Pgb,'$P_{\mathrm{gen}}^{\mathrm{base}}$','Interpreter','Latex','FontSize',14);
 % text(-2.5,Pgd,'$P_{\mathrm{gen}}^{\mathrm{chng}}$','Interpreter','Latex','FontSize',14);
-text(0.15,Pgb+0.08,'$\dot{P}_{\mathrm{gen}}^{\mathrm{base}}$','Interpreter','Latex','FontSize',14);
-text(0.15,Pgd+0.08,'$\dot{P}_{\mathrm{gen}}^{\mathrm{chng}}$','Interpreter','Latex','FontSize',14);
+text(0.15,Pgb+0.08,'$\mathring{P}_{\mathrm{gen}}^{\mathrm{base}}$','Interpreter','Latex','FontSize',14);
+text(0.15,Pgd+0.08,'$\mathring{P}_{\mathrm{gen}}^{\mathrm{chng}}$','Interpreter','Latex','FontSize',14);
 
 xlabel('Time, $\tau $ (hour)');
 ylbl=ylabel('Power, $P_{(\cdot)}$, pu');
