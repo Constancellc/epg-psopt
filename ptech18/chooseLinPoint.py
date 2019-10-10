@@ -217,9 +217,12 @@ for fdr_i in fdr_i_set:
         ax.set_xlabel('Load power continuation factor, $\kappa$')
         ax.set_ylabel('Voltage (pu)')
         ax.legend(loc='upper right')
+        
 
         if pltVxtrmSave:
             # ax.annotate('Lin. point',(kOut-0.11,ylm[1] - 0.14),rotation=90)
+            ax.arrow(0.15, 0.98,-0.5,0,head_length=0.05,head_width=0.01,facecolor=None)
+            ax.text(-0.5,0.96,'Reduced Load')
             ax.annotate('Lin. point',(kOut-0.11,ylm[1] - 0.127),rotation=90)
             plt.tight_layout()
             # plt.savefig(SDfig+'pltVxtrm_'+feeder)

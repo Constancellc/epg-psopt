@@ -73,6 +73,7 @@ feederIdxTidy = {5:'13 Bus',6:'34 Bus',8:'123 Bus',9:'8500 Node',19:'Ckt. J1',20
 # t_loadModelVecs = 1
 # f_uncSolution = 1
 # t_uncBoundViolations = 1
+# f_hcParamsFig = 1
 
 # pltSave=1
 
@@ -903,18 +904,20 @@ if 't_sensitivities_base' in locals():
             j+=1
         i+=1
     benefits = -100*(opCst[0:2] - opCst[2])
+    benefitsNos = -100*(opCst[0:2] - opCst[2]) # use to find Network 10 results
     benefitsRatio = benefits[1]/benefits[0]
     benefits = np2lsStr(benefits,3)
     benefitsRatio = np2lsStr(benefitsRatio*100,3)
     # data = [ ['Full']+benefits[0],['Phase']+benefits[1] ]
     # data = [ ['Full, \%:']+benefits[0],['Phase, \%:']+benefits[1],['Ratio (\%):']+benefitsRatio ]
     data = [ ['Full, \%:']+benefits[0],['Phase, \%:']+benefits[1]]
-    caption='Smart inverter benefits, as a \% of load, compared to the Nominal control case (which only has tap controls activated, if there are any). The minimum ratio of phase to full load is 73 \%.'
+    caption='Smart inverter benefits, as a \% of load, compared to the Nominal control case (which only has tap controls activated, if there are any), calculated using the MI-QCQP model. With the exception of Network 10, the minimum ratio of phase to full load is 73\%, and the maximum ratio of benefits is 98\%.'
     label='sensitivities_base'
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,TD)
     if 'pltSave' in locals(): basicTable(caption,label,heading,data,sdt('t3','t'))
     print(heading); print(*data,sep='\n')
     print('Benefits ratio:\n',benefitsRatio)
+    
     
 if 't_sensitivities_base_pscc' in locals():
     # sensitivity_base: just the results of smart inverter control
@@ -1649,7 +1652,7 @@ if 'f_plotTsAnalysis' in locals():
     figNameSet = ['vMinMax']
     dayTypes = ['wtr','smr']
     # dayTypes = ['smr']
-    pltSave=1
+    # pltSave=1
     for feeder in feederSet:
         self = main(feeder,modelType='loadOnly');
         self.getLdsPhsIdx()
@@ -1689,10 +1692,10 @@ if 'f_plotTsAnalysis' in locals():
                 # ax.plot(times, tsRslt['vMinLv'][1:3].T);
                 # ax.plot(times, tsRslt['vMax'][1:3].T);
                 ax.plot(times, tsRslt['vMinMv'][1].T,':',label='$V_{\mathrm{MV,\,min}}^{\mathrm{Nom.}}$',color=cm.matlab(0));
-                ax.plot(times, tsRslt['vMinLv'][1].T,label='$V_{\mathrm{MV,\,min}}^{\mathrm{Nom.}}$',color=cm.matlab(0));
+                ax.plot(times, tsRslt['vMinLv'][1].T,label='$V_{\mathrm{LV,\,min}}^{\mathrm{Nom.}}$',color=cm.matlab(0));
                 ax.plot(times, tsRslt['vMax'][1].T,'-.',label='$V_{\mathrm{max}}^{\mathrm{Nom.}}$',color=cm.matlab(0));
                 ax.plot(times, tsRslt['vMinMv'][2].T,':',label='$V_{\mathrm{MV,\,min}}^{\mathrm{Phase}}$',color=cm.matlab(1));
-                ax.plot(times, tsRslt['vMinLv'][2].T,label='$V_{\mathrm{MV,\,min}}^{\mathrm{Phase.}}$',color=cm.matlab(1));
+                ax.plot(times, tsRslt['vMinLv'][2].T,label='$V_{\mathrm{LV,\,min}}^{\mathrm{Phase.}}$',color=cm.matlab(1));
                 ax.plot(times, tsRslt['vMax'][2].T,'-.',label='$V_{\mathrm{max}}^{\mathrm{Phase.}}$',color=cm.matlab(1));
                 
                 ax.plot(xlm,[tsRslt['cns']['mvHi']]*2,'k--')
@@ -1925,3 +1928,22 @@ if 't_uncBoundViolations' in locals():
 # self = main(24,modelType='loadOnly',linPoint=1.0)
 # self.runQpSet()
 
+if 'f_hcParamsFig' in locals():
+    x = np.linspace(0,100)
+    y = 100*np.exp( 0.20*(x - 60) )/(1 + np.exp( 0.20*(x - 60) ))
+    fig,ax0 = plt.subplots(figsize=(4.4,2.5))
+    plt.xlim((0,100))
+    plt.ylim((-2,102))
+    plt.plot(x,y)
+    # plt.grid()
+    plt.xlabel('Penetration $p$, %')
+    plt.ylabel('Likelihood of constraint\nviolation, $F_{p}(p)$ %')
+    plt.tight_layout()
+    # if 'pltSave' in locals(): plotSaveFig(os.path.join(sdt('t2','f'),'hcParamsFig'),pltClose=True)
+    if 'pltSave' in locals():
+        SN = os.path.join(sdt('t2','f'),'hcParamsFig')
+        plt.savefig(SN+'.png',bbox_inches='tight',pad_inches=0.03)
+        plt.savefig(SN+'.pdf',bbox_inches='tight',pad_inches=0.03)
+        plt.close()
+    plt.show()
+    

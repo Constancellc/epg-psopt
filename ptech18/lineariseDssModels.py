@@ -1249,34 +1249,29 @@ class buildLinModel:
         return qLossQ + qLossL + qLossC
         
     def qpSolutionDssError(self,strategy,obj,err='V',load=True):
-        # WARNING!!! BY DEFAULT this will load an old solution!!!!
+        # WARNING(!) BY DEFAULT this will load an old solution!!!!
         if load:
             self.loadQpSet()
             self.loadQpSln(strategy,obj)
         
+        from numpy.linalg import norm
         # TL,PL,TC,CL,V,I,Vc,Ic = self.slnF
         if err=='V':
-            gmaV = 1e-4
-            # gmaV = 0
+            dVset = (self.slnF[4][self.vIn] - self.slnF0[4][self.vIn])/self.vKvbase[self.vIn]
+            dVsetTrue = (self.slnD[4][self.vIn] - self.slnD0[4][self.vIn])/self.vKvbase[self.vIn]
+
+            dssError = norm( dVset - dVsetTrue)/norm( dVsetTrue )
             
-            dVset = np.abs(self.slnF[4] - self.slnF0[4])
-            dVsetTrue = np.abs(self.slnD[4] - self.slnD0[4])
-            dssError = np.linalg.norm( (dVset - dVsetTrue)/( dVsetTrue + gmaV*self.vKvbase) )/np.sqrt(len(dVset))
         elif err=='I':
-            gmaI = 1e-3
-            # gmaI = 0
-        
-            dIset = np.abs(self.slnF[7] - self.slnF0[7])/(self.iXfmrLims*self.iScale)
-            dIsetTrue = np.abs(self.slnD[7] - self.slnD0[7])/(self.iXfmrLims*self.iScale)
+            dIset = (self.slnF[7] - self.slnF0[7])/(self.iXfmrLims*self.iScale)
+            dIsetTrue = (self.slnD[7] - self.slnD0[7])/(self.iXfmrLims*self.iScale)
             
-            dssError = np.linalg.norm( (dIset - dIsetTrue)/(dIsetTrue + gmaI) )/np.sqrt(len(dIset))
+            dssError = norm( dIset - dIsetTrue )/norm(dIsetTrue)
         elif err=='P':
-            gmaP = 1e-4
-            # gmaP = 0
             dPset = abs( np.sum(self.slnF[0:4]) -  np.sum(self.slnF0[0:4]) )
             dPsetTrue = abs( np.sum(self.slnD[0:4]) -  np.sum(self.slnD0[0:4]) )
             
-            dssError = abs( (dPset - dPsetTrue )/( dPsetTrue + gmaP ) )
+            dssError = abs( (dPset - dPsetTrue )/( dPsetTrue ) )
         return dssError
     
     def tsRecordSnap(self,slnTs,idxs,slnX=None,slnF=None):
@@ -3315,7 +3310,11 @@ class buildLinModel:
             scoresFull = list(scores['1'].values()) + list(scores['2'].values()) + list(scores['3'].values())
             minMaxAbs = np.max(np.abs( np.array([np.nanmax(scoresFull),np.nanmin(scoresFull)]) ) )
             minMax0 = [-minMaxAbs,minMaxAbs]
-            ttl = '$Q^{\\dagger}$, kVAr' # Positive implies capacitive
+            # ttl = '$Q^{\\dagger}$, kVAr' # Positive implies capacitive
+            ttl = '$Q_{\\mathrm{invr}}^{\\dagger}$, kVAr' # Positive implies capacitive
+            ttlFontsize = 8
+        
+        if 'ttlFontsize' not in locals(): ttlFontsize =10
         
         if cmap is None: cmap = self.colormaps[type]
         
@@ -3327,7 +3326,7 @@ class buildLinModel:
         else:
             self.plotBuses(ax,scores,minMax,cmap=cmap)
         
-        self.plotNetColorbar(ax,minMax,cmap,ttl=ttl)
+        self.plotNetColorbar(ax,minMax,cmap,ttl=ttl,ttlFontsize=ttlFontsize)
         
         ax.axis('off')
         if pltShow: plt.title('Feeder: '+self.feeder,loc='left')
@@ -3339,7 +3338,7 @@ class buildLinModel:
         else:
             self.currentAx = ax
     
-    def plotNetColorbar(self,ax,minMax,cmap,ttl=None,nCbar=150):
+    def plotNetColorbar(self,ax,minMax,cmap,ttl=None,nCbar=150,ttlFontsize=10):
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
         x0 = [xlim[0]-1]
@@ -3349,8 +3348,9 @@ class buildLinModel:
         ax.set_ylim(ylim)
         # cbar = plt.colorbar(cntr,shrink=0.75,ticks=np.linspace(minMax[0],minMax[1],5))
         cbar = plt.colorbar(cntr,shrink=0.6,ticks=np.linspace(minMax[0],minMax[1],5))
+        cbar.ax.tick_params(labelsize=ttlFontsize) 
         if ttl!=None:
-            cbar.ax.set_title(ttl,pad=10,fontsize=10)
+            cbar.ax.set_title(ttl,pad=10,fontsize=ttlFontsize)
     
     
     def plotRegs(self,ax):
