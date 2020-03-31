@@ -1030,7 +1030,7 @@ class buildLinModel:
             x = Expr.vstack( y,z )
 
             # VOLTAGE and DOMAIN constraints:
-            Gxh = M.constraint( "Gxh", Expr.mul(G,x), Domain.lessThan(h) )
+            Gxh = M.constraint( "Gxh", Expr.mul(G,x), Domain.lessThan(h.getDataAsArray()) )
             
             # CURRENT constraints:
             ii = 0
@@ -1043,10 +1043,9 @@ class buildLinModel:
                     mc2iCpx = Mc2iCtrl[ii]*iConScaling
                     a2iCpx = a2iCtrl[ii]*iConScaling
                     mCpx = sparse.coo_matrix(  np.r_[ [mc2iCpx.real],[mc2iCpx.imag] ]  )
-                    aCpx = np.r_[ a2iCpx.real, a2iCpx.imag].reshape((2,1))
+                    aCpx = np.r_[ a2iCpx.real, a2iCpx.imag]
                     
                     mCpx = Matrix.sparse( mCpx.shape[0],mCpx.shape[1],mCpx.row,mCpx.col,mCpx.data )
-                    aCpx = Matrix.dense( aCpx )
                     iScaleReq = 1e-3
                     # iScaleReq = 1
                     if np.linalg.norm( mc2iCpx/(lim*self.iScale) )>iScaleReq:

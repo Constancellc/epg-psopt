@@ -580,7 +580,7 @@ if 'f_modelValidationSetPscc' in locals():
         plt.close('all')
         ii=0
         
-        figSze = (2.4,2.8)
+        figSze = (3.0,2.8)
         
         figname='modelValidationSetVpscc'
         sd = sdt('t3','f')
@@ -589,11 +589,12 @@ if 'f_modelValidationSetPscc' in locals():
         ax.plot(Sset2[ii],100*vcErrBoth2[ii],label='$\\alpha_{\mathrm{CVR}} = 0.0$')
         # ax.plot(Sset[ii+1],100*vcErrBoth[ii+1],label='P')
         ax.set_xlabel('$Q_{\mathrm{\,invr}}$ (per invr.), kVAr')
-        ax.set_ylabel('Voltage error, $\dfrac{|\!|V_{\mathrm{Lin}} - V_{\mathrm{DSS}}|\!|}{|\!|V_{\mathrm{DSS}}|\!|}$ %')
+        ax.set_ylabel('Voltage error, $\dfrac{|\!|V_{\mathrm{Lin}} - V_{\mathrm{DSS}}|\!|_{2}}{|\!|V_{\mathrm{DSS}}|\!|_{2}}$ %')
         # ax.set_ylabel('Voltage error, $|\!|V_{\mathrm{Lin}} - V_{\mathrm{DSS}}|\!|/|\!|V_{\mathrm{DSS}}|\!| %')
         ax.legend(fontsize='small',title='CVR factor')
         plt.tight_layout()
-        psccFD = r'C:\Users\Matt\Documents\DPhil\papers\pscc20\full\figures'
+        # psccFD = r'C:\Users\Matt\Documents\DPhil\papers\pscc20\full\figures'
+        psccFD = r'D:\DocumentsD_l\DPhil\papers\pscc20\full\figures'
         if 'pltSave' in locals(): plotSaveFig(os.path.join(psccFD,figname+self.feeder),pltClose=True)
         plt.show()
 
@@ -792,7 +793,8 @@ if 'f_123busVltsPscc' in locals():
     
     figname='123busVlts'
     # sd = sdt('t3','f')
-    sd = r'C:\Users\Matt\Documents\DPhil\papers\pscc20\full\figures'
+    # sd = r'C:\Users\Matt\Documents\DPhil\papers\pscc20\full\figures'
+    sd = r'D:\DocumentsD_l\DPhil\papers\pscc20\full\figures'
     # nicked from showQpSln
     TL,PL,TC,CL,V,I,Vc,Ic = self.slnF
     TL0,PL0,TC0,CL0,V0,I0,Vc0,Ic0 = self.slnF0
@@ -823,15 +825,15 @@ if 'f_123busVltsPscc' in locals():
     fig,ax2=plt.subplots(figsize=(4.4,3.0))
     self.getLdsPhsIdx()
     ax2.plot(range(0,self.nPh1),
-                        100*(self.slnX[self.nPctrl:self.nPctrl*2][self.Ph1])/self.qLim,'x-',label='Q, phs. A')
+                    100*(self.slnX[self.nPctrl:self.nPctrl*2][self.Ph1])/self.qLim,'x-',label='$Q_{\mathrm{ivtr}}$, phs. A')
     ax2.plot(range(self.nPh1,self.nPh1+self.nPh2),
-                        100*self.slnX[self.nPctrl:self.nPctrl*2][self.Ph2]/self.qLim,'x-',label='Q, phs. B')
+                        100*self.slnX[self.nPctrl:self.nPctrl*2][self.Ph2]/self.qLim,'x-',label='$Q_{\mathrm{ivtr}}$, phs. B')
     ax2.plot(range(self.nPh1+self.nPh2,self.nPctrl),
-                        100*self.slnX[self.nPctrl:self.nPctrl*2][self.Ph3]/self.qLim,'x-',label='Q, phs. C')
-    ax2.plot(range(self.nPctrl,self.nPctrl + self.nT),100*self.slnX[self.nPctrl*2:]/self.tLim,'x-',label='Tap')
+                        100*self.slnX[self.nPctrl:self.nPctrl*2][self.Ph3]/self.qLim,'x-',label='$Q_{\mathrm{ivtr}}$, phs. C')
+    ax2.plot(range(self.nPctrl,self.nPctrl + self.nT),100*self.slnX[self.nPctrl*2:]/self.tLim,'x-',label='Tap pos., $T$')
     ax2.set_xlabel('Control Index')
     ax2.set_ylabel('Control effort, %')
-    ax2.legend()
+    ax2.legend(fontsize='small')
     ax2.grid(True)
     ax2.set_ylim((-110,110))
     plt.tight_layout()
