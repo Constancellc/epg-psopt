@@ -825,11 +825,11 @@ if 'f_123busVltsPscc' in locals():
     fig,ax2=plt.subplots(figsize=(4.4,3.0))
     self.getLdsPhsIdx()
     ax2.plot(range(0,self.nPh1),
-                    100*(self.slnX[self.nPctrl:self.nPctrl*2][self.Ph1])/self.qLim,'x-',label='$Q_{\mathrm{ivtr}}$, phs. A')
+                    100*(self.slnX[self.nPctrl:self.nPctrl*2][self.Ph1])/self.qLim,'x-',label='$Q_{\mathrm{invr}}$, phs. A')
     ax2.plot(range(self.nPh1,self.nPh1+self.nPh2),
-                        100*self.slnX[self.nPctrl:self.nPctrl*2][self.Ph2]/self.qLim,'x-',label='$Q_{\mathrm{ivtr}}$, phs. B')
+                        100*self.slnX[self.nPctrl:self.nPctrl*2][self.Ph2]/self.qLim,'x-',label='$Q_{\mathrm{invr}}$, phs. B')
     ax2.plot(range(self.nPh1+self.nPh2,self.nPctrl),
-                        100*self.slnX[self.nPctrl:self.nPctrl*2][self.Ph3]/self.qLim,'x-',label='$Q_{\mathrm{ivtr}}$, phs. C')
+                        100*self.slnX[self.nPctrl:self.nPctrl*2][self.Ph3]/self.qLim,'x-',label='$Q_{\mathrm{invr}}$, phs. C')
     ax2.plot(range(self.nPctrl,self.nPctrl + self.nT),100*self.slnX[self.nPctrl*2:]/self.tLim,'x-',label='Tap pos., $T$')
     ax2.set_xlabel('Control Index')
     ax2.set_ylabel('Control effort, %')
